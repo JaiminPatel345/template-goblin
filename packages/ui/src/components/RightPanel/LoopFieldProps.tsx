@@ -9,6 +9,7 @@ import type {
   FontWeight,
 } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
+import { InfoTip } from './TextFieldProps.js'
 
 interface Props {
   field: FieldDefinition
@@ -112,7 +113,10 @@ export function LoopFieldProps({ field }: Props) {
         </div>
 
         <div className="tg-form-row">
-          <label>Max Rows</label>
+          <label>
+            Max Rows
+            <InfoTip text="Maximum rows visible per page." />
+          </label>
           <input
             className="tg-input"
             type="number"
@@ -138,7 +142,10 @@ export function LoopFieldProps({ field }: Props) {
         </div>
 
         <div className="tg-toggle-row">
-          <label>Multi-Page</label>
+          <label>
+            Multi-Page
+            <InfoTip text="When enabled, table continues on next page if rows exceed the field height." />
+          </label>
           <input
             type="checkbox"
             className="tg-checkbox"

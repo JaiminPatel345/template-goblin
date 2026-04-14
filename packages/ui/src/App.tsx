@@ -21,7 +21,6 @@ export function App() {
   const showRightPanel = useUiStore((s) => s.showRightPanel)
   const showPageSizeDialog = useUiStore((s) => s.showPageSizeDialog)
   const showFontManager = useUiStore((s) => s.showFontManager)
-  const showPreview = useUiStore((s) => s.showPreview)
   const contextMenu = useUiStore((s) => s.contextMenu)
   const locked = useTemplateStore((s) => s.meta.locked)
 
@@ -52,8 +51,8 @@ export function App() {
           )}
         </div>
         {hasBackground && showRightPanel && <RightPanel />}
-        {hasBackground && showPreview && <PdfPreview />}
       </div>
+      <PdfPreview />
       {showPageSizeDialog && <PageSizeDialog />}
       {showFontManager && <FontManager />}
       <ImageCompressor />

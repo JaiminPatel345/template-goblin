@@ -183,8 +183,22 @@ export function Toolbar() {
 
   return (
     <div className="tg-toolbar">
-      {/* File operations */}
+      {/* Open / Upload — leftmost */}
       <div className="tg-toolbar-group">
+        <button className="tg-btn" onClick={handleOpen}>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+          </svg>
+          Open
+        </button>
+        <input ref={fileInputRef} type="file" accept=".tgbl" hidden onChange={handleOpenFile} />
         <button className="tg-btn" onClick={() => bgInputRef.current?.click()}>
           <svg
             width="14"
@@ -327,78 +341,28 @@ export function Toolbar() {
 
       <div className="tg-toolbar-separator" />
 
-      {/* Preview & Fonts */}
+      {/* Right group: Preview, Fonts, Theme */}
       <div className="tg-toolbar-group">
         <button
           className="tg-btn"
           onClick={() => setShowPreview(!showPreview)}
           disabled={!hasBackground}
         >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
           Preview
         </button>
         <button className="tg-btn" onClick={() => setShowFontManager(true)}>
           Fonts
-        </button>
-      </div>
-
-      <div className="tg-toolbar-separator" />
-
-      {/* Save/Open/Lock */}
-      <div className="tg-toolbar-group">
-        <button className="tg-btn" onClick={handleSave}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-            <polyline points="17 21 17 13 7 13 7 21" />
-            <polyline points="7 3 7 8 15 8" />
-          </svg>
-          Save
-        </button>
-        <button className="tg-btn" onClick={handleOpen}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
-          Open
-        </button>
-        <input ref={fileInputRef} type="file" accept=".tgbl" hidden onChange={handleOpenFile} />
-        <button
-          className={`tg-btn ${locked ? 'tg-btn--active' : ''}`}
-          onClick={() => setLocked(!locked)}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            {locked ? (
-              <>
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </>
-            ) : (
-              <>
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 9.9-1" />
-              </>
-            )}
-          </svg>
-          {locked ? 'Unlock' : 'Lock'}
         </button>
         <button className="tg-btn" onClick={toggleTheme} title="Toggle theme">
           {theme === 'light' ? (
@@ -434,6 +398,59 @@ export function Toolbar() {
           )}
         </button>
       </div>
+
+      <div className="tg-toolbar-separator" />
+
+      {/* Lock — 2nd from last */}
+      <button
+        className={`tg-btn ${locked ? 'tg-btn--active' : ''}`}
+        onClick={() => setLocked(!locked)}
+        title={locked ? 'Unlock template' : 'Lock template'}
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          {locked ? (
+            <>
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </>
+          ) : (
+            <>
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+            </>
+          )}
+        </svg>
+        {locked ? 'Unlock' : 'Lock'}
+      </button>
+
+      {/* Save — last, green */}
+      <button
+        className="tg-btn"
+        style={{ background: '#16a34a', color: '#fff', borderRadius: 6 }}
+        onClick={handleSave}
+        title="Save template (Ctrl+S)"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+          <polyline points="17 21 17 13 7 13 7 21" />
+          <polyline points="7 3 7 8 15 8" />
+        </svg>
+        Save
+      </button>
     </div>
   )
 }

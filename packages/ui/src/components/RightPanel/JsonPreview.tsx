@@ -1,7 +1,7 @@
-import { useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
-import { generateExampleJson, highlightJson } from '../../utils/jsonGenerator.js'
+import { generateExampleJson } from '../../utils/jsonGenerator.js'
 import type { JsonPreviewMode } from '../../store/uiStore.js'
 
 const MODES: { key: JsonPreviewMode; label: string }[] = [
@@ -23,13 +23,18 @@ export function JsonPreview() {
 
   const jsonString = useMemo(() => JSON.stringify(generated, null, 2), [generated])
 
-  const highlighted = useMemo(() => highlightJson(jsonString), [jsonString])
+  const [editedJson, setEditedJson] = useState(jsonString)
+
+  // Re-sync when the generated JSON changes (mode switch, field changes)
+  useEffect(() => {
+    setEditedJson(jsonString)
+  }, [jsonString])
 
   const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(jsonString).catch(() => {
+    navigator.clipboard.writeText(editedJson).catch(() => {
       // Fallback: ignore clipboard errors
     })
-  }, [jsonString])
+  }, [editedJson])
 
   return (
     <div className="tg-panel-section">
@@ -73,7 +78,30 @@ export function JsonPreview() {
           No fields defined yet
         </div>
       ) : (
-        <div className="tg-json-preview" dangerouslySetInnerHTML={{ __html: highlighted }} />
+        <textarea
+          className="tg-json-preview"
+          value={editedJson}
+          onChange={(e) => setEditedJson(e.target.value)}
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11,
+            background: 'var(--bg-primary)',
+            border: '1px solid var(--border)',
+            borderRadius: 4,
+            padding: 10,
+            minHeight: 120,
+            maxHeight: 300,
+            overflowY: 'auto',
+            whiteSpace: 'pre',
+            lineHeight: 1.4,
+            color: 'var(--text-primary)',
+            width: '100%',
+            resize: 'vertical',
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+          spellCheck={false}
+        />
       )}
     </div>
   )

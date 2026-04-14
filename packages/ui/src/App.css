@@ -151,39 +151,112 @@ body,
 /* Left Panel */
 .tg-left-panel {
   width: var(--panel-width);
+  min-width: 180px;
+  max-width: 400px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
-  overflow-y: auto;
   flex-shrink: 0;
+  position: relative;
+  resize: horizontal;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .tg-left-panel-header {
   padding: 10px 12px;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tg-field-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tg-field-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+
+.tg-field-group-header:hover {
+  background: var(--bg-surface);
+}
+
+.tg-field-group--drag-over > .tg-field-group-header {
+  background: rgba(59, 130, 246, 0.1);
+  outline: 1px dashed var(--accent);
+}
+
+.tg-field-group-toggle {
+  font-size: 10px;
+}
+
+.tg-field-group-name {
+  flex: 1;
+}
+
+.tg-field-group-count {
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .tg-field-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  padding: 6px 12px 6px 24px;
   cursor: pointer;
   border-bottom: 1px solid var(--border);
   transition: background 0.1s;
+  font-size: 13px;
 }
 
 .tg-field-item:hover {
   background: var(--bg-surface);
 }
 
+.tg-field-item[draggable="true"] {
+  cursor: grab;
+}
+
 .tg-field-item--selected {
   background: var(--bg-tertiary);
   border-left: 2px solid var(--accent);
+}
+
+.tg-field-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.tg-field-item-key {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tg-field-item-dims {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.7;
 }
 
 .tg-field-type-badge {
@@ -192,6 +265,7 @@ body,
   border-radius: 3px;
   font-weight: 600;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .tg-field-type-badge--text {
@@ -282,10 +356,18 @@ body,
 /* Right Panel */
 .tg-right-panel {
   width: var(--right-panel-width);
+  min-width: 220px;
+  max-width: 500px;
   background: var(--bg-secondary);
   border-left: 1px solid var(--border);
   overflow-y: auto;
   flex-shrink: 0;
+  resize: horizontal;
+  direction: rtl;
+}
+
+.tg-right-panel > * {
+  direction: ltr;
 }
 
 .tg-panel-section {
@@ -294,7 +376,7 @@ body,
 }
 
 .tg-panel-section-title {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -310,8 +392,11 @@ body,
 }
 
 .tg-form-row label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .tg-input {
@@ -321,7 +406,7 @@ body,
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   outline: none;
   transition: border-color 0.15s;
 }
@@ -337,7 +422,7 @@ body,
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
   outline: none;
   cursor: pointer;
 }
@@ -364,8 +449,10 @@ body,
 }
 
 .tg-toggle-row label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
 }
 
 .tg-checkbox {

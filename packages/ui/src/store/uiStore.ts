@@ -70,8 +70,15 @@ export interface UiState {
   setTheme: (theme: Theme) => void
 }
 
+function getSystemTheme(): Theme {
+  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark'
+  }
+  return 'light'
+}
+
 export const useUiStore = create<UiState>((set) => ({
-  theme: 'light' as Theme,
+  theme: getSystemTheme(),
   selectedFieldIds: [],
   activeTool: 'select',
   showGrid: true,

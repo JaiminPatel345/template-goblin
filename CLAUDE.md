@@ -53,7 +53,7 @@ developers use the npm library to generate PDFs at scale.
 
 ### Dev Agent
 
-- **Model**: Claude Sonnet (fast iteration)
+- **Model**: Claude Opus (max reasoning effort)
 - **Reads**: spec files, journey files, CLAUDE.md
 - **Writes**: source code, unit tests
 - **Rule**: Code must implement what the spec says — no creative deviation
