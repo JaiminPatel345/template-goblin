@@ -10,7 +10,7 @@
 
 import { createServer } from 'node:http'
 import { readFileSync, existsSync } from 'node:fs'
-import { join, extname } from 'node:path'
+import { join, extname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -35,9 +35,24 @@ if (!existsSync(distDir)) {
   process.exit(1)
 }
 
-const server = createServer((req, res) => {
-  let filePath = join(distDir, req.url === '/' ? 'index.html' : req.url)
+const port = parseInt(process.argv.find((a, i) => process.argv[i - 1] === '--port') || String(PORT), 10)
 
+// Graceful shutdown
+process.on('SIGINT', () => { console.log('\nShutting down...'); process.exit(0) })
+process.on('SIGTERM', () => { process.exit(0) })
+
+const server = createServer((req, res) => {
+  const urlPath = (req.url || '/').split('?')[0]
+  let filePath = resolve(join(distDir, urlPath === '/' ? 'index.html' : urlPath))
+
+  // Path traversal protection: ensure resolved path is within distDir
+  if (!filePath.startsWith(resolve(distDir))) {
+    res.writeHead(403)
+    res.end('Forbidden')
+    return
+  }
+
+  // SPA fallback
   if (!existsSync(filePath)) {
     filePath = join(distDir, 'index.html')
   }
@@ -55,6 +70,14 @@ const server = createServer((req, res) => {
   }
 })
 
-server.listen(PORT, () => {
-  console.log(`\n  TemplateGoblin UI running at http://localhost:${PORT}\n`)
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Error: Port ${port} is already in use. Try --port <number>`)
+    process.exit(1)
+  }
+  throw err
+})
+
+server.listen(port, () => {
+  console.log(`\n  TemplateGoblin UI running at http://localhost:${port}\n`)
 })

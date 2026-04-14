@@ -3,25 +3,11 @@ import type { LoadedTemplate, InputJSON, FieldDefinition, LoopRow } from '@templ
 import { TemplateGoblinError } from '@template-goblin/types'
 import { validateData } from './validate.js'
 import { registerFonts } from './utils/font.js'
+import { resolveKey } from './utils/resolveKey.js'
 import { renderBackground } from './render/background.js'
 import { renderText } from './render/text.js'
 import { renderImage } from './render/image.js'
 import { renderLoop } from './render/loop.js'
-
-/**
- * Resolve a dot-notation key against a data object.
- */
-function resolveKey(data: Record<string, unknown>, jsonKey: string): unknown {
-  const parts = jsonKey.split('.')
-  let current: unknown = data
-  for (const part of parts) {
-    if (current === null || current === undefined || typeof current !== 'object') {
-      return undefined
-    }
-    current = (current as Record<string, unknown>)[part]
-  }
-  return current
-}
 
 /**
  * Generate a PDF from an in-memory template and input data.
@@ -47,10 +33,9 @@ export async function generatePDF(template: LoadedTemplate, data: InputJSON): Pr
   if (!validation.valid) {
     const firstError = validation.errors[0]
     if (firstError) {
-      throw new TemplateGoblinError(
-        firstError.code as 'MISSING_REQUIRED_FIELD' | 'INVALID_DATA_TYPE',
-        firstError.message,
-      )
+      throw new TemplateGoblinError(firstError.code, firstError.message, {
+        field: firstError.field,
+      })
     }
   }
 

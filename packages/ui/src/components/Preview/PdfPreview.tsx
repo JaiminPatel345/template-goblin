@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
-import { generatePreviewPdf } from '../../utils/pdfGenerator.js'
+import { generatePreviewHtml } from '../../utils/previewGenerator.js'
 
 /**
  * Inline PDF preview panel.
@@ -32,7 +32,7 @@ export function PdfPreview() {
 
     const timer = setTimeout(async () => {
       try {
-        const blob = await generatePreviewPdf(
+        const blob = await generatePreviewHtml(
           fields,
           { name: meta.name, width: meta.width, height: meta.height },
           backgroundDataUrl,

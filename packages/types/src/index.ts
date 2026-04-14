@@ -25,4 +25,4 @@ export type {
 export type { InputJSON, TextInputs, LoopInputs, ImageInputs, LoopRow } from './input.js'
 export type { LoadedTemplate, TemplateAssets } from './loaded.js'
 export { TemplateGoblinError } from './errors.js'
-export type { ValidationResult, ValidationError, ErrorCode } from './errors.js'
+export type { ValidationResult, ValidationError, ValidationErrorCode, ErrorCode } from './errors.js'

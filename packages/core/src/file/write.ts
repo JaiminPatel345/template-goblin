@@ -57,7 +57,7 @@ export async function saveTemplate(
   } catch (error) {
     if (error instanceof TemplateGoblinError) throw error
     throw new TemplateGoblinError(
-      'PDF_GENERATION_FAILED',
+      'SAVE_FAILED',
       `Failed to save template: ${error instanceof Error ? error.message : 'unknown error'}`,
     )
   }
