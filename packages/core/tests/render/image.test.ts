@@ -111,12 +111,13 @@ describe('Image rendering', () => {
     expect(output.length).toBeGreaterThan(0)
   })
 
-  it('should handle empty buffer gracefully', async () => {
+  it('should handle empty buffer gracefully by skipping render', async () => {
     const field = createImageField('fill')
 
-    // An empty buffer is not a valid image — PDFKit may throw.
-    // We verify the function propagates the error rather than silently failing.
-    await expect(renderAndFinish(field, Buffer.alloc(0))).rejects.toThrow()
+    // Empty buffer is safely skipped — no crash, produces valid PDF
+    const output = await renderAndFinish(field, Buffer.alloc(0))
+    expect(output).toBeInstanceOf(Buffer)
+    expect(output.length).toBeGreaterThan(0)
   })
 
   it('should render a non-square image with contain fit (landscape box)', async () => {

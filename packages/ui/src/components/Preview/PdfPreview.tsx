@@ -166,6 +166,7 @@ export function PdfPreview() {
         {pdfUrl && !error && (
           <iframe
             src={pdfUrl}
+            sandbox=""
             style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }}
             title="PDF Preview"
           />

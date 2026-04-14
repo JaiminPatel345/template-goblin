@@ -524,8 +524,14 @@ export function CanvasArea() {
                 onTap={(e) =>
                   handleFieldClick(e as unknown as Konva.KonvaEventObject<MouseEvent>, field.id)
                 }
+                onDragStart={() => {
+                  // Select the field when drag starts — ensures Transformer
+                  // attaches to the dragged field, not a previously selected one
+                  if (!selectedFieldIds.includes(field.id)) {
+                    selectField(field.id)
+                  }
+                }}
                 onDragEnd={(e) => {
-                  // e.target may be the Group or a child — find the Group
                   const group = e.target.findAncestor('Group', true) || e.target
                   handleFieldDragEnd(field.id, group)
                 }}

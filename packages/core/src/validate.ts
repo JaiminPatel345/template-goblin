@@ -7,18 +7,24 @@ import type {
 } from '@template-goblin/types'
 import { resolveKey } from './utils/resolveKey.js'
 
+/** Maximum allowed text length to prevent memory exhaustion */
+const MAX_TEXT_LENGTH = 100_000
+
+/** Maximum allowed loop rows to prevent DoS */
+const MAX_LOOP_ROWS = 10_000
+
+/** Maximum allowed image size (50 MB) */
+const MAX_IMAGE_SIZE = 50 * 1024 * 1024
+
 /**
  * Validate a single field's data against its type expectations.
- *
- * @param field - Field definition from manifest
- * @param data - Input JSON
- * @returns Array of validation errors for this field
+ * Includes input sanitization and size limits.
  */
 function validateField(field: FieldDefinition, data: InputJSON): ValidationError[] {
   const errors: ValidationError[] = []
   const value = resolveKey(data as unknown as Record<string, unknown>, field.jsonKey)
 
-  // REQ: Check required fields are present
+  // Check required fields
   if (field.required) {
     if (value === undefined || value === null || value === '') {
       errors.push({
@@ -35,7 +41,7 @@ function validateField(field: FieldDefinition, data: InputJSON): ValidationError
     return errors
   }
 
-  // REQ: Type-check based on field type
+  // Type-check and sanitize based on field type
   switch (field.type) {
     case 'text':
       if (typeof value !== 'string') {
@@ -43,6 +49,12 @@ function validateField(field: FieldDefinition, data: InputJSON): ValidationError
           code: 'INVALID_DATA_TYPE',
           field: field.jsonKey,
           message: `Invalid data for field "${field.jsonKey}": expected string, got ${typeof value}`,
+        })
+      } else if (value.length > MAX_TEXT_LENGTH) {
+        errors.push({
+          code: 'INVALID_DATA_TYPE',
+          field: field.jsonKey,
+          message: `Text too long for field "${field.jsonKey}": ${value.length} chars exceeds ${MAX_TEXT_LENGTH} limit`,
         })
       }
       break
@@ -54,6 +66,15 @@ function validateField(field: FieldDefinition, data: InputJSON): ValidationError
           field: field.jsonKey,
           message: `Invalid data for field "${field.jsonKey}": expected Buffer or base64 string, got ${typeof value}`,
         })
+      } else {
+        const size = Buffer.isBuffer(value) ? value.length : value.length * 0.75 // approximate base64 decoded size
+        if (size > MAX_IMAGE_SIZE) {
+          errors.push({
+            code: 'INVALID_DATA_TYPE',
+            field: field.jsonKey,
+            message: `Image too large for field "${field.jsonKey}": exceeds 50MB limit`,
+          })
+        }
       }
       break
 
@@ -63,6 +84,12 @@ function validateField(field: FieldDefinition, data: InputJSON): ValidationError
           code: 'INVALID_DATA_TYPE',
           field: field.jsonKey,
           message: `Invalid data for field "${field.jsonKey}": expected array, got ${typeof value}`,
+        })
+      } else if (value.length > MAX_LOOP_ROWS) {
+        errors.push({
+          code: 'INVALID_DATA_TYPE',
+          field: field.jsonKey,
+          message: `Too many rows for field "${field.jsonKey}": ${value.length} exceeds ${MAX_LOOP_ROWS} limit`,
         })
       }
       break
@@ -74,13 +101,28 @@ function validateField(field: FieldDefinition, data: InputJSON): ValidationError
 /**
  * Validate input data against a loaded template.
  *
- * Checks that all required fields are present and have the correct types.
+ * Checks that all required fields are present, have correct types,
+ * and are within size limits.
  *
  * @param template - LoadedTemplate returned by loadTemplate()
  * @param data - Input JSON to validate
  * @returns ValidationResult with valid flag and array of errors
  */
 export function validateData(template: LoadedTemplate, data: InputJSON): ValidationResult {
+  // Sanitize: ensure data has the expected top-level structure
+  if (!data || typeof data !== 'object') {
+    return {
+      valid: false,
+      errors: [
+        {
+          code: 'INVALID_DATA_TYPE',
+          field: '',
+          message: 'Input data must be an object with texts, loops, and images properties',
+        },
+      ],
+    }
+  }
+
   const errors: ValidationError[] = []
 
   for (const field of template.manifest.fields) {

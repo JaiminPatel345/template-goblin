@@ -20,7 +20,18 @@ export function renderImage(
   const { x, y, width, height } = field
 
   // REQ: Support both Buffer and base64 string input
-  const imageBuffer = typeof value === 'string' ? Buffer.from(value, 'base64') : value
+  // Strip data URI prefix if present (e.g., "data:image/png;base64,...")
+  let rawValue = value
+  if (typeof rawValue === 'string' && rawValue.startsWith('data:')) {
+    const commaIndex = rawValue.indexOf(',')
+    if (commaIndex !== -1) {
+      rawValue = rawValue.slice(commaIndex + 1)
+    }
+  }
+  const imageBuffer = typeof rawValue === 'string' ? Buffer.from(rawValue, 'base64') : rawValue
+
+  // Guard against empty/corrupt image data
+  if (imageBuffer.length === 0) return
 
   switch (style.fit) {
     case 'fill':
@@ -124,6 +135,7 @@ function getImageSize(buffer: Buffer): { width: number; height: number } {
         }
         // Skip this segment
         const segLength = buffer.readUInt16BE(offset + 2)
+        if (segLength < 2) break // Invalid segment, bail out
         offset += 2 + segLength
       } else {
         offset++

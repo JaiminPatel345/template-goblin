@@ -66,8 +66,10 @@ export async function generatePDF(template: LoadedTemplate, data: InputJSON): Pr
     // REQ: Render background image first on page 1
     renderBackground(doc, backgroundImage, meta)
 
-    // REQ: Sort fields by zIndex (lowest first) and render
-    const sortedFields = [...manifest.fields].sort((a, b) => a.zIndex - b.zIndex)
+    // REQ: Sort fields by zIndex (lowest first), stable with id tiebreaker
+    const sortedFields = [...manifest.fields].sort(
+      (a, b) => a.zIndex - b.zIndex || a.id.localeCompare(b.id),
+    )
 
     for (const field of sortedFields) {
       renderField(doc, field, data, fontMap, template)
@@ -102,11 +104,13 @@ function renderField(
 
   switch (field.type) {
     case 'text':
-      renderText(doc, field, value as string, fontMap)
+      if (typeof value !== 'string') break
+      renderText(doc, field, value, fontMap)
       break
 
     case 'image':
-      renderImage(doc, field, value as Buffer | string)
+      if (typeof value !== 'string' && !Buffer.isBuffer(value)) break
+      renderImage(doc, field, value)
       break
 
     case 'loop':
