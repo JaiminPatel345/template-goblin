@@ -375,6 +375,16 @@ body,
   margin-top: 16px;
 }
 
+/* Preview Panel */
+.tg-preview-panel {
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
 .tg-btn--primary {
   background: var(--accent);
   color: #fff;
