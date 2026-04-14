@@ -5,7 +5,11 @@ export type ActiveTool = 'select' | 'addText' | 'addImage' | 'addLoop'
 /** JSON preview mode */
 export type JsonPreviewMode = 'default' | 'max' | 'min'
 
+export type Theme = 'light' | 'dark'
+
 export interface UiState {
+  /** Light or dark theme */
+  theme: Theme
   /** Currently selected field IDs */
   selectedFieldIds: string[]
   /** The active drawing/selection tool */
@@ -62,9 +66,12 @@ export interface UiState {
   setContextMenu: (menu: UiState['contextMenu']) => void
   startDrawing: (x: number, y: number) => void
   stopDrawing: () => void
+  toggleTheme: () => void
+  setTheme: (theme: Theme) => void
 }
 
 export const useUiStore = create<UiState>((set) => ({
+  theme: 'light' as Theme,
   selectedFieldIds: [],
   activeTool: 'select',
   showGrid: true,
@@ -110,4 +117,6 @@ export const useUiStore = create<UiState>((set) => ({
   setContextMenu: (menu) => set({ contextMenu: menu }),
   startDrawing: (x, y) => set({ isDrawing: true, drawStart: { x, y } }),
   stopDrawing: () => set({ isDrawing: false, drawStart: null }),
+  toggleTheme: () => set((s) => ({ theme: s.theme === 'light' ? 'dark' : 'light' })),
+  setTheme: (theme) => set({ theme }),
 }))

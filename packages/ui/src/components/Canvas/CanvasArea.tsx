@@ -467,7 +467,7 @@ export function CanvasArea() {
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'auto',
-        background: '#0d0d1a',
+        background: 'var(--canvas-bg)',
       }}
     >
       <Stage
