@@ -1,11 +1,11 @@
-import type { Config } from 'jest'
-
-const config: Config = {
+/** @type {import('jest').Config} */
+export default {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@template-goblin/types$': '<rootDir>/../types/src/index.ts',
   },
   extensionsToTreatAsEsm: ['.ts'],
   transform: {
@@ -17,5 +17,3 @@ const config: Config = {
     ],
   },
 }
-
-export default config

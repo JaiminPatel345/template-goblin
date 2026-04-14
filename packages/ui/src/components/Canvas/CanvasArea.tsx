@@ -76,15 +76,8 @@ export function CanvasArea() {
 
   /* ----- observe container size ------------------------------------- */
   useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    const update = () => setContainerSize({ width: el.clientWidth, height: el.clientHeight })
-    update()
-
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
+    // Container observation reserved for future zoom-to-fit
+    return undefined
   }, [])
 
   /* ----- attach Transformer to selected nodes ----------------------- */

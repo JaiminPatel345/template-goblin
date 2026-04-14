@@ -5,6 +5,7 @@ import { RightPanel } from './components/RightPanel/RightPanel.js'
 import { PageSizeDialog } from './components/Toolbar/PageSizeDialog.js'
 import { ContextMenu } from './components/Canvas/ContextMenu.js'
 import { FontManager } from './components/Toolbar/FontManager.js'
+import { PdfPreview } from './components/Preview/PdfPreview.js'
 import { useKeyboard } from './hooks/useKeyboard.js'
 import { useUiStore } from './store/uiStore.js'
 import { useTemplateStore } from './store/templateStore.js'
@@ -17,6 +18,7 @@ export function App() {
   const showRightPanel = useUiStore((s) => s.showRightPanel)
   const showPageSizeDialog = useUiStore((s) => s.showPageSizeDialog)
   const showFontManager = useUiStore((s) => s.showFontManager)
+  const showPreview = useUiStore((s) => s.showPreview)
   const contextMenu = useUiStore((s) => s.contextMenu)
   const locked = useTemplateStore((s) => s.meta.locked)
 
@@ -47,6 +49,7 @@ export function App() {
           )}
         </div>
         {showRightPanel && <RightPanel />}
+        {showPreview && <PdfPreview />}
       </div>
       {showPageSizeDialog && <PageSizeDialog />}
       {showFontManager && <FontManager />}

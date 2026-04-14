@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
+import { saveTemplate, openTemplate } from '../../utils/saveOpen.js'
 
 export function Toolbar() {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -19,8 +20,8 @@ export function Toolbar() {
   const setActiveTool = useUiStore((s) => s.setActiveTool)
   const showGrid = useUiStore((s) => s.showGrid)
   const setShowGrid = useUiStore((s) => s.setShowGrid)
-  const setShowPreview = useUiStore((s) => s.showPreview)
-  const togglePreview = useUiStore((s) => s.setShowPreview)
+  const showPreview = useUiStore((s) => s.showPreview)
+  const setShowPreview = useUiStore((s) => s.setShowPreview)
   const setShowFontManager = useUiStore((s) => s.setShowFontManager)
   const zoom = useUiStore((s) => s.zoom)
   const zoomIn = useUiStore((s) => s.zoomIn)
@@ -57,19 +58,26 @@ export function Toolbar() {
     e.target.value = ''
   }
 
-  function handleSave() {
-    // Dispatch save event — handled by save/open module
-    window.dispatchEvent(new CustomEvent('tg:save'))
+  async function handleSave() {
+    try {
+      await saveTemplate()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Save failed')
+    }
   }
 
   function handleOpen() {
     fileInputRef.current?.click()
   }
 
-  function handleOpenFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleOpenFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    window.dispatchEvent(new CustomEvent('tg:open', { detail: file }))
+    try {
+      await openTemplate(file)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to open file')
+    }
     e.target.value = ''
   }
 
@@ -223,7 +231,7 @@ export function Toolbar() {
       <div className="tg-toolbar-group">
         <button
           className="tg-btn"
-          onClick={() => togglePreview(!setShowPreview)}
+          onClick={() => setShowPreview(!showPreview)}
           disabled={!hasBackground}
         >
           Preview
