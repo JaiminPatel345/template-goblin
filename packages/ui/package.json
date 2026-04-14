@@ -17,15 +17,14 @@
   "dependencies": {
     "jszip": "^3.10.1",
     "konva": "^9.3.18",
-    "pdfkit": "^0.15.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-konva": "^18.2.10",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
-    "@template-goblin/types": "workspace:*",
     "@playwright/test": "^1.49.1",
+    "@template-goblin/types": "workspace:*",
     "@types/react": "^18.3.14",
     "@types/react-dom": "^18.3.3",
     "@vitejs/plugin-react": "^4.3.4",

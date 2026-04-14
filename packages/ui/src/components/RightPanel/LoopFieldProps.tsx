@@ -69,6 +69,28 @@ export function LoopFieldProps({ field }: Props) {
     updateFieldStyle(field.id, { columns: newColumns })
   }
 
+  function moveColumnUp(index: number) {
+    if (index <= 0) return
+    const newColumns = [...columns]
+    const prev = newColumns[index - 1]
+    const curr = newColumns[index]
+    if (!prev || !curr) return
+    newColumns[index - 1] = curr
+    newColumns[index] = prev
+    updateFieldStyle(field.id, { columns: newColumns })
+  }
+
+  function moveColumnDown(index: number) {
+    if (index >= columns.length - 1) return
+    const newColumns = [...columns]
+    const next = newColumns[index + 1]
+    const curr = newColumns[index]
+    if (!next || !curr) return
+    newColumns[index + 1] = curr
+    newColumns[index] = next
+    updateFieldStyle(field.id, { columns: newColumns })
+  }
+
   const allFontFamilies = [...BUILTIN_FONTS, ...fonts.map((f) => f.name)]
 
   return (
@@ -151,13 +173,33 @@ export function LoopFieldProps({ field }: Props) {
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>
                 Column {i + 1}
               </span>
-              <button
-                className="tg-btn tg-btn--danger"
-                style={{ fontSize: 10, padding: '2px 6px' }}
-                onClick={() => removeColumn(i)}
-              >
-                Remove
-              </button>
+              <div style={{ display: 'flex', gap: 2 }}>
+                <button
+                  className="tg-btn"
+                  style={{ fontSize: 10, padding: '2px 5px' }}
+                  onClick={() => moveColumnUp(i)}
+                  disabled={i === 0}
+                  title="Move up"
+                >
+                  &uarr;
+                </button>
+                <button
+                  className="tg-btn"
+                  style={{ fontSize: 10, padding: '2px 5px' }}
+                  onClick={() => moveColumnDown(i)}
+                  disabled={i === columns.length - 1}
+                  title="Move down"
+                >
+                  &darr;
+                </button>
+                <button
+                  className="tg-btn tg-btn--danger"
+                  style={{ fontSize: 10, padding: '2px 6px' }}
+                  onClick={() => removeColumn(i)}
+                >
+                  Remove
+                </button>
+              </div>
             </div>
 
             <div className="tg-form-row">
