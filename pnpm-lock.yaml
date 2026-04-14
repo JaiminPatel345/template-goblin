@@ -90,9 +90,6 @@ importers:
       konva:
         specifier: ^9.3.18
         version: 9.3.22
-      pdfkit:
-        specifier: ^0.15.1
-        version: 0.15.2
       react:
         specifier: ^18.3.1
         version: 18.3.1

@@ -1,10 +1,13 @@
 import { useEffect } from 'react'
 import { useTemplateStore } from '../store/templateStore.js'
 import { useUiStore } from '../store/uiStore.js'
+import { saveTemplate, openTemplate } from '../utils/saveOpen.js'
 
 /**
  * Global keyboard shortcuts handler.
  *
+ * - Ctrl/Cmd+S: Save template
+ * - Ctrl/Cmd+O: Open template
  * - Ctrl/Cmd+Z: Undo
  * - Ctrl/Cmd+Shift+Z: Redo
  * - Delete/Backspace: Remove selected fields
@@ -15,6 +18,33 @@ export function useKeyboard(): void {
     function handleKeyDown(e: KeyboardEvent) {
       const isMod = e.metaKey || e.ctrlKey
       const locked = useTemplateStore.getState().meta.locked
+
+      // Save (Ctrl+S)
+      if (isMod && e.key === 's') {
+        e.preventDefault()
+        saveTemplate().catch((err) => {
+          alert(err instanceof Error ? err.message : 'Save failed')
+        })
+        return
+      }
+
+      // Open (Ctrl+O)
+      if (isMod && e.key === 'o') {
+        e.preventDefault()
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = '.tgbl'
+        input.onchange = () => {
+          const file = input.files?.[0]
+          if (file) {
+            openTemplate(file).catch((err) => {
+              alert(err instanceof Error ? err.message : 'Failed to open file')
+            })
+          }
+        }
+        input.click()
+        return
+      }
 
       // Undo
       if (isMod && !e.shiftKey && e.key === 'z') {
