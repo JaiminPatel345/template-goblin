@@ -34,17 +34,17 @@
 
 /* Dark theme */
 [data-theme='dark'] {
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-tertiary: #0f3460;
-  --bg-surface: #1e2746;
-  --text-primary: #e0e0e0;
-  --text-secondary: #a0a0b0;
-  --text-muted: #6b6b80;
+  --bg-primary: #121218;
+  --bg-secondary: #1c1c27;
+  --bg-tertiary: #2a2a3d;
+  --bg-surface: #232334;
+  --text-primary: #f0f0f5;
+  --text-secondary: #b0b0c0;
+  --text-muted: #7878a0;
   --accent: #e94560;
   --accent-hover: #ff6b81;
-  --border: #2a2a4a;
-  --border-light: #3a3a5a;
+  --border: #35354a;
+  --border-light: #45455a;
   --success: #4ade80;
   --warning: #fbbf24;
   --error: #ef4444;
@@ -499,7 +499,8 @@ body,
 .tg-dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -507,19 +508,50 @@ body,
 }
 
 .tg-dialog {
-  background: var(--bg-surface);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 20px;
-  min-width: 360px;
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 380px;
   max-width: 480px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  color: var(--text-primary);
+}
+
+.tg-dialog p {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.tg-dialog label {
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.tg-dialog label:hover {
+  background: var(--bg-tertiary);
+}
+
+.tg-dialog input[type='radio'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .tg-dialog-title {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  color: var(--text-primary);
 }
 
 .tg-dialog-actions {
