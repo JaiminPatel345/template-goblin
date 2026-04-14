@@ -1,0 +1,40 @@
+{
+  "name": "template-goblin-ui",
+  "version": "0.1.0",
+  "description": "Visual template builder for TemplateGoblin — design PDF templates with drag-and-drop",
+  "type": "module",
+  "bin": {
+    "template-goblin-ui": "./bin/cli.js"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "konva": "^9.3.18",
+    "pdfkit": "^0.15.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-konva": "^18.2.10",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@template-goblin/types": "workspace:*",
+    "@playwright/test": "^1.49.1",
+    "@types/react": "^18.3.14",
+    "@types/react-dom": "^18.3.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  },
+  "comment:jszip": "ZIP read/write for .tgbl files in browser",
+  "comment:konva": "Canvas rendering engine for react-konva",
+  "comment:pdfkit": "In-browser PDF preview generation",
+  "comment:react-konva": "React bindings for Konva — drag-and-drop canvas",
+  "comment:zustand": "Lightweight state management — canvas state, undo/redo, UI state"
+}
