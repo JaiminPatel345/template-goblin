@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Toolbar } from './components/Toolbar/Toolbar.js'
 import { LeftPanel } from './components/LeftPanel/FieldList.js'
 import { CanvasArea } from './components/Canvas/CanvasArea.js'
@@ -7,6 +8,7 @@ import { ContextMenu } from './components/Canvas/ContextMenu.js'
 import { FontManager } from './components/Toolbar/FontManager.js'
 import { PdfPreview } from './components/Preview/PdfPreview.js'
 import { ImageCompressor } from './components/Toolbar/ImageCompressor.js'
+import { ResizeHandle } from './components/ResizeHandle.js'
 import { useKeyboard } from './hooks/useKeyboard.js'
 import { useUiStore } from './store/uiStore.js'
 import { useTemplateStore } from './store/templateStore.js'
@@ -24,11 +26,25 @@ export function App() {
   const contextMenu = useUiStore((s) => s.contextMenu)
   const locked = useTemplateStore((s) => s.meta.locked)
 
+  const [leftWidth, setLeftWidth] = useState(260)
+  const [rightWidth, setRightWidth] = useState(300)
+
   return (
     <div className="tg-app" data-theme={theme}>
       <Toolbar />
       <div className="tg-workspace">
-        {hasBackground && showLeftPanel && <LeftPanel />}
+        {hasBackground && showLeftPanel && (
+          <div className="tg-left-panel" style={{ width: leftWidth }}>
+            <LeftPanel />
+            <ResizeHandle
+              side="right"
+              width={leftWidth}
+              onResize={setLeftWidth}
+              min={180}
+              max={400}
+            />
+          </div>
+        )}
         <div className="tg-canvas-container">
           <CanvasArea />
           {locked && hasBackground && (
@@ -50,7 +66,18 @@ export function App() {
             </div>
           )}
         </div>
-        {hasBackground && showRightPanel && <RightPanel />}
+        {hasBackground && showRightPanel && (
+          <div className="tg-right-panel" style={{ width: rightWidth }}>
+            <ResizeHandle
+              side="left"
+              width={rightWidth}
+              onResize={setRightWidth}
+              min={220}
+              max={500}
+            />
+            <RightPanel />
+          </div>
+        )}
       </div>
       <PdfPreview />
       {showPageSizeDialog && <PageSizeDialog />}
