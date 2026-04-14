@@ -198,18 +198,63 @@ body,
   position: relative;
 }
 
-.tg-canvas-empty {
+/* Upload Zone (empty state) */
+.tg-upload-zone {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  transition: background 0.2s;
+}
+
+.tg-upload-zone--active {
+  background: rgba(233, 69, 96, 0.08);
+}
+
+.tg-upload-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 16px;
-  color: var(--text-muted);
+  gap: 12px;
+  max-width: 400px;
+  text-align: center;
+  padding: 40px;
+  border: 2px dashed var(--border-light);
+  border-radius: 16px;
+  transition: border-color 0.2s;
 }
 
-.tg-canvas-empty-icon {
-  font-size: 48px;
-  opacity: 0.3;
+.tg-upload-zone--active .tg-upload-content {
+  border-color: var(--accent);
+}
+
+.tg-upload-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.tg-upload-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.tg-upload-btn {
+  padding: 10px 28px;
+  font-size: 14px;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+
+.tg-upload-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
 }
 
 /* Right Panel */

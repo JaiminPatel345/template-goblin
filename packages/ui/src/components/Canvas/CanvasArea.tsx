@@ -1,13 +1,19 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react'
-import { Stage, Layer, Rect, Text, Line, Group, Transformer } from 'react-konva'
+import {
+  Stage,
+  Layer,
+  Rect,
+  Text,
+  Image as KonvaImage,
+  Line,
+  Group,
+  Transformer,
+} from 'react-konva'
 import type Konva from 'konva'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import type { FieldDefinition, FieldType } from '@template-goblin/types'
 
-/* ------------------------------------------------------------------ */
-/*  Colour palette per field type                                     */
-/* ------------------------------------------------------------------ */
 const FIELD_COLORS: Record<FieldType, { fill: string; stroke: string }> = {
   text: { fill: 'rgba(37,99,235,0.25)', stroke: '#60a5fa' },
   image: { fill: 'rgba(22,163,74,0.25)', stroke: '#4ade80' },
@@ -16,19 +22,12 @@ const FIELD_COLORS: Record<FieldType, { fill: string; stroke: string }> = {
 
 const SELECTED_STROKE = '#e94560'
 
-/* ------------------------------------------------------------------ */
-/*  Snap helper                                                       */
-/* ------------------------------------------------------------------ */
 function snap(value: number, gridSize: number, enabled: boolean): number {
   if (!enabled || gridSize <= 0) return value
   return Math.round(value / gridSize) * gridSize
 }
 
-/* ------------------------------------------------------------------ */
-/*  CanvasArea                                                        */
-/* ------------------------------------------------------------------ */
 export function CanvasArea() {
-  /* ----- store reads ------------------------------------------------ */
   const meta = useTemplateStore((s) => s.meta)
   const fields = useTemplateStore((s) => s.fields)
   const backgroundDataUrl = useTemplateStore((s) => s.backgroundDataUrl)
@@ -41,6 +40,7 @@ export function CanvasArea() {
   const showGrid = useUiStore((s) => s.showGrid)
   const gridSize = useUiStore((s) => s.gridSize)
   const zoom = useUiStore((s) => s.zoom)
+  const setZoom = useUiStore((s) => s.setZoom)
   const isDrawing = useUiStore((s) => s.isDrawing)
   const drawStart = useUiStore((s) => s.drawStart)
   const selectField = useUiStore((s) => s.selectField)
@@ -50,20 +50,22 @@ export function CanvasArea() {
   const startDrawing = useUiStore((s) => s.startDrawing)
   const stopDrawing = useUiStore((s) => s.stopDrawing)
   const setActiveTool = useUiStore((s) => s.setActiveTool)
+  const setPendingBackground = useUiStore((s) => s.setPendingBackground)
+  const setShowPageSizeDialog = useUiStore((s) => s.setShowPageSizeDialog)
 
-  /* ----- refs ------------------------------------------------------- */
   const stageRef = useRef<Konva.Stage | null>(null)
-  const layerRef = useRef<Konva.Layer | null>(null)
   const transformerRef = useRef<Konva.Transformer | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
 
-  /* ----- local state ------------------------------------------------ */
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null)
+  const [, setContainerSize] = useState({ width: 800, height: 600 })
   const [drawRect, setDrawRect] = useState<{ x: number; y: number; w: number; h: number } | null>(
     null,
   )
+  const [isDragOver, setIsDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  /* ----- load background image -------------------------------------- */
+  // Load background image
   useEffect(() => {
     if (!backgroundDataUrl) {
       setBgImage(null)
@@ -74,13 +76,33 @@ export function CanvasArea() {
     img.onload = () => setBgImage(img)
   }, [backgroundDataUrl])
 
-  /* ----- observe container size ------------------------------------- */
+  // Observe container size and auto-fit zoom
   useEffect(() => {
-    // Container observation reserved for future zoom-to-fit
-    return undefined
-  }, [])
+    const el = containerRef.current
+    if (!el) return
 
-  /* ----- attach Transformer to selected nodes ----------------------- */
+    const update = () => {
+      const w = el.clientWidth
+      const h = el.clientHeight
+      setContainerSize({ width: w, height: h })
+
+      // Auto-fit: calculate zoom to fit canvas in container with padding
+      if (backgroundDataUrl && meta.width > 0 && meta.height > 0) {
+        const padding = 40
+        const scaleX = (w - padding * 2) / meta.width
+        const scaleY = (h - padding * 2) / meta.height
+        const fitZoom = Math.min(scaleX, scaleY, 2) // cap at 200%
+        setZoom(Math.max(0.1, fitZoom))
+      }
+    }
+
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [backgroundDataUrl, meta.width, meta.height])
+
+  // Attach Transformer to selected nodes
   useEffect(() => {
     const tr = transformerRef.current
     const stage = stageRef.current
@@ -99,18 +121,13 @@ export function CanvasArea() {
     tr.getLayer()?.batchDraw()
   }, [selectedFieldIds, fields, meta.locked])
 
-  /* ----- derived ---------------------------------------------------- */
   const locked = meta.locked
   const stageW = meta.width * zoom
   const stageH = meta.height * zoom
   const isPlacing =
     activeTool === 'addText' || activeTool === 'addImage' || activeTool === 'addLoop'
   const sortedFields = [...fields].sort((a, b) => a.zIndex - b.zIndex)
-  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1
 
-  /* ------------------------------------------------------------------ */
-  /*  Event handlers                                                    */
-  /* ------------------------------------------------------------------ */
   const getPointerPos = useCallback((): { x: number; y: number } | null => {
     const stage = stageRef.current
     if (!stage) return null
@@ -119,69 +136,57 @@ export function CanvasArea() {
     return { x: pointer.x / zoom, y: pointer.y / zoom }
   }, [zoom])
 
-  /* ---- Stage mouse-down ------------------------------------------- */
   const handleStageMouseDown = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (locked) return
-
-      // Right click is handled by context menu
       if (e.evt.button === 2) return
 
-      // If clicking on the Stage background (empty area)
       const clickedOnEmpty =
         e.target === e.target.getStage() ||
-        e.target.name() === 'bg-rect' ||
-        e.target.name() === 'bg-image'
+        e.target.name() === 'bg-image' ||
+        e.target.name() === 'bg-rect'
 
       if (isPlacing && clickedOnEmpty) {
         const pos = getPointerPos()
         if (!pos) return
-        const snappedX = snap(pos.x, gridSize, showGrid)
-        const snappedY = snap(pos.y, gridSize, showGrid)
-        startDrawing(snappedX, snappedY)
-        setDrawRect({ x: snappedX, y: snappedY, w: 0, h: 0 })
+        const sx = snap(pos.x, gridSize, showGrid)
+        const sy = snap(pos.y, gridSize, showGrid)
+        startDrawing(sx, sy)
+        setDrawRect({ x: sx, y: sy, w: 0, h: 0 })
         return
       }
 
-      if (clickedOnEmpty) {
-        clearSelection()
-      }
+      if (clickedOnEmpty) clearSelection()
     },
     [locked, isPlacing, getPointerPos, gridSize, showGrid, startDrawing, clearSelection],
   )
 
-  /* ---- Stage mouse-move ------------------------------------------- */
   const handleStageMouseMove = useCallback(() => {
     if (!isDrawing || !drawStart) return
     const pos = getPointerPos()
     if (!pos) return
-    const snappedX = snap(pos.x, gridSize, showGrid)
-    const snappedY = snap(pos.y, gridSize, showGrid)
+    const sx = snap(pos.x, gridSize, showGrid)
+    const sy = snap(pos.y, gridSize, showGrid)
     setDrawRect({
-      x: Math.min(drawStart.x, snappedX),
-      y: Math.min(drawStart.y, snappedY),
-      w: Math.abs(snappedX - drawStart.x),
-      h: Math.abs(snappedY - drawStart.y),
+      x: Math.min(drawStart.x, sx),
+      y: Math.min(drawStart.y, sy),
+      w: Math.abs(sx - drawStart.x),
+      h: Math.abs(sy - drawStart.y),
     })
   }, [isDrawing, drawStart, getPointerPos, gridSize, showGrid])
 
-  /* ---- Stage mouse-up --------------------------------------------- */
   const handleStageMouseUp = useCallback(() => {
     if (!isDrawing || !drawRect || !drawStart) return
 
-    const MIN_SIZE = 10
     const { x, y, w, h } = drawRect
-
-    if (w >= MIN_SIZE && h >= MIN_SIZE) {
+    if (w >= 10 && h >= 10) {
       const toolToType: Record<string, FieldType> = {
         addText: 'text',
         addImage: 'image',
         addLoop: 'loop',
       }
       const fieldType = toolToType[activeTool]
-      if (fieldType) {
-        createField(fieldType, x, y, w, h)
-      }
+      if (fieldType) createField(fieldType, x, y, w, h)
     }
 
     stopDrawing()
@@ -189,11 +194,10 @@ export function CanvasArea() {
     setActiveTool('select')
   }, [isDrawing, drawRect, drawStart, activeTool])
 
-  /* ---- Create a new field ----------------------------------------- */
   const createField = useCallback(
     (type: FieldType, x: number, y: number, width: number, height: number) => {
-      const baseField = {
-        id: '', // store generates
+      const base = {
+        id: '',
         type,
         groupId: null,
         required: false,
@@ -206,7 +210,7 @@ export function CanvasArea() {
 
       if (type === 'text') {
         addField({
-          ...baseField,
+          ...base,
           type: 'text',
           jsonKey: 'texts.',
           placeholder: 'Text',
@@ -230,18 +234,15 @@ export function CanvasArea() {
         } as FieldDefinition)
       } else if (type === 'image') {
         addField({
-          ...baseField,
+          ...base,
           type: 'image',
           jsonKey: 'images.',
           placeholder: 'Image',
-          style: {
-            fit: 'contain',
-            placeholderFilename: null,
-          },
+          style: { fit: 'contain', placeholderFilename: null },
         } as FieldDefinition)
       } else if (type === 'loop') {
         addField({
-          ...baseField,
+          ...base,
           type: 'loop',
           jsonKey: 'loops.',
           placeholder: 'Table',
@@ -283,21 +284,16 @@ export function CanvasArea() {
     [addField, fields.length],
   )
 
-  /* ---- Field click ------------------------------------------------ */
   const handleFieldClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>, fieldId: string) => {
       if (locked) return
       e.cancelBubble = true
-      if (e.evt.shiftKey) {
-        toggleFieldSelection(fieldId)
-      } else {
-        selectField(fieldId)
-      }
+      if (e.evt.shiftKey) toggleFieldSelection(fieldId)
+      else selectField(fieldId)
     },
     [locked, selectField, toggleFieldSelection],
   )
 
-  /* ---- Field drag ------------------------------------------------- */
   const handleFieldDragEnd = useCallback(
     (fieldId: string, node: Konva.Node) => {
       if (locked) return
@@ -309,33 +305,24 @@ export function CanvasArea() {
     [locked, gridSize, showGrid, moveField],
   )
 
-  /* ---- Transformer resize end ------------------------------------ */
   const handleTransformEnd = useCallback(
     (fieldId: string, node: Konva.Node) => {
       if (locked) return
-
-      const scaleX = node.scaleX()
-      const scaleY = node.scaleY()
-
-      const newWidth = snap(Math.max(10, node.width() * scaleX), gridSize, showGrid)
-      const newHeight = snap(Math.max(10, node.height() * scaleY), gridSize, showGrid)
+      const newWidth = snap(Math.max(10, node.width() * node.scaleX()), gridSize, showGrid)
+      const newHeight = snap(Math.max(10, node.height() * node.scaleY()), gridSize, showGrid)
       const newX = snap(node.x(), gridSize, showGrid)
       const newY = snap(node.y(), gridSize, showGrid)
-
-      // Reset scale back to 1 and apply the computed size
       node.scaleX(1)
       node.scaleY(1)
       node.width(newWidth)
       node.height(newHeight)
       node.position({ x: newX, y: newY })
-
       moveField(fieldId, newX, newY)
       resizeField(fieldId, newWidth, newHeight)
     },
     [locked, gridSize, showGrid, moveField, resizeField],
   )
 
-  /* ---- Right-click / context menu --------------------------------- */
   const handleContextMenu = useCallback(
     (e: Konva.KonvaEventObject<PointerEvent>, fieldId: string) => {
       e.evt.preventDefault()
@@ -345,19 +332,56 @@ export function CanvasArea() {
     [setContextMenu],
   )
 
-  /* ---- Stage-level context menu (prevent default) ----------------- */
-  const handleStageContextMenu = useCallback((e: Konva.KonvaEventObject<PointerEvent>) => {
-    e.evt.preventDefault()
-  }, [])
+  // --- File upload handler (for empty state + drag-and-drop) ---
+  function handleFileUpload(file: File) {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      const img = new window.Image()
+      img.onload = () => {
+        const bufReader = new FileReader()
+        bufReader.onload = () => {
+          setPendingBackground({
+            dataUrl,
+            buffer: bufReader.result as ArrayBuffer,
+            width: img.naturalWidth,
+            height: img.naturalHeight,
+          })
+          setShowPageSizeDialog(true)
+        }
+        bufReader.readAsArrayBuffer(file)
+      }
+      img.src = dataUrl
+    }
+    reader.readAsDataURL(file)
+  }
 
-  /* ------------------------------------------------------------------ */
-  /*  Grid lines                                                        */
-  /* ------------------------------------------------------------------ */
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setIsDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file && file.type.startsWith('image/')) handleFileUpload(file)
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    setIsDragOver(true)
+  }
+
+  function handleDragLeave() {
+    setIsDragOver(false)
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) handleFileUpload(file)
+    e.target.value = ''
+  }
+
+  // --- Grid ---
   const renderGrid = useCallback(() => {
     if (!showGrid) return null
     const lines: React.ReactElement[] = []
-
-    // Vertical lines
     for (let x = 0; x <= meta.width; x += gridSize) {
       lines.push(
         <Line
@@ -369,8 +393,6 @@ export function CanvasArea() {
         />,
       )
     }
-
-    // Horizontal lines
     for (let y = 0; y <= meta.height; y += gridSize) {
       lines.push(
         <Line
@@ -382,27 +404,59 @@ export function CanvasArea() {
         />,
       )
     }
-
     return lines
   }, [showGrid, meta.width, meta.height, gridSize, zoom])
 
-  /* ------------------------------------------------------------------ */
-  /*  No background? Show placeholder.                                  */
-  /* ------------------------------------------------------------------ */
+  // ===== EMPTY STATE: No background uploaded =====
   if (!backgroundDataUrl) {
     return (
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
-        <div className="tg-canvas-empty">
-          <div className="tg-canvas-empty-icon">&#128444;</div>
-          <span>Upload a background image to start</span>
+      <div
+        ref={containerRef}
+        className={`tg-upload-zone ${isDragOver ? 'tg-upload-zone--active' : ''}`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
+        <div className="tg-upload-content">
+          <svg
+            width="64"
+            height="64"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            opacity="0.4"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+          <h2 className="tg-upload-title">Upload a background image</h2>
+          <p className="tg-upload-subtitle">
+            Drag and drop an image here, or click below to browse
+          </p>
+          <button
+            className="tg-btn tg-btn--primary tg-upload-btn"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Choose Image
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={handleInputChange}
+          />
+          <p className="tg-upload-hint">
+            Supports PNG, JPG, WEBP — this will be your template background
+          </p>
         </div>
       </div>
     )
   }
 
-  /* ------------------------------------------------------------------ */
-  /*  Render                                                            */
-  /* ------------------------------------------------------------------ */
+  // ===== CANVAS STATE: Background uploaded =====
   return (
     <div
       ref={containerRef}
@@ -412,8 +466,8 @@ export function CanvasArea() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        position: 'relative',
         overflow: 'auto',
+        background: '#0d0d1a',
       }}
     >
       <Stage
@@ -422,31 +476,28 @@ export function CanvasArea() {
         height={stageH}
         scaleX={zoom}
         scaleY={zoom}
-        style={{ cursor: isPlacing ? 'crosshair' : 'default' }}
-        pixelRatio={dpr}
+        style={{
+          cursor: isPlacing ? 'crosshair' : 'default',
+          boxShadow: '0 4px 32px rgba(0,0,0,0.5)',
+        }}
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
         onMouseUp={handleStageMouseUp}
-        onContextMenu={handleStageContextMenu}
+        onContextMenu={(e) => e.evt.preventDefault()}
       >
-        <Layer ref={layerRef}>
-          {/* -- Background image ------------------------------------ */}
-          {bgImage && (
-            <Rect
+        <Layer>
+          {/* Background image — rendered at full canvas size */}
+          {bgImage ? (
+            <KonvaImage
               name="bg-image"
+              image={bgImage}
               x={0}
               y={0}
               width={meta.width}
               height={meta.height}
-              fillPatternImage={bgImage}
-              fillPatternScaleX={meta.width / bgImage.width}
-              fillPatternScaleY={meta.height / bgImage.height}
               listening={!isPlacing}
             />
-          )}
-
-          {/* -- Fallback background rect (click target) ------------- */}
-          {!bgImage && (
+          ) : (
             <Rect
               name="bg-rect"
               x={0}
@@ -457,10 +508,10 @@ export function CanvasArea() {
             />
           )}
 
-          {/* -- Grid overlay ---------------------------------------- */}
+          {/* Grid overlay */}
           {renderGrid()}
 
-          {/* -- Fields ---------------------------------------------- */}
+          {/* Fields */}
           {sortedFields.map((field) => {
             const colors = FIELD_COLORS[field.type]
             const isSelected = selectedFieldIds.includes(field.id)
@@ -476,11 +527,17 @@ export function CanvasArea() {
                 onTap={(e) =>
                   handleFieldClick(e as unknown as Konva.KonvaEventObject<MouseEvent>, field.id)
                 }
-                onDragEnd={(e) => handleFieldDragEnd(field.id, e.target)}
-                onTransformEnd={(e) => handleTransformEnd(field.id, e.target)}
+                onDragEnd={(e) => {
+                  // e.target may be the Group or a child — find the Group
+                  const group = e.target.findAncestor('Group', true) || e.target
+                  handleFieldDragEnd(field.id, group)
+                }}
+                onTransformEnd={(e) => {
+                  const group = e.target.findAncestor('Group', true) || e.target
+                  handleTransformEnd(field.id, group)
+                }}
                 onContextMenu={(e) => handleContextMenu(e, field.id)}
               >
-                {/* Field rectangle */}
                 <Rect
                   width={field.width}
                   height={field.height}
@@ -489,8 +546,6 @@ export function CanvasArea() {
                   strokeWidth={isSelected ? 2 / zoom : 1 / zoom}
                   cornerRadius={2 / zoom}
                 />
-
-                {/* Field label */}
                 <Text
                   text={field.jsonKey}
                   x={4 / zoom}
@@ -503,8 +558,6 @@ export function CanvasArea() {
                   wrap="none"
                   listening={false}
                 />
-
-                {/* Field type badge */}
                 <Text
                   text={field.type.toUpperCase()}
                   x={4 / zoom}
@@ -520,7 +573,7 @@ export function CanvasArea() {
             )
           })}
 
-          {/* -- Draw-to-place rectangle ----------------------------- */}
+          {/* Draw-to-place rectangle */}
           {isDrawing && drawRect && (
             <Rect
               x={drawRect.x}
@@ -535,7 +588,7 @@ export function CanvasArea() {
             />
           )}
 
-          {/* -- Transformer (resize handles) ------------------------ */}
+          {/* Transformer */}
           <Transformer
             ref={transformerRef}
             borderStroke={SELECTED_STROKE}
@@ -546,9 +599,8 @@ export function CanvasArea() {
             anchorCornerRadius={2 / zoom}
             rotateEnabled={false}
             keepRatio={false}
-            boundBoxFunc={(_oldBox, newBox) => {
-              // Enforce minimum size
-              if (newBox.width < 10 || newBox.height < 10) return _oldBox
+            boundBoxFunc={(oldBox, newBox) => {
+              if (newBox.width < 10 || newBox.height < 10) return oldBox
               return newBox
             }}
             enabledAnchors={[
@@ -564,16 +616,6 @@ export function CanvasArea() {
           />
         </Layer>
       </Stage>
-
-      {/* -- Locked overlay ------------------------------------------- */}
-      {locked && (
-        <div className="tg-locked-overlay">
-          <div className="tg-locked-badge">
-            <span>&#128274;</span>
-            <span>Template locked</span>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
