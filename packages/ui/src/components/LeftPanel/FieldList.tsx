@@ -133,7 +133,7 @@ export function LeftPanel() {
   const ungroupedFields = groupedFields.get(null) ?? []
 
   return (
-    <div className="tg-left-panel">
+    <>
       <div className="tg-left-panel-header">
         <span>Fields</span>
         <button className="tg-btn" onClick={handleNewGroup}>
@@ -166,6 +166,6 @@ export function LeftPanel() {
           />
         )}
       </div>
-    </div>
+    </>
   )
 }

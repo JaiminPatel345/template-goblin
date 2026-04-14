@@ -118,6 +118,17 @@ export function CanvasArea() {
     tr.getLayer()?.batchDraw()
   }, [selectedFieldIds, fields, meta.locked])
 
+  // Scroll-to-zoom handler
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault()
+      const delta = e.deltaY > 0 ? -0.05 : 0.05
+      const newZoom = Math.max(0.1, Math.min(5, zoom + delta))
+      setZoom(newZoom)
+    },
+    [zoom, setZoom],
+  )
+
   const locked = meta.locked
   const stageW = meta.width * zoom
   const stageH = meta.height * zoom
@@ -454,6 +465,7 @@ export function CanvasArea() {
   return (
     <div
       ref={containerRef}
+      onWheel={handleWheel}
       style={{
         width: '100%',
         height: '100%',

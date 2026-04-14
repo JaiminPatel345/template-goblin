@@ -14,7 +14,7 @@ export function RightPanel() {
     selectedIds.length === 1 ? (fields.find((f) => f.id === selectedIds[0]) ?? null) : null
 
   return (
-    <div className="tg-right-panel">
+    <>
       {selectedField === null ? (
         <div className="tg-panel-section">
           <div
@@ -40,6 +40,6 @@ export function RightPanel() {
 
       <JsonPreview />
       <PdfSizeEstimate />
-    </div>
+    </>
   )
 }

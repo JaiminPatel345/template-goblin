@@ -157,8 +157,7 @@ body,
   border-right: 1px solid var(--border);
   flex-shrink: 0;
   position: relative;
-  resize: horizontal;
-  overflow: auto;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
@@ -362,12 +361,7 @@ body,
   border-left: 1px solid var(--border);
   overflow-y: auto;
   flex-shrink: 0;
-  resize: horizontal;
-  direction: rtl;
-}
-
-.tg-right-panel > * {
-  direction: ltr;
+  position: relative;
 }
 
 .tg-panel-section {
@@ -678,21 +672,72 @@ body,
   }
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling — panels */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--bg-primary);
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--border-light);
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* Canvas scrollbar — larger and more visible */
+.tg-canvas-container::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.tg-canvas-container::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+  border-radius: 6px;
+}
+
+.tg-canvas-container::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 6px;
+  border: 2px solid var(--bg-primary);
+}
+
+.tg-canvas-container::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-hover);
+}
+
+/* Firefox scrollbar */
+.tg-canvas-container {
+  scrollbar-width: auto;
+  scrollbar-color: var(--accent) var(--bg-primary);
+}
+
+/* Sidebar resize handle */
+.tg-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  z-index: 10;
+  transition: background 0.15s;
+}
+
+.tg-resize-handle:hover,
+.tg-resize-handle--active {
+  background: var(--accent);
+}
+
+.tg-resize-handle--right {
+  right: 0;
+}
+
+.tg-resize-handle--left {
+  left: 0;
 }
