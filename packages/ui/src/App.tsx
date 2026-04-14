@@ -14,6 +14,7 @@ import './App.css'
 export function App() {
   useKeyboard()
 
+  const theme = useUiStore((s) => s.theme)
   const hasBackground = useTemplateStore((s) => s.backgroundDataUrl !== null)
   const showLeftPanel = useUiStore((s) => s.showLeftPanel)
   const showRightPanel = useUiStore((s) => s.showRightPanel)
@@ -24,7 +25,7 @@ export function App() {
   const locked = useTemplateStore((s) => s.meta.locked)
 
   return (
-    <div className="tg-app">
+    <div className="tg-app" data-theme={theme}>
       <Toolbar />
       <div className="tg-workspace">
         {hasBackground && showLeftPanel && <LeftPanel />}
