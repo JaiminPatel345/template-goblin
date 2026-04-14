@@ -357,6 +357,20 @@ export function CanvasArea() {
     [locked, selectField, toggleFieldSelection],
   )
 
+  const handleFieldDblClick = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>, fieldId: string) => {
+      if (locked) return
+      e.cancelBubble = true
+      // Double-click toggles: deselect if already selected, select if not
+      if (selectedFieldIds.includes(fieldId)) {
+        clearSelection()
+      } else {
+        selectField(fieldId)
+      }
+    },
+    [locked, selectedFieldIds, selectField, clearSelection],
+  )
+
   const handleFieldDragEnd = useCallback(
     (fieldId: string, node: Konva.Node) => {
       if (locked) return
@@ -574,8 +588,12 @@ export function CanvasArea() {
                 y={field.y}
                 draggable={!locked}
                 onClick={(e) => handleFieldClick(e, field.id)}
+                onDblClick={(e) => handleFieldDblClick(e, field.id)}
                 onTap={(e) =>
                   handleFieldClick(e as unknown as Konva.KonvaEventObject<MouseEvent>, field.id)
+                }
+                onDblTap={(e) =>
+                  handleFieldDblClick(e as unknown as Konva.KonvaEventObject<MouseEvent>, field.id)
                 }
                 onDragStart={() => {
                   // Select the field when drag starts — ensures Transformer
