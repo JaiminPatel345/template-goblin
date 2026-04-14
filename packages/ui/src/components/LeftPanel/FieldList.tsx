@@ -156,15 +156,14 @@ export function LeftPanel() {
           )
         })}
 
-        {ungroupedFields.length > 0 && (
-          <GroupSection
-            group={{ id: '__ungrouped__', name: 'Ungrouped' }}
-            fields={ungroupedFields}
-            selectedFieldIds={selectedFieldIds}
-            onSelectField={selectField}
-            onDropField={handleDropField}
-          />
-        )}
+        {/* Always show Ungrouped so fields can be dragged out of groups */}
+        <GroupSection
+          group={{ id: '__ungrouped__', name: 'Ungrouped' }}
+          fields={ungroupedFields}
+          selectedFieldIds={selectedFieldIds}
+          onSelectField={selectField}
+          onDropField={handleDropField}
+        />
       </div>
     </>
   )
