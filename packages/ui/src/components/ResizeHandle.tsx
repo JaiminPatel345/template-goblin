@@ -31,10 +31,12 @@ export function ResizeHandle({ side, width, onResize, min = 180, max = 500 }: Re
       function onMove(ev: MouseEvent) {
         if (!startRef.current) return
         const diff = ev.clientX - startRef.current.x
+        // side="right" = handle on right edge of left panel: drag right expands (+diff)
+        // side="left" = handle on left edge of right panel: drag left expands (-diff)
         const newWidth =
           side === 'right'
-            ? Math.max(min, Math.min(max, startRef.current.w - diff))
-            : Math.max(min, Math.min(max, startRef.current.w + diff))
+            ? Math.max(min, Math.min(max, startRef.current.w + diff))
+            : Math.max(min, Math.min(max, startRef.current.w - diff))
         onResize(newWidth)
       }
 
