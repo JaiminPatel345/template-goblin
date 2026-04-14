@@ -46,17 +46,23 @@ export function useKeyboard(): void {
         return
       }
 
-      // Undo
-      if (isMod && !e.shiftKey && e.key === 'z') {
+      // Undo / Redo — skip if user is editing text in an input/textarea
+      // so browser-native undo works for JSON editor, property inputs, etc.
+      if (isMod && e.key === 'z') {
+        const target = e.target as HTMLElement
+        if (
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable
+        ) {
+          return // let browser handle native undo/redo
+        }
         e.preventDefault()
-        useTemplateStore.getState().undo()
-        return
-      }
-
-      // Redo
-      if (isMod && e.shiftKey && e.key === 'z') {
-        e.preventDefault()
-        useTemplateStore.getState().redo()
+        if (e.shiftKey) {
+          useTemplateStore.getState().redo()
+        } else {
+          useTemplateStore.getState().undo()
+        }
         return
       }
 
