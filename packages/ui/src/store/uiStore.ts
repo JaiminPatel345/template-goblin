@@ -3,7 +3,7 @@ import { create } from 'zustand'
 export type ActiveTool = 'select' | 'addText' | 'addImage' | 'addLoop'
 
 /** JSON preview mode */
-export type JsonPreviewMode = 'default' | 'max' | 'min'
+export type JsonPreviewMode = 'default' | 'max'
 
 export type Theme = 'light' | 'dark'
 

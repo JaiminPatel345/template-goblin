@@ -60,22 +60,18 @@ export function generateExampleJson(
 function getTextValue(field: FieldDefinition, mode: JsonPreviewMode, repeatCount: number): string {
   switch (mode) {
     case 'default':
-      return ''
+      return field.required ? 'A' : ''
     case 'max':
       return 'It works in my machine '.repeat(repeatCount).trim()
-    case 'min':
-      return field.required ? 'A' : ''
   }
 }
 
 function getImageValue(field: FieldDefinition, mode: JsonPreviewMode): string | null {
   switch (mode) {
     case 'default':
-      return null
+      return field.required ? '<base64-image-data>' : null
     case 'max':
       return '<base64-image-data>'
-    case 'min':
-      return field.required ? '<base64-image-data>' : null
   }
 }
 
@@ -88,8 +84,14 @@ function getLoopValue(
   const columns = style.columns || []
 
   switch (mode) {
-    case 'default':
-      return []
+    case 'default': {
+      if (!field.required) return []
+      const row: Record<string, string> = {}
+      for (const col of columns) {
+        row[col.key] = 'A'
+      }
+      return [row]
+    }
 
     case 'max': {
       const rows: Record<string, string>[] = []
@@ -102,15 +104,6 @@ function getLoopValue(
         rows.push(row)
       }
       return rows
-    }
-
-    case 'min': {
-      if (!field.required) return []
-      const row: Record<string, string> = {}
-      for (const col of columns) {
-        row[col.key] = 'A'
-      }
-      return [row]
     }
   }
 }
