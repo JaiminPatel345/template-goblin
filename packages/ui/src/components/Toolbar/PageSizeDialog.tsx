@@ -25,12 +25,8 @@ export function PageSizeDialog() {
   if (!showDialog || !pendingBackground) return null
 
   const { width: imgWidth, height: imgHeight, dataUrl, buffer } = pendingBackground
-
-  // At 72 DPI, pixels = pt
   const matchWidth = imgWidth
   const matchHeight = imgHeight
-
-  const matchLabel = `Match image (${matchWidth} x ${matchHeight} pt)`
 
   const presetOptions: PageSizeOption[] = [
     { label: 'A4 (595 x 842 pt)', pageSize: 'A4', width: 595, height: 842 },
@@ -76,77 +72,79 @@ export function PageSizeDialog() {
 
   return (
     <div className="tg-dialog-overlay" onClick={handleCancel}>
-      <div className="tg-dialog" onClick={(e) => e.stopPropagation()}>
+      <div className="tg-dialog" onClick={(e) => e.stopPropagation()} style={{ minWidth: 420 }}>
         <h2 className="tg-dialog-title">Select Page Size</h2>
-
-        <p>
-          Your image is {imgWidth}x{imgHeight} pixels
+        <p style={{ marginBottom: 16 }}>
+          Your image is{' '}
+          <strong>
+            {imgWidth} x {imgHeight}
+          </strong>{' '}
+          pixels
         </p>
 
-        <div className="tg-page-size-options">
-          {/* Match image */}
-          <label className="tg-form-row">
-            <input
-              type="radio"
-              name="pageSize"
-              value="match"
-              checked={selected === 'match'}
-              onChange={() => setSelected('match')}
-            />
-            {matchLabel}
-          </label>
-
-          {/* Preset sizes */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16 }}>
+          <RadioOption
+            checked={selected === 'match'}
+            onChange={() => setSelected('match')}
+            label={`Match image (${matchWidth} x ${matchHeight} pt)`}
+          />
           {presetOptions.map((opt) => (
-            <label key={opt.pageSize} className="tg-form-row">
-              <input
-                type="radio"
-                name="pageSize"
-                value={opt.pageSize}
-                checked={selected === opt.pageSize}
-                onChange={() => setSelected(opt.pageSize)}
-              />
-              {opt.label}
-            </label>
-          ))}
-
-          {/* Custom */}
-          <label className="tg-form-row">
-            <input
-              type="radio"
-              name="pageSize"
-              value="custom"
-              checked={selected === 'custom'}
-              onChange={() => setSelected('custom')}
+            <RadioOption
+              key={opt.pageSize}
+              checked={selected === opt.pageSize}
+              onChange={() => setSelected(opt.pageSize)}
+              label={opt.label}
             />
-            Custom
-          </label>
-
-          {selected === 'custom' && (
-            <div className="tg-form-row tg-custom-size-inputs">
-              <label>
-                Width (pt):
-                <input
-                  className="tg-input"
-                  type="number"
-                  min={1}
-                  value={customWidth}
-                  onChange={(e) => setCustomWidth(Number(e.target.value))}
-                />
-              </label>
-              <label>
-                Height (pt):
-                <input
-                  className="tg-input"
-                  type="number"
-                  min={1}
-                  value={customHeight}
-                  onChange={(e) => setCustomHeight(Number(e.target.value))}
-                />
-              </label>
-            </div>
-          )}
+          ))}
+          <RadioOption
+            checked={selected === 'custom'}
+            onChange={() => setSelected('custom')}
+            label="Custom"
+          />
         </div>
+
+        {selected === 'custom' && (
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-secondary)',
+                  display: 'block',
+                  marginBottom: 4,
+                }}
+              >
+                Width (pt)
+              </label>
+              <input
+                className="tg-input"
+                type="number"
+                min={1}
+                value={customWidth}
+                onChange={(e) => setCustomWidth(Number(e.target.value))}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-secondary)',
+                  display: 'block',
+                  marginBottom: 4,
+                }}
+              >
+                Height (pt)
+              </label>
+              <input
+                className="tg-input"
+                type="number"
+                min={1}
+                value={customHeight}
+                onChange={(e) => setCustomHeight(Number(e.target.value))}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="tg-dialog-actions">
           <button className="tg-btn" onClick={handleCancel}>
@@ -158,5 +156,48 @@ export function PageSizeDialog() {
         </div>
       </div>
     </div>
+  )
+}
+
+function RadioOption({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean
+  onChange: () => void
+  label: string
+}) {
+  return (
+    <label
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        padding: '10px 14px',
+        borderRadius: 8,
+        cursor: 'pointer',
+        fontSize: 14,
+        color: 'var(--text-primary)',
+        background: checked ? 'var(--bg-tertiary)' : 'transparent',
+        border: checked ? '1px solid var(--accent)' : '1px solid transparent',
+        transition: 'all 0.15s',
+      }}
+    >
+      <input
+        type="radio"
+        checked={checked}
+        onChange={onChange}
+        style={{
+          width: 18,
+          height: 18,
+          accentColor: 'var(--accent)',
+          cursor: 'pointer',
+          flexShrink: 0,
+        }}
+      />
+      <span>{label}</span>
+    </label>
   )
 }
