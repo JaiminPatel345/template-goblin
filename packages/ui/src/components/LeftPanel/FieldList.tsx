@@ -6,7 +6,7 @@ import type { FieldDefinition, GroupDefinition } from '@template-goblin/types'
 const TYPE_LABELS: Record<string, string> = {
   text: 'Text',
   image: 'Image',
-  loop: 'Loop',
+  loop: 'Table',
 }
 
 function FieldItem({

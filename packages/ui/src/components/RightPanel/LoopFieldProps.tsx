@@ -98,7 +98,7 @@ export function LoopFieldProps({ field }: Props) {
     <>
       {/* JSON Key & Basic Settings */}
       <div className="tg-panel-section">
-        <div className="tg-panel-section-title">Loop Properties</div>
+        <div className="tg-panel-section-title">Table Properties</div>
 
         <div className="tg-form-row">
           <label>JSON Key</label>

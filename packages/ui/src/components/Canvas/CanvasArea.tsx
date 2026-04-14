@@ -237,18 +237,14 @@ export function CanvasArea() {
       if (fieldType) {
         createField(fieldType, x, y, w, h)
 
-        // Bug 5: For loop fields, select the newly created field so the right
-        // panel opens immediately and the user can configure columns.
-        if (fieldType === 'loop') {
-          // addField generates an id; grab the last field from the store
-          setTimeout(() => {
-            const currentFields = useTemplateStore.getState().fields
-            const newLoop = currentFields[currentFields.length - 1]
-            if (newLoop && newLoop.type === 'loop') {
-              selectField(newLoop.id)
-            }
-          }, 0)
-        }
+        // Auto-select the newly created field so user can edit its details
+        setTimeout(() => {
+          const currentFields = useTemplateStore.getState().fields
+          const newField = currentFields[currentFields.length - 1]
+          if (newField) {
+            selectField(newField.id)
+          }
+        }, 0)
       }
     }
 
@@ -649,7 +645,7 @@ export function CanvasArea() {
                   listening={false}
                 />
                 <Text
-                  text={field.type.toUpperCase()}
+                  text={field.type === 'loop' ? 'TABLE' : field.type.toUpperCase()}
                   x={4 / zoom}
                   y={field.height - 16 / zoom}
                   fontSize={9 / zoom}
