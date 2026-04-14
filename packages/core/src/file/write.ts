@@ -1,0 +1,64 @@
+import { writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { mkdirSync, existsSync } from 'node:fs'
+import AdmZip from 'adm-zip'
+import type { TemplateManifest, TemplateAssets } from '@template-goblin/types'
+import { TemplateGoblinError } from '@template-goblin/types'
+import { MANIFEST_FILENAME, BACKGROUND_FILENAME, FONTS_DIR, PLACEHOLDERS_DIR } from './constants.js'
+
+/**
+ * Save a template as a .tgbl ZIP file.
+ *
+ * Creates a ZIP archive containing manifest.json, background image,
+ * fonts, and placeholder images as real binary files (not base64).
+ *
+ * @param manifest - Template manifest to save
+ * @param assets - Template assets (background, fonts, placeholders)
+ * @param outputPath - Path to write the .tgbl file
+ * @throws TemplateGoblinError on write failure
+ */
+export async function saveTemplate(
+  manifest: TemplateManifest,
+  assets: TemplateAssets,
+  outputPath: string,
+): Promise<void> {
+  try {
+    const zip = new AdmZip()
+
+    // REQ: manifest.json stored as JSON text
+    const manifestJson = JSON.stringify(manifest, null, 2)
+    zip.addFile(MANIFEST_FILENAME, Buffer.from(manifestJson, 'utf-8'))
+
+    // REQ: background image stored as real binary
+    if (assets.backgroundImage) {
+      zip.addFile(BACKGROUND_FILENAME, assets.backgroundImage)
+    }
+
+    // REQ: fonts stored as real .ttf binaries under fonts/
+    for (const [fontId, fontBuffer] of assets.fonts) {
+      const fontEntry = manifest.fonts.find((f) => f.id === fontId)
+      const filename = fontEntry ? fontEntry.filename : `${FONTS_DIR}${fontId}.ttf`
+      zip.addFile(filename, fontBuffer)
+    }
+
+    // REQ: placeholder images stored as real binaries under placeholders/
+    for (const [name, imageBuffer] of assets.placeholders) {
+      const filename = name.startsWith(PLACEHOLDERS_DIR) ? name : `${PLACEHOLDERS_DIR}${name}`
+      zip.addFile(filename, imageBuffer)
+    }
+
+    // Ensure output directory exists
+    const dir = dirname(outputPath)
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true })
+    }
+
+    writeFileSync(outputPath, zip.toBuffer())
+  } catch (error) {
+    if (error instanceof TemplateGoblinError) throw error
+    throw new TemplateGoblinError(
+      'PDF_GENERATION_FAILED',
+      `Failed to save template: ${error instanceof Error ? error.message : 'unknown error'}`,
+    )
+  }
+}
