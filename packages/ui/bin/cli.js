@@ -62,7 +62,12 @@ const server = createServer((req, res) => {
 
   try {
     const content = readFileSync(filePath)
-    res.writeHead(200, { 'Content-Type': contentType })
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'SAMEORIGIN',
+      'X-XSS-Protection': '1; mode=block',
+    })
     res.end(content)
   } catch {
     res.writeHead(404)

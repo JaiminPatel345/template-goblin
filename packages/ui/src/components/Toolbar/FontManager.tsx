@@ -12,14 +12,33 @@ export function FontManager() {
 
   function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !file.name.endsWith('.ttf')) return
+    if (!file || !file.name.toLowerCase().endsWith('.ttf')) return
+
+    // Size limit: 10 MB
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Font file too large. Maximum size is 10 MB.')
+      return
+    }
 
     const reader = new FileReader()
     reader.onload = () => {
       const buffer = reader.result as ArrayBuffer
+
+      // Validate TTF magic bytes
+      if (buffer.byteLength >= 4) {
+        const view = new DataView(buffer)
+        const magic = view.getUint32(0)
+        if (magic !== 0x00010000 && magic !== 0x74727565 && magic !== 0x4f54544f) {
+          alert('Invalid font file. Please select a valid .ttf file.')
+          return
+        }
+      }
+
       const id = `font-${Date.now()}`
-      const name = file.name.replace('.ttf', '')
-      addFont({ id, name, filename: `fonts/${file.name}` }, buffer)
+      // Sanitize filename
+      const safeName = file.name.replace(/[/\\:*?"<>|]/g, '_').replace(/\.\./g, '_')
+      const name = safeName.replace(/\.ttf$/i, '')
+      addFont({ id, name, filename: `fonts/${safeName}` }, buffer)
     }
     reader.readAsArrayBuffer(file)
     e.target.value = ''

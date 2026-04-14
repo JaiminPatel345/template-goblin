@@ -34,14 +34,32 @@ export function Toolbar() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    // Validate file size (20 MB max)
+    if (file.size > 20 * 1024 * 1024) {
+      alert('Image too large. Maximum size is 20 MB.')
+      e.target.value = ''
+      return
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.')
+      e.target.value = ''
+      return
+    }
+
     const reader = new FileReader()
     reader.onload = () => {
       const dataUrl = reader.result as string
 
-      // Read as array buffer for storage, data url for display
       const img = new Image()
       img.onload = () => {
-        // Read as buffer too
+        // Validate dimensions
+        if (img.naturalWidth > 10000 || img.naturalHeight > 10000) {
+          alert('Image dimensions too large. Maximum is 10000x10000 pixels.')
+          return
+        }
+
         const bufReader = new FileReader()
         bufReader.onload = () => {
           useUiStore.getState().setPendingBackground({

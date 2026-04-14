@@ -59,7 +59,14 @@ export async function generateAndStore(
   options: GenerateAndStoreOptions,
 ): Promise<StoreResult> {
   const pdf = await generatePDF(template, data)
-  const fullKey = options.prefix ? `${options.prefix}${options.key}` : options.key
+  const rawKey = options.prefix ? `${options.prefix}${options.key}` : options.key
+
+  // Sanitize storage key — prevent path traversal
+  if (rawKey.includes('..') || rawKey.startsWith('/') || /[<>:"|?*]/.test(rawKey)) {
+    throw new Error('Invalid storage key: contains unsafe characters')
+  }
+  const fullKey = rawKey
+
   const url = await storage.upload(fullKey, pdf, 'application/pdf')
 
   return { url, size: pdf.length }

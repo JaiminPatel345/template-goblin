@@ -121,8 +121,8 @@ function renderLoopHtml(field: FieldDefinition, rows: Record<string, string>[]):
 }
 
 function renderImageHtml(field: FieldDefinition): string {
-  const css = `left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;border:1px dashed #999;display:flex;align-items:center;justify-content:center;color:#999;font-size:10pt`
-  return `<div class="field" style="${css}">[Image: ${field.jsonKey}]</div>`
+  const css = `left:${sanitizeCssValue(field.x)}pt;top:${sanitizeCssValue(field.y)}pt;width:${sanitizeCssValue(field.width)}pt;height:${sanitizeCssValue(field.height)}pt;border:1px dashed #999;display:flex;align-items:center;justify-content:center;color:#999;font-size:10pt`
+  return `<div class="field" style="${css}">[Image: ${escapeHtml(field.jsonKey)}]</div>`
 }
 
 function escapeHtml(text: string): string {
@@ -131,4 +131,17 @@ function escapeHtml(text: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+}
+
+/**
+ * Sanitize a CSS property value — only allow safe numeric/color values.
+ * Prevents CSS injection via user-controlled style properties.
+ */
+function sanitizeCssValue(value: unknown): string {
+  if (typeof value === 'number') return String(value)
+  if (typeof value !== 'string') return '0'
+  // Only allow safe CSS values: numbers, hex colors, named colors, simple values
+  if (/^[a-zA-Z0-9#.,\s%-]+$/.test(value)) return value
+  return '0'
 }

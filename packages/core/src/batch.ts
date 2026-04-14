@@ -72,7 +72,12 @@ export async function generateBatchPDF(
   dataArray: InputJSON[],
   options: BatchOptions = {},
 ): Promise<BatchResult[]> {
+  const MAX_BATCH_SIZE = 10_000
   const { concurrency = cpus().length, parallel = true, onProgress, workerPath } = options
+
+  if (dataArray.length > MAX_BATCH_SIZE) {
+    throw new Error(`Batch size ${dataArray.length} exceeds maximum of ${MAX_BATCH_SIZE}`)
+  }
 
   if (!parallel || dataArray.length <= 1) {
     return generateBatchInProcess(template, dataArray, onProgress)
@@ -86,6 +91,7 @@ export async function generateBatchPDF(
   if (!workerPath) {
     throw new Error('workerPath is required when parallel=true. Pass the path to batch-worker.js.')
   }
+  const resolvedWorkerPath: string = workerPath
 
   return new Promise((resolve) => {
     const maxWorkers = Math.min(concurrency, dataArray.length)
@@ -96,7 +102,7 @@ export async function generateBatchPDF(
       const index = nextIndex++
       const data = dataArray[index]
 
-      const child = fork(workerPath, [], { serialization: 'json' })
+      const child = fork(resolvedWorkerPath, [], { serialization: 'json' })
 
       child.on('message', (msg: { success: boolean; pdf?: string; error?: string }) => {
         results[index] = {
