@@ -10,21 +10,27 @@ export type ErrorCode =
   | 'MAX_PAGES_EXCEEDED'
   | 'FONT_LOAD_FAILED'
   | 'PDF_GENERATION_FAILED'
+  | 'SAVE_FAILED'
 
 /** Base error class for all TemplateGoblin errors */
 export class TemplateGoblinError extends Error {
   code: ErrorCode
+  details?: Record<string, unknown>
 
-  constructor(code: ErrorCode, message: string) {
+  constructor(code: ErrorCode, message: string, details?: Record<string, unknown>) {
     super(message)
     this.name = 'TemplateGoblinError'
     this.code = code
+    this.details = details
   }
 }
 
+/** Validation error codes */
+export type ValidationErrorCode = 'MISSING_REQUIRED_FIELD' | 'INVALID_DATA_TYPE'
+
 /** A single validation error with field context */
 export interface ValidationError {
-  code: string
+  code: ValidationErrorCode
   field: string
   message: string
 }

@@ -12,7 +12,7 @@ import type { JsonPreviewMode } from '../store/uiStore.js'
  * Note: Actual PDF generation for download uses the Node.js core library (PDFKit).
  * Browser preview uses this HTML approach for compatibility — no Node.js polyfills needed.
  */
-export async function generatePreviewPdf(
+export async function generatePreviewHtml(
   fields: FieldDefinition[],
   meta: { name: string; width: number; height: number },
   backgroundDataUrl: string | null,

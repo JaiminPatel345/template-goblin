@@ -5,25 +5,7 @@ import type {
   ValidationError,
   FieldDefinition,
 } from '@template-goblin/types'
-
-/**
- * Resolve a dot-notation key against a data object.
- *
- * @param data - The root data object
- * @param jsonKey - Dot-notation path (e.g., "texts.name")
- * @returns The value at the path, or undefined if not found
- */
-function resolveKey(data: Record<string, unknown>, jsonKey: string): unknown {
-  const parts = jsonKey.split('.')
-  let current: unknown = data
-  for (const part of parts) {
-    if (current === null || current === undefined || typeof current !== 'object') {
-      return undefined
-    }
-    current = (current as Record<string, unknown>)[part]
-  }
-  return current
-}
+import { resolveKey } from './utils/resolveKey.js'
 
 /**
  * Validate a single field's data against its type expectations.

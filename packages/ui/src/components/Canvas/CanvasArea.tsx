@@ -58,7 +58,6 @@ export function CanvasArea() {
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null)
-  const [, setContainerSize] = useState({ width: 800, height: 600 })
   const [drawRect, setDrawRect] = useState<{ x: number; y: number; w: number; h: number } | null>(
     null,
   )
@@ -76,30 +75,28 @@ export function CanvasArea() {
     img.onload = () => setBgImage(img)
   }, [backgroundDataUrl])
 
-  // Observe container size and auto-fit zoom
+  // Auto-fit zoom only when background first loads (not on every resize)
+  const hasAutoFitted = useRef(false)
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
 
-    const update = () => {
+    if (backgroundDataUrl && meta.width > 0 && meta.height > 0 && !hasAutoFitted.current) {
       const w = el.clientWidth
       const h = el.clientHeight
-      setContainerSize({ width: w, height: h })
-
-      // Auto-fit: calculate zoom to fit canvas in container with padding
-      if (backgroundDataUrl && meta.width > 0 && meta.height > 0) {
-        const padding = 40
-        const scaleX = (w - padding * 2) / meta.width
-        const scaleY = (h - padding * 2) / meta.height
-        const fitZoom = Math.min(scaleX, scaleY, 2) // cap at 200%
-        setZoom(Math.max(0.1, fitZoom))
-      }
+      const padding = 40
+      const scaleX = (w - padding * 2) / meta.width
+      const scaleY = (h - padding * 2) / meta.height
+      const fitZoom = Math.min(scaleX, scaleY, 2)
+      setZoom(Math.max(0.1, fitZoom))
+      hasAutoFitted.current = true
     }
 
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
+    if (!backgroundDataUrl) {
+      hasAutoFitted.current = false
+    }
+
+    return undefined
   }, [backgroundDataUrl, meta.width, meta.height])
 
   // Attach Transformer to selected nodes

@@ -116,12 +116,25 @@ function getLoopValue(
 }
 
 /**
+ * Escape HTML entities to prevent XSS when rendering with dangerouslySetInnerHTML.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/**
  * Syntax-highlight a JSON string with HTML spans.
+ * Input is HTML-escaped first to prevent XSS.
  */
 export function highlightJson(json: string): string {
-  return json
-    .replace(/("(?:\\.|[^"\\])*")\s*:/g, '<span style="color:#60a5fa">$1</span>:')
-    .replace(/:\s*("(?:\\.|[^"\\])*")/g, ': <span style="color:#4ade80">$1</span>')
+  const safe = escapeHtml(json)
+  return safe
+    .replace(/(&quot;(?:\\.|[^&])*?&quot;)\s*:/g, '<span style="color:#60a5fa">$1</span>:')
+    .replace(/:\s*(&quot;(?:\\.|[^&])*?&quot;)/g, ': <span style="color:#4ade80">$1</span>')
     .replace(/:\s*(\d+(?:\.\d+)?)/g, ': <span style="color:#fbbf24">$1</span>')
     .replace(/:\s*(null)/g, ': <span style="color:#6b6b80">$1</span>')
     .replace(/:\s*(true|false)/g, ': <span style="color:#fb923c">$1</span>')

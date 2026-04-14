@@ -33,7 +33,6 @@
   },
   "comment:jszip": "ZIP read/write for .tgbl files in browser",
   "comment:konva": "Canvas rendering engine for react-konva",
-  "comment:pdfkit": "In-browser PDF preview generation",
   "comment:react-konva": "React bindings for Konva — drag-and-drop canvas",
   "comment:zustand": "Lightweight state management — canvas state, undo/redo, UI state"
 }
