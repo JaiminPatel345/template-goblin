@@ -339,28 +339,11 @@ export function Toolbar() {
         </button>
       </div>
 
-      <div className="tg-toolbar-separator" />
+      {/* Spacer pushes remaining buttons to far right */}
+      <div style={{ flex: 1 }} />
 
-      {/* Right group: Preview, Fonts, Theme */}
+      {/* Fonts & Theme */}
       <div className="tg-toolbar-group">
-        <button
-          className="tg-btn"
-          onClick={() => setShowPreview(!showPreview)}
-          disabled={!hasBackground}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-          Preview
-        </button>
         <button className="tg-btn" onClick={() => setShowFontManager(true)}>
           Fonts
         </button>
@@ -401,7 +384,28 @@ export function Toolbar() {
 
       <div className="tg-toolbar-separator" />
 
-      {/* Lock — 2nd from last */}
+      {/* Preview — end group */}
+      <button
+        className="tg-btn"
+        onClick={() => setShowPreview(!showPreview)}
+        disabled={!hasBackground}
+        title="Preview template"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+        Preview
+      </button>
+
+      {/* Lock */}
       <button
         className={`tg-btn ${locked ? 'tg-btn--active' : ''}`}
         onClick={() => setLocked(!locked)}
