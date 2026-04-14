@@ -5,6 +5,7 @@ import AdmZip from 'adm-zip'
 import type { TemplateManifest, TemplateAssets } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
 import { MANIFEST_FILENAME, BACKGROUND_FILENAME, FONTS_DIR, PLACEHOLDERS_DIR } from './constants.js'
+import { subsetTemplateFonts } from '../utils/fontSubset.js'
 
 /**
  * Save a template as a .tgbl ZIP file.
@@ -15,15 +16,20 @@ import { MANIFEST_FILENAME, BACKGROUND_FILENAME, FONTS_DIR, PLACEHOLDERS_DIR } f
  * @param manifest - Template manifest to save
  * @param assets - Template assets (background, fonts, placeholders)
  * @param outputPath - Path to write the .tgbl file
+ * @param options - Optional settings (e.g., font subsetting)
  * @throws TemplateGoblinError on write failure
  */
 export async function saveTemplate(
   manifest: TemplateManifest,
   assets: TemplateAssets,
   outputPath: string,
+  options?: { subsetFonts?: boolean },
 ): Promise<void> {
   try {
     const zip = new AdmZip()
+
+    // Font subsetting: reduce font file size by keeping only used glyphs
+    const fonts = options?.subsetFonts ? subsetTemplateFonts(manifest, assets.fonts) : assets.fonts
 
     // REQ: manifest.json stored as JSON text
     const manifestJson = JSON.stringify(manifest, null, 2)
@@ -35,7 +41,7 @@ export async function saveTemplate(
     }
 
     // REQ: fonts stored as real .ttf binaries under fonts/
-    for (const [fontId, fontBuffer] of assets.fonts) {
+    for (const [fontId, fontBuffer] of fonts) {
       const fontEntry = manifest.fonts.find((f) => f.id === fontId)
       const filename = fontEntry ? fontEntry.filename : `${FONTS_DIR}${fontId}.ttf`
       zip.addFile(filename, fontBuffer)

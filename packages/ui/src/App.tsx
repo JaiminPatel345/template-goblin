@@ -6,6 +6,7 @@ import { PageSizeDialog } from './components/Toolbar/PageSizeDialog.js'
 import { ContextMenu } from './components/Canvas/ContextMenu.js'
 import { FontManager } from './components/Toolbar/FontManager.js'
 import { PdfPreview } from './components/Preview/PdfPreview.js'
+import { ImageCompressor } from './components/Toolbar/ImageCompressor.js'
 import { useKeyboard } from './hooks/useKeyboard.js'
 import { useUiStore } from './store/uiStore.js'
 import { useTemplateStore } from './store/templateStore.js'
@@ -55,6 +56,7 @@ export function App() {
       </div>
       {showPageSizeDialog && <PageSizeDialog />}
       {showFontManager && <FontManager />}
+      <ImageCompressor />
       {contextMenu && <ContextMenu />}
     </div>
   )

@@ -268,6 +268,74 @@ This project uses a spec-driven development workflow:
 - **Commits**: conventional commits — `feat:`, `fix:`, `spec:`, `docs:`, `chore:`, `test:`
 - **Hooks**: pre-commit (lint), commit-msg (commitlint), pre-push (type-check + test)
 
+## Advanced Features
+
+### Batch PDF Generation
+
+Generate multiple PDFs in parallel using Node.js child processes:
+
+```ts
+import { loadTemplate, generateBatchPDF } from 'template-goblin'
+
+const template = await loadTemplate('./template.tgbl')
+
+const students = [
+  { texts: { name: 'Alice' }, loops: {}, images: {} },
+  { texts: { name: 'Bob' }, loops: {}, images: {} },
+  { texts: { name: 'Charlie' }, loops: {}, images: {} },
+]
+
+const results = await generateBatchPDF(template, students, {
+  concurrency: 4,
+  onProgress: (done, total) => console.log(`${done}/${total}`),
+})
+
+results.forEach((r) => {
+  if (r.success) console.log(`PDF ${r.index}: ${r.pdf!.length} bytes`)
+  else console.error(`PDF ${r.index} failed: ${r.error}`)
+})
+```
+
+### S3 / Cloud Storage
+
+Upload generated PDFs directly to S3 or any compatible storage:
+
+```ts
+import { loadTemplate, generateAndStore, S3StorageProvider } from 'template-goblin'
+
+const template = await loadTemplate('./template.tgbl')
+const s3 = new S3StorageProvider({
+  bucket: 'my-pdfs',
+  region: 'us-east-1',
+})
+
+const result = await generateAndStore(template, data, s3, {
+  key: 'result-12345.pdf',
+  prefix: 'pdfs/2024/',
+})
+
+console.log(result.url) // https://my-pdfs.s3.us-east-1.amazonaws.com/pdfs/2024/result-12345.pdf
+console.log(result.size) // PDF size in bytes
+```
+
+You can implement your own `StorageProvider` for GCS, Azure Blob, or any other backend.
+
+### Font Subsetting
+
+When saving `.tgbl` files, enable font subsetting to reduce file size:
+
+```ts
+import { saveTemplate } from 'template-goblin'
+
+await saveTemplate(manifest, assets, './output.tgbl', {
+  subsetFonts: true, // Keep only glyphs used in template placeholders
+})
+```
+
+### Image Compression (UI)
+
+The UI includes an advanced image compression dialog when uploading background images. Adjust quality with a slider and see a side-by-side comparison of original vs compressed with file size savings.
+
 ## License
 
 MIT
