@@ -14,10 +14,10 @@ import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import type { FieldDefinition, FieldType } from '@template-goblin/types'
 
-const FIELD_COLORS: Record<FieldType, { fill: string; stroke: string }> = {
-  text: { fill: 'rgba(37,99,235,0.25)', stroke: '#60a5fa' },
-  image: { fill: 'rgba(22,163,74,0.25)', stroke: '#4ade80' },
-  loop: { fill: 'rgba(217,119,6,0.25)', stroke: '#fb923c' },
+const FIELD_COLORS: Record<FieldType, { fill: string; stroke: string; text: string }> = {
+  text: { fill: 'rgba(37,99,235,0.35)', stroke: '#60a5fa', text: '#ffffff' },
+  image: { fill: 'rgba(22,163,74,0.35)', stroke: '#4ade80', text: '#ffffff' },
+  loop: { fill: 'rgba(217,119,6,0.35)', stroke: '#fb923c', text: '#ffffff' },
 }
 
 const SELECTED_STROKE = '#e94560'
@@ -183,13 +183,28 @@ export function CanvasArea() {
         addLoop: 'loop',
       }
       const fieldType = toolToType[activeTool]
-      if (fieldType) createField(fieldType, x, y, w, h)
+      if (fieldType) {
+        createField(fieldType, x, y, w, h)
+
+        // Bug 5: For loop fields, select the newly created field so the right
+        // panel opens immediately and the user can configure columns.
+        if (fieldType === 'loop') {
+          // addField generates an id; grab the last field from the store
+          setTimeout(() => {
+            const currentFields = useTemplateStore.getState().fields
+            const newLoop = currentFields[currentFields.length - 1]
+            if (newLoop && newLoop.type === 'loop') {
+              selectField(newLoop.id)
+            }
+          }, 0)
+        }
+      }
     }
 
     stopDrawing()
     setDrawRect(null)
     setActiveTool('select')
-  }, [isDrawing, drawRect, drawStart, activeTool])
+  }, [isDrawing, drawRect, drawStart, activeTool, selectField])
 
   const createField = useCallback(
     (type: FieldType, x: number, y: number, width: number, height: number) => {
@@ -216,7 +231,7 @@ export function CanvasArea() {
             fontFamily: 'Helvetica',
             fontSize: 12,
             fontSizeDynamic: true,
-            fontSizeMin: 6,
+            fontSizeMin: 11,
             lineHeight: 1.2,
             fontWeight: 'normal',
             fontStyle: 'normal',
@@ -300,24 +315,6 @@ export function CanvasArea() {
       moveField(fieldId, x, y)
     },
     [locked, gridSize, showGrid, moveField],
-  )
-
-  const handleTransformEnd = useCallback(
-    (fieldId: string, node: Konva.Node) => {
-      if (locked) return
-      const newWidth = snap(Math.max(10, node.width() * node.scaleX()), gridSize, showGrid)
-      const newHeight = snap(Math.max(10, node.height() * node.scaleY()), gridSize, showGrid)
-      const newX = snap(node.x(), gridSize, showGrid)
-      const newY = snap(node.y(), gridSize, showGrid)
-      node.scaleX(1)
-      node.scaleY(1)
-      node.width(newWidth)
-      node.height(newHeight)
-      node.position({ x: newX, y: newY })
-      moveField(fieldId, newX, newY)
-      resizeField(fieldId, newWidth, newHeight)
-    },
-    [locked, gridSize, showGrid, moveField, resizeField],
   )
 
   const handleContextMenu = useCallback(
@@ -532,12 +529,26 @@ export function CanvasArea() {
                   }
                 }}
                 onDragEnd={(e) => {
-                  const group = e.target.findAncestor('Group', true) || e.target
+                  const group = e.target
                   handleFieldDragEnd(field.id, group)
                 }}
                 onTransformEnd={(e) => {
-                  const group = e.target.findAncestor('Group', true) || e.target
-                  handleTransformEnd(field.id, group)
+                  if (locked) return
+                  const node = e.target
+                  const scaleX = node.scaleX()
+                  const scaleY = node.scaleY()
+                  const newWidth = snap(Math.max(20, node.width() * scaleX), gridSize, showGrid)
+                  const newHeight = snap(Math.max(20, node.height() * scaleY), gridSize, showGrid)
+                  // Reset scale
+                  node.scaleX(1)
+                  node.scaleY(1)
+                  // Update store
+                  moveField(
+                    field.id,
+                    snap(node.x(), gridSize, showGrid),
+                    snap(node.y(), gridSize, showGrid),
+                  )
+                  resizeField(field.id, newWidth, newHeight)
                 }}
                 onContextMenu={(e) => handleContextMenu(e, field.id)}
               >
@@ -548,6 +559,8 @@ export function CanvasArea() {
                   stroke={isSelected ? SELECTED_STROKE : colors.stroke}
                   strokeWidth={isSelected ? 2 / zoom : 1 / zoom}
                   cornerRadius={2 / zoom}
+                  listening={true}
+                  onClick={(e) => handleFieldClick(e, field.id)}
                 />
                 <Text
                   text={field.jsonKey}
@@ -555,7 +568,7 @@ export function CanvasArea() {
                   y={4 / zoom}
                   fontSize={11 / zoom}
                   fontFamily="sans-serif"
-                  fill={colors.stroke}
+                  fill={colors.text}
                   width={field.width - 8 / zoom}
                   ellipsis={true}
                   wrap="none"
@@ -568,7 +581,7 @@ export function CanvasArea() {
                   fontSize={9 / zoom}
                   fontFamily="sans-serif"
                   fontStyle="bold"
-                  fill={colors.stroke}
+                  fill={colors.text}
                   opacity={0.7}
                   listening={false}
                 />
@@ -602,9 +615,11 @@ export function CanvasArea() {
             anchorCornerRadius={2 / zoom}
             rotateEnabled={false}
             keepRatio={false}
-            boundBoxFunc={(oldBox, newBox) => {
-              if (newBox.width < 10 || newBox.height < 10) return oldBox
-              return newBox
+            ignoreStroke={true}
+            boundBoxFunc={(_oldBox, newBox) => {
+              const width = Math.max(20, newBox.width)
+              const height = Math.max(20, newBox.height)
+              return { ...newBox, width, height }
             }}
             enabledAnchors={[
               'top-left',

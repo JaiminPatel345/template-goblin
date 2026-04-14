@@ -3,14 +3,8 @@ import { generateExampleJson } from './jsonGenerator.js'
 import type { JsonPreviewMode } from '../store/uiStore.js'
 
 /**
- * Generate a PDF-like preview as an HTML Blob.
- *
- * Renders an HTML document that closely mimics what the PDF would look like,
- * including text fields, loop tables, and image placeholders at their exact
- * positions on the canvas.
- *
- * Note: Actual PDF generation for download uses the Node.js core library (PDFKit).
- * Browser preview uses this HTML approach for compatibility — no Node.js polyfills needed.
+ * Generate a WYSIWYG preview as an HTML Blob.
+ * Renders fields at their exact canvas positions over the background image.
  */
 export async function generatePreviewHtml(
   fields: FieldDefinition[],
@@ -48,17 +42,49 @@ export async function generatePreviewHtml(
     }
   }
 
+  // Show all field outlines even if empty (so user can see layout)
+  let outlineHtml = ''
+  for (const field of sorted) {
+    const typeColors: Record<string, string> = {
+      text: 'rgba(37,99,235,0.3)',
+      image: 'rgba(22,163,74,0.3)',
+      loop: 'rgba(217,119,6,0.3)',
+    }
+    const borderColors: Record<string, string> = {
+      text: '#60a5fa',
+      image: '#4ade80',
+      loop: '#fb923c',
+    }
+    outlineHtml += `<div style="position:absolute;left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;border:1px dashed ${borderColors[field.type] ?? '#999'};background:${typeColors[field.type] ?? 'transparent'};pointer-events:none;border-radius:2px"></div>`
+  }
+
   const html = `<!DOCTYPE html>
-<html><head><style>
+<html><head>
+<style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { width: ${meta.width}pt; height: ${meta.height}pt; position: relative; overflow: hidden; font-family: Helvetica, Arial, sans-serif; }
+  body {
+    width: ${meta.width}pt;
+    height: ${meta.height}pt;
+    position: relative;
+    overflow: hidden;
+    font-family: Helvetica, Arial, sans-serif;
+    background: #fff;
+  }
   .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
   .field { position: absolute; overflow: hidden; }
+  .outline-layer { position: absolute; inset: 0; pointer-events: none; }
   table { border-collapse: collapse; width: 100%; }
   th, td { text-align: left; }
-</style></head>
+  .label {
+    position: absolute; bottom: 2pt; right: 4pt;
+    font-size: 7pt; color: rgba(0,0,0,0.4);
+    font-family: sans-serif;
+  }
+</style>
+</head>
 <body>
-  ${backgroundDataUrl ? `<img class="bg" src="${backgroundDataUrl}" />` : '<div class="bg" style="background:#fff"></div>'}
+  ${backgroundDataUrl ? `<img class="bg" src="${backgroundDataUrl}" />` : ''}
+  <div class="outline-layer">${outlineHtml}</div>
   ${fieldsHtml}
 </body></html>`
 
@@ -67,30 +93,38 @@ export async function generatePreviewHtml(
 
 function renderTextHtml(field: FieldDefinition, value: string): string {
   const style = field.style as TextFieldStyle
+  if (!value && !field.placeholder) return ''
+
+  const displayValue = value || field.placeholder || ''
+  const opacity = value ? '1' : '0.4'
+
   const css = [
     `left:${field.x}pt`,
     `top:${field.y}pt`,
     `width:${field.width}pt`,
     `height:${field.height}pt`,
-    `font-family:${style.fontFamily || 'Helvetica'},sans-serif`,
+    `font-family:${sanitizeCss(style.fontFamily || 'Helvetica')},sans-serif`,
     `font-size:${style.fontSize}pt`,
     `font-weight:${style.fontWeight || 'normal'}`,
     `font-style:${style.fontStyle || 'normal'}`,
-    `color:${style.color || '#000'}`,
+    `color:${sanitizeCss(style.color || '#000')}`,
     `text-align:${style.align || 'left'}`,
     `line-height:${style.lineHeight || 1.2}`,
     `text-decoration:${style.textDecoration === 'underline' ? 'underline' : 'none'}`,
     `display:flex`,
+    `opacity:${opacity}`,
     `align-items:${style.verticalAlign === 'middle' ? 'center' : style.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start'}`,
   ].join(';')
 
-  return `<div class="field" style="${css}"><span>${escapeHtml(value)}</span></div>`
+  return `<div class="field" style="${css}"><span>${escapeHtml(displayValue)}</span></div>`
 }
 
 function renderLoopHtml(field: FieldDefinition, rows: Record<string, string>[]): string {
   const style = field.style as LoopFieldStyle
   const columns = style.columns || []
-  if (columns.length === 0) return ''
+  if (columns.length === 0) {
+    return `<div class="field" style="left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;display:flex;align-items:center;justify-content:center;color:#999;font-size:10pt;border:1px dashed #fb923c">[Table: ${escapeHtml(field.jsonKey)} — add columns]</div>`
+  }
 
   const hs = style.headerStyle
   const rs = style.rowStyle
@@ -99,7 +133,7 @@ function renderLoopHtml(field: FieldDefinition, rows: Record<string, string>[]):
   const headerCells = columns
     .map(
       (col) =>
-        `<th style="padding:${cs?.paddingTop ?? 4}pt ${cs?.paddingRight ?? 6}pt ${cs?.paddingBottom ?? 4}pt ${cs?.paddingLeft ?? 6}pt;background:${hs?.backgroundColor || '#f0f0f0'};color:${hs?.color || '#000'};font-size:${hs?.fontSize ?? 10}pt;font-weight:${hs?.fontWeight || 'bold'};text-align:${hs?.align || 'center'};border:${cs?.borderWidth ?? 1}pt solid ${cs?.borderColor || '#000'};width:${col.width}pt">${escapeHtml(col.label || col.key)}</th>`,
+        `<th style="padding:${cs?.paddingTop ?? 4}pt ${cs?.paddingRight ?? 6}pt ${cs?.paddingBottom ?? 4}pt ${cs?.paddingLeft ?? 6}pt;background:${sanitizeCss(hs?.backgroundColor || '#f0f0f0')};color:${sanitizeCss(hs?.color || '#000')};font-size:${hs?.fontSize ?? 10}pt;font-weight:${hs?.fontWeight || 'bold'};text-align:${sanitizeCss(hs?.align || 'center')};border:${cs?.borderWidth ?? 1}pt solid ${sanitizeCss(cs?.borderColor || '#000')};width:${col.width}pt">${escapeHtml(col.label || col.key)}</th>`,
     )
     .join('')
 
@@ -108,7 +142,7 @@ function renderLoopHtml(field: FieldDefinition, rows: Record<string, string>[]):
       const cells = columns
         .map(
           (col) =>
-            `<td style="padding:${cs?.paddingTop ?? 4}pt ${cs?.paddingRight ?? 6}pt ${cs?.paddingBottom ?? 4}pt ${cs?.paddingLeft ?? 6}pt;font-size:${rs?.fontSize ?? 10}pt;color:${rs?.color || '#000'};font-weight:${rs?.fontWeight || 'normal'};text-align:${col.align || 'left'};border:${cs?.borderWidth ?? 1}pt solid ${cs?.borderColor || '#000'}">${escapeHtml(row[col.key] ?? '')}</td>`,
+            `<td style="padding:${cs?.paddingTop ?? 4}pt ${cs?.paddingRight ?? 6}pt ${cs?.paddingBottom ?? 4}pt ${cs?.paddingLeft ?? 6}pt;font-size:${rs?.fontSize ?? 10}pt;color:${sanitizeCss(rs?.color || '#000')};font-weight:${rs?.fontWeight || 'normal'};text-align:${sanitizeCss(col.align || 'left')};border:${cs?.borderWidth ?? 1}pt solid ${sanitizeCss(cs?.borderColor || '#000')}">${escapeHtml(row[col.key] ?? '')}</td>`,
         )
         .join('')
       return `<tr>${cells}</tr>`
@@ -121,7 +155,7 @@ function renderLoopHtml(field: FieldDefinition, rows: Record<string, string>[]):
 }
 
 function renderImageHtml(field: FieldDefinition): string {
-  const css = `left:${sanitizeCssValue(field.x)}pt;top:${sanitizeCssValue(field.y)}pt;width:${sanitizeCssValue(field.width)}pt;height:${sanitizeCssValue(field.height)}pt;border:1px dashed #999;display:flex;align-items:center;justify-content:center;color:#999;font-size:10pt`
+  const css = `left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;border:1px dashed #4ade80;display:flex;align-items:center;justify-content:center;color:#4ade80;font-size:9pt;background:rgba(22,163,74,0.1)`
   return `<div class="field" style="${css}">[Image: ${escapeHtml(field.jsonKey)}]</div>`
 }
 
@@ -134,14 +168,9 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#x27;')
 }
 
-/**
- * Sanitize a CSS property value — only allow safe numeric/color values.
- * Prevents CSS injection via user-controlled style properties.
- */
-function sanitizeCssValue(value: unknown): string {
+function sanitizeCss(value: unknown): string {
   if (typeof value === 'number') return String(value)
   if (typeof value !== 'string') return '0'
-  // Only allow safe CSS values: numbers, hex colors, named colors, simple values
   if (/^[a-zA-Z0-9#.,\s%-]+$/.test(value)) return value
   return '0'
 }

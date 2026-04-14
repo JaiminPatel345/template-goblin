@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type {
   FieldDefinition,
   TextFieldStyle,
@@ -5,6 +6,63 @@ import type {
   VerticalAlign,
 } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
+
+export function InfoTip({ text }: { text: string }) {
+  const [show, setShow] = useState(false)
+  return (
+    <span
+      style={{
+        cursor: 'help',
+        marginLeft: 4,
+        color: 'var(--text-muted)',
+        fontSize: 11,
+        position: 'relative',
+        display: 'inline-flex',
+        alignItems: 'center',
+      }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onClick={() => setShow(!show)}
+    >
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="16" x2="12" y2="12" />
+        <line x1="12" y1="8" x2="12.01" y2="8" />
+      </svg>
+      {show && (
+        <span
+          style={{
+            position: 'absolute',
+            bottom: '100%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            padding: '6px 10px',
+            fontSize: 11,
+            color: 'var(--text-primary)',
+            zIndex: 100,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            marginBottom: 4,
+            maxWidth: 250,
+            whiteSpace: 'normal',
+            lineHeight: 1.4,
+          }}
+        >
+          {text}
+        </span>
+      )}
+    </span>
+  )
+}
 
 interface Props {
   field: FieldDefinition
@@ -111,7 +169,10 @@ export function TextFieldProps({ field }: Props) {
         <div className="tg-panel-section-title">Layout</div>
 
         <div className="tg-form-row">
-          <label>Max Rows</label>
+          <label>
+            Max Rows
+            <InfoTip text="Maximum number of text lines. Changes the field height." />
+          </label>
           <input
             className="tg-input"
             type="number"
@@ -165,7 +226,10 @@ export function TextFieldProps({ field }: Props) {
         </div>
 
         <div className="tg-toggle-row">
-          <label>Dynamic Font Size</label>
+          <label>
+            Dynamic Font Size
+            <InfoTip text="When enabled, font size shrinks automatically if text overflows." />
+          </label>
           <input
             type="checkbox"
             className="tg-checkbox"
@@ -176,7 +240,10 @@ export function TextFieldProps({ field }: Props) {
 
         {style.fontSizeDynamic && (
           <div className="tg-form-row">
-            <label>Min Font Size</label>
+            <label>
+              Min Font Size
+              <InfoTip text="The smallest font size allowed when dynamic sizing is enabled." />
+            </label>
             <input
               className="tg-input"
               type="number"
@@ -192,7 +259,10 @@ export function TextFieldProps({ field }: Props) {
         )}
 
         <div className="tg-form-row">
-          <label>Overflow Mode</label>
+          <label>
+            Overflow Mode
+            <InfoTip text="Dynamic Font: automatically shrinks text to fit. Truncate: cuts text with ellipsis." />
+          </label>
           <select
             className="tg-select"
             value={style.overflowMode}
@@ -274,7 +344,10 @@ export function TextFieldProps({ field }: Props) {
         </div>
 
         <div className="tg-form-row">
-          <label>Vertical</label>
+          <label>
+            Vertical
+            <InfoTip text="How text is positioned vertically within the field box." />
+          </label>
           <AlignButtonGroup
             options={['top', 'middle', 'bottom'] as VerticalAlign[]}
             value={style.verticalAlign}
