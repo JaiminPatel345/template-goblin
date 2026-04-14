@@ -81,6 +81,53 @@ export function Toolbar() {
     e.target.value = ''
   }
 
+  // When no background, show minimal toolbar
+  if (!hasBackground) {
+    return (
+      <div className="tg-toolbar">
+        <div className="tg-toolbar-group">
+          <button className="tg-btn tg-btn--primary" onClick={() => bgInputRef.current?.click()}>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+            Upload Background
+          </button>
+          <input ref={bgInputRef} type="file" accept="image/*" hidden onChange={handleBgUpload} />
+        </div>
+        <div className="tg-toolbar-separator" />
+        <div className="tg-toolbar-group">
+          <button className="tg-btn" onClick={handleOpen}>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+            Open .tgbl
+          </button>
+          <input ref={fileInputRef} type="file" accept=".tgbl" hidden onChange={handleOpenFile} />
+        </div>
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+          TemplateGoblin
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div className="tg-toolbar">
       {/* File operations */}
@@ -98,7 +145,7 @@ export function Toolbar() {
             <circle cx="8.5" cy="8.5" r="1.5" />
             <polyline points="21 15 16 10 5 21" />
           </svg>
-          Upload BG
+          BG
         </button>
         <input ref={bgInputRef} type="file" accept="image/*" hidden onChange={handleBgUpload} />
       </div>

@@ -14,6 +14,7 @@ import './App.css'
 export function App() {
   useKeyboard()
 
+  const hasBackground = useTemplateStore((s) => s.backgroundDataUrl !== null)
   const showLeftPanel = useUiStore((s) => s.showLeftPanel)
   const showRightPanel = useUiStore((s) => s.showRightPanel)
   const showPageSizeDialog = useUiStore((s) => s.showPageSizeDialog)
@@ -26,10 +27,10 @@ export function App() {
     <div className="tg-app">
       <Toolbar />
       <div className="tg-workspace">
-        {showLeftPanel && <LeftPanel />}
+        {hasBackground && showLeftPanel && <LeftPanel />}
         <div className="tg-canvas-container">
           <CanvasArea />
-          {locked && (
+          {locked && hasBackground && (
             <div className="tg-locked-overlay">
               <div className="tg-locked-badge">
                 <svg
@@ -48,8 +49,8 @@ export function App() {
             </div>
           )}
         </div>
-        {showRightPanel && <RightPanel />}
-        {showPreview && <PdfPreview />}
+        {hasBackground && showRightPanel && <RightPanel />}
+        {hasBackground && showPreview && <PdfPreview />}
       </div>
       {showPageSizeDialog && <PageSizeDialog />}
       {showFontManager && <FontManager />}
