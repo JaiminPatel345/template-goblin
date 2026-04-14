@@ -57,6 +57,9 @@ importers:
       '@types/jest':
         specifier: ^29.5.14
         version: 29.5.14
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
       '@types/pdfkit':
         specifier: ^0.13.5
         version: 0.13.9
