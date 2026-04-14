@@ -118,16 +118,56 @@ export function CanvasArea() {
     tr.getLayer()?.batchDraw()
   }, [selectedFieldIds, fields, meta.locked])
 
-  // Scroll-to-zoom handler
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+  // Scroll-to-zoom: native non-passive listener to prevent page scroll
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    function onWheel(e: WheelEvent) {
       e.preventDefault()
+      e.stopPropagation()
+      const currentZoom = useUiStore.getState().zoom
       const delta = e.deltaY > 0 ? -0.05 : 0.05
-      const newZoom = Math.max(0.1, Math.min(5, zoom + delta))
-      setZoom(newZoom)
+      const newZoom = Math.max(0.1, Math.min(5, currentZoom + delta))
+      useUiStore.getState().setZoom(newZoom)
+    }
+
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
+  // Middle-button pan state
+  const [isPanning, setIsPanning] = useState(false)
+  const panStart = useRef<{ x: number; y: number } | null>(null)
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Middle mouse button (button === 1) starts panning
+    if (e.button === 1) {
+      e.preventDefault()
+      setIsPanning(true)
+      panStart.current = { x: e.clientX, y: e.clientY }
+    }
+  }, [])
+
+  const handleMouseMovePan = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isPanning || !panStart.current) return
+      const container = containerRef.current
+      if (!container) return
+
+      const dx = e.clientX - panStart.current.x
+      const dy = e.clientY - panStart.current.y
+      container.scrollLeft -= dx
+      container.scrollTop -= dy
+      panStart.current = { x: e.clientX, y: e.clientY }
     },
-    [zoom, setZoom],
+    [isPanning],
   )
+
+  const handleMouseUpPan = useCallback(() => {
+    setIsPanning(false)
+    panStart.current = null
+  }, [])
 
   const locked = meta.locked
   const stageW = meta.width * zoom
@@ -465,13 +505,17 @@ export function CanvasArea() {
   return (
     <div
       ref={containerRef}
-      onWheel={handleWheel}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMovePan}
+      onMouseUp={handleMouseUpPan}
+      onMouseLeave={handleMouseUpPan}
       style={{
         width: '100%',
         height: '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        cursor: isPanning ? 'grabbing' : undefined,
         overflow: 'auto',
         background: 'var(--canvas-bg)',
       }}
