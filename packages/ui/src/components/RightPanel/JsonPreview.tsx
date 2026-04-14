@@ -7,7 +7,6 @@ import type { JsonPreviewMode } from '../../store/uiStore.js'
 const MODES: { key: JsonPreviewMode; label: string }[] = [
   { key: 'default', label: 'Default' },
   { key: 'max', label: 'Max' },
-  { key: 'min', label: 'Min' },
 ]
 
 export function JsonPreview() {
