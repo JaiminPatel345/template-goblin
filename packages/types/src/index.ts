@@ -12,6 +12,8 @@ export type {
   CellStyle,
   FontDefinition,
   GroupDefinition,
+  PageDefinition,
+  PageBackgroundType,
   PageSize,
   FieldType,
   TextAlign,

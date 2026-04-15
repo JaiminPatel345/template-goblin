@@ -4,7 +4,13 @@ import { mkdirSync, existsSync } from 'node:fs'
 import AdmZip from 'adm-zip'
 import type { TemplateManifest, TemplateAssets } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
-import { MANIFEST_FILENAME, BACKGROUND_FILENAME, FONTS_DIR, PLACEHOLDERS_DIR } from './constants.js'
+import {
+  MANIFEST_FILENAME,
+  BACKGROUND_FILENAME,
+  BACKGROUNDS_DIR,
+  FONTS_DIR,
+  PLACEHOLDERS_DIR,
+} from './constants.js'
 import { subsetTemplateFonts } from '../utils/fontSubset.js'
 
 /**
@@ -35,9 +41,23 @@ export async function saveTemplate(
     const manifestJson = JSON.stringify(manifest, null, 2)
     zip.addFile(MANIFEST_FILENAME, Buffer.from(manifestJson, 'utf-8'))
 
-    // REQ: background image stored as real binary
+    // REQ: background image stored as real binary (backward compat — page 0)
     if (assets.backgroundImage) {
       zip.addFile(BACKGROUND_FILENAME, assets.backgroundImage)
+    }
+
+    // REQ: per-page background images stored under backgrounds/
+    if (assets.pageBackgrounds) {
+      const sortedPages = manifest.pages
+        ? [...manifest.pages].sort((a, b) => a.index - b.index)
+        : []
+      for (const page of sortedPages) {
+        const bgBuffer = assets.pageBackgrounds.get(page.id)
+        if (bgBuffer) {
+          const filename = `${BACKGROUNDS_DIR}page-${page.index}.png`
+          zip.addFile(filename, bgBuffer)
+        }
+      }
     }
 
     // REQ: fonts stored as real .ttf binaries under fonts/

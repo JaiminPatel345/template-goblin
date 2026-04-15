@@ -5,6 +5,7 @@ import type {
   TemplateMeta,
   FontDefinition,
   GroupDefinition,
+  PageDefinition,
   TextFieldStyle,
   ImageFieldStyle,
   LoopFieldStyle,
@@ -26,10 +27,16 @@ export interface TemplateState {
   fonts: FontDefinition[]
   /** Field groups */
   groups: GroupDefinition[]
-  /** Background image as data URL for canvas display */
+  /** Pages in the template */
+  pages: PageDefinition[]
+  /** Background image as data URL for canvas display (legacy / page 0) */
   backgroundDataUrl: string | null
-  /** Background image as raw bytes for saving */
+  /** Background image as raw bytes for saving (legacy / page 0) */
   backgroundBuffer: ArrayBuffer | null
+  /** Per-page background data URLs for canvas display, keyed by page ID */
+  pageBackgroundDataUrls: Map<string, string>
+  /** Per-page background buffers for saving, keyed by page ID */
+  pageBackgroundBuffers: Map<string, ArrayBuffer>
   /** Font buffers for saving */
   fontBuffers: Map<string, ArrayBuffer>
   /** Placeholder image buffers for saving */
@@ -72,6 +79,19 @@ export interface TemplateState {
 
   addPlaceholder: (filename: string, buffer: ArrayBuffer) => void
 
+  /** Add a page to the template */
+  addPage: (
+    page: PageDefinition,
+    backgroundDataUrl?: string,
+    backgroundBuffer?: ArrayBuffer,
+  ) => void
+  /** Remove a page and reassign its fields to page 0 (null) */
+  removePage: (pageId: string) => void
+  /** Update page properties */
+  updatePage: (pageId: string, updates: Partial<PageDefinition>) => void
+  /** Set the background image for a specific page */
+  setPageBackground: (pageId: string, dataUrl: string, buffer: ArrayBuffer) => void
+
   undo: () => void
   redo: () => void
   canUndo: () => boolean
@@ -89,6 +109,9 @@ export interface TemplateState {
     backgroundBuffer: ArrayBuffer | null,
     fontBuffers: Map<string, ArrayBuffer>,
     placeholderBuffers: Map<string, ArrayBuffer>,
+    pages?: PageDefinition[],
+    pageBackgroundDataUrls?: Map<string, string>,
+    pageBackgroundBuffers?: Map<string, ArrayBuffer>,
   ) => void
 }
 
@@ -162,8 +185,11 @@ interface PersistedState {
   fields: FieldDefinition[]
   fonts: FontDefinition[]
   groups: GroupDefinition[]
+  pages: PageDefinition[]
   backgroundDataUrl: string | null
   backgroundBuffer: string | null
+  pageBackgroundDataUrls: [string, string][]
+  pageBackgroundBuffers: [string, string][]
   fontBuffers: [string, string][]
   placeholderBuffers: [string, string][]
 }
@@ -175,8 +201,11 @@ export const useTemplateStore = create<TemplateState>()(
       fields: [],
       fonts: [],
       groups: [],
+      pages: [],
       backgroundDataUrl: null,
       backgroundBuffer: null,
+      pageBackgroundDataUrls: new Map(),
+      pageBackgroundBuffers: new Map(),
       fontBuffers: new Map(),
       placeholderBuffers: new Map(),
 
@@ -359,6 +388,50 @@ export const useTemplateStore = create<TemplateState>()(
           return { placeholderBuffers }
         }),
 
+      addPage: (page, bgDataUrl, bgBuffer) =>
+        set((state) => {
+          const pages = [...state.pages, page]
+          const pageBackgroundDataUrls = new Map(state.pageBackgroundDataUrls)
+          const pageBackgroundBuffers = new Map(state.pageBackgroundBuffers)
+          if (bgDataUrl) pageBackgroundDataUrls.set(page.id, bgDataUrl)
+          if (bgBuffer) pageBackgroundBuffers.set(page.id, bgBuffer)
+          return { pages, pageBackgroundDataUrls, pageBackgroundBuffers }
+        }),
+
+      removePage: (pageId) =>
+        set((state) => {
+          const pages = state.pages.filter((p) => p.id !== pageId)
+          // Reassign fields on this page to page 0 (null)
+          const fields = state.fields.map((f) => (f.pageId === pageId ? { ...f, pageId: null } : f))
+          const pageBackgroundDataUrls = new Map(state.pageBackgroundDataUrls)
+          const pageBackgroundBuffers = new Map(state.pageBackgroundBuffers)
+          pageBackgroundDataUrls.delete(pageId)
+          pageBackgroundBuffers.delete(pageId)
+          // Re-index remaining pages
+          const reindexed = pages.map((p, i) => ({ ...p, index: i }))
+          return {
+            pages: reindexed,
+            fields,
+            pageBackgroundDataUrls,
+            pageBackgroundBuffers,
+            ...pushHistory({ ...state, fields, groups: state.groups }),
+          }
+        }),
+
+      updatePage: (pageId, updates) =>
+        set((state) => ({
+          pages: state.pages.map((p) => (p.id === pageId ? { ...p, ...updates } : p)),
+        })),
+
+      setPageBackground: (pageId, dataUrl, buffer) =>
+        set((state) => {
+          const pageBackgroundDataUrls = new Map(state.pageBackgroundDataUrls)
+          const pageBackgroundBuffers = new Map(state.pageBackgroundBuffers)
+          pageBackgroundDataUrls.set(pageId, dataUrl)
+          pageBackgroundBuffers.set(pageId, buffer)
+          return { pageBackgroundDataUrls, pageBackgroundBuffers }
+        }),
+
       undo: () =>
         set((state) => {
           if (state.historyIndex <= 0) return state
@@ -405,8 +478,11 @@ export const useTemplateStore = create<TemplateState>()(
           fields: [],
           fonts: [],
           groups: [],
+          pages: [],
           backgroundDataUrl: null,
           backgroundBuffer: null,
+          pageBackgroundDataUrls: new Map(),
+          pageBackgroundBuffers: new Map(),
           fontBuffers: new Map(),
           placeholderBuffers: new Map(),
           history: [],
@@ -422,14 +498,20 @@ export const useTemplateStore = create<TemplateState>()(
         backgroundBuffer,
         fontBuffers,
         placeholderBuffers,
+        pages,
+        pageBackgroundDataUrls,
+        pageBackgroundBuffers,
       ) =>
         set({
           meta,
           fields,
           fonts,
           groups,
+          pages: pages ?? [],
           backgroundDataUrl,
           backgroundBuffer,
+          pageBackgroundDataUrls: pageBackgroundDataUrls ?? new Map(),
+          pageBackgroundBuffers: pageBackgroundBuffers ?? new Map(),
           fontBuffers,
           placeholderBuffers,
           history: [createSnapshot({ fields, groups })],
@@ -445,8 +527,11 @@ export const useTemplateStore = create<TemplateState>()(
         fields: state.fields,
         fonts: state.fonts,
         groups: state.groups,
+        pages: state.pages,
         backgroundDataUrl: state.backgroundDataUrl,
         backgroundBuffer: state.backgroundBuffer,
+        pageBackgroundDataUrls: state.pageBackgroundDataUrls,
+        pageBackgroundBuffers: state.pageBackgroundBuffers,
         fontBuffers: state.fontBuffers,
         placeholderBuffers: state.placeholderBuffers,
       }),
@@ -461,7 +546,14 @@ export const useTemplateStore = create<TemplateState>()(
               ...parsed,
               state: {
                 ...s,
+                pages: s.pages ?? [],
                 backgroundBuffer: s.backgroundBuffer ? b642ab(s.backgroundBuffer) : null,
+                pageBackgroundDataUrls: new Map(
+                  (s.pageBackgroundDataUrls ?? []).map(([k, v]) => [k, v]),
+                ),
+                pageBackgroundBuffers: new Map(
+                  (s.pageBackgroundBuffers ?? []).map(([k, v]) => [k, b642ab(v)]),
+                ),
                 fontBuffers: new Map(s.fontBuffers.map(([k, v]) => [k, b642ab(v)])),
                 placeholderBuffers: new Map(s.placeholderBuffers.map(([k, v]) => [k, b642ab(v)])),
               },
@@ -477,8 +569,13 @@ export const useTemplateStore = create<TemplateState>()(
             fields: state.fields,
             fonts: state.fonts,
             groups: state.groups,
+            pages: state.pages,
             backgroundDataUrl: state.backgroundDataUrl,
             backgroundBuffer: state.backgroundBuffer ? ab2b64(state.backgroundBuffer) : null,
+            pageBackgroundDataUrls: Array.from(state.pageBackgroundDataUrls.entries()),
+            pageBackgroundBuffers: Array.from(state.pageBackgroundBuffers.entries()).map(
+              ([k, v]) => [k, ab2b64(v)],
+            ),
             fontBuffers: Array.from(state.fontBuffers.entries()).map(([k, v]) => [k, ab2b64(v)]),
             placeholderBuffers: Array.from(state.placeholderBuffers.entries()).map(([k, v]) => [
               k,

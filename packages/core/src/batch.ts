@@ -30,6 +30,7 @@ export interface BatchResult {
 interface SerializedTemplate {
   manifest: LoadedTemplate['manifest']
   backgroundImage: string | null
+  pageBackgrounds: [string, string][]
   fonts: [string, string][]
   placeholders: [string, string][]
 }
@@ -38,6 +39,10 @@ function serializeTemplate(template: LoadedTemplate): SerializedTemplate {
   return {
     manifest: template.manifest,
     backgroundImage: template.backgroundImage ? template.backgroundImage.toString('base64') : null,
+    pageBackgrounds: Array.from(template.pageBackgrounds.entries()).map(([k, v]) => [
+      k,
+      v.toString('base64'),
+    ]),
     fonts: Array.from(template.fonts.entries()).map(([k, v]) => [k, v.toString('base64')]),
     placeholders: Array.from(template.placeholders.entries()).map(([k, v]) => [
       k,
@@ -51,6 +56,9 @@ export function deserializeTemplate(data: SerializedTemplate): LoadedTemplate {
   return {
     manifest: data.manifest,
     backgroundImage: data.backgroundImage ? Buffer.from(data.backgroundImage, 'base64') : null,
+    pageBackgrounds: new Map(
+      (data.pageBackgrounds ?? []).map(([k, v]) => [k, Buffer.from(v, 'base64')]),
+    ),
     fonts: new Map(data.fonts.map(([k, v]) => [k, Buffer.from(v, 'base64')])),
     placeholders: new Map(data.placeholders.map(([k, v]) => [k, Buffer.from(v, 'base64')])),
   }

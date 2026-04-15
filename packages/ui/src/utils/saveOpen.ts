@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import type { TemplateManifest } from '@template-goblin/types'
+import type { TemplateManifest, PageDefinition } from '@template-goblin/types'
 import { useTemplateStore } from '../store/templateStore.js'
 
 const MANIFEST_FILENAME = 'manifest.json'
@@ -55,13 +55,24 @@ function sanitizeJson(obj: unknown): unknown {
  */
 export async function saveTemplate(): Promise<void> {
   const state = useTemplateStore.getState()
-  const { meta, fields, fonts, groups, backgroundBuffer, fontBuffers, placeholderBuffers } = state
+  const {
+    meta,
+    fields,
+    fonts,
+    groups,
+    pages,
+    backgroundBuffer,
+    pageBackgroundBuffers,
+    fontBuffers,
+    placeholderBuffers,
+  } = state
 
   const manifest: TemplateManifest = {
     version: '1.0',
     meta: { ...meta, updatedAt: new Date().toISOString() },
     fonts,
     groups,
+    pages,
     fields,
   }
 
@@ -69,8 +80,19 @@ export async function saveTemplate(): Promise<void> {
 
   zip.file(MANIFEST_FILENAME, JSON.stringify(manifest, null, 2))
 
+  // Legacy page-0 background
   if (backgroundBuffer) {
     zip.file(BACKGROUND_FILENAME, backgroundBuffer)
+  }
+
+  // Per-page backgrounds under backgrounds/ folder
+  for (const page of pages) {
+    if (page.backgroundType === 'image' && page.backgroundFilename) {
+      const buffer = pageBackgroundBuffers.get(page.id)
+      if (buffer && isSafeZipPath(page.backgroundFilename)) {
+        zip.file(page.backgroundFilename, buffer)
+      }
+    }
   }
 
   for (const font of fonts) {
@@ -101,6 +123,7 @@ export async function saveTemplate(): Promise<void> {
 /**
  * Open a .tgbl file and load it into the template store.
  * Validates file size, ZIP structure, manifest schema, and sanitizes all data.
+ * Backward compatible: old single-page templates (no pages array) still work.
  */
 export async function openTemplate(file: File): Promise<void> {
   // Validate file size
@@ -168,13 +191,18 @@ export async function openTemplate(file: File): Promise<void> {
       throw new Error('page dimensions out of range')
     }
 
+    // Backward compat: if pages is missing, default to empty array
+    if (!Array.isArray(parsed.pages)) {
+      parsed.pages = []
+    }
+
     manifest = parsed
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'manifest parse error'
     throw new Error(`Invalid .tgbl file: ${msg}`, { cause: err })
   }
 
-  // Load background image
+  // Load legacy background image (page 0)
   let backgroundDataUrl: string | null = null
   let backgroundBuffer: ArrayBuffer | null = null
   const bgFile = zip.file(BACKGROUND_FILENAME)
@@ -182,6 +210,24 @@ export async function openTemplate(file: File): Promise<void> {
     backgroundBuffer = await bgFile.async('arraybuffer')
     const blob = new Blob([backgroundBuffer], { type: 'image/png' })
     backgroundDataUrl = await blobToDataUrl(blob)
+  }
+
+  // Load per-page backgrounds
+  const pages: PageDefinition[] = manifest.pages
+  const pageBackgroundDataUrls = new Map<string, string>()
+  const pageBackgroundBuffers = new Map<string, ArrayBuffer>()
+
+  for (const page of pages) {
+    if (page.backgroundType === 'image' && page.backgroundFilename) {
+      if (!isSafeZipPath(page.backgroundFilename)) continue
+      const pageFile = zip.file(page.backgroundFilename)
+      if (pageFile) {
+        const buf = await pageFile.async('arraybuffer')
+        pageBackgroundBuffers.set(page.id, buf)
+        const blob = new Blob([buf], { type: 'image/png' })
+        pageBackgroundDataUrls.set(page.id, await blobToDataUrl(blob))
+      }
+    }
   }
 
   // Load fonts (validate paths)
@@ -217,6 +263,9 @@ export async function openTemplate(file: File): Promise<void> {
     backgroundBuffer,
     fontBuffers,
     placeholderBuffers,
+    pages,
+    pageBackgroundDataUrls,
+    pageBackgroundBuffers,
   )
 }
 

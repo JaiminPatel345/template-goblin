@@ -16,5 +16,8 @@ export const FONTS_DIR = 'fonts/'
 /** Placeholders directory inside the ZIP archive */
 export const PLACEHOLDERS_DIR = 'placeholders/'
 
+/** Per-page backgrounds directory inside the ZIP archive */
+export const BACKGROUNDS_DIR = 'backgrounds/'
+
 /** Current manifest version */
 export const MANIFEST_VERSION = '1.0'

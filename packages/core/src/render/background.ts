@@ -23,3 +23,20 @@ export function renderBackground(
     height: meta.height,
   })
 }
+
+/**
+ * Render a solid color background on the current page of a PDFKit document.
+ *
+ * @param doc - PDFKit document
+ * @param color - CSS hex color string (e.g., '#ffffff')
+ * @param meta - Template metadata with page dimensions
+ */
+export function renderColorBackground(
+  doc: InstanceType<typeof PDFDocument>,
+  color: string,
+  meta: TemplateMeta,
+): void {
+  doc.save()
+  doc.rect(0, 0, meta.width, meta.height).fill(color)
+  doc.restore()
+}

@@ -39,12 +39,15 @@ export interface UiState {
   pendingBackground: { dataUrl: string; buffer: ArrayBuffer; width: number; height: number } | null
   /** Context menu state */
   contextMenu: { x: number; y: number; fieldId: string } | null
+  /** Which page is currently being viewed/edited (null = page 0) */
+  currentPageId: string | null
   /** Whether a drawing operation is in progress */
   isDrawing: boolean
   /** Drawing start coordinates */
   drawStart: { x: number; y: number } | null
 
   /** Actions */
+  setCurrentPage: (pageId: string | null) => void
   selectField: (id: string) => void
   selectFields: (ids: string[]) => void
   toggleFieldSelection: (id: string) => void
@@ -96,6 +99,7 @@ export const useUiStore = create<UiState>()(
       showFontManager: false,
       pendingBackground: null,
       contextMenu: null,
+      currentPageId: null,
       isDrawing: false,
       drawStart: null,
 
@@ -125,6 +129,7 @@ export const useUiStore = create<UiState>()(
       setShowFontManager: (show) => set({ showFontManager: show }),
       setPendingBackground: (bg) => set({ pendingBackground: bg }),
       setContextMenu: (menu) => set({ contextMenu: menu }),
+      setCurrentPage: (pageId) => set({ currentPageId: pageId }),
       startDrawing: (x, y) => set({ isDrawing: true, drawStart: { x, y } }),
       stopDrawing: () => set({ isDrawing: false, drawStart: null }),
       toggleTheme: () => set((s) => ({ theme: s.theme === 'light' ? 'dark' : 'light' })),
@@ -142,6 +147,7 @@ export const useUiStore = create<UiState>()(
         maxModeRepeatCount: state.maxModeRepeatCount,
         showLeftPanel: state.showLeftPanel,
         showRightPanel: state.showRightPanel,
+        currentPageId: state.currentPageId,
       }),
       // Migrate v1 -> v2: 'min' mode was removed
       migrate: (persisted, version) => {

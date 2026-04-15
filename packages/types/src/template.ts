@@ -136,11 +136,29 @@ export interface LoopFieldStyle {
   columns: LoopColumn[]
 }
 
+/** Background type for a page */
+export type PageBackgroundType = 'image' | 'color' | 'inherit'
+
+/** A single page in a multi-page template */
+export interface PageDefinition {
+  id: string
+  /** Page index (0-based) */
+  index: number
+  /** Background type: image, solid color, or inherit from previous page */
+  backgroundType: PageBackgroundType
+  /** Background color (hex) — used when backgroundType is 'color' */
+  backgroundColor: string | null
+  /** Background image filename in ZIP — used when backgroundType is 'image' */
+  backgroundFilename: string | null
+}
+
 /** A field definition in the template manifest */
 export interface FieldDefinition {
   id: string
   type: FieldType
   groupId: string | null
+  /** Which page this field belongs to (null = page 0 for backward compatibility) */
+  pageId: string | null
   required: boolean
   jsonKey: string
   placeholder: string | null
@@ -158,5 +176,7 @@ export interface TemplateManifest {
   meta: TemplateMeta
   fonts: FontDefinition[]
   groups: GroupDefinition[]
+  /** Pages in the template (if empty, treated as single-page with background image) */
+  pages: PageDefinition[]
   fields: FieldDefinition[]
 }
