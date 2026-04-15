@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { describe, it, expect } from 'vitest'
 import { generateExampleJson } from '../jsonGenerator.js'
 import type {
@@ -127,7 +128,7 @@ describe('generateExampleJson', () => {
     it('returns 1 row for required loop fields', () => {
       const result = generateExampleJson([loopField('loops.marks')], 'default', 5)
       expect(result.loops.marks).toHaveLength(1)
-      expect(result.loops.marks[0]).toEqual({ name: 'A', grade: 'A' })
+      expect(result.loops.marks![0]).toEqual({ name: 'A', grade: 'A' })
     })
 
     it('returns [] for optional loop fields', () => {
@@ -152,7 +153,7 @@ describe('generateExampleJson', () => {
       expect(result.texts.name).toBe(
         'It works in my machine It works in my machine It works in my machine',
       )
-      expect(result.texts.name.length).toBeGreaterThan(20)
+      expect(result.texts.name!.length).toBeGreaterThan(20)
     })
 
     it('returns repeated text even for optional fields', () => {
@@ -163,7 +164,7 @@ describe('generateExampleJson', () => {
     it('returns maxRows number of rows for loop fields', () => {
       const result = generateExampleJson([loopField('loops.marks', true, 5)], 'max', 2)
       expect(result.loops.marks).toHaveLength(5)
-      for (const row of result.loops.marks) {
+      for (const row of result.loops.marks!) {
         expect(row.name).toContain('It works in my machine')
         expect(row.grade).toContain('It works in my machine')
       }
@@ -181,7 +182,7 @@ describe('generateExampleJson', () => {
 
     it('handles large repeatCount', () => {
       const result = generateExampleJson([textField('texts.name')], 'max', 50)
-      expect(result.texts.name.length).toBeGreaterThan(500)
+      expect(result.texts.name!.length).toBeGreaterThan(500)
     })
   })
 
@@ -214,7 +215,7 @@ describe('generateExampleJson', () => {
       const result = generateExampleJson([field], 'max', 5)
       // maxRows rows but each row is empty object
       expect(result.loops.empty).toHaveLength(10)
-      expect(result.loops.empty[0]).toEqual({})
+      expect(result.loops.empty![0]).toEqual({})
     })
 
     it('handles unknown mode by falling back to default behavior', () => {
