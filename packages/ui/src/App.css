@@ -1,743 +1,369 @@
-/* Reset */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@import "tailwindcss";
+
+/* ===== Theme Variables ===== */
+@theme {
+  --color-bg-primary: #f5f5f7;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #e8eaed;
+  --color-bg-surface: #f0f1f3;
+  --color-text-primary: #1a1a2e;
+  --color-text-secondary: #555566;
+  --color-text-muted: #999aab;
+  --color-accent: #e94560;
+  --color-accent-hover: #d63851;
+  --color-border: #dcdde1;
+  --color-border-light: #e8e8ec;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+  --color-canvas-bg: #e0e0e8;
 }
 
-/* Light theme (default) */
+/* Dark Theme Override */
+[data-theme='dark'] {
+  --color-bg-primary: #0f0f17;
+  --color-bg-secondary: #181825;
+  --color-bg-tertiary: #252538;
+  --color-bg-surface: #1e1e30;
+  --color-text-primary: #f0f0f5;
+  --color-text-secondary: #b0b0c0;
+  --color-text-muted: #7878a0;
+  --color-accent: #e94560;
+  --color-accent-hover: #ff6b81;
+  --color-border: #2d2d45;
+  --color-border-light: #3a3a52;
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-error: #ef4444;
+  --color-canvas-bg: #0a0a14;
+}
+
+/* Legacy CSS variable bridge — components still using var(--xxx) */
 :root,
 [data-theme='light'] {
-  --bg-primary: #f5f5f7;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #e8eaed;
-  --bg-surface: #f0f1f3;
-  --text-primary: #1a1a2e;
-  --text-secondary: #555566;
-  --text-muted: #999aab;
-  --accent: #e94560;
-  --accent-hover: #d63851;
-  --border: #dcdde1;
-  --border-light: #e8e8ec;
-  --success: #16a34a;
-  --warning: #d97706;
-  --error: #dc2626;
-  --canvas-bg: #e0e0e8;
-  --toolbar-height: 48px;
-  --panel-width: 260px;
-  --right-panel-width: 300px;
-  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --bg-primary: var(--color-bg-primary);
+  --bg-secondary: var(--color-bg-secondary);
+  --bg-tertiary: var(--color-bg-tertiary);
+  --bg-surface: var(--color-bg-surface);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --accent-hover: var(--color-accent-hover);
+  --border: var(--color-border);
+  --border-light: var(--color-border-light);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --error: var(--color-error);
+  --canvas-bg: var(--color-canvas-bg);
 }
 
-/* Dark theme */
 [data-theme='dark'] {
-  --bg-primary: #121218;
-  --bg-secondary: #1c1c27;
-  --bg-tertiary: #2a2a3d;
-  --bg-surface: #232334;
-  --text-primary: #f0f0f5;
-  --text-secondary: #b0b0c0;
-  --text-muted: #7878a0;
-  --accent: #e94560;
-  --accent-hover: #ff6b81;
-  --border: #35354a;
-  --border-light: #45455a;
-  --success: #4ade80;
-  --warning: #fbbf24;
-  --error: #ef4444;
-  --canvas-bg: #0d0d1a;
+  --bg-primary: var(--color-bg-primary);
+  --bg-secondary: var(--color-bg-secondary);
+  --bg-tertiary: var(--color-bg-tertiary);
+  --bg-surface: var(--color-bg-surface);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --accent: var(--color-accent);
+  --accent-hover: var(--color-accent-hover);
+  --border: var(--color-border);
+  --border-light: var(--color-border-light);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --error: var(--color-error);
+  --canvas-bg: var(--color-canvas-bg);
 }
 
-html,
-body,
-#root {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-  font-family: var(--font-sans);
+/* ===== Base ===== */
+html, body, #root {
+  @apply h-full w-full overflow-hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: var(--text-primary);
   background: var(--bg-primary);
-  font-size: 13px;
 }
 
+/* ===== Layout ===== */
 .tg-app {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  @apply flex flex-col h-full;
 }
 
-/* Toolbar */
+.tg-workspace {
+  @apply flex flex-1 overflow-hidden;
+}
+
+/* ===== Toolbar ===== */
 .tg-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: var(--toolbar-height);
-  padding: 0 12px;
+  @apply flex items-center gap-1 px-3 shrink-0;
+  height: 50px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  overflow-x: auto;
 }
 
 .tg-toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: 2px;
+  @apply flex items-center gap-0.5;
 }
 
 .tg-toolbar-separator {
-  width: 1px;
-  height: 24px;
+  @apply w-px h-6 mx-1.5;
   background: var(--border-light);
-  margin: 0 6px;
 }
 
 .tg-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
+  @apply flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium cursor-pointer whitespace-nowrap transition-colors duration-150;
   border: 1px solid transparent;
-  border-radius: 4px;
   background: transparent;
   color: var(--text-primary);
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s;
 }
+.tg-btn:hover { background: var(--bg-tertiary); }
+.tg-btn:active { background: var(--border); }
+.tg-btn--active { background: var(--accent); color: #fff; }
+.tg-btn--active:hover { background: var(--accent-hover); }
+.tg-btn:disabled { @apply opacity-40 cursor-not-allowed; }
+.tg-btn:disabled:hover { background: transparent; }
+.tg-btn--danger:hover { background: var(--error); color: #fff; }
+.tg-btn--primary { background: var(--accent); color: #fff; border: none; }
+.tg-btn--primary:hover { background: var(--accent-hover); }
 
-.tg-btn:hover {
-  background: var(--bg-tertiary);
-}
-
-.tg-btn:active {
-  background: var(--border);
-}
-
-.tg-btn--active {
-  background: var(--accent);
-  color: #fff;
-}
-
-.tg-btn--active:hover {
-  background: var(--accent-hover);
-}
-
-.tg-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.tg-btn:disabled:hover {
-  background: transparent;
-}
-
-.tg-btn--danger:hover {
-  background: var(--error);
-  color: #fff;
-}
-
-/* Workspace */
-.tg-workspace {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-/* Left Panel */
+/* ===== Panels ===== */
 .tg-left-panel {
-  width: var(--panel-width);
-  min-width: 180px;
-  max-width: 400px;
+  @apply relative shrink-0 flex flex-col overflow-y-auto;
+  min-width: 180px; max-width: 400px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
-  flex-shrink: 0;
-  position: relative;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
 }
 
 .tg-left-panel-header {
-  padding: 10px 12px;
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  @apply flex items-center justify-between px-3 py-2.5 text-xs font-semibold uppercase tracking-wider;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
 }
 
-.tg-field-list {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.tg-field-group-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-  border-bottom: 1px solid var(--border);
-  user-select: none;
-}
-
-.tg-field-group-header:hover {
-  background: var(--bg-surface);
-}
-
-.tg-field-group--drag-over > .tg-field-group-header {
-  background: rgba(59, 130, 246, 0.1);
-  outline: 1px dashed var(--accent);
-}
-
-.tg-field-group-toggle {
-  font-size: 10px;
-}
-
-.tg-field-group-name {
-  flex: 1;
-}
-
-.tg-field-group-count {
-  font-weight: 400;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.tg-field-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px 6px 24px;
-  cursor: pointer;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.1s;
-  font-size: 13px;
-}
-
-.tg-field-item:hover {
-  background: var(--bg-surface);
-}
-
-.tg-field-item[draggable="true"] {
-  cursor: grab;
-}
-
-.tg-field-item--selected {
-  background: var(--bg-tertiary);
-  border-left: 2px solid var(--accent);
-}
-
-.tg-field-item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.tg-field-item-key {
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tg-field-item-dims {
-  font-size: 11px;
-  color: var(--text-secondary);
-  opacity: 0.7;
-}
-
-.tg-field-type-badge {
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-weight: 600;
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
-
-.tg-field-type-badge--text {
-  background: #2563eb33;
-  color: #60a5fa;
-}
-
-.tg-field-type-badge--image {
-  background: #16a34a33;
-  color: #4ade80;
-}
-
-.tg-field-type-badge--loop {
-  background: #d9770633;
-  color: #fb923c;
-}
-
-/* Canvas */
-.tg-canvas-container {
-  flex: 1;
-  overflow: hidden;
-  background: var(--canvas-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-/* Upload Zone (empty state) */
-.tg-upload-zone {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-primary);
-  transition: background 0.2s;
-}
-
-.tg-upload-zone--active {
-  background: rgba(233, 69, 96, 0.08);
-}
-
-.tg-upload-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  max-width: 400px;
-  text-align: center;
-  padding: 40px;
-  border: 2px dashed var(--text-muted);
-  border-radius: 16px;
-  transition: border-color 0.2s;
-}
-
-.tg-upload-zone--active .tg-upload-content {
-  border-color: var(--accent);
-}
-
-.tg-upload-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.tg-upload-subtitle {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin: 0;
-  line-height: 1.5;
-}
-
-.tg-upload-btn {
-  padding: 10px 28px;
-  font-size: 14px;
-  border-radius: 8px;
-  margin-top: 4px;
-}
-
-.tg-upload-hint {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-/* Right Panel */
 .tg-right-panel {
-  width: var(--right-panel-width);
-  min-width: 220px;
-  max-width: 500px;
+  @apply relative shrink-0 overflow-y-auto;
+  min-width: 220px; max-width: 500px;
   background: var(--bg-secondary);
   border-left: 1px solid var(--border);
-  overflow-y: auto;
-  flex-shrink: 0;
-  position: relative;
 }
 
 .tg-panel-section {
+  @apply p-3;
   border-bottom: 1px solid var(--border);
-  padding: 12px;
 }
 
 .tg-panel-section-title {
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  @apply text-xs font-semibold uppercase tracking-wider mb-2;
   color: var(--text-secondary);
-  margin-bottom: 8px;
 }
 
+/* ===== Form Elements ===== */
 .tg-form-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 8px;
+  @apply flex flex-col gap-1 mb-2;
 }
 
 .tg-form-row label {
-  font-size: 12px;
+  @apply flex items-center gap-1 text-xs;
   color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .tg-input {
-  width: 100%;
-  padding: 5px 8px;
+  @apply w-full px-2 py-1.5 rounded-md text-sm outline-none transition-colors;
   border: 1px solid var(--border);
-  border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.15s;
 }
-
-.tg-input:focus {
-  border-color: var(--accent);
-}
+.tg-input:focus { border-color: var(--accent); }
 
 .tg-select {
-  width: 100%;
-  padding: 5px 8px;
+  @apply w-full px-2 py-1.5 rounded-md text-sm outline-none cursor-pointer;
   border: 1px solid var(--border);
-  border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  cursor: pointer;
 }
-
-.tg-select:focus {
-  border-color: var(--accent);
-}
+.tg-select:focus { border-color: var(--accent); }
 
 .tg-color-input {
-  width: 32px;
-  height: 24px;
+  @apply w-8 h-6 rounded cursor-pointer p-0;
   border: 1px solid var(--border);
-  border-radius: 4px;
-  cursor: pointer;
-  padding: 0;
   background: none;
 }
 
 .tg-toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
+  @apply flex items-center justify-between mb-2;
 }
 
 .tg-toggle-row label {
-  font-size: 12px;
+  @apply flex items-center gap-1 text-xs;
   color: var(--text-secondary);
-  display: flex;
-  align-items: center;
 }
 
 .tg-checkbox {
-  width: 16px;
-  height: 16px;
+  @apply w-4 h-4 cursor-pointer;
   accent-color: var(--accent);
-  cursor: pointer;
 }
 
-/* Context Menu */
-.tg-context-menu {
-  position: fixed;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-light);
-  border-radius: 6px;
-  padding: 4px 0;
-  min-width: 180px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-  z-index: 1000;
-}
-
-.tg-context-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  font-size: 12px;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-.tg-context-menu-item:hover {
-  background: var(--bg-tertiary);
-}
-
-.tg-context-menu-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
-}
-
-/* Dialog */
-.tg-dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
-}
-
-.tg-dialog {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-light);
-  border-radius: 12px;
-  padding: 24px;
-  min-width: 380px;
-  max-width: 480px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
-  color: var(--text-primary);
-}
-
-.tg-dialog p {
-  color: var(--text-secondary);
-  font-size: 13px;
-  margin-bottom: 16px;
-}
-
-.tg-dialog label {
-  color: var(--text-primary);
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-
-.tg-dialog label:hover {
-  background: var(--bg-tertiary);
-}
-
-.tg-dialog input[type='radio'] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-.tg-dialog-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 16px;
-  color: var(--text-primary);
-}
-
-.tg-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-/* Preview Panel */
-.tg-preview-panel {
-  background: var(--bg-secondary);
-  border-left: 1px solid var(--border);
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-
-.tg-btn--primary {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-}
-
-.tg-btn--primary:hover {
-  background: var(--accent-hover);
-}
-
-/* Lock overlay */
-.tg-locked-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.15);
-  cursor: not-allowed;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tg-locked-badge {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* JSON Preview */
-.tg-json-preview {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 8px;
-  overflow-x: auto;
-  max-height: 300px;
-  overflow-y: auto;
-  white-space: pre;
-  line-height: 1.4;
-}
-
-.tg-json-mode-toggle {
-  display: flex;
-  gap: 2px;
-  margin-bottom: 8px;
-}
-
-.tg-json-mode-btn {
-  flex: 1;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.tg-json-mode-btn--active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-/* Toast */
-.tg-toast {
-  position: fixed;
-  bottom: 16px;
-  right: 16px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-size: 13px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  z-index: 2000;
-  animation: tg-slide-up 0.2s ease-out;
-}
-
-.tg-toast--error {
-  border-color: var(--error);
-}
-
-.tg-toast--success {
-  border-color: var(--success);
-}
-
-@keyframes tg-slide-up {
-  from {
-    transform: translateY(12px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* Scrollbar styling — panels */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--bg-primary);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--border-light);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-/* Canvas scrollbar — larger and more visible */
-.tg-canvas-container::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-
-.tg-canvas-container::-webkit-scrollbar-track {
-  background: var(--bg-primary);
-  border-radius: 6px;
-}
-
-.tg-canvas-container::-webkit-scrollbar-thumb {
-  background: var(--accent);
-  border-radius: 6px;
-  border: 2px solid var(--bg-primary);
-}
-
-.tg-canvas-container::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-hover);
-}
-
-/* Firefox scrollbar */
+/* ===== Canvas ===== */
 .tg-canvas-container {
+  @apply flex-1 overflow-auto flex items-center justify-center relative;
+  background: var(--canvas-bg);
   scrollbar-width: auto;
   scrollbar-color: var(--accent) var(--bg-primary);
 }
 
-/* Sidebar resize handle */
+.tg-canvas-container::-webkit-scrollbar { width: 12px; height: 12px; }
+.tg-canvas-container::-webkit-scrollbar-track { background: var(--bg-primary); border-radius: 6px; }
+.tg-canvas-container::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 6px; border: 2px solid var(--bg-primary); }
+.tg-canvas-container::-webkit-scrollbar-thumb:hover { background: var(--accent-hover); }
+
+/* ===== Field Items (Left Panel) ===== */
+.tg-field-item {
+  @apply flex items-center gap-2 px-3 py-2 cursor-pointer text-sm transition-colors;
+  border-bottom: 1px solid var(--border);
+}
+.tg-field-item:hover { background: var(--bg-surface); }
+.tg-field-item--selected { background: var(--bg-tertiary); border-left: 3px solid var(--accent); }
+
+.tg-field-type-badge { @apply text-[10px] px-1.5 py-0.5 rounded font-bold uppercase; }
+.tg-field-type-badge--text { background: rgba(37,99,235,0.15); color: #60a5fa; }
+.tg-field-type-badge--image { background: rgba(22,163,74,0.15); color: #4ade80; }
+.tg-field-type-badge--loop { background: rgba(217,119,6,0.15); color: #fb923c; }
+
+/* ===== Upload Zone ===== */
+.tg-upload-zone {
+  @apply w-full h-full flex items-center justify-center transition-colors;
+  background: var(--bg-primary);
+}
+.tg-upload-zone--active { background: rgba(233, 69, 96, 0.06); }
+
+.tg-upload-content {
+  @apply flex flex-col items-center gap-4 max-w-md text-center px-10 py-12 rounded-2xl transition-colors;
+  border: 2px dashed var(--text-muted);
+}
+.tg-upload-zone--active .tg-upload-content { border-color: var(--accent); }
+.tg-upload-title { @apply text-xl font-semibold m-0; color: var(--text-primary); }
+.tg-upload-subtitle { @apply text-sm m-0 leading-relaxed; color: var(--text-secondary); }
+.tg-upload-btn { @apply px-7 py-2.5 text-sm rounded-lg mt-1; }
+.tg-upload-hint { @apply text-xs m-0; color: var(--text-muted); }
+
+/* ===== Context Menu ===== */
+.tg-context-menu {
+  @apply fixed rounded-lg py-1 min-w-[180px] z-[1000];
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.tg-context-menu-item {
+  @apply flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer transition-colors;
+  color: var(--text-primary);
+}
+.tg-context-menu-item:hover { background: var(--bg-tertiary); }
+.tg-context-menu-divider { @apply h-px my-1; background: var(--border); }
+
+/* ===== Dialogs ===== */
+.tg-dialog-overlay {
+  @apply fixed inset-0 flex items-center justify-center z-[999];
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+}
+
+.tg-dialog {
+  @apply rounded-xl p-6 min-w-[380px] max-w-[480px];
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  color: var(--text-primary);
+}
+
+.tg-dialog p { @apply text-sm mb-4; color: var(--text-secondary); }
+
+.tg-dialog-title { @apply text-lg font-semibold mb-4; color: var(--text-primary); }
+
+.tg-dialog-actions { @apply flex justify-end gap-2 mt-4; }
+
+/* ===== Lock Overlay ===== */
+.tg-locked-overlay {
+  @apply absolute inset-0 flex items-center justify-center cursor-not-allowed z-[100];
+  background: rgba(0,0,0,0.12);
+}
+.tg-locked-badge {
+  @apply flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+/* ===== Preview Panel ===== */
+.tg-preview-panel {
+  @apply shrink-0 flex flex-col relative;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+}
+
+/* ===== JSON Preview ===== */
+.tg-json-preview {
+  @apply text-xs rounded p-2 overflow-x-auto overflow-y-auto whitespace-pre leading-snug;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  max-height: 300px;
+}
+
+.tg-json-mode-toggle { @apply flex gap-0.5 mb-2; }
+.tg-json-mode-btn {
+  @apply flex-1 px-2 py-1 rounded text-xs cursor-pointer transition-all;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+}
+.tg-json-mode-btn--active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ===== Resize Handle ===== */
 .tg-resize-handle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 5px;
-  cursor: col-resize;
-  z-index: 10;
-  transition: background 0.15s;
+  @apply absolute top-0 bottom-0 w-[5px] cursor-col-resize z-10 transition-colors;
+}
+.tg-resize-handle:hover, .tg-resize-handle--active { background: var(--accent); }
+.tg-resize-handle--right { @apply right-0; }
+.tg-resize-handle--left { @apply left-0; }
+
+/* ===== Toast ===== */
+.tg-toast {
+  @apply fixed bottom-4 right-4 rounded-lg px-4 py-3 text-sm z-[2000];
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  animation: tg-slide-up 0.2s ease-out;
+}
+.tg-toast--error { border-color: var(--error); }
+.tg-toast--success { border-color: var(--success); }
+
+@keyframes tg-slide-up {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
-.tg-resize-handle:hover,
-.tg-resize-handle--active {
-  background: var(--accent);
+/* ===== Left panel group sections ===== */
+.tg-field-list { @apply flex-1 overflow-y-auto; }
+.tg-field-group-header {
+  @apply flex items-center justify-between px-3 py-2 cursor-pointer text-xs font-semibold uppercase tracking-wide select-none;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
 }
+.tg-field-group-header:hover { background: var(--bg-surface); }
+.tg-field-group--drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+.tg-field-group-toggle { @apply text-[10px] mr-1; color: var(--text-muted); }
+.tg-field-group-name { @apply flex-1; }
+.tg-field-group-count { @apply text-[10px] font-normal; color: var(--text-muted); }
+.tg-field-item-info { @apply flex flex-col min-w-0; }
+.tg-field-item-key { @apply text-sm truncate; color: var(--text-primary); }
+.tg-field-item-dims { @apply text-[11px]; color: var(--text-muted); }
 
-.tg-resize-handle--right {
-  right: 0;
-}
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-.tg-resize-handle--left {
-  left: 0;
-}
+[draggable='true'] { cursor: grab; }
+[draggable='true']:active { cursor: grabbing; }
