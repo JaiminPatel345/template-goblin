@@ -316,7 +316,7 @@ body,
   max-width: 400px;
   text-align: center;
   padding: 40px;
-  border: 2px dashed var(--border-light);
+  border: 2px dashed var(--text-muted);
   border-radius: 16px;
   transition: border-color 0.2s;
 }
