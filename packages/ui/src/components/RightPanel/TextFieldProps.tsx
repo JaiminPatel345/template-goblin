@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { NumberInput } from '../NumberInput.js'
 import type {
   FieldDefinition,
   TextFieldStyle,
@@ -173,24 +174,22 @@ export function TextFieldProps({ field }: Props) {
             Max Rows
             <InfoTip text="Maximum number of text lines. Changes the field height." />
           </label>
-          <input
-            className="tg-input"
-            type="number"
-            min={1}
+          <NumberInput
             value={style.maxRows}
-            onChange={(e) => onMaxRowsChange(Math.max(1, parseInt(e.target.value) || 1))}
+            min={1}
+            defaultValue={3}
+            onChange={(v) => onMaxRowsChange(v)}
           />
         </div>
 
         <div className="tg-form-row">
           <label>Line Height</label>
-          <input
-            className="tg-input"
-            type="number"
+          <NumberInput
+            value={style.lineHeight}
             min={0.5}
             step={0.1}
-            value={style.lineHeight}
-            onChange={(e) => onLineHeightChange(Math.max(0.5, parseFloat(e.target.value) || 1.2))}
+            defaultValue={1.2}
+            onChange={(v) => onLineHeightChange(v)}
           />
         </div>
       </div>
@@ -216,12 +215,11 @@ export function TextFieldProps({ field }: Props) {
 
         <div className="tg-form-row">
           <label>Font Size</label>
-          <input
-            className="tg-input"
-            type="number"
-            min={1}
+          <NumberInput
             value={style.fontSize}
-            onChange={(e) => onFontSizeChange(Math.max(1, parseInt(e.target.value) || 12))}
+            min={1}
+            defaultValue={12}
+            onChange={(v) => onFontSizeChange(v)}
           />
         </div>
 
@@ -244,16 +242,11 @@ export function TextFieldProps({ field }: Props) {
               Min Font Size
               <InfoTip text="The smallest font size allowed when dynamic sizing is enabled." />
             </label>
-            <input
-              className="tg-input"
-              type="number"
-              min={1}
+            <NumberInput
               value={style.fontSizeMin}
-              onChange={(e) =>
-                updateFieldStyle(field.id, {
-                  fontSizeMin: Math.max(1, parseInt(e.target.value) || 6),
-                })
-              }
+              min={1}
+              defaultValue={11}
+              onChange={(v) => updateFieldStyle(field.id, { fontSizeMin: v })}
             />
           </div>
         )}

@@ -10,6 +10,7 @@ import type {
 } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { InfoTip } from './TextFieldProps.js'
+import { NumberInput } from '../NumberInput.js'
 
 interface Props {
   field: FieldDefinition
@@ -117,27 +118,21 @@ export function LoopFieldProps({ field }: Props) {
             Max Rows
             <InfoTip text="Maximum rows visible per page." />
           </label>
-          <input
-            className="tg-input"
-            type="number"
+          <NumberInput
             min={1}
             value={style.maxRows}
-            onChange={(e) =>
-              updateFieldStyle(field.id, { maxRows: Math.max(1, parseInt(e.target.value) || 1) })
-            }
+            defaultValue={10}
+            onChange={(v) => updateFieldStyle(field.id, { maxRows: v })}
           />
         </div>
 
         <div className="tg-form-row">
           <label>Max Columns</label>
-          <input
-            className="tg-input"
-            type="number"
+          <NumberInput
             min={1}
             value={style.maxColumns}
-            onChange={(e) =>
-              updateFieldStyle(field.id, { maxColumns: Math.max(1, parseInt(e.target.value) || 1) })
-            }
+            defaultValue={5}
+            onChange={(v) => updateFieldStyle(field.id, { maxColumns: v })}
           />
         </div>
 
@@ -229,14 +224,11 @@ export function LoopFieldProps({ field }: Props) {
 
             <div className="tg-form-row">
               <label>Width</label>
-              <input
-                className="tg-input"
-                type="number"
+              <NumberInput
                 min={10}
                 value={col.width}
-                onChange={(e) =>
-                  updateColumn(i, { width: Math.max(10, parseInt(e.target.value) || 10) })
-                }
+                defaultValue={100}
+                onChange={(v) => updateColumn(i, { width: v })}
               />
             </div>
 
@@ -285,14 +277,11 @@ export function LoopFieldProps({ field }: Props) {
 
         <div className="tg-form-row">
           <label>Font Size</label>
-          <input
-            className="tg-input"
-            type="number"
+          <NumberInput
             min={1}
             value={headerStyle.fontSize}
-            onChange={(e) =>
-              updateHeader({ fontSize: Math.max(1, parseInt(e.target.value) || 10) })
-            }
+            defaultValue={10}
+            onChange={(v) => updateHeader({ fontSize: v })}
           />
         </div>
 
@@ -363,12 +352,11 @@ export function LoopFieldProps({ field }: Props) {
 
         <div className="tg-form-row">
           <label>Font Size</label>
-          <input
-            className="tg-input"
-            type="number"
+          <NumberInput
             min={1}
             value={rowStyle.fontSize}
-            onChange={(e) => updateRow({ fontSize: Math.max(1, parseInt(e.target.value) || 10) })}
+            defaultValue={10}
+            onChange={(v) => updateRow({ fontSize: v })}
           />
         </div>
 
@@ -421,29 +409,23 @@ export function LoopFieldProps({ field }: Props) {
         {rowStyle.fontSizeDynamic && (
           <div className="tg-form-row">
             <label>Min Font Size</label>
-            <input
-              className="tg-input"
-              type="number"
+            <NumberInput
               min={1}
               value={rowStyle.fontSizeMin}
-              onChange={(e) =>
-                updateRow({ fontSizeMin: Math.max(1, parseInt(e.target.value) || 6) })
-              }
+              defaultValue={6}
+              onChange={(v) => updateRow({ fontSizeMin: v })}
             />
           </div>
         )}
 
         <div className="tg-form-row">
           <label>Line Height</label>
-          <input
-            className="tg-input"
-            type="number"
+          <NumberInput
             min={0.5}
             step={0.1}
             value={rowStyle.lineHeight}
-            onChange={(e) =>
-              updateRow({ lineHeight: Math.max(0.5, parseFloat(e.target.value) || 1.2) })
-            }
+            defaultValue={1.2}
+            onChange={(v) => updateRow({ lineHeight: v })}
           />
         </div>
       </div>
@@ -454,15 +436,12 @@ export function LoopFieldProps({ field }: Props) {
 
         <div className="tg-form-row">
           <label>Border Width</label>
-          <input
-            className="tg-input"
-            type="number"
+          <NumberInput
             min={0}
             step={0.5}
             value={cellStyle.borderWidth}
-            onChange={(e) =>
-              updateCell({ borderWidth: Math.max(0, parseFloat(e.target.value) || 0) })
-            }
+            defaultValue={1}
+            onChange={(v) => updateCell({ borderWidth: v })}
           />
         </div>
 
@@ -479,53 +458,41 @@ export function LoopFieldProps({ field }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div className="tg-form-row">
             <label>Padding Top</label>
-            <input
-              className="tg-input"
-              type="number"
+            <NumberInput
               min={0}
               value={cellStyle.paddingTop}
-              onChange={(e) =>
-                updateCell({ paddingTop: Math.max(0, parseFloat(e.target.value) || 0) })
-              }
+              defaultValue={4}
+              onChange={(v) => updateCell({ paddingTop: v })}
             />
           </div>
 
           <div className="tg-form-row">
             <label>Padding Bottom</label>
-            <input
-              className="tg-input"
-              type="number"
+            <NumberInput
               min={0}
               value={cellStyle.paddingBottom}
-              onChange={(e) =>
-                updateCell({ paddingBottom: Math.max(0, parseFloat(e.target.value) || 0) })
-              }
+              defaultValue={4}
+              onChange={(v) => updateCell({ paddingBottom: v })}
             />
           </div>
 
           <div className="tg-form-row">
             <label>Padding Left</label>
-            <input
-              className="tg-input"
-              type="number"
+            <NumberInput
               min={0}
               value={cellStyle.paddingLeft}
-              onChange={(e) =>
-                updateCell({ paddingLeft: Math.max(0, parseFloat(e.target.value) || 0) })
-              }
+              defaultValue={4}
+              onChange={(v) => updateCell({ paddingLeft: v })}
             />
           </div>
 
           <div className="tg-form-row">
             <label>Padding Right</label>
-            <input
-              className="tg-input"
-              type="number"
+            <NumberInput
               min={0}
               value={cellStyle.paddingRight}
-              onChange={(e) =>
-                updateCell({ paddingRight: Math.max(0, parseFloat(e.target.value) || 0) })
-              }
+              defaultValue={4}
+              onChange={(v) => updateCell({ paddingRight: v })}
             />
           </div>
         </div>
