@@ -132,7 +132,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'template-goblin-ui',
-      version: 1,
+      version: 2,
       // Only persist user preferences, not transient UI state
       partialize: (state) => ({
         theme: state.theme,
@@ -143,6 +143,16 @@ export const useUiStore = create<UiState>()(
         showLeftPanel: state.showLeftPanel,
         showRightPanel: state.showRightPanel,
       }),
+      // Migrate v1 -> v2: 'min' mode was removed
+      migrate: (persisted, version) => {
+        const state = persisted as Record<string, unknown>
+        if (version < 2) {
+          if (state.jsonPreviewMode === 'min') {
+            state.jsonPreviewMode = 'default'
+          }
+        }
+        return state
+      },
     },
   ),
 )
