@@ -58,21 +58,18 @@ export function generateExampleJson(
 }
 
 function getTextValue(field: FieldDefinition, mode: JsonPreviewMode, repeatCount: number): string {
-  switch (mode) {
-    case 'default':
-      return field.required ? 'A' : ''
-    case 'max':
-      return 'It works in my machine '.repeat(repeatCount).trim()
+  if (mode === 'max') {
+    return 'It works in my machine '.repeat(repeatCount).trim()
   }
+  // default (and any unknown mode fallback)
+  return field.required ? 'A' : ''
 }
 
 function getImageValue(field: FieldDefinition, mode: JsonPreviewMode): string | null {
-  switch (mode) {
-    case 'default':
-      return field.required ? '<base64-image-data>' : null
-    case 'max':
-      return '<base64-image-data>'
+  if (mode === 'max') {
+    return '<base64-image-data>'
   }
+  return field.required ? '<base64-image-data>' : null
 }
 
 function getLoopValue(
@@ -83,29 +80,26 @@ function getLoopValue(
   const style = field.style as LoopFieldStyle
   const columns = style.columns || []
 
-  switch (mode) {
-    case 'default': {
-      if (!field.required) return []
+  if (mode === 'max') {
+    const rows: Record<string, string>[] = []
+    const rowCount = style.maxRows || 10
+    for (let i = 0; i < rowCount; i++) {
       const row: Record<string, string> = {}
       for (const col of columns) {
-        row[col.key] = 'A'
+        row[col.key] = 'It works in my machine '.repeat(repeatCount).trim()
       }
-      return [row]
+      rows.push(row)
     }
-
-    case 'max': {
-      const rows: Record<string, string>[] = []
-      const rowCount = style.maxRows || 10
-      for (let i = 0; i < rowCount; i++) {
-        const row: Record<string, string> = {}
-        for (const col of columns) {
-          row[col.key] = 'It works in my machine '.repeat(repeatCount).trim()
-        }
-        rows.push(row)
-      }
-      return rows
-    }
+    return rows
   }
+
+  // default (and any unknown mode fallback)
+  if (!field.required) return []
+  const row: Record<string, string> = {}
+  for (const col of columns) {
+    row[col.key] = 'A'
+  }
+  return [row]
 }
 
 /**
