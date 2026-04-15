@@ -12,7 +12,12 @@ import {
 import type Konva from 'konva'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
-import type { FieldDefinition, FieldType } from '@template-goblin/types'
+import type {
+  FieldDefinition,
+  FieldType,
+  PageDefinition,
+  PageBackgroundType,
+} from '@template-goblin/types'
 
 const FIELD_COLORS: Record<FieldType, { fill: string; stroke: string; text: string }> = {
   text: { fill: 'rgba(37,99,235,0.35)', stroke: '#60a5fa', text: '#ffffff' },
@@ -27,13 +32,153 @@ function snap(value: number, gridSize: number, enabled: boolean): number {
   return Math.round(value / gridSize) * gridSize
 }
 
+let pageIdCounter = 0
+function generatePageId(): string {
+  pageIdCounter++
+  return `page-${Date.now()}-${pageIdCounter}`
+}
+
+/** Inline dialog for adding a new page */
+function AddPageDialog({
+  onClose,
+  onAdd,
+}: {
+  onClose: () => void
+  onAdd: (bgType: PageBackgroundType, bgColor?: string, bgFile?: File) => void
+}) {
+  const [mode, setMode] = useState<'choose' | 'color'>('choose')
+  const [color, setColor] = useState('#ffffff')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div className="tg-dialog-overlay" onClick={onClose}>
+      <div className="tg-dialog" onClick={(e) => e.stopPropagation()}>
+        <h3 className="tg-dialog-title">Add New Page</h3>
+        <p>Choose a background for the new page:</p>
+
+        {mode === 'choose' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button
+              className="tg-btn"
+              style={{ justifyContent: 'flex-start', padding: '10px 14px' }}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              Upload new image
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) onAdd('image', undefined, file)
+                e.target.value = ''
+              }}
+            />
+
+            <button
+              className="tg-btn"
+              style={{ justifyContent: 'flex-start', padding: '10px 14px' }}
+              onClick={() => onAdd('inherit')}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <rect x="2" y="2" width="20" height="20" rx="2" />
+                <path d="M7 12h10M12 7v10" />
+              </svg>
+              Same as previous page
+            </button>
+
+            <button
+              className="tg-btn"
+              style={{ justifyContent: 'flex-start', padding: '10px 14px' }}
+              onClick={() => setMode('color')}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <circle cx="12" cy="12" r="3" fill="currentColor" />
+              </svg>
+              Solid color
+            </button>
+          </div>
+        )}
+
+        {mode === 'color' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Color:</label>
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                style={{ width: '48px', height: '32px', border: 'none', cursor: 'pointer' }}
+              />
+              <span
+                style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}
+              >
+                {color}
+              </span>
+            </div>
+            <div className="tg-dialog-actions">
+              <button className="tg-btn" onClick={() => setMode('choose')}>
+                Back
+              </button>
+              <button className="tg-btn tg-btn--primary" onClick={() => onAdd('color', color)}>
+                Add Page
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mode === 'choose' && (
+          <div className="tg-dialog-actions">
+            <button className="tg-btn" onClick={onClose}>
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function CanvasArea() {
   const meta = useTemplateStore((s) => s.meta)
   const fields = useTemplateStore((s) => s.fields)
+  const pages = useTemplateStore((s) => s.pages)
   const backgroundDataUrl = useTemplateStore((s) => s.backgroundDataUrl)
+  const pageBackgroundDataUrls = useTemplateStore((s) => s.pageBackgroundDataUrls)
   const addField = useTemplateStore((s) => s.addField)
   const moveField = useTemplateStore((s) => s.moveField)
   const resizeField = useTemplateStore((s) => s.resizeField)
+  const addPage = useTemplateStore((s) => s.addPage)
+  const removePage = useTemplateStore((s) => s.removePage)
 
   const activeTool = useUiStore((s) => s.activeTool)
   const selectedFieldIds = useUiStore((s) => s.selectedFieldIds)
@@ -52,6 +197,8 @@ export function CanvasArea() {
   const setActiveTool = useUiStore((s) => s.setActiveTool)
   const setPendingBackground = useUiStore((s) => s.setPendingBackground)
   const setShowPageSizeDialog = useUiStore((s) => s.setShowPageSizeDialog)
+  const currentPageId = useUiStore((s) => s.currentPageId)
+  const setCurrentPage = useUiStore((s) => s.setCurrentPage)
 
   const stageRef = useRef<Konva.Stage | null>(null)
   const transformerRef = useRef<Konva.Transformer | null>(null)
@@ -62,18 +209,71 @@ export function CanvasArea() {
     null,
   )
   const [isDragOver, setIsDragOver] = useState(false)
+  const [showAddPageDialog, setShowAddPageDialog] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Load background image
+  // Resolve the current page's effective background data URL.
+  // For backward compat: if no pages array, use legacy backgroundDataUrl.
+  const resolveCurrentBgDataUrl = useCallback((): string | null => {
+    // No pages defined — legacy single-page mode
+    if (pages.length === 0) return backgroundDataUrl
+
+    // Page 0 (null) — use legacy background
+    if (currentPageId === null) return backgroundDataUrl
+
+    const page = pages.find((p) => p.id === currentPageId)
+    if (!page) return backgroundDataUrl
+
+    if (page.backgroundType === 'image') {
+      return pageBackgroundDataUrls.get(page.id) ?? null
+    }
+
+    if (page.backgroundType === 'inherit') {
+      // Walk back to find the nearest non-inherit page
+      for (let i = page.index - 1; i >= 0; i--) {
+        const prev = pages.find((p) => p.index === i)
+        if (!prev) continue
+        if (prev.backgroundType === 'image') {
+          return pageBackgroundDataUrls.get(prev.id) ?? null
+        }
+        if (prev.backgroundType === 'color') {
+          return null // color pages have no image
+        }
+        // continue if also 'inherit'
+      }
+      // Fell through to page 0 legacy
+      return backgroundDataUrl
+    }
+
+    // backgroundType === 'color' — no image, color is handled by the Rect
+    return null
+  }, [pages, currentPageId, backgroundDataUrl, pageBackgroundDataUrls])
+
+  // Resolve the current page's background color (for 'color' type pages)
+  const resolveCurrentBgColor = useCallback((): string | null => {
+    if (pages.length === 0) return null
+    if (currentPageId === null) return null
+
+    const page = pages.find((p) => p.id === currentPageId)
+    if (!page) return null
+
+    if (page.backgroundType === 'color') return page.backgroundColor
+    return null
+  }, [pages, currentPageId])
+
+  const currentBgDataUrl = resolveCurrentBgDataUrl()
+  const currentBgColor = resolveCurrentBgColor()
+
+  // Load background image for the current page
   useEffect(() => {
-    if (!backgroundDataUrl) {
+    if (!currentBgDataUrl) {
       setBgImage(null)
       return
     }
     const img = new window.Image()
-    img.src = backgroundDataUrl
+    img.src = currentBgDataUrl
     img.onload = () => setBgImage(img)
-  }, [backgroundDataUrl])
+  }, [currentBgDataUrl])
 
   // Auto-fit zoom only when background first loads (not on every resize)
   const hasAutoFitted = useRef(false)
@@ -81,7 +281,8 @@ export function CanvasArea() {
     const el = containerRef.current
     if (!el) return
 
-    if (backgroundDataUrl && meta.width > 0 && meta.height > 0 && !hasAutoFitted.current) {
+    const hasBg = currentBgDataUrl || currentBgColor
+    if (hasBg && meta.width > 0 && meta.height > 0 && !hasAutoFitted.current) {
       const w = el.clientWidth
       const h = el.clientHeight
       const padding = 40
@@ -92,12 +293,19 @@ export function CanvasArea() {
       hasAutoFitted.current = true
     }
 
-    if (!backgroundDataUrl) {
+    if (!hasBg) {
       hasAutoFitted.current = false
     }
 
     return undefined
-  }, [backgroundDataUrl, meta.width, meta.height])
+  }, [currentBgDataUrl, currentBgColor, meta.width, meta.height])
+
+  // Filter fields by current page
+  const pageFields = fields.filter((f) => {
+    // null pageId means page 0 — show when currentPageId is null
+    if (currentPageId === null) return f.pageId === null || f.pageId === undefined
+    return f.pageId === currentPageId
+  })
 
   // Attach Transformer to selected nodes
   useEffect(() => {
@@ -116,7 +324,7 @@ export function CanvasArea() {
 
     tr.nodes(nodes)
     tr.getLayer()?.batchDraw()
-  }, [selectedFieldIds, fields, meta.locked])
+  }, [selectedFieldIds, pageFields, meta.locked])
 
   // Scroll-to-zoom: native non-passive listener to prevent page scroll
   useEffect(() => {
@@ -174,7 +382,7 @@ export function CanvasArea() {
   const stageH = meta.height * zoom
   const isPlacing =
     activeTool === 'addText' || activeTool === 'addImage' || activeTool === 'addLoop'
-  const sortedFields = [...fields].sort((a, b) => a.zIndex - b.zIndex)
+  const sortedFields = [...pageFields].sort((a, b) => a.zIndex - b.zIndex)
 
   const getPointerPos = useCallback((): { x: number; y: number } | null => {
     const stage = stageRef.current
@@ -259,6 +467,7 @@ export function CanvasArea() {
         id: '',
         type,
         groupId: null,
+        pageId: currentPageId,
         required: false,
         x,
         y,
@@ -340,7 +549,7 @@ export function CanvasArea() {
         } as FieldDefinition)
       }
     },
-    [addField, fields.length],
+    [addField, fields.length, currentPageId],
   )
 
   const handleFieldClick = useCallback(
@@ -433,6 +642,51 @@ export function CanvasArea() {
     e.target.value = ''
   }
 
+  // --- Add page handler ---
+  function handleAddPage(bgType: PageBackgroundType, bgColor?: string, bgFile?: File) {
+    setShowAddPageDialog(false)
+    const pageId = generatePageId()
+    const index = pages.length // new page goes at end (page 0 is the legacy implicit page)
+    const page: PageDefinition = {
+      id: pageId,
+      index,
+      backgroundType: bgType,
+      backgroundColor: bgType === 'color' ? (bgColor ?? '#ffffff') : null,
+      backgroundFilename: bgType === 'image' ? `backgrounds/${pageId}.png` : null,
+    }
+
+    if (bgType === 'image' && bgFile) {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const dataUrl = reader.result as string
+        const bufReader = new FileReader()
+        bufReader.onload = () => {
+          const buffer = bufReader.result as ArrayBuffer
+          addPage(page, dataUrl, buffer)
+          setCurrentPage(pageId)
+        }
+        bufReader.readAsArrayBuffer(bgFile)
+      }
+      reader.readAsDataURL(bgFile)
+    } else if (bgType === 'inherit') {
+      // Inherit from previous page — no separate background needed
+      addPage(page)
+      setCurrentPage(pageId)
+    } else {
+      // Solid color — no image buffer needed
+      addPage(page)
+      setCurrentPage(pageId)
+    }
+  }
+
+  // --- Remove page handler ---
+  function handleRemovePage(pageId: string) {
+    // Don't allow removing the last page if it's the only explicit page
+    removePage(pageId)
+    setCurrentPage(null) // go back to page 0
+    clearSelection()
+  }
+
   // --- Grid ---
   const renderGrid = useCallback(() => {
     if (!showGrid) return null
@@ -462,8 +716,96 @@ export function CanvasArea() {
     return lines
   }, [showGrid, meta.width, meta.height, gridSize, zoom])
 
-  // ===== EMPTY STATE: No background uploaded =====
-  if (!backgroundDataUrl) {
+  // --- Page navigation bar ---
+  const renderPageBar = () => {
+    // Only show when there is a background (canvas mode)
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '2px',
+          padding: '6px 12px',
+          background: 'var(--bg-secondary)',
+          borderTop: '1px solid var(--border)',
+          flexShrink: 0,
+          overflowX: 'auto',
+        }}
+      >
+        {/* Page 0 tab (legacy/implicit first page) */}
+        <button
+          className={`tg-btn ${currentPageId === null ? 'tg-btn--active' : ''}`}
+          style={{ fontSize: '11px', padding: '4px 12px' }}
+          onClick={() => {
+            setCurrentPage(null)
+            clearSelection()
+          }}
+        >
+          Page 1
+        </button>
+
+        {/* Explicit pages */}
+        {pages.map((page, idx) => (
+          <div key={page.id} style={{ display: 'flex', alignItems: 'center' }}>
+            <button
+              className={`tg-btn ${currentPageId === page.id ? 'tg-btn--active' : ''}`}
+              style={{ fontSize: '11px', padding: '4px 12px' }}
+              onClick={() => {
+                setCurrentPage(page.id)
+                clearSelection()
+              }}
+            >
+              Page {idx + 2}
+            </button>
+            {currentPageId === page.id && (
+              <button
+                className="tg-btn tg-btn--danger"
+                style={{ fontSize: '10px', padding: '2px 6px', marginLeft: '2px' }}
+                title="Remove this page"
+                onClick={() => handleRemovePage(page.id)}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
+        ))}
+
+        {/* Add page button */}
+        <button
+          className="tg-btn"
+          style={{ fontSize: '11px', padding: '4px 10px', marginLeft: '4px' }}
+          onClick={() => setShowAddPageDialog(true)}
+          title="Add new page"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Add Page
+        </button>
+      </div>
+    )
+  }
+
+  // ===== EMPTY STATE: No background uploaded (page 0 has no background) =====
+  if (!backgroundDataUrl && pages.length === 0) {
     return (
       <div
         ref={containerRef}
@@ -512,197 +854,211 @@ export function CanvasArea() {
 
   // ===== CANVAS STATE: Background uploaded =====
   return (
-    <div
-      ref={containerRef}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMovePan}
-      onMouseUp={handleMouseUpPan}
-      onMouseLeave={handleMouseUpPan}
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: isPanning ? 'grabbing' : undefined,
-        overflow: 'auto',
-        background: 'var(--canvas-bg)',
-      }}
-    >
-      <Stage
-        ref={stageRef}
-        width={stageW}
-        height={stageH}
-        scaleX={zoom}
-        scaleY={zoom}
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+      <div
+        ref={containerRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMovePan}
+        onMouseUp={handleMouseUpPan}
+        onMouseLeave={handleMouseUpPan}
         style={{
-          cursor: isPlacing ? 'crosshair' : 'default',
-          boxShadow: '0 4px 32px rgba(0,0,0,0.5)',
+          width: '100%',
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: isPanning ? 'grabbing' : undefined,
+          overflow: 'auto',
+          background: 'var(--canvas-bg)',
+          minHeight: 0,
         }}
-        onMouseDown={handleStageMouseDown}
-        onMouseMove={handleStageMouseMove}
-        onMouseUp={handleStageMouseUp}
-        onContextMenu={(e) => e.evt.preventDefault()}
       >
-        <Layer>
-          {/* Background image — rendered at full canvas size */}
-          {bgImage ? (
-            <KonvaImage
-              name="bg-image"
-              image={bgImage}
-              x={0}
-              y={0}
-              width={meta.width}
-              height={meta.height}
-              listening={!isPlacing}
-            />
-          ) : (
-            <Rect
-              name="bg-rect"
-              x={0}
-              y={0}
-              width={meta.width}
-              height={meta.height}
-              fill="#ffffff"
-            />
-          )}
+        <Stage
+          ref={stageRef}
+          width={stageW}
+          height={stageH}
+          scaleX={zoom}
+          scaleY={zoom}
+          style={{
+            cursor: isPlacing ? 'crosshair' : 'default',
+            boxShadow: '0 4px 32px rgba(0,0,0,0.5)',
+          }}
+          onMouseDown={handleStageMouseDown}
+          onMouseMove={handleStageMouseMove}
+          onMouseUp={handleStageMouseUp}
+          onContextMenu={(e) => e.evt.preventDefault()}
+        >
+          <Layer>
+            {/* Background: image or solid color */}
+            {bgImage ? (
+              <KonvaImage
+                name="bg-image"
+                image={bgImage}
+                x={0}
+                y={0}
+                width={meta.width}
+                height={meta.height}
+                listening={!isPlacing}
+              />
+            ) : (
+              <Rect
+                name="bg-rect"
+                x={0}
+                y={0}
+                width={meta.width}
+                height={meta.height}
+                fill={currentBgColor ?? '#ffffff'}
+              />
+            )}
 
-          {/* Grid overlay */}
-          {renderGrid()}
+            {/* Grid overlay */}
+            {renderGrid()}
 
-          {/* Fields */}
-          {sortedFields.map((field) => {
-            const colors = FIELD_COLORS[field.type]
-            const isSelected = selectedFieldIds.includes(field.id)
+            {/* Fields for current page */}
+            {sortedFields.map((field) => {
+              const colors = FIELD_COLORS[field.type]
+              const isSelected = selectedFieldIds.includes(field.id)
 
-            return (
-              <Group
-                key={field.id}
-                id={`field-${field.id}`}
-                x={field.x}
-                y={field.y}
-                draggable={!locked}
-                onClick={(e) => handleFieldClick(e, field.id)}
-                onDblClick={(e) => handleFieldDblClick(e, field.id)}
-                onTap={(e) =>
-                  handleFieldClick(e as unknown as Konva.KonvaEventObject<MouseEvent>, field.id)
-                }
-                onDblTap={(e) =>
-                  handleFieldDblClick(e as unknown as Konva.KonvaEventObject<MouseEvent>, field.id)
-                }
-                onDragStart={() => {
-                  // Select the field when drag starts — ensures Transformer
-                  // attaches to the dragged field, not a previously selected one
-                  if (!selectedFieldIds.includes(field.id)) {
-                    selectField(field.id)
-                  }
-                }}
-                onDragEnd={(e) => {
-                  const group = e.target
-                  handleFieldDragEnd(field.id, group)
-                }}
-                onTransformEnd={(e) => {
-                  if (locked) return
-                  const node = e.target
-                  const scaleX = node.scaleX()
-                  const scaleY = node.scaleY()
-                  const newWidth = snap(Math.max(20, node.width() * scaleX), gridSize, showGrid)
-                  const newHeight = snap(Math.max(20, node.height() * scaleY), gridSize, showGrid)
-                  // Reset scale
-                  node.scaleX(1)
-                  node.scaleY(1)
-                  // Update store
-                  moveField(
-                    field.id,
-                    snap(node.x(), gridSize, showGrid),
-                    snap(node.y(), gridSize, showGrid),
-                  )
-                  resizeField(field.id, newWidth, newHeight)
-                }}
-                onContextMenu={(e) => handleContextMenu(e, field.id)}
-              >
-                <Rect
-                  width={field.width}
-                  height={field.height}
-                  fill={colors.fill}
-                  stroke={isSelected ? SELECTED_STROKE : colors.stroke}
-                  strokeWidth={isSelected ? 2 / zoom : 1 / zoom}
-                  cornerRadius={2 / zoom}
-                  listening={true}
+              return (
+                <Group
+                  key={field.id}
+                  id={`field-${field.id}`}
+                  x={field.x}
+                  y={field.y}
+                  draggable={!locked}
                   onClick={(e) => handleFieldClick(e, field.id)}
-                />
-                <Text
-                  text={field.jsonKey}
-                  x={4 / zoom}
-                  y={4 / zoom}
-                  fontSize={11 / zoom}
-                  fontFamily="sans-serif"
-                  fill={colors.text}
-                  width={field.width - 8 / zoom}
-                  ellipsis={true}
-                  wrap="none"
-                  listening={false}
-                />
-                <Text
-                  text={field.type === 'loop' ? 'TABLE' : field.type.toUpperCase()}
-                  x={4 / zoom}
-                  y={field.height - 16 / zoom}
-                  fontSize={9 / zoom}
-                  fontFamily="sans-serif"
-                  fontStyle="bold"
-                  fill={colors.text}
-                  opacity={0.7}
-                  listening={false}
-                />
-              </Group>
-            )
-          })}
+                  onDblClick={(e) => handleFieldDblClick(e, field.id)}
+                  onTap={(e) =>
+                    handleFieldClick(e as unknown as Konva.KonvaEventObject<MouseEvent>, field.id)
+                  }
+                  onDblTap={(e) =>
+                    handleFieldDblClick(
+                      e as unknown as Konva.KonvaEventObject<MouseEvent>,
+                      field.id,
+                    )
+                  }
+                  onDragStart={() => {
+                    // Select the field when drag starts — ensures Transformer
+                    // attaches to the dragged field, not a previously selected one
+                    if (!selectedFieldIds.includes(field.id)) {
+                      selectField(field.id)
+                    }
+                  }}
+                  onDragEnd={(e) => {
+                    const group = e.target
+                    handleFieldDragEnd(field.id, group)
+                  }}
+                  onTransformEnd={(e) => {
+                    if (locked) return
+                    const node = e.target
+                    const scaleX = node.scaleX()
+                    const scaleY = node.scaleY()
+                    const newWidth = snap(Math.max(20, node.width() * scaleX), gridSize, showGrid)
+                    const newHeight = snap(Math.max(20, node.height() * scaleY), gridSize, showGrid)
+                    // Reset scale
+                    node.scaleX(1)
+                    node.scaleY(1)
+                    // Update store
+                    moveField(
+                      field.id,
+                      snap(node.x(), gridSize, showGrid),
+                      snap(node.y(), gridSize, showGrid),
+                    )
+                    resizeField(field.id, newWidth, newHeight)
+                  }}
+                  onContextMenu={(e) => handleContextMenu(e, field.id)}
+                >
+                  <Rect
+                    width={field.width}
+                    height={field.height}
+                    fill={colors.fill}
+                    stroke={isSelected ? SELECTED_STROKE : colors.stroke}
+                    strokeWidth={isSelected ? 2 / zoom : 1 / zoom}
+                    cornerRadius={2 / zoom}
+                    listening={true}
+                    onClick={(e) => handleFieldClick(e, field.id)}
+                  />
+                  <Text
+                    text={field.jsonKey}
+                    x={4 / zoom}
+                    y={4 / zoom}
+                    fontSize={11 / zoom}
+                    fontFamily="sans-serif"
+                    fill={colors.text}
+                    width={field.width - 8 / zoom}
+                    ellipsis={true}
+                    wrap="none"
+                    listening={false}
+                  />
+                  <Text
+                    text={field.type === 'loop' ? 'TABLE' : field.type.toUpperCase()}
+                    x={4 / zoom}
+                    y={field.height - 16 / zoom}
+                    fontSize={9 / zoom}
+                    fontFamily="sans-serif"
+                    fontStyle="bold"
+                    fill={colors.text}
+                    opacity={0.7}
+                    listening={false}
+                  />
+                </Group>
+              )
+            })}
 
-          {/* Draw-to-place rectangle */}
-          {isDrawing && drawRect && (
-            <Rect
-              x={drawRect.x}
-              y={drawRect.y}
-              width={drawRect.w}
-              height={drawRect.h}
-              fill="rgba(233,69,96,0.15)"
-              stroke="#e94560"
-              strokeWidth={1 / zoom}
-              dash={[6 / zoom, 3 / zoom]}
-              listening={false}
+            {/* Draw-to-place rectangle */}
+            {isDrawing && drawRect && (
+              <Rect
+                x={drawRect.x}
+                y={drawRect.y}
+                width={drawRect.w}
+                height={drawRect.h}
+                fill="rgba(233,69,96,0.15)"
+                stroke="#e94560"
+                strokeWidth={1 / zoom}
+                dash={[6 / zoom, 3 / zoom]}
+                listening={false}
+              />
+            )}
+
+            {/* Transformer */}
+            <Transformer
+              ref={transformerRef}
+              borderStroke={SELECTED_STROKE}
+              borderStrokeWidth={1.5 / zoom}
+              anchorStroke={SELECTED_STROKE}
+              anchorFill="#ffffff"
+              anchorSize={8 / zoom}
+              anchorCornerRadius={2 / zoom}
+              rotateEnabled={false}
+              keepRatio={false}
+              ignoreStroke={true}
+              boundBoxFunc={(_oldBox, newBox) => {
+                const width = Math.max(20, newBox.width)
+                const height = Math.max(20, newBox.height)
+                return { ...newBox, width, height }
+              }}
+              enabledAnchors={[
+                'top-left',
+                'top-center',
+                'top-right',
+                'middle-left',
+                'middle-right',
+                'bottom-left',
+                'bottom-center',
+                'bottom-right',
+              ]}
             />
-          )}
+          </Layer>
+        </Stage>
+      </div>
 
-          {/* Transformer */}
-          <Transformer
-            ref={transformerRef}
-            borderStroke={SELECTED_STROKE}
-            borderStrokeWidth={1.5 / zoom}
-            anchorStroke={SELECTED_STROKE}
-            anchorFill="#ffffff"
-            anchorSize={8 / zoom}
-            anchorCornerRadius={2 / zoom}
-            rotateEnabled={false}
-            keepRatio={false}
-            ignoreStroke={true}
-            boundBoxFunc={(_oldBox, newBox) => {
-              const width = Math.max(20, newBox.width)
-              const height = Math.max(20, newBox.height)
-              return { ...newBox, width, height }
-            }}
-            enabledAnchors={[
-              'top-left',
-              'top-center',
-              'top-right',
-              'middle-left',
-              'middle-right',
-              'bottom-left',
-              'bottom-center',
-              'bottom-right',
-            ]}
-          />
-        </Layer>
-      </Stage>
+      {/* Page navigation bar */}
+      {renderPageBar()}
+
+      {/* Add page dialog */}
+      {showAddPageDialog && (
+        <AddPageDialog onClose={() => setShowAddPageDialog(false)} onAdd={handleAddPage} />
+      )}
     </div>
   )
 }

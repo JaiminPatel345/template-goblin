@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { describe, it, expect } from 'vitest'
 import { generateExampleJson } from '../jsonGenerator.js'
 import type {
@@ -15,6 +14,7 @@ function textField(jsonKey: string, required = true): FieldDefinition {
     id: `f-${jsonKey}`,
     type: 'text',
     groupId: null,
+    pageId: null,
     required,
     jsonKey,
     placeholder: null,
@@ -48,6 +48,7 @@ function imageField(jsonKey: string, required = true): FieldDefinition {
     id: `f-${jsonKey}`,
     type: 'image',
     groupId: null,
+    pageId: null,
     required,
     jsonKey,
     placeholder: null,
@@ -65,6 +66,7 @@ function loopField(jsonKey: string, required = true, maxRows = 10): FieldDefinit
     id: `f-${jsonKey}`,
     type: 'loop',
     groupId: null,
+    pageId: null,
     required,
     jsonKey,
     placeholder: null,

@@ -250,6 +250,57 @@ function validateManifestStructure(manifest: TemplateManifest): void {
     }
   }
 
+  // Validate pages array (optional for backward compatibility — treat missing as single-page)
+  if (manifest.pages !== undefined && manifest.pages !== null) {
+    if (!Array.isArray(manifest.pages)) {
+      throw new TemplateGoblinError(
+        'INVALID_MANIFEST',
+        'Invalid manifest: "pages" must be an array',
+      )
+    }
+
+    const pageIds = new Set<string>()
+    for (const [index, page] of manifest.pages.entries()) {
+      if (!page.id || typeof page.id !== 'string') {
+        throw new TemplateGoblinError(
+          'INVALID_MANIFEST',
+          `Invalid manifest: page at index ${index} missing "id"`,
+        )
+      }
+      if (pageIds.has(page.id)) {
+        throw new TemplateGoblinError(
+          'INVALID_MANIFEST',
+          `Invalid manifest: duplicate page id "${page.id}"`,
+        )
+      }
+      pageIds.add(page.id)
+
+      if (typeof page.index !== 'number') {
+        throw new TemplateGoblinError(
+          'INVALID_MANIFEST',
+          `Invalid manifest: page "${page.id}" missing numeric "index"`,
+        )
+      }
+
+      if (!['image', 'color', 'inherit'].includes(page.backgroundType)) {
+        throw new TemplateGoblinError(
+          'INVALID_MANIFEST',
+          `Invalid manifest: page "${page.id}" has invalid backgroundType "${String(page.backgroundType)}"`,
+        )
+      }
+
+      // Validate backgroundFilename has no path traversal
+      if (page.backgroundFilename) {
+        if (page.backgroundFilename.includes('..') || page.backgroundFilename.startsWith('/')) {
+          throw new TemplateGoblinError(
+            'INVALID_MANIFEST',
+            `Invalid manifest: page "${page.id}" backgroundFilename contains path traversal`,
+          )
+        }
+      }
+    }
+  }
+
   // Validate fonts have required fields
   for (const font of manifest.fonts) {
     if (

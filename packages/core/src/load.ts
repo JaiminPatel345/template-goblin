@@ -2,7 +2,7 @@ import AdmZip from 'adm-zip'
 import type { LoadedTemplate } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
 import { readTgblBuffer, parseManifestFromZip } from './file/read.js'
-import { BACKGROUND_FILENAME } from './file/constants.js'
+import { BACKGROUND_FILENAME, BACKGROUNDS_DIR } from './file/constants.js'
 
 /**
  * Load a .tgbl template from disk into memory.
@@ -45,6 +45,29 @@ export async function loadTemplate(path: string): Promise<LoadedTemplate> {
     fonts.set(fontDef.id, fontEntry.getData())
   }
 
+  // REQ: Load per-page background images
+  const pageBackgrounds = new Map<string, Buffer>()
+
+  if (manifest.pages && manifest.pages.length > 0) {
+    // Load each page's background from its backgroundFilename
+    for (const page of manifest.pages) {
+      if (page.backgroundType === 'image' && page.backgroundFilename) {
+        const entry = zip.getEntry(page.backgroundFilename)
+        if (entry) {
+          pageBackgrounds.set(page.id, entry.getData())
+        }
+      }
+    }
+  } else {
+    // Backward compat: also check for backgrounds/ folder entries
+    const entries = zip.getEntries()
+    for (const entry of entries) {
+      if (entry.entryName.startsWith(BACKGROUNDS_DIR) && !entry.isDirectory) {
+        pageBackgrounds.set(entry.entryName, entry.getData())
+      }
+    }
+  }
+
   // REQ: Load all placeholder images referenced by image fields
   const placeholders = new Map<string, Buffer>()
   for (const field of manifest.fields) {
@@ -68,6 +91,7 @@ export async function loadTemplate(path: string): Promise<LoadedTemplate> {
   return {
     manifest,
     backgroundImage,
+    pageBackgrounds,
     fonts,
     placeholders,
   }
