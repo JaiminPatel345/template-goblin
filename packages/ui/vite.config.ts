@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'node:path'
 
 export default defineConfig({
+  // GitHub Pages base path (set via VITE_BASE env var in CI)
+  base: process.env.VITE_BASE || '/',
   plugins: [react(), tailwindcss()],
   server: {
     port: 4242,

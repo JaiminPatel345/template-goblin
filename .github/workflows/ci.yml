@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-typecheck-test:
+    name: Lint, Type Check & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build types (required by other packages)
+        run: pnpm --filter @template-goblin/types build
+
+      - name: Type check all packages
+        run: pnpm type-check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Core tests (Jest)
+        run: pnpm --filter template-goblin test
+
+      - name: UI tests (Vitest)
+        run: pnpm --filter template-goblin-ui test
+
+      - name: Build all packages
+        run: pnpm build
+
+  build-ui:
+    name: Build UI
+    runs-on: ubuntu-latest
+    needs: lint-typecheck-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build types
+        run: pnpm --filter @template-goblin/types build
+
+      - name: Build UI
+        run: pnpm --filter template-goblin-ui build
+
+      - name: Upload UI artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/ui/dist
