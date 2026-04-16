@@ -11,6 +11,18 @@
       "import": "./dist/index.js"
     }
   },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JaiminPatel345/template-goblin.git",
+    "directory": "packages/types"
+  },
+  "keywords": [
+    "template-goblin",
+    "types",
+    "pdf",
+    "template"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "type-check": "tsc --noEmit",
