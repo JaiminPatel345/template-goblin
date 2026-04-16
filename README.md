@@ -1,5 +1,9 @@
 # TemplateGoblin
 
+> ## 🚧 Under Construction 🚧
+>
+> **TemplateGoblin is in active early development.** APIs, the `.tgbl` file format, and the visual builder are all subject to breaking changes without notice. The packages are not yet published to npm, and the hosted UI is not stable. **Do not use in production.** Star the repo to follow progress — a stable `v1.0.0` release will be announced here.
+
 Open-source PDF template engine for generating PDFs at scale. Non-technical users design templates with a visual drag-and-drop builder, developers use the npm library to generate millions of PDFs from JSON data. Templates are saved as `.tgbl` files — portable ZIP archives containing the layout, fonts, and images needed for rendering.
 
 ## Quick Start — Library
