@@ -34,7 +34,7 @@ export function RightPanel() {
         <>
           {selectedField.type === 'text' && <TextFieldProps field={selectedField} />}
           {selectedField.type === 'image' && <ImageFieldProps field={selectedField} />}
-          {selectedField.type === 'loop' && <LoopFieldProps field={selectedField} />}
+          {selectedField.type === 'table' && <LoopFieldProps field={selectedField} />}
         </>
       )}
 

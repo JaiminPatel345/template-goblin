@@ -1,19 +1,26 @@
 import type {
   FieldDefinition,
-  LoopFieldStyle,
-  LoopColumn,
-  HeaderStyle,
-  RowStyle,
+  TableField,
+  TableFieldStyle,
+  TableColumn,
   CellStyle,
   TextAlign,
   FontWeight,
 } from '@template-goblin/types'
+import { isSafeKey } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { InfoTip } from './TextFieldProps.js'
 import { NumberInput } from '../NumberInput.js'
+import { defaultCellStyle } from '../../utils/defaults.js'
+
+/**
+ * Historical filename: `LoopFieldProps.tsx`. The field type was renamed from
+ * `loop` to `table` in spec 002 (Phase 1); the component and export name are
+ * kept stable to avoid a rename-file churn during the Phase 1 compile fix.
+ */
 
 interface Props {
-  field: FieldDefinition
+  field: TableField
 }
 
 const BUILTIN_FONTS = ['Helvetica', 'Times-Roman', 'Courier']
@@ -23,51 +30,60 @@ export function LoopFieldProps({ field }: Props) {
   const updateFieldStyle = useTemplateStore((s) => s.updateFieldStyle)
   const fonts = useTemplateStore((s) => s.fonts)
 
-  const style = field.style as LoopFieldStyle
+  const style: TableFieldStyle = field.style
   const columns = style.columns || []
   const headerStyle = style.headerStyle
   const rowStyle = style.rowStyle
-  const cellStyle = style.cellStyle
 
-  const prefix = 'loops.'
-  const displayKey = field.jsonKey.startsWith(prefix)
-    ? field.jsonKey.slice(prefix.length)
-    : field.jsonKey
+  // Phase 1 UI edits only dynamic table fields via the right panel.
+  const isDynamic = field.source.mode === 'dynamic'
+  const dynamicSource = isDynamic
+    ? (field.source as {
+        mode: 'dynamic'
+        jsonKey: string
+        required: boolean
+        placeholder: unknown
+      })
+    : null
+  const displayKey = dynamicSource?.jsonKey ?? ''
 
   function onJsonKeyChange(value: string) {
-    const cleaned = value.replace(/^loops\./, '')
-    updateField(field.id, { jsonKey: prefix + cleaned })
+    const cleaned = value.replace(/^tables\./, '')
+    if (cleaned !== '' && !isSafeKey(cleaned)) return
+    if (!dynamicSource) return
+    updateField(field.id, {
+      source: { ...dynamicSource, jsonKey: cleaned },
+    } as Partial<FieldDefinition>)
   }
 
-  function updateHeader(updates: Partial<HeaderStyle>) {
+  function updateHeader(updates: Partial<CellStyle>) {
     updateFieldStyle(field.id, { headerStyle: { ...headerStyle, ...updates } })
   }
 
-  function updateRow(updates: Partial<RowStyle>) {
+  function updateRow(updates: Partial<CellStyle>) {
     updateFieldStyle(field.id, { rowStyle: { ...rowStyle, ...updates } })
   }
 
-  function updateCell(updates: Partial<CellStyle>) {
-    updateFieldStyle(field.id, { cellStyle: { ...cellStyle, ...updates } })
-  }
-
-  function updateColumn(index: number, updates: Partial<LoopColumn>) {
-    const newColumns = columns.map((col, i) => (i === index ? { ...col, ...updates } : col))
+  function updateColumn(index: number, updates: Partial<TableColumn>) {
+    const newColumns = columns.map((col: TableColumn, i: number) =>
+      i === index ? { ...col, ...updates } : col,
+    )
     updateFieldStyle(field.id, { columns: newColumns })
   }
 
   function addColumn() {
-    const newCol: LoopColumn = {
+    const newCol: TableColumn = {
       key: `col${columns.length + 1}`,
       label: `Column ${columns.length + 1}`,
       width: 100,
-      align: 'left' as TextAlign,
+      style: null,
+      headerStyle: null,
     }
     updateFieldStyle(field.id, { columns: [...columns, newCol] })
   }
 
   function removeColumn(index: number) {
-    const newColumns = columns.filter((_, i) => i !== index)
+    const newColumns = columns.filter((_col: TableColumn, i: number) => i !== index)
     updateFieldStyle(field.id, { columns: newColumns })
   }
 
@@ -93,6 +109,16 @@ export function LoopFieldProps({ field }: Props) {
     updateFieldStyle(field.id, { columns: newColumns })
   }
 
+  // Column-level align: lives on the per-column `style` override. We treat a
+  // missing override as "inherit row align".
+  function columnAlign(col: TableColumn): TextAlign {
+    return (col.style?.align as TextAlign | undefined) ?? rowStyle.align ?? 'left'
+  }
+  function setColumnAlign(index: number, align: TextAlign) {
+    const existing = columns[index]?.style ?? {}
+    updateColumn(index, { style: { ...existing, align } })
+  }
+
   const allFontFamilies = [...BUILTIN_FONTS, ...fonts.map((f) => f.name)]
 
   return (
@@ -104,10 +130,11 @@ export function LoopFieldProps({ field }: Props) {
         <div className="tg-form-row">
           <label>JSON Key</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>loops.</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>tables.</span>
             <input
               className="tg-input"
               value={displayKey}
+              disabled={!dynamicSource}
               onChange={(e) => onJsonKeyChange(e.target.value)}
             />
           </div>
@@ -148,13 +175,26 @@ export function LoopFieldProps({ field }: Props) {
             onChange={(e) => updateFieldStyle(field.id, { multiPage: e.target.checked })}
           />
         </div>
+
+        <div className="tg-toggle-row">
+          <label>
+            Show Header
+            <InfoTip text="When disabled, the header row is skipped entirely at render time." />
+          </label>
+          <input
+            type="checkbox"
+            className="tg-checkbox"
+            checked={style.showHeader}
+            onChange={(e) => updateFieldStyle(field.id, { showHeader: e.target.checked })}
+          />
+        </div>
       </div>
 
       {/* Column Definitions */}
       <div className="tg-panel-section">
         <div className="tg-panel-section-title">Columns</div>
 
-        {columns.map((col, i) => (
+        {columns.map((col: TableColumn, i: number) => (
           <div
             key={i}
             style={{
@@ -236,8 +276,8 @@ export function LoopFieldProps({ field }: Props) {
               <label>Align</label>
               <select
                 className="tg-select"
-                value={col.align}
-                onChange={(e) => updateColumn(i, { align: e.target.value as TextAlign })}
+                value={columnAlign(col)}
+                onChange={(e) => setColumnAlign(i, e.target.value as TextAlign)}
               >
                 <option value="left">Left</option>
                 <option value="center">Center</option>
@@ -386,51 +426,23 @@ export function LoopFieldProps({ field }: Props) {
           <label>Overflow Mode</label>
           <select
             className="tg-select"
-            value={rowStyle.overflowMode}
+            value={style.cellStyle.overflowMode}
             onChange={(e) =>
-              updateRow({ overflowMode: e.target.value as 'dynamic_font' | 'truncate' })
+              updateFieldStyle(field.id, {
+                cellStyle: {
+                  ...style.cellStyle,
+                  overflowMode: e.target.value as 'dynamic_font' | 'truncate',
+                },
+              })
             }
           >
             <option value="dynamic_font">Dynamic Font</option>
             <option value="truncate">Truncate</option>
           </select>
         </div>
-
-        <div className="tg-toggle-row">
-          <label>Dynamic Font Size</label>
-          <input
-            type="checkbox"
-            className="tg-checkbox"
-            checked={rowStyle.fontSizeDynamic}
-            onChange={(e) => updateRow({ fontSizeDynamic: e.target.checked })}
-          />
-        </div>
-
-        {rowStyle.fontSizeDynamic && (
-          <div className="tg-form-row">
-            <label>Min Font Size</label>
-            <NumberInput
-              min={1}
-              value={rowStyle.fontSizeMin}
-              defaultValue={6}
-              onChange={(v) => updateRow({ fontSizeMin: v })}
-            />
-          </div>
-        )}
-
-        <div className="tg-form-row">
-          <label>Line Height</label>
-          <NumberInput
-            min={0.5}
-            step={0.1}
-            value={rowStyle.lineHeight}
-            defaultValue={1.2}
-            onChange={(v) => updateRow({ lineHeight: v })}
-          />
-        </div>
       </div>
 
-      {/* Cell Style */}
+      {/* Cell Style (row-level padding/border) */}
       <div className="tg-panel-section">
         <div className="tg-panel-section-title">Cell Style</div>
 
@@ -439,9 +451,9 @@ export function LoopFieldProps({ field }: Props) {
           <NumberInput
             min={0}
             step={0.5}
-            value={cellStyle.borderWidth}
+            value={rowStyle.borderWidth}
             defaultValue={1}
-            onChange={(v) => updateCell({ borderWidth: v })}
+            onChange={(v) => updateRow({ borderWidth: v })}
           />
         </div>
 
@@ -450,8 +462,8 @@ export function LoopFieldProps({ field }: Props) {
           <input
             type="color"
             className="tg-color-input"
-            value={cellStyle.borderColor}
-            onChange={(e) => updateCell({ borderColor: e.target.value })}
+            value={rowStyle.borderColor}
+            onChange={(e) => updateRow({ borderColor: e.target.value })}
           />
         </div>
 
@@ -460,9 +472,9 @@ export function LoopFieldProps({ field }: Props) {
             <label>Padding Top</label>
             <NumberInput
               min={0}
-              value={cellStyle.paddingTop}
+              value={rowStyle.paddingTop}
               defaultValue={4}
-              onChange={(v) => updateCell({ paddingTop: v })}
+              onChange={(v) => updateRow({ paddingTop: v })}
             />
           </div>
 
@@ -470,9 +482,9 @@ export function LoopFieldProps({ field }: Props) {
             <label>Padding Bottom</label>
             <NumberInput
               min={0}
-              value={cellStyle.paddingBottom}
+              value={rowStyle.paddingBottom}
               defaultValue={4}
-              onChange={(v) => updateCell({ paddingBottom: v })}
+              onChange={(v) => updateRow({ paddingBottom: v })}
             />
           </div>
 
@@ -480,9 +492,9 @@ export function LoopFieldProps({ field }: Props) {
             <label>Padding Left</label>
             <NumberInput
               min={0}
-              value={cellStyle.paddingLeft}
+              value={rowStyle.paddingLeft}
               defaultValue={4}
-              onChange={(v) => updateCell({ paddingLeft: v })}
+              onChange={(v) => updateRow({ paddingLeft: v })}
             />
           </div>
 
@@ -490,9 +502,9 @@ export function LoopFieldProps({ field }: Props) {
             <label>Padding Right</label>
             <NumberInput
               min={0}
-              value={cellStyle.paddingRight}
+              value={rowStyle.paddingRight}
               defaultValue={4}
-              onChange={(v) => updateCell({ paddingRight: v })}
+              onChange={(v) => updateRow({ paddingRight: v })}
             />
           </div>
         </div>
@@ -500,3 +512,7 @@ export function LoopFieldProps({ field }: Props) {
     </>
   )
 }
+
+// Export `defaultCellStyle` through this module for components that already
+// import from `LoopFieldProps.js` and expect the helper alongside.
+export { defaultCellStyle }

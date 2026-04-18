@@ -1,9 +1,10 @@
 import { useRef } from 'react'
-import type { FieldDefinition, ImageFieldStyle } from '@template-goblin/types'
+import type { FieldDefinition, ImageField, ImageFieldStyle } from '@template-goblin/types'
+import { isSafeKey } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 
 interface Props {
-  field: FieldDefinition
+  field: ImageField
 }
 
 export function ImageFieldProps({ field }: Props) {
@@ -13,32 +14,55 @@ export function ImageFieldProps({ field }: Props) {
   const groups = useTemplateStore((s) => s.groups)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const style = field.style as ImageFieldStyle
+  const style: ImageFieldStyle = field.style
 
-  const prefix = 'images.'
-  const displayKey = field.jsonKey.startsWith(prefix)
-    ? field.jsonKey.slice(prefix.length)
-    : field.jsonKey
+  // Phase 1 UI edits only dynamic image fields via the right panel.
+  const isDynamic = field.source.mode === 'dynamic'
+  const dynamicSource = isDynamic
+    ? (field.source as {
+        mode: 'dynamic'
+        jsonKey: string
+        required: boolean
+        placeholder: { filename: string } | null
+      })
+    : null
+  const displayKey = dynamicSource?.jsonKey ?? ''
 
   function onJsonKeyChange(value: string) {
     const cleaned = value.replace(/^images\./, '')
-    updateField(field.id, { jsonKey: prefix + cleaned })
+    if (cleaned !== '' && !isSafeKey(cleaned)) return
+    if (!dynamicSource) return
+    updateField(field.id, {
+      source: { ...dynamicSource, jsonKey: cleaned },
+    } as Partial<FieldDefinition>)
+  }
+
+  function onRequiredChange(required: boolean) {
+    if (!dynamicSource) return
+    updateField(field.id, {
+      source: { ...dynamicSource, required },
+    } as Partial<FieldDefinition>)
   }
 
   function handlePlaceholderUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (!dynamicSource) return
 
     const reader = new FileReader()
     reader.onload = () => {
       const buffer = reader.result as ArrayBuffer
       const filename = `placeholder-${field.id}-${file.name}`
       addPlaceholder(filename, buffer)
-      updateFieldStyle(field.id, { placeholderFilename: filename })
+      updateField(field.id, {
+        source: { ...dynamicSource, placeholder: { filename } },
+      } as Partial<FieldDefinition>)
     }
     reader.readAsArrayBuffer(file)
     e.target.value = ''
   }
+
+  const placeholderFilename = dynamicSource?.placeholder?.filename ?? null
 
   return (
     <>
@@ -52,6 +76,7 @@ export function ImageFieldProps({ field }: Props) {
             <input
               className="tg-input"
               value={displayKey}
+              disabled={!dynamicSource}
               onChange={(e) => onJsonKeyChange(e.target.value)}
             />
           </div>
@@ -78,8 +103,9 @@ export function ImageFieldProps({ field }: Props) {
           <input
             type="checkbox"
             className="tg-checkbox"
-            checked={field.required}
-            onChange={(e) => updateField(field.id, { required: e.target.checked })}
+            checked={dynamicSource?.required ?? false}
+            disabled={!dynamicSource}
+            onChange={(e) => onRequiredChange(e.target.checked)}
           />
         </div>
       </div>
@@ -109,10 +135,11 @@ export function ImageFieldProps({ field }: Props) {
               className="tg-btn"
               onClick={() => fileInputRef.current?.click()}
               style={{ fontSize: 11 }}
+              disabled={!dynamicSource}
             >
               Upload
             </button>
-            {style.placeholderFilename && (
+            {placeholderFilename && (
               <span
                 style={{
                   fontSize: 11,
@@ -122,7 +149,7 @@ export function ImageFieldProps({ field }: Props) {
                   whiteSpace: 'nowrap',
                 }}
               >
-                {style.placeholderFilename}
+                {placeholderFilename}
               </span>
             )}
           </div>

@@ -1,4 +1,4 @@
-import type { FieldDefinition, LoopFieldStyle } from '@template-goblin/types'
+import type { FieldDefinition } from '@template-goblin/types'
 
 /**
  * Estimate the approximate PDF file size based on template contents.
@@ -33,10 +33,9 @@ export function estimatePdfSize(
       case 'image':
         bytes += 50000
         break
-      case 'loop': {
-        const style = field.style as LoopFieldStyle
-        const rows = style.maxRows || 10
-        const cols = style.columns?.length || 3
+      case 'table': {
+        const rows = field.style.maxRows || 10
+        const cols = field.style.columns?.length || 3
         bytes += rows * cols * 200
         break
       }

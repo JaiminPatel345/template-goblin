@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { NumberInput } from '../NumberInput.js'
 import type {
   FieldDefinition,
+  TextField,
   TextFieldStyle,
   TextAlign,
   VerticalAlign,
 } from '@template-goblin/types'
+import { isSafeKey } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 
 export function InfoTip({ text }: { text: string }) {
@@ -66,7 +68,7 @@ export function InfoTip({ text }: { text: string }) {
 }
 
 interface Props {
-  field: FieldDefinition
+  field: TextField
 }
 
 const BUILTIN_FONTS = ['Helvetica', 'Times-Roman', 'Courier']
@@ -78,16 +80,46 @@ export function TextFieldProps({ field }: Props) {
   const fonts = useTemplateStore((s) => s.fonts)
   const resizeField = useTemplateStore((s) => s.resizeField)
 
-  const style = field.style as TextFieldStyle
+  const style: TextFieldStyle = field.style
 
-  const prefix = 'texts.'
-  const displayKey = field.jsonKey.startsWith(prefix)
-    ? field.jsonKey.slice(prefix.length)
-    : field.jsonKey
+  // Phase 1 UI edits only dynamic fields via the right panel. Static fields
+  // will get their own UI in Phase 4 (see spec 023). For now, treat the
+  // single-dynamic case and render a read-only notice otherwise.
+  const isDynamic = field.source.mode === 'dynamic'
+  const dynamicSource = isDynamic
+    ? (field.source as {
+        mode: 'dynamic'
+        jsonKey: string
+        required: boolean
+        placeholder: string | null
+      })
+    : null
+  const displayKey = dynamicSource?.jsonKey ?? ''
 
   function onJsonKeyChange(value: string) {
+    // Strip any `texts.` the user might have typed — we only store the suffix.
     const cleaned = value.replace(/^texts\./, '')
-    updateField(field.id, { jsonKey: prefix + cleaned })
+    // Reject keys that the core validator would reject (prototype pollution
+    // guard). Empty string is allowed during editing; `isSafeKey` rejects it.
+    if (cleaned !== '' && !isSafeKey(cleaned)) return
+    if (!dynamicSource) return
+    updateField(field.id, {
+      source: { ...dynamicSource, jsonKey: cleaned },
+    } as Partial<FieldDefinition>)
+  }
+
+  function onRequiredChange(required: boolean) {
+    if (!dynamicSource) return
+    updateField(field.id, {
+      source: { ...dynamicSource, required },
+    } as Partial<FieldDefinition>)
+  }
+
+  function onPlaceholderChange(value: string) {
+    if (!dynamicSource) return
+    updateField(field.id, {
+      source: { ...dynamicSource, placeholder: value || null },
+    } as Partial<FieldDefinition>)
   }
 
   function onMaxRowsChange(maxRows: number) {
@@ -150,8 +182,9 @@ export function TextFieldProps({ field }: Props) {
           <input
             type="checkbox"
             className="tg-checkbox"
-            checked={field.required}
-            onChange={(e) => updateField(field.id, { required: e.target.checked })}
+            checked={dynamicSource?.required ?? false}
+            disabled={!dynamicSource}
+            onChange={(e) => onRequiredChange(e.target.checked)}
           />
         </div>
 
@@ -159,8 +192,9 @@ export function TextFieldProps({ field }: Props) {
           <label>Placeholder</label>
           <input
             className="tg-input"
-            value={field.placeholder ?? ''}
-            onChange={(e) => updateField(field.id, { placeholder: e.target.value || null })}
+            value={dynamicSource?.placeholder ?? ''}
+            disabled={!dynamicSource}
+            onChange={(e) => onPlaceholderChange(e.target.value)}
           />
         </div>
       </div>

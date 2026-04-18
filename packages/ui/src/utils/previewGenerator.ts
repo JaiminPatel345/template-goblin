@@ -1,4 +1,4 @@
-import type { FieldDefinition, TextFieldStyle, LoopFieldStyle } from '@template-goblin/types'
+import type { FieldDefinition, TextField, TableField } from '@template-goblin/types'
 
 /**
  * Generate a PDF-accurate preview as an HTML page.
@@ -15,7 +15,7 @@ export async function generatePreviewHtml(
   backgroundDataUrl: string | null,
   data: {
     texts: Record<string, string>
-    loops: Record<string, Record<string, string>[]>
+    tables: Record<string, Record<string, string>[]>
     images: Record<string, string | null>
   },
 ): Promise<Blob> {
@@ -23,24 +23,29 @@ export async function generatePreviewHtml(
   let fieldsHtml = ''
 
   for (const field of sorted) {
-    const parts = field.jsonKey.split('.')
-    const category = parts[0]
-    const name = parts.slice(1).join('.')
+    // Static fields don't take input from `data` — preview shows the baked-in
+    // value. Phase 1 core renders static images; UI static rendering lands in
+    // later phases. For now, static fields render as placeholders.
+    if (field.source.mode !== 'dynamic') {
+      if (field.type === 'image') fieldsHtml += renderImageHtml(field, field.id)
+      continue
+    }
+    const name = field.source.jsonKey
     if (!name) continue
 
     switch (field.type) {
       case 'text': {
-        const value = category === 'texts' ? (data.texts[name] ?? '') : ''
+        const value = data.texts[name] ?? ''
         if (value) fieldsHtml += renderTextHtml(field, value)
         break
       }
-      case 'loop': {
-        const rows = category === 'loops' ? (data.loops[name] ?? []) : []
-        if (rows.length > 0) fieldsHtml += renderLoopHtml(field, rows)
+      case 'table': {
+        const rows = data.tables[name] ?? []
+        if (rows.length > 0) fieldsHtml += renderTableHtml(field, rows)
         break
       }
       case 'image': {
-        fieldsHtml += renderImageHtml(field)
+        fieldsHtml += renderImageHtml(field, name)
         break
       }
     }
@@ -76,32 +81,35 @@ export async function generatePreviewHtml(
   return new Blob([html], { type: 'text/html' })
 }
 
-function renderTextHtml(field: FieldDefinition, value: string): string {
-  const s = field.style as TextFieldStyle
+function renderTextHtml(field: TextField, value: string): string {
+  const s = field.style
   const css = `left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;font-family:${sc(s.fontFamily || 'Helvetica')},sans-serif;font-size:${s.fontSize}pt;font-weight:${s.fontWeight || 'normal'};font-style:${s.fontStyle || 'normal'};color:${sc(s.color || '#000')};text-align:${s.align || 'left'};line-height:${s.lineHeight || 1.2};text-decoration:${s.textDecoration === 'underline' ? 'underline' : 'none'};display:flex;align-items:${s.verticalAlign === 'middle' ? 'center' : s.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start'}`
   return `<div class="f" style="${css}"><span style="width:100%">${esc(value)}</span></div>`
 }
 
-function renderLoopHtml(field: FieldDefinition, rows: Record<string, string>[]): string {
-  const s = field.style as LoopFieldStyle
+function renderTableHtml(field: TableField, rows: Record<string, string>[]): string {
+  const s = field.style
   const cols = s.columns || []
   if (cols.length === 0) return ''
 
   const hs = s.headerStyle
   const rs = s.rowStyle
-  const cs = s.cellStyle
-  const bw = cs?.borderWidth ?? 1
-  const bc = sc(cs?.borderColor || '#000')
-  const pt = cs?.paddingTop ?? 4
-  const pr = cs?.paddingRight ?? 6
-  const pb = cs?.paddingBottom ?? 4
-  const pl = cs?.paddingLeft ?? 6
 
   const hdr = cols
-    .map(
-      (c) =>
-        `<th style="padding:${pt}pt ${pr}pt ${pb}pt ${pl}pt;background:${sc(hs?.backgroundColor || '#f0f0f0')};color:${sc(hs?.color || '#000')};font-size:${hs?.fontSize ?? 10}pt;font-weight:${hs?.fontWeight || 'bold'};text-align:${sc(hs?.align || 'center')};border:${bw}pt solid ${bc};width:${c.width}pt">${esc(c.label || c.key)}</th>`,
-    )
+    .map((c) => {
+      const headerPt = c.headerStyle?.paddingTop ?? hs.paddingTop ?? 4
+      const headerPr = c.headerStyle?.paddingRight ?? hs.paddingRight ?? 6
+      const headerPb = c.headerStyle?.paddingBottom ?? hs.paddingBottom ?? 4
+      const headerPl = c.headerStyle?.paddingLeft ?? hs.paddingLeft ?? 6
+      const bw = c.headerStyle?.borderWidth ?? hs.borderWidth ?? 1
+      const bc = sc(c.headerStyle?.borderColor ?? hs.borderColor ?? '#000')
+      const bg = sc(c.headerStyle?.backgroundColor ?? hs.backgroundColor ?? '#f0f0f0')
+      const color = sc(c.headerStyle?.color ?? hs.color ?? '#000')
+      const fontSize = c.headerStyle?.fontSize ?? hs.fontSize ?? 10
+      const fontWeight = c.headerStyle?.fontWeight ?? hs.fontWeight ?? 'bold'
+      const align = sc(c.headerStyle?.align ?? hs.align ?? 'center')
+      return `<th style="padding:${headerPt}pt ${headerPr}pt ${headerPb}pt ${headerPl}pt;background:${bg};color:${color};font-size:${fontSize}pt;font-weight:${fontWeight};text-align:${align};border:${bw}pt solid ${bc};width:${c.width}pt">${esc(c.label || c.key)}</th>`
+    })
     .join('')
 
   const body = rows
@@ -109,10 +117,19 @@ function renderLoopHtml(field: FieldDefinition, rows: Record<string, string>[]):
       (row) =>
         '<tr>' +
         cols
-          .map(
-            (c) =>
-              `<td style="padding:${pt}pt ${pr}pt ${pb}pt ${pl}pt;font-size:${rs?.fontSize ?? 10}pt;color:${sc(rs?.color || '#000')};font-weight:${rs?.fontWeight || 'normal'};text-align:${sc(c.align || 'left')};border:${bw}pt solid ${bc}">${esc(row[c.key] ?? '')}</td>`,
-          )
+          .map((c) => {
+            const rowPt = c.style?.paddingTop ?? rs.paddingTop ?? 4
+            const rowPr = c.style?.paddingRight ?? rs.paddingRight ?? 6
+            const rowPb = c.style?.paddingBottom ?? rs.paddingBottom ?? 4
+            const rowPl = c.style?.paddingLeft ?? rs.paddingLeft ?? 6
+            const bw = c.style?.borderWidth ?? rs.borderWidth ?? 1
+            const bc = sc(c.style?.borderColor ?? rs.borderColor ?? '#000')
+            const fontSize = c.style?.fontSize ?? rs.fontSize ?? 10
+            const color = sc(c.style?.color ?? rs.color ?? '#000')
+            const fontWeight = c.style?.fontWeight ?? rs.fontWeight ?? 'normal'
+            const align = sc(c.style?.align ?? rs.align ?? 'left')
+            return `<td style="padding:${rowPt}pt ${rowPr}pt ${rowPb}pt ${rowPl}pt;font-size:${fontSize}pt;color:${color};font-weight:${fontWeight};text-align:${align};border:${bw}pt solid ${bc}">${esc(row[c.key] ?? '')}</td>`
+          })
           .join('') +
         '</tr>',
     )
@@ -121,8 +138,8 @@ function renderLoopHtml(field: FieldDefinition, rows: Record<string, string>[]):
   return `<div class="f" style="left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt"><table><thead><tr>${hdr}</tr></thead><tbody>${body}</tbody></table></div>`
 }
 
-function renderImageHtml(field: FieldDefinition): string {
-  return `<div class="f" style="left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;color:#999;font-size:9pt;background:rgba(0,0,0,0.03)">[${esc(field.jsonKey)}]</div>`
+function renderImageHtml(field: FieldDefinition, label: string): string {
+  return `<div class="f" style="left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;color:#999;font-size:9pt;background:rgba(0,0,0,0.03)">[${esc(label)}]</div>`
 }
 
 function esc(t: string): string {

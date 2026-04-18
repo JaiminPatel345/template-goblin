@@ -240,16 +240,17 @@ export async function openTemplate(file: File): Promise<void> {
     }
   }
 
-  // Load placeholder images (validate paths)
+  // Load placeholder images (validate paths). Placeholder filename moved from
+  // `style.placeholderFilename` to `source.placeholder.filename` per spec 023.
   const placeholderBuffers = new Map<string, ArrayBuffer>()
   for (const field of manifest.fields) {
-    if (field.type === 'image') {
-      const style = field.style as { placeholderFilename?: string | null }
-      if (style.placeholderFilename && isSafeZipPath(style.placeholderFilename)) {
-        const phFile = zip.file(style.placeholderFilename)
-        if (phFile) {
-          placeholderBuffers.set(style.placeholderFilename, await phFile.async('arraybuffer'))
-        }
+    if (field.type !== 'image') continue
+    if (field.source.mode !== 'dynamic') continue
+    const filename = field.source.placeholder?.filename
+    if (filename && isSafeZipPath(filename)) {
+      const phFile = zip.file(filename)
+      if (phFile) {
+        placeholderBuffers.set(filename, await phFile.async('arraybuffer'))
       }
     }
   }

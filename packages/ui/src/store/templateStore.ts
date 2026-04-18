@@ -8,7 +8,7 @@ import type {
   PageDefinition,
   TextFieldStyle,
   ImageFieldStyle,
-  LoopFieldStyle,
+  TableFieldStyle,
   PageSize,
 } from '@template-goblin/types'
 
@@ -57,7 +57,7 @@ export interface TemplateState {
   updateField: (id: string, updates: Partial<FieldDefinition>) => void
   updateFieldStyle: (
     id: string,
-    updates: Partial<TextFieldStyle | ImageFieldStyle | LoopFieldStyle>,
+    updates: Partial<TextFieldStyle | ImageFieldStyle | TableFieldStyle>,
   ) => void
   removeField: (id: string) => void
   removeFields: (ids: string[]) => void
@@ -242,14 +242,19 @@ export const useTemplateStore = create<TemplateState>()(
 
       updateField: (id, updates) =>
         set((state) => {
-          const fields = state.fields.map((f) => (f.id === id ? { ...f, ...updates } : f))
+          // `{ ...f, ...updates }` widens the discriminated union — cast back to
+          // `FieldDefinition` once the shape is known to match (`type` stays put,
+          // style stays wired to its field type).
+          const fields = state.fields.map((f) =>
+            f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+          )
           return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
         }),
 
       updateFieldStyle: (id, updates) =>
         set((state) => {
           const fields = state.fields.map((f) =>
-            f.id === id ? { ...f, style: { ...f.style, ...updates } } : f,
+            f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
           )
           return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
         }),

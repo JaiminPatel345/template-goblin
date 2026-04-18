@@ -1,9 +1,14 @@
-import type { FieldDefinition, LoopFieldStyle } from '@template-goblin/types'
+import type { FieldDefinition } from '@template-goblin/types'
 import type { JsonPreviewMode } from '../store/uiStore.js'
 
+/**
+ * Shape of the example JSON generated for the right-panel preview.
+ * Matches `InputJSON` from `@template-goblin/types`: static fields are omitted
+ * (they never appear in generator input); only dynamic fields contribute keys.
+ */
 interface GeneratedJson {
   texts: Record<string, string>
-  loops: Record<string, Record<string, string>[]>
+  tables: Record<string, Record<string, string>[]>
   images: Record<string, string | null>
 }
 
@@ -11,7 +16,7 @@ interface GeneratedJson {
  * Generate example JSON from template fields for the JSON preview panel.
  *
  * @param fields - Template field definitions
- * @param mode - Preview mode: 'default', 'max', or 'min'
+ * @param mode - Preview mode: 'default' or 'max'
  * @param repeatCount - How many times to repeat text in max mode
  * @returns Generated example JSON object
  */
@@ -22,34 +27,28 @@ export function generateExampleJson(
 ): GeneratedJson {
   const result: GeneratedJson = {
     texts: {},
-    loops: {},
+    tables: {},
     images: {},
   }
 
   for (const field of fields) {
-    const keyParts = field.jsonKey.split('.')
-    const category = keyParts[0]
-    const name = keyParts.slice(1).join('.')
-
+    // Static fields don't appear in InputJSON — skip them
+    if (field.source.mode !== 'dynamic') continue
+    const name = field.source.jsonKey
+    const required = field.source.required
     if (!name) continue
 
     switch (field.type) {
       case 'text':
-        if (category === 'texts') {
-          result.texts[name] = getTextValue(field, mode, repeatCount)
-        }
+        result.texts[name] = getTextValue(mode, required, repeatCount)
         break
 
       case 'image':
-        if (category === 'images') {
-          result.images[name] = getImageValue(field, mode)
-        }
+        result.images[name] = getImageValue(mode, required)
         break
 
-      case 'loop':
-        if (category === 'loops') {
-          result.loops[name] = getLoopValue(field, mode, repeatCount)
-        }
+      case 'table':
+        result.tables[name] = getTableValue(field, mode, required, repeatCount)
         break
     }
   }
@@ -57,32 +56,33 @@ export function generateExampleJson(
   return result
 }
 
-function getTextValue(field: FieldDefinition, mode: JsonPreviewMode, repeatCount: number): string {
+function getTextValue(mode: JsonPreviewMode, required: boolean, repeatCount: number): string {
   if (mode === 'max') {
     return 'It works in my machine '.repeat(repeatCount).trim()
   }
   // default (and any unknown mode fallback)
-  return field.required ? 'A' : ''
+  return required ? 'A' : ''
 }
 
-function getImageValue(field: FieldDefinition, mode: JsonPreviewMode): string | null {
+function getImageValue(mode: JsonPreviewMode, required: boolean): string | null {
   if (mode === 'max') {
     return '<base64-image-data>'
   }
-  return field.required ? '<base64-image-data>' : null
+  return required ? '<base64-image-data>' : null
 }
 
-function getLoopValue(
+function getTableValue(
   field: FieldDefinition,
   mode: JsonPreviewMode,
+  required: boolean,
   repeatCount: number,
 ): Record<string, string>[] {
-  const style = field.style as LoopFieldStyle
-  const columns = style.columns || []
+  if (field.type !== 'table') return []
+  const columns = field.style.columns || []
 
   if (mode === 'max') {
     const rows: Record<string, string>[] = []
-    const rowCount = style.maxRows || 10
+    const rowCount = field.style.maxRows || 10
     for (let i = 0; i < rowCount; i++) {
       const row: Record<string, string> = {}
       for (const col of columns) {
@@ -94,7 +94,7 @@ function getLoopValue(
   }
 
   // default (and any unknown mode fallback)
-  if (!field.required) return []
+  if (!required) return []
   const row: Record<string, string> = {}
   for (const col of columns) {
     row[col.key] = 'A'

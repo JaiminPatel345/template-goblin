@@ -6,7 +6,20 @@ import type { FieldDefinition, GroupDefinition } from '@template-goblin/types'
 const TYPE_LABELS: Record<string, string> = {
   text: 'Text',
   image: 'Image',
-  loop: 'Table',
+  table: 'Table',
+}
+
+/**
+ * Display label for a field in the left-panel list. For dynamic fields this is
+ * the user-typed `jsonKey` (prefixed with the field-type namespace for
+ * readability); for static fields it falls back to `<static <type>>`.
+ */
+function fieldDisplayKey(field: FieldDefinition): string {
+  if (field.source.mode !== 'dynamic') {
+    return `<static ${field.type}>`
+  }
+  const prefix = field.type === 'text' ? 'texts.' : field.type === 'image' ? 'images.' : 'tables.'
+  return prefix + field.source.jsonKey
 }
 
 function FieldItem({
@@ -30,7 +43,7 @@ function FieldItem({
     >
       <span className={badgeCls}>{TYPE_LABELS[field.type] ?? field.type}</span>
       <div className="tg-field-item-info">
-        <span className="tg-field-item-key">{field.jsonKey}</span>
+        <span className="tg-field-item-key">{fieldDisplayKey(field)}</span>
         <span className="tg-field-item-dims">
           {Math.round(field.width)}x{Math.round(field.height)}
         </span>

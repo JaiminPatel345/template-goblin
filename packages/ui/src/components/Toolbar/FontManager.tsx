@@ -54,7 +54,12 @@ export function FontManager() {
     })
 
     if (usedByFields.length > 0) {
-      const names = usedByFields.map((f) => f.jsonKey).join(', ')
+      const names = usedByFields
+        .map((f) => {
+          if (f.source.mode === 'dynamic') return f.source.jsonKey || f.id
+          return `<static ${f.type}> (${f.id})`
+        })
+        .join(', ')
       if (!window.confirm(`This font is used by fields: ${names}. Remove anyway?`)) {
         return
       }

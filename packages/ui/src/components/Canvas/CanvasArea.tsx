@@ -12,6 +12,7 @@ import {
 import type Konva from 'konva'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
+import { createDefaultField } from '../../utils/defaults.js'
 import type {
   FieldDefinition,
   FieldType,
@@ -22,7 +23,15 @@ import type {
 const FIELD_COLORS: Record<FieldType, { fill: string; stroke: string; text: string }> = {
   text: { fill: 'rgba(37,99,235,0.35)', stroke: '#60a5fa', text: '#ffffff' },
   image: { fill: 'rgba(22,163,74,0.35)', stroke: '#4ade80', text: '#ffffff' },
-  loop: { fill: 'rgba(217,119,6,0.35)', stroke: '#fb923c', text: '#ffffff' },
+  table: { fill: 'rgba(217,119,6,0.35)', stroke: '#fb923c', text: '#ffffff' },
+}
+
+/** Label shown inside a field's bounding box on the canvas. */
+function fieldCanvasLabel(field: FieldDefinition): string {
+  if (field.source.mode !== 'dynamic') return `<static ${field.type}>`
+  if (!field.source.jsonKey) return `(${field.type})`
+  const prefix = field.type === 'text' ? 'texts.' : field.type === 'image' ? 'images.' : 'tables.'
+  return prefix + field.source.jsonKey
 }
 
 const SELECTED_STROKE = '#e94560'
@@ -439,7 +448,7 @@ export function CanvasArea() {
       const toolToType: Record<string, FieldType> = {
         addText: 'text',
         addImage: 'image',
-        addLoop: 'loop',
+        addLoop: 'table',
       }
       const fieldType = toolToType[activeTool]
       if (fieldType) {
@@ -463,91 +472,18 @@ export function CanvasArea() {
 
   const createField = useCallback(
     (type: FieldType, x: number, y: number, width: number, height: number) => {
-      const base = {
+      // `addField` in the store generates the final id; pass empty string here.
+      const field = createDefaultField(type, {
         id: '',
-        type,
         groupId: null,
         pageId: currentPageId,
-        required: false,
         x,
         y,
         width,
         height,
         zIndex: fields.length,
-      }
-
-      if (type === 'text') {
-        addField({
-          ...base,
-          type: 'text',
-          jsonKey: 'texts.',
-          placeholder: 'Text',
-          style: {
-            fontId: null,
-            fontFamily: 'Helvetica',
-            fontSize: 12,
-            fontSizeDynamic: true,
-            fontSizeMin: 11,
-            lineHeight: 1.2,
-            fontWeight: 'normal',
-            fontStyle: 'normal',
-            textDecoration: 'none',
-            color: '#000000',
-            align: 'left',
-            verticalAlign: 'top',
-            maxRows: 3,
-            overflowMode: 'dynamic_font',
-            snapToGrid: true,
-          },
-        } as FieldDefinition)
-      } else if (type === 'image') {
-        addField({
-          ...base,
-          type: 'image',
-          jsonKey: 'images.',
-          placeholder: 'Image',
-          style: { fit: 'contain', placeholderFilename: null },
-        } as FieldDefinition)
-      } else if (type === 'loop') {
-        addField({
-          ...base,
-          type: 'loop',
-          jsonKey: 'loops.',
-          placeholder: 'Table',
-          style: {
-            maxRows: 20,
-            maxColumns: 5,
-            multiPage: false,
-            headerStyle: {
-              fontFamily: 'Helvetica',
-              fontSize: 10,
-              fontWeight: 'bold',
-              align: 'left',
-              color: '#000000',
-              backgroundColor: '#f0f0f0',
-            },
-            rowStyle: {
-              fontFamily: 'Helvetica',
-              fontSize: 10,
-              fontWeight: 'normal',
-              color: '#000000',
-              overflowMode: 'dynamic_font',
-              fontSizeDynamic: true,
-              fontSizeMin: 6,
-              lineHeight: 1.2,
-            },
-            cellStyle: {
-              borderWidth: 0.5,
-              borderColor: '#cccccc',
-              paddingTop: 2,
-              paddingBottom: 2,
-              paddingLeft: 4,
-              paddingRight: 4,
-            },
-            columns: [],
-          },
-        } as FieldDefinition)
-      }
+      })
+      addField(field)
     },
     [addField, fields.length, currentPageId],
   )
@@ -979,7 +915,7 @@ export function CanvasArea() {
                     onClick={(e) => handleFieldClick(e, field.id)}
                   />
                   <Text
-                    text={field.jsonKey}
+                    text={fieldCanvasLabel(field)}
                     x={4 / zoom}
                     y={4 / zoom}
                     fontSize={11 / zoom}
@@ -991,7 +927,7 @@ export function CanvasArea() {
                     listening={false}
                   />
                   <Text
-                    text={field.type === 'loop' ? 'TABLE' : field.type.toUpperCase()}
+                    text={field.type.toUpperCase()}
                     x={4 / zoom}
                     y={field.height - 16 / zoom}
                     fontSize={9 / zoom}
