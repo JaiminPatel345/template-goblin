@@ -14,6 +14,18 @@ export function ImageFieldProps({ field }: Props) {
   const groups = useTemplateStore((s) => s.groups)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Defensive fallback for fields rehydrated without a `source` object.
+  if (!field.source) {
+    return (
+      <div className="tg-panel-section">
+        <div className="tg-panel-section-title">Legacy field</div>
+        <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+          This image field was saved in an older format and cannot be edited. Please recreate it.
+        </p>
+      </div>
+    )
+  }
+
   const style: ImageFieldStyle = field.style
 
   // Phase 1 UI edits only dynamic image fields via the right panel.

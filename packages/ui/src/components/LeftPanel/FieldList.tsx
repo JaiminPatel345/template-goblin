@@ -15,6 +15,12 @@ const TYPE_LABELS: Record<string, string> = {
  * readability); for static fields it falls back to `<static <type>>`.
  */
 function fieldDisplayKey(field: FieldDefinition): string {
+  // Defence in depth: a rehydrated or migrated-in-flight field may be missing
+  // `source` entirely. Don't crash; show a "<legacy ...>" fallback that makes
+  // the issue visible without breaking the panel.
+  if (!field.source) {
+    return `<legacy ${field.type}>`
+  }
   if (field.source.mode !== 'dynamic') {
     return `<static ${field.type}>`
   }

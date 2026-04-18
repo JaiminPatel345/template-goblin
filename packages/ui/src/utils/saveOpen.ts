@@ -69,13 +69,24 @@ export async function saveTemplate(): Promise<void> {
     placeholderBuffers,
   } = state
 
+  // Defence in depth: filter out fields missing `source` before serialising.
+  // These can only originate from a stale localStorage rehydration and would
+  // make the saved `.tgbl` fail `validateManifest` on reload.
+  const sanitizedFields = fields.filter((f) => {
+    if (!f.source) {
+      console.warn('[saveTemplate] dropping field with missing source:', f.id)
+      return false
+    }
+    return true
+  })
+
   const manifest: TemplateManifest = {
     version: '1.0',
     meta: { ...meta, updatedAt: new Date().toISOString() },
     fonts,
     groups,
     pages,
-    fields,
+    fields: sanitizedFields,
   }
 
   const zip = new JSZip()

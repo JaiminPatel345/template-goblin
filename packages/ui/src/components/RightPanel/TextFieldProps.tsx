@@ -80,6 +80,19 @@ export function TextFieldProps({ field }: Props) {
   const fonts = useTemplateStore((s) => s.fonts)
   const resizeField = useTemplateStore((s) => s.resizeField)
 
+  // Defensive fallback: a field rehydrated from a stale localStorage entry may
+  // be missing `source` entirely. Show a stub notice instead of crashing.
+  if (!field.source) {
+    return (
+      <div className="tg-panel-section">
+        <div className="tg-panel-section-title">Legacy field</div>
+        <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+          This text field was saved in an older format and cannot be edited. Please recreate it.
+        </p>
+      </div>
+    )
+  }
+
   const style: TextFieldStyle = field.style
 
   // Phase 1 UI edits only dynamic fields via the right panel. Static fields

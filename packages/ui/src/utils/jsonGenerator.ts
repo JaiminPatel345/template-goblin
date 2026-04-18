@@ -32,6 +32,8 @@ export function generateExampleJson(
   }
 
   for (const field of fields) {
+    // Defence in depth: skip fields missing `source` (corrupt rehydrated state).
+    if (!field.source) continue
     // Static fields don't appear in InputJSON — skip them
     if (field.source.mode !== 'dynamic') continue
     const name = field.source.jsonKey

@@ -56,6 +56,7 @@ export function FontManager() {
     if (usedByFields.length > 0) {
       const names = usedByFields
         .map((f) => {
+          if (!f.source) return `<legacy ${f.type}> (${f.id})`
           if (f.source.mode === 'dynamic') return f.source.jsonKey || f.id
           return `<static ${f.type}> (${f.id})`
         })

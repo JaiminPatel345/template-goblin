@@ -30,6 +30,18 @@ export function LoopFieldProps({ field }: Props) {
   const updateFieldStyle = useTemplateStore((s) => s.updateFieldStyle)
   const fonts = useTemplateStore((s) => s.fonts)
 
+  // Defensive fallback for fields rehydrated without a `source` object.
+  if (!field.source) {
+    return (
+      <div className="tg-panel-section">
+        <div className="tg-panel-section-title">Legacy field</div>
+        <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+          This table field was saved in an older format and cannot be edited. Please recreate it.
+        </p>
+      </div>
+    )
+  }
+
   const style: TableFieldStyle = field.style
   const columns = style.columns || []
   const headerStyle = style.headerStyle
