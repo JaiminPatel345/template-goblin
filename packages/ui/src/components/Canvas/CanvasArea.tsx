@@ -531,18 +531,55 @@ export function CanvasArea() {
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
 
-  // Middle-button pan state
+  // Pan state: activated either by (a) middle mouse button down, or
+  // (b) spacebar held + left mouse button down. Canva uses spacebar; Figma
+  // uses spacebar. We support both that and the middle-click shortcut.
   const [isPanning, setIsPanning] = useState(false)
+  const [spacePanMode, setSpacePanMode] = useState(false)
   const panStart = useRef<{ x: number; y: number } | null>(null)
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Middle mouse button (button === 1) starts panning
-    if (e.button === 1) {
+  // Global keyboard listener for spacebar → pan-mode toggle. Ignores key
+  // presses that originate from inputs/textareas so typing a space in a text
+  // field doesn't hijack the canvas cursor.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.code !== 'Space') return
+      const target = e.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        return
+      }
+      // Only prevent page scroll when we're about to consume space for pan.
       e.preventDefault()
-      setIsPanning(true)
-      panStart.current = { x: e.clientX, y: e.clientY }
+      setSpacePanMode(true)
+    }
+    function onKeyUp(e: KeyboardEvent) {
+      if (e.code !== 'Space') return
+      setSpacePanMode(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
     }
   }, [])
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      // Middle mouse button OR (left button + space-pan-mode) starts panning.
+      const isMiddle = e.button === 1
+      const isLeftWithSpace = e.button === 0 && spacePanMode
+      if (isMiddle || isLeftWithSpace) {
+        e.preventDefault()
+        setIsPanning(true)
+        panStart.current = { x: e.clientX, y: e.clientY }
+      }
+    },
+    [spacePanMode],
+  )
 
   const handleMouseMovePan = useCallback(
     (e: React.MouseEvent) => {
@@ -1032,7 +1069,7 @@ export function CanvasArea() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          cursor: isPanning ? 'grabbing' : undefined,
+          cursor: isPanning ? 'grabbing' : spacePanMode ? 'grab' : undefined,
           overflow: 'auto',
           background: 'var(--canvas-bg)',
           minHeight: 0,
