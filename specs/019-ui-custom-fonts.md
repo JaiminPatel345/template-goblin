@@ -6,7 +6,7 @@ Draft
 
 ## Summary
 
-Adds a font management panel to the TemplateGoblin UI, accessible via a "Fonts" button, that allows designers to upload `.ttf` font files, preview them, and use them across text fields and loop columns. Uploaded fonts are stored inside the `.tgbl` ZIP archive under `fonts/` and tracked in the manifest's `fonts[]` array. Removing a font that is actively referenced by fields triggers a confirmation warning.
+Adds a font management panel to the TemplateGoblin UI, accessible via a "Fonts" button, that allows designers to upload `.ttf` font files, preview them, and use them across text fields and table columns. Uploaded fonts are stored inside the `.tgbl` ZIP archive under `fonts/` and tracked in the manifest's `fonts[]` array. Removing a font that is actively referenced by fields triggers a confirmation warning.
 
 ## Requirements
 
@@ -14,7 +14,7 @@ Adds a font management panel to the TemplateGoblin UI, accessible via a "Fonts" 
 - [ ] REQ-002: Allow uploading `.ttf` files through the font management panel via file picker or drag-and-drop.
 - [ ] REQ-003: Store uploaded font files in the `.tgbl` ZIP archive under the `fonts/` directory (e.g., `fonts/Roboto-Bold.ttf`).
 - [ ] REQ-004: Record font metadata in the manifest `fonts[]` array with `id` and `filename` properties.
-- [ ] REQ-005: Populate the font family dropdown for text fields and loop column style overrides with all uploaded custom fonts, in addition to built-in fonts.
+- [ ] REQ-005: Populate the font family dropdown for text fields and table column style overrides with all uploaded custom fonts, in addition to built-in fonts.
 - [ ] REQ-006: Display a preview of each uploaded font in the font management panel using sample text (e.g., "The quick brown fox...").
 - [ ] REQ-007: Allow users to edit the preview sample text.
 - [ ] REQ-008: Warn the user before removing a font that is currently referenced by one or more fields, listing the affected fields.
@@ -74,7 +74,7 @@ function loadFont(archive: TgblArchive, fontId: string): Promise<Buffer>
 - [ ] AC-001: Clicking the "Fonts" button opens the font management panel.
 - [ ] AC-002: Uploading a valid `.ttf` file adds it to the font list and displays a preview.
 - [ ] AC-003: The uploaded font appears in the font family dropdown for text field style editing.
-- [ ] AC-004: The uploaded font appears in the font family dropdown for loop column style overrides.
+- [ ] AC-004: The uploaded font appears in the font family dropdown for table column style overrides.
 - [ ] AC-005: Saving the template writes the font file to `fonts/<filename>.ttf` inside the `.tgbl` archive.
 - [ ] AC-006: The manifest `fonts[]` array contains an entry with the correct `id` and `filename` for each uploaded font.
 - [ ] AC-007: Attempting to remove a font that is used by at least one field shows a confirmation dialog listing affected fields.
