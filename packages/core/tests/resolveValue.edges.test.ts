@@ -103,19 +103,7 @@ describe('resolveValue — additional edge cases', () => {
     expect(resolveValue(field, skimpy)).toBeUndefined()
   })
 
-  /*
-   * TODO: PRODUCT BUG — see QA report
-   *
-   * When `InputJSON` is missing a bucket entirely (e.g. caller passes
-   * `{ texts: {} }` only), `resolveValue` currently dereferences the missing
-   * bucket (`input.images[key]`) and throws `TypeError: Cannot read
-   * properties of undefined`. The TypeScript type makes all three buckets
-   * required, so this is only reachable from JavaScript callers or when the
-   * caller casts. The spec's "returns `undefined` when absent" suggests we
-   * should defensively fall back. Tests below pin current behaviour with
-   * `toThrow` so the fix will RED-flag here and prompt a spec decision.
-   */
-  it('optional dynamic image field with missing images bucket — CURRENTLY THROWS (documents current behaviour)', () => {
+  it('optional dynamic image field with missing images bucket returns undefined (no throw)', () => {
     const field = imageField({
       mode: 'dynamic',
       jsonKey: 'logo',
@@ -123,10 +111,11 @@ describe('resolveValue — additional edge cases', () => {
       placeholder: null,
     })
     const skimpy = { texts: {} } as unknown as InputJSON
-    expect(() => resolveValue(field, skimpy)).toThrow()
+    expect(() => resolveValue(field, skimpy)).not.toThrow()
+    expect(resolveValue(field, skimpy)).toBeUndefined()
   })
 
-  it('optional dynamic table field with missing tables bucket — CURRENTLY THROWS (documents current behaviour)', () => {
+  it('optional dynamic table field with missing tables bucket returns undefined (no throw)', () => {
     const field = tableField({
       mode: 'dynamic',
       jsonKey: 'rows',
@@ -134,7 +123,8 @@ describe('resolveValue — additional edge cases', () => {
       placeholder: null,
     })
     const skimpy = { texts: {} } as unknown as InputJSON
-    expect(() => resolveValue(field, skimpy)).toThrow()
+    expect(() => resolveValue(field, skimpy)).not.toThrow()
+    expect(resolveValue(field, skimpy)).toBeUndefined()
   })
 
   it('static text returns empty string as-is (not undefined)', () => {

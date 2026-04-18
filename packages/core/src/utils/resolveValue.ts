@@ -36,10 +36,10 @@ export function resolveValue(field: FieldDefinition, input: InputJSON): unknown 
   const key = field.source.jsonKey
   switch (field.type) {
     case 'text':
-      return input.texts[key]
+      return input.texts?.[key]
     case 'image':
-      return input.images[key]
+      return input.images?.[key]
     case 'table':
-      return input.tables[key]
+      return input.tables?.[key]
   }
 }
