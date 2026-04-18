@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { loadTemplate } from '../src/load.js'
 import type { TemplateManifest } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
-import { dynImage, dynText, makeManifest } from './helpers/fixtures.js'
+import { dynImage, dynText, makeManifest, staticImage } from './helpers/fixtures.js'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
@@ -217,7 +217,7 @@ describe('loadTemplate', () => {
       false,
       { width: 100, height: 100 },
       undefined,
-      { filename: 'placeholders/avatar.png' },
+      { filename: 'avatar.png' },
     )
 
     const manifest = makeManifest({ fields: [avatarField] })
@@ -230,9 +230,7 @@ describe('loadTemplate', () => {
     const result = await loadTemplate(p)
 
     expect(result.placeholders.size).toBe(1)
-    expect(result.placeholders.get('placeholders/avatar.png')!.toString()).toBe(
-      'placeholder-png-bytes',
-    )
+    expect(result.placeholders.get('avatar.png')!.toString()).toBe('placeholder-png-bytes')
   })
 
   // ---- MISSING_PLACEHOLDER_IMAGE_FILE ---------------------------
@@ -244,7 +242,7 @@ describe('loadTemplate', () => {
       false,
       { width: 80, height: 80 },
       { fit: 'contain' },
-      { filename: 'placeholders/logo.png' },
+      { filename: 'logo.png' },
     )
 
     const manifest = makeManifest({ fields: [logoField] })
@@ -252,6 +250,61 @@ describe('loadTemplate', () => {
     // ZIP with manifest but WITHOUT the placeholder file
     const tgbl = buildTgbl({ manifest })
     const p = writeTmp('missing-placeholder.tgbl', tgbl)
+
+    await expect(loadTemplate(p)).rejects.toThrow(TemplateGoblinError)
+    await expect(loadTemplate(p)).rejects.toMatchObject({
+      code: 'MISSING_PLACEHOLDER_IMAGE_FILE',
+    })
+  })
+
+  // ---- Static image loaded from images/ ------------------------
+
+  it('loadTemplate populates staticImages with bytes when a static image field references a present archive entry', async () => {
+    const logoData = Buffer.from('static-logo-png-bytes')
+
+    const logoField = staticImage('logo', 'logo.png', { width: 120, height: 120 })
+    const manifest = makeManifest({ fields: [logoField] })
+
+    const zip = new AdmZip()
+    zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest), 'utf-8'))
+    zip.addFile('images/logo.png', logoData)
+    const p = writeTmp('with-static-image.tgbl', zip.toBuffer())
+
+    const result = await loadTemplate(p)
+
+    expect(result.staticImages.size).toBe(1)
+    expect(result.staticImages.get('logo.png')).toBeInstanceOf(Buffer)
+    expect(result.staticImages.get('logo.png')!.toString()).toBe('static-logo-png-bytes')
+  })
+
+  // ---- MISSING_STATIC_IMAGE_FILE --------------------------------
+
+  it('loadTemplate throws MISSING_STATIC_IMAGE_FILE when the referenced image is absent', async () => {
+    const logoField = staticImage('logo', 'logo.png', { width: 80, height: 80 })
+    const manifest = makeManifest({ fields: [logoField] })
+
+    // Manifest references images/logo.png but the archive omits it.
+    const tgbl = buildTgbl({ manifest })
+    const p = writeTmp('missing-static-image.tgbl', tgbl)
+
+    await expect(loadTemplate(p)).rejects.toThrow(TemplateGoblinError)
+    await expect(loadTemplate(p)).rejects.toMatchObject({
+      code: 'MISSING_STATIC_IMAGE_FILE',
+    })
+  })
+
+  // ---- MISSING_PLACEHOLDER_IMAGE_FILE (bare filename form) -----
+
+  it('loadTemplate throws MISSING_PLACEHOLDER_IMAGE_FILE when the referenced placeholder is absent', async () => {
+    const avatarField = dynImage('avatar', 'avatar', false, { width: 80, height: 80 }, undefined, {
+      filename: 'avatar.png',
+    })
+
+    const manifest = makeManifest({ fields: [avatarField] })
+
+    // Manifest references placeholders/avatar.png but the archive omits it.
+    const tgbl = buildTgbl({ manifest })
+    const p = writeTmp('missing-placeholder-bare.tgbl', tgbl)
 
     await expect(loadTemplate(p)).rejects.toThrow(TemplateGoblinError)
     await expect(loadTemplate(p)).rejects.toMatchObject({

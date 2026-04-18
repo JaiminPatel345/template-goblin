@@ -10,9 +10,11 @@ import {
   MANIFEST_FILENAME,
   BACKGROUND_FILENAME,
   FONTS_DIR,
+  IMAGES_DIR,
   PLACEHOLDERS_DIR,
 } from '../../src/file/constants.js'
-import { dynImage, dynTable, dynText, makeManifest } from '../helpers/fixtures.js'
+import { loadTemplate } from '../../src/load.js'
+import { dynImage, dynTable, dynText, makeManifest, staticImage } from '../helpers/fixtures.js'
 
 /**
  * Build a minimal valid TemplateManifest for testing.
@@ -406,5 +408,31 @@ describe('roundtrip: save then read', () => {
     const result = await readManifest(outputPath)
 
     expect(result).toEqual(manifest)
+  })
+
+  it('should emit static images under images/ and roundtrip through loadTemplate', async () => {
+    const logoData = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xde, 0xad])
+
+    const manifest = createValidManifest({
+      fields: [staticImage('logo', 'logo.png', { x: 10, y: 10, width: 80, height: 80 })],
+    })
+    const assets: TemplateAssets = {
+      ...createEmptyAssets(),
+      staticImages: new Map([['logo.png', logoData]]),
+    }
+    const outputPath = join(tmpDir, 'roundtrip-static-image.tgbl')
+
+    await saveTemplate(manifest, assets, outputPath)
+
+    // The raw archive should contain images/logo.png (not placeholders/logo.png).
+    const zip = new AdmZip(outputPath)
+    const entry = zip.getEntry(`${IMAGES_DIR}logo.png`)
+    expect(entry).not.toBeNull()
+    expect(entry!.getData()).toEqual(logoData)
+
+    // loadTemplate should surface it as staticImages[bare-filename].
+    const loaded = await loadTemplate(outputPath)
+    expect(loaded.staticImages.get('logo.png')).toEqual(logoData)
+    expect(loaded.placeholders.size).toBe(0)
   })
 })
