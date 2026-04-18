@@ -91,6 +91,19 @@ export interface TemplateState {
   updatePage: (pageId: string, updates: Partial<PageDefinition>) => void
   /** Set the background image for a specific page */
   setPageBackground: (pageId: string, dataUrl: string, buffer: ArrayBuffer) => void
+  /**
+   * Set the background of page 0 (the implicit/legacy first page) to a solid
+   * color. Used by the onboarding picker when the user chooses "Solid color"
+   * instead of uploading an image.
+   *
+   * Side effects:
+   *  - Clears `backgroundDataUrl`/`backgroundBuffer` (they become meaningless).
+   *  - Ensures a `PageDefinition` exists for page 0 with
+   *    `backgroundType: 'color'` and the supplied hex.
+   *  - Creates a default-sized page (A4 595x842 pt) if no meta dimensions were
+   *    previously set from an image upload.
+   */
+  setPage0BackgroundColor: (hex: string) => void
 
   undo: () => void
   redo: () => void
@@ -192,6 +205,89 @@ interface PersistedState {
   pageBackgroundBuffers: [string, string][]
   fontBuffers: [string, string][]
   placeholderBuffers: [string, string][]
+}
+
+/** Persist schema version. Bumped to 2 in Phase 1 when `source: FieldSource<V>` replaced
+ *  the legacy top-level `jsonKey`/`required`/`placeholder`/`style.placeholderFilename`
+ *  fields. Version 1 entries in localStorage are transformed by `migratePersistedState`. */
+const PERSIST_VERSION = 2
+
+/**
+ * Migrate a pre-Phase-1 persisted state (version 1 or unversioned) to the
+ * current schema (version 2).
+ *
+ * Zustand's `migrate` hook operates on the state object returned by
+ * `storage.getItem` — i.e. after our custom deserialization has already
+ * converted `[k, v][]` tuples to `Map`s. The migration therefore only has to
+ * touch `fields`; buffer/map shapes pass through untouched.
+ *
+ * Rules:
+ * - Every field's legacy top-level `jsonKey`/`required`/`placeholder` is
+ *   collapsed into `source = { mode: 'dynamic', jsonKey, required, placeholder }`.
+ * - `type: 'loop'` is rewritten to `type: 'table'`.
+ * - For image fields, `style.placeholderFilename` is moved to
+ *   `source.placeholder = { filename }`.
+ * - Fields with an already-corrupt `source` object are dropped with a warning.
+ */
+function migratePersistedState(persisted: unknown, fromVersion: number): Record<string, unknown> {
+  const state = ((persisted as Record<string, unknown>) ?? {}) as Record<string, unknown>
+
+  const rawFields = Array.isArray(state.fields) ? (state.fields as unknown[]) : []
+  const migrated: unknown[] = []
+
+  for (const raw of rawFields) {
+    if (!raw || typeof raw !== 'object') continue
+    const legacy = raw as Record<string, unknown> & { style?: Record<string, unknown> }
+
+    // Rewrite legacy `type: 'loop'` to `table`.
+    if (legacy.type === 'loop') {
+      legacy.type = 'table'
+    }
+
+    // If the field already has a valid `source`, trust it.
+    const existingSource = legacy.source
+    if (existingSource && typeof existingSource === 'object') {
+      const sourceObj = existingSource as Record<string, unknown>
+      if (sourceObj.mode === 'static' || sourceObj.mode === 'dynamic') {
+        migrated.push(legacy)
+        continue
+      }
+      // Corrupt source — drop with a warning.
+
+      console.warn('[templateStore] dropping field with corrupt source during migration:', legacy)
+      continue
+    }
+
+    // Synthesize a dynamic source from the legacy top-level keys.
+    const jsonKey = typeof legacy.jsonKey === 'string' ? legacy.jsonKey : ''
+    const required = typeof legacy.required === 'boolean' ? legacy.required : true
+    let placeholder: unknown = legacy.placeholder ?? null
+
+    if (legacy.type === 'image') {
+      const style = legacy.style as Record<string, unknown> | undefined
+      const placeholderFilename = style?.placeholderFilename
+      if (typeof placeholderFilename === 'string' && placeholderFilename.length > 0) {
+        placeholder = { filename: placeholderFilename }
+      }
+      if (style && 'placeholderFilename' in style) {
+        delete style.placeholderFilename
+      }
+    }
+
+    legacy.source = { mode: 'dynamic', jsonKey, required, placeholder }
+
+    delete legacy.jsonKey
+    delete legacy.required
+    delete legacy.placeholder
+
+    migrated.push(legacy)
+  }
+
+  console.info(
+    `[templateStore] migrated persisted state from v${fromVersion} to v${PERSIST_VERSION}`,
+  )
+
+  return { ...state, fields: migrated }
 }
 
 export const useTemplateStore = create<TemplateState>()(
@@ -442,6 +538,41 @@ export const useTemplateStore = create<TemplateState>()(
           return { pageBackgroundDataUrls, pageBackgroundBuffers }
         }),
 
+      setPage0BackgroundColor: (hex) =>
+        set((state) => {
+          // Find (or create) the page 0 definition.
+          const existing = state.pages.find((p) => p.index === 0)
+          let pages: PageDefinition[]
+          if (existing) {
+            pages = state.pages.map((p) =>
+              p.index === 0
+                ? {
+                    ...p,
+                    backgroundType: 'color',
+                    backgroundColor: hex,
+                    backgroundFilename: null,
+                  }
+                : p,
+            )
+          } else {
+            const page0: PageDefinition = {
+              id: `page-0-${Date.now()}`,
+              index: 0,
+              backgroundType: 'color',
+              backgroundColor: hex,
+              backgroundFilename: null,
+            }
+            pages = [page0, ...state.pages]
+          }
+          return {
+            pages,
+            // Color-only page 0 has no image background.
+            backgroundDataUrl: null,
+            backgroundBuffer: null,
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+          }
+        }),
+
       undo: () =>
         set((state) => {
           if (state.historyIndex <= 0) return state
@@ -530,7 +661,7 @@ export const useTemplateStore = create<TemplateState>()(
     }),
     {
       name: 'template-goblin-template',
-      version: 1,
+      version: PERSIST_VERSION,
       // Only persist essential data, skip history and transient state
       partialize: (state) => ({
         meta: state.meta,
@@ -545,15 +676,23 @@ export const useTemplateStore = create<TemplateState>()(
         fontBuffers: state.fontBuffers,
         placeholderBuffers: state.placeholderBuffers,
       }),
+      // Zustand invokes `migrate` when the stored version differs from the
+      // current `version`. Pre-Phase-1 entries were written with implicit
+      // version 1 and used top-level `jsonKey`/`required`/`placeholder`;
+      // migration rewrites them into the `source: FieldSource<V>` shape.
+      migrate: (persistedState, fromVersion) =>
+        migratePersistedState(persistedState, fromVersion) as unknown as TemplateState,
       storage: {
         getItem: (name) => {
           const raw = localStorage.getItem(name)
           if (!raw) return null
           try {
-            const parsed = JSON.parse(raw) as { state: PersistedState; version: number }
+            const parsed = JSON.parse(raw) as { state: PersistedState; version?: number }
             const s = parsed.state
+            // Version read — pre-Phase-1 writers used implicit `1`, so
+            // default missing/unknown versions to 1 so `migrate` runs.
+            const version = typeof parsed.version === 'number' ? parsed.version : 1
             return {
-              ...parsed,
               state: {
                 ...s,
                 pages: s.pages ?? [],
@@ -564,11 +703,19 @@ export const useTemplateStore = create<TemplateState>()(
                 pageBackgroundBuffers: new Map(
                   (s.pageBackgroundBuffers ?? []).map(([k, v]) => [k, b642ab(v)]),
                 ),
-                fontBuffers: new Map(s.fontBuffers.map(([k, v]) => [k, b642ab(v)])),
-                placeholderBuffers: new Map(s.placeholderBuffers.map(([k, v]) => [k, b642ab(v)])),
+                fontBuffers: new Map((s.fontBuffers ?? []).map(([k, v]) => [k, b642ab(v)])),
+                placeholderBuffers: new Map(
+                  (s.placeholderBuffers ?? []).map(([k, v]) => [k, b642ab(v)]),
+                ),
               },
+              version,
             }
-          } catch {
+          } catch (err) {
+            // Corrupt JSON or unexpected shape — log so the user/dev sees it,
+            // then fall back to the in-memory defaults. Returning `null` tells
+            // Zustand to skip rehydration for this entry.
+
+            console.warn('[templateStore] persist rehydration failed:', err)
             return null
           }
         },
@@ -596,7 +743,7 @@ export const useTemplateStore = create<TemplateState>()(
             name,
             JSON.stringify({
               state: serialized,
-              version: (value as { version?: number }).version ?? 1,
+              version: (value as { version?: number }).version ?? PERSIST_VERSION,
             }),
           )
         },
