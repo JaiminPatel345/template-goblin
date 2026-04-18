@@ -53,6 +53,13 @@ The UI canvas is the central workspace of the `template-goblin-ui` builder appli
 - [ ] REQ-041: Zoom-to-fit — `Ctrl/Cmd + 0` scales the canvas so the current page fits the visible viewport with a small padding (≥16 pt on each side) and centres the result. Wired into the global keyboard hook.
 - [ ] REQ-042: Zoom-to-100% — `Ctrl/Cmd + 1` resets `zoom` to `1.0`. The scroll position is adjusted so the viewport centre remains at the same canvas point.
 - [ ] REQ-043: Cursor styles — while `spacebar` is held (pan-available state) the canvas container shows `cursor: grab`; while actively panning (middle-drag or space-left-drag) it shows `cursor: grabbing`; when a field-draw tool is active it shows `cursor: crosshair`; otherwise `cursor: default`.
+- [ ] REQ-044: Rectangle label content — inside each field's bounding rectangle the canvas shows content text (not a type badge). For dynamic fields it uses `source.placeholder` when set, else `source.jsonKey`. For static fields it uses the literal `source.value` (or a short excerpt when the value is long). The field-type classification stays visible in the left-panel list badge and in the Toolbar; it is never repeated inside the rectangle.
+- [ ] REQ-045: Rectangle label auto-fit — label font size scales to fit the bounding rectangle. The rendered text width must not exceed `rectWidth - 2 * padding`, and the rendered height must not exceed `rectHeight - 2 * padding`. Implementation: binary-search or measure-and-shrink via Konva `Text.measureSize`; cap at `min(48 pt, rectHeight * 0.8)` to avoid comically large labels.
+- [ ] REQ-046: Per-type color tokens — the set of visual tokens for each field type (text, image, table) is defined once in `packages/ui/src/theme/fieldColors.ts` and consumed by both the Toolbar buttons and the Canvas rectangle fills. Each token bundle contains: `fill` (low-opacity rect background), `stroke` (rect border), `text` (label color), `toolbarBg` and `toolbarFg`. Palette choices must preserve accessible contrast (WCAG AA) between `text` and the underlying page.
+- [ ] REQ-047: Conditional rect fill — the canvas omits the coloured fill rectangle when it would occlude more useful content:
+  - Image field with a resolvable placeholder image (dynamic `source.placeholder.filename` OR static `source.value.filename` whose bytes are loaded): render the `KonvaImage` directly, skip the coloured fill.
+  - Any field with `source.mode === 'static'`: skip the coloured fill regardless of type (static content renders inline via the label branch for text, inline image for image, inline table for table).
+  - In both cases the selection border outline is retained so the field remains visibly selectable.
 
 ## Behaviour
 
@@ -222,6 +229,10 @@ type PageSizeOption = 'A4' | 'A3' | 'Letter' | 'Legal' | 'Custom' | 'MatchImage'
 - [ ] AC-041: The canvas wheel listener survives onboarding → canvas transitions. Test: launch the app in onboarding state, complete onboarding via solid color, then scroll-wheel with `Ctrl` held over the canvas and assert zoom changes. The bug fixed here is the old `useEffect([])`-attaches-once pattern that bound to the unmounted onboarding container.
 - [ ] AC-042: `Ctrl/Cmd + 0` fits the current page to the visible viewport with ≥16 pt padding per side and centres the result.
 - [ ] AC-043: `Ctrl/Cmd + 1` resets zoom to exactly `1.0`; the viewport centre remains at the same canvas point after reset.
+- [ ] AC-044: Field rectangle label text matches `placeholder` (dynamic) or `value` (static); a type badge never appears inside the rectangle. Regression reference: `packages/ui/src/components/Canvas/__tests__/fieldLabel.test.ts`.
+- [ ] AC-045: Field rectangle label font size auto-fits the rectangle (≥ 8 pt, ≤ `min(48 pt, rectHeight * 0.8)`). Label never renders outside the rectangle bounds. Covered in `fieldLabel.test.ts`.
+- [ ] AC-046: Toolbar buttons and canvas rectangle fills for the same field type resolve to the same CSS token object exported from `packages/ui/src/theme/fieldColors.ts`. Regression reference: `packages/ui/src/theme/__tests__/fieldColors.test.ts`.
+- [ ] AC-047: An image field with a present placeholder renders a `KonvaImage` and no coloured fill `Rect`. A static field (any type) renders no coloured fill `Rect`. Regression reference: `packages/ui/src/components/Canvas/__tests__/rectFill.test.ts`.
 
 ## Dependencies
 

@@ -20,6 +20,7 @@ Adds a font management panel to the TemplateGoblin UI, accessible via a "Fonts" 
 - [ ] REQ-008: Warn the user before removing a font that is currently referenced by one or more fields, listing the affected fields.
 - [ ] REQ-009: Validate that uploaded files are valid `.ttf` fonts (check file extension and basic header bytes).
 - [ ] REQ-010: Generate a unique `id` for each font entry derived from the filename, avoiding duplicates.
+- [ ] REQ-011: Multi-file upload — the file `<input>` uses the `multiple` attribute. The upload handler processes every selected file independently: valid entries are added to the store in order, invalid entries are surfaced to the user with the rejection reason (`size`, `magic`, `duplicate`, `read-error`). A single failing file does NOT abort the batch.
 
 ## Behaviour
 
