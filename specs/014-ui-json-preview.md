@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Draft. Design 2026-04-18 §8.5 narrows the JSON preview to dynamic fields only — static fields never appear in the input contract, so they are filtered out. A static-content summary footer (count of static texts / images / tables baked into the template) is shown below the JSON. Full spec with filtering rules comes with the Phase 7 implementation plan.
 
 ## Summary
 
@@ -13,9 +13,9 @@ Defines the JSON preview panel in the template builder UI. As the user adds and 
 - [ ] REQ-001: Auto-generate a JSON preview object that updates in real time as fields are added, removed, or modified on the canvas.
 - [ ] REQ-002: The generated JSON MUST match the exact structure accepted by the `generatePDF()` function defined in Spec 008.
 - [ ] REQ-003: Support three preview data modes selectable via a segmented control or tab bar: Default, Max, and Min.
-- [ ] REQ-004: Default mode populates text fields with empty strings, image fields with `null`, and loop fields with an empty array `[]`.
-- [ ] REQ-005: Max mode populates text fields with the string `"It works in my machine "` repeated N times, image fields with a placeholder image data URI, and loop fields with N rows of sample data.
-- [ ] REQ-006: Min mode populates required fields with short representative values (e.g., `"x"` for text, a 1x1 pixel data URI for images, one row for loops) and optional fields with empty strings, `null`, or empty arrays respectively.
+- [ ] REQ-004: Default mode populates text fields with empty strings, image fields with `null`, and table fields with an empty array `[]`.
+- [ ] REQ-005: Max mode populates text fields with the string `"It works in my machine "` repeated N times, image fields with a placeholder image data URI, and table fields with N rows of sample data.
+- [ ] REQ-006: Min mode populates required fields with short representative values (e.g., `"x"` for text, a 1x1 pixel data URI for images, one row for tables) and optional fields with empty strings, `null`, or empty arrays respectively.
 - [ ] REQ-007: The repeat count N in Max mode MUST be adjustable via a slider control, with a default value of 5 and a range of 1 to 50.
 - [ ] REQ-008: The JSON output MUST be syntax-highlighted using colour-coded tokens for strings, numbers, booleans, null, keys, and structural characters.
 - [ ] REQ-009: Provide a one-click copy button that copies the full JSON string to the clipboard and shows a brief confirmation (e.g., "Copied!" tooltip for 2 seconds).
@@ -42,7 +42,7 @@ Defines the JSON preview panel in the template builder UI. As the user adds and 
      "photo": "data:image/png;base64,..."
    }
    ```
-5. User adjusts the slider to N = 10; the repeated text and loop rows update accordingly.
+5. User adjusts the slider to N = 10; the repeated text and table rows update accordingly.
 6. User clicks the copy button; the JSON string is copied to the clipboard and a "Copied!" tooltip appears.
 7. The approximate file size estimate below the JSON updates (e.g., "~24 KB").
 
@@ -52,7 +52,7 @@ Defines the JSON preview panel in the template builder UI. As the user adds and 
 - Fields with duplicate JSON keys: the preview should warn the user with a visual indicator (e.g., highlighted key with a warning icon) since duplicate keys would produce undefined behaviour in JSON parsing.
 - Nested JSON keys using dot notation (e.g., `address.city`) should produce nested objects in the preview output.
 - When the slider value N changes rapidly, JSON regeneration should be debounced (100ms) to avoid UI jank.
-- Very large JSON output (N = 50 with many loop fields) should remain performant; consider virtualizing the display if line count exceeds 500 lines.
+- Very large JSON output (N = 50 with many table fields) should remain performant; consider virtualizing the display if line count exceeds 500 lines.
 
 ### Error Conditions
 
@@ -101,7 +101,7 @@ function estimatePdfSize(json: Record<string, unknown>, templateMeta: TemplateMe
 - [ ] AC-001: Adding a text field with JSON key `title` to an empty canvas produces `{ "title": "" }` in Default mode.
 - [ ] AC-002: Switching to Max mode with N = 5 produces a text value of `"It works in my machine "` repeated exactly 5 times (with trailing space).
 - [ ] AC-003: Switching to Min mode produces `"x"` for required text fields and `""` for optional text fields.
-- [ ] AC-004: Min mode produces a single-row array for required loop fields and `[]` for optional loop fields.
+- [ ] AC-004: Min mode produces a single-row array for required table fields and `[]` for optional table fields.
 - [ ] AC-005: The slider adjusts N from 1 to 50, and the JSON updates accordingly within 200ms of the slider stopping.
 - [ ] AC-006: The JSON output is syntax-highlighted with distinct colours for keys, strings, numbers, booleans, null, and brackets.
 - [ ] AC-007: Clicking the copy button places the full JSON string on the clipboard and displays a "Copied!" confirmation.

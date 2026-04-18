@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Draft. Creation-popup and mode toggle (static/dynamic) introduced in design 2026-04-18 §8; full spec comes with the Phase 4 implementation plan.
 
 ## Summary
 

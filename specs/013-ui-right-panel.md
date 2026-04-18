@@ -2,11 +2,11 @@
 
 ## Status
 
-Draft
+Draft. Double-click activation, top-level mode toggle (static/dynamic), and parity with the creation popup introduced in design 2026-04-18 §8.2; full spec comes with the Phase 5 implementation plan.
 
 ## Summary
 
-Defines the right-side properties panel in the template builder UI. When a field is selected on the canvas, this panel displays and allows editing of all properties specific to that field type (text, image, or loop). When no field is selected, the panel shows an empty-state message. All property changes are reflected immediately on the canvas without requiring an explicit save or apply action.
+Defines the right-side properties panel in the template builder UI. When a field is double-clicked on the canvas, this panel displays and allows editing of all properties specific to that field type (text, image, or table). When no field is selected, the panel shows an empty-state message. All property changes are reflected immediately on the canvas without requiring an explicit save or apply action.
 
 ## Requirements
 
@@ -14,7 +14,7 @@ Defines the right-side properties panel in the template builder UI. When a field
 - [ ] REQ-002: When no field is selected, show the message "Select a field to edit properties" as an empty state.
 - [ ] REQ-003: For text fields, expose all text style properties: font family, font size, font weight, font style (italic), text color, text alignment (left/center/right/justify), line height, letter spacing, text overflow behaviour (clip, ellipsis, wrap), and text decoration (underline, strikethrough).
 - [ ] REQ-004: For image fields, expose fit mode (contain, cover, stretch, none) and a placeholder image upload control.
-- [ ] REQ-005: For loop fields, expose column definitions (add/remove/reorder columns), header style properties, row style properties, and individual cell style overrides.
+- [ ] REQ-005: For table fields, expose column definitions (add/remove/reorder columns), header style properties, row style properties, and individual cell style overrides.
 - [ ] REQ-006: For all field types, expose common properties: JSON key binding, group assignment (dropdown of existing groups + create new), required toggle, and placeholder value.
 - [ ] REQ-007: Property changes MUST be reflected immediately on the canvas (no "Apply" button).
 - [ ] REQ-008: The panel MUST be scrollable when its content exceeds the viewport height.
@@ -37,7 +37,7 @@ Defines the right-side properties panel in the template builder UI. When a field
 
 - Selecting a field while another field's property is mid-edit (e.g., typing in a text input) should commit the in-progress value before switching context.
 - If a font family referenced by a text field is not loaded, the panel should show the font name with a warning indicator and fall back to displaying available fonts.
-- For loop fields with zero columns defined, the panel should show an "Add Column" prompt rather than an empty column list.
+- For table fields with zero columns defined, the panel should show an "Add Column" prompt rather than an empty column list.
 - Rapidly changing a numeric property (e.g., dragging a font-size slider) should debounce canvas updates to avoid performance degradation (target: no more than one canvas re-render per 16ms).
 - Group assignment dropdown should include a "None" option to unassign a field from its current group.
 
@@ -53,7 +53,7 @@ Defines the right-side properties panel in the template builder UI. When a field
 
 ```typescript
 // Field type discriminator
-type FieldType = 'text' | 'image' | 'loop'
+type FieldType = 'text' | 'image' | 'table'
 
 // Common properties shared by all fields
 interface CommonFieldProperties {
@@ -85,22 +85,22 @@ interface ImageFieldProperties extends CommonFieldProperties {
   placeholderImage: Blob | null
 }
 
-// Loop-specific properties
-interface LoopFieldProperties extends CommonFieldProperties {
-  type: 'loop'
-  columns: LoopColumnDefinition[]
-  headerStyle: LoopSectionStyle
-  rowStyle: LoopSectionStyle
+// Table-specific properties
+interface TableFieldProperties extends CommonFieldProperties {
+  type: 'table'
+  columns: TableColumnDefinition[]
+  headerStyle: TableSectionStyle
+  rowStyle: TableSectionStyle
 }
 
-interface LoopColumnDefinition {
+interface TableColumnDefinition {
   key: string
   label: string
   width: number // percentage or fixed px
   cellStyle?: Partial<TextFieldProperties>
 }
 
-interface LoopSectionStyle {
+interface TableSectionStyle {
   backgroundColor: string
   borderColor: string
   borderWidth: number
@@ -112,7 +112,7 @@ interface LoopSectionStyle {
 
 // React component props
 interface RightPanelProps {
-  selectedField: TextFieldProperties | ImageFieldProperties | LoopFieldProperties | null
+  selectedField: TextFieldProperties | ImageFieldProperties | TableFieldProperties | null
   onPropertyChange: (fieldId: string, property: string, value: unknown) => void
   availableFonts: string[]
   availableGroups: string[]
@@ -124,7 +124,7 @@ interface RightPanelProps {
 
 - [ ] AC-001: Clicking a text field on the canvas causes the right panel to display all text style properties (font family, font size, font weight, font style, color, alignment, line height, letter spacing, overflow, text decoration).
 - [ ] AC-002: Clicking an image field on the canvas causes the right panel to display fit mode and placeholder upload controls.
-- [ ] AC-003: Clicking a loop field on the canvas causes the right panel to display column definitions, header style, and row style controls.
+- [ ] AC-003: Double-clicking a table field on the canvas causes the right panel to display column definitions, header style, and row style controls.
 - [ ] AC-004: All field types display the common properties section: JSON key, group assignment, required toggle, and placeholder.
 - [ ] AC-005: When no field is selected, the panel displays "Select a field to edit properties".
 - [ ] AC-006: Changing a property value in the panel is reflected on the canvas within one animation frame (16ms debounce).
@@ -138,7 +138,7 @@ interface RightPanelProps {
 - Spec 009 — UI Canvas (provides field selection events and canvas re-render triggers)
 - Spec 010 — UI Text Field (defines text field data model and style properties)
 - Spec 011 — UI Image Field (defines image field data model and fit modes)
-- Spec 012 — UI Loop Field (defines loop field data model, column definitions, and section styles)
+- Spec 012 — UI Table Field (defines table field data model, column definitions, and section styles)
 
 ## Notes
 

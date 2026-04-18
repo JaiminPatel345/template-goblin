@@ -6,7 +6,7 @@ Draft
 
 ## Summary
 
-Defines how image fields are rendered within their bounding rectangles on the PDF canvas. Covers the three fit modes (`fill`, `contain`, `cover`), input formats (Buffer and base64 string), and the guarantee that images never render outside their bounding rectangle.
+Defines how image fields are rendered within their bounding rectangles on the PDF canvas. Covers the three fit modes (`fill`, `contain`, `cover`), input formats (Buffer and base64 string), and the guarantee that images never render outside their bounding rectangle. Image fields have two runtime code paths depending on their `source.mode`: static images read pre-loaded bytes from `LoadedTemplate.staticImages`, while dynamic images read bytes from `InputJSON.images[jsonKey]` at generation time.
 
 ## Requirements
 
@@ -45,6 +45,13 @@ Every image field defines a rectangle `{x, y, width, height}`. The image is rend
 2. Apply the scale factor to both dimensions, preserving the original aspect ratio.
 3. Centre the scaled image within the bounding rectangle.
 4. Clip/crop any portion of the image that extends beyond the bounding rectangle.
+
+### Image Source Code Paths
+
+The resolver determines where image bytes come from based on the field's `source.mode`:
+
+- **Static image** (`source.mode === "static"`): `source.value.filename` is a bare filename; the loader has already cached the bytes under `LoadedTemplate.staticImages` keyed by that bare filename. The renderer reads `LoadedTemplate.staticImages.get(filename)` and proceeds with the standard input-format handling below. Missing entries here are impossible at render time because the loader raises `MISSING_STATIC_IMAGE_FILE` up-front.
+- **Dynamic image** (`source.mode === "dynamic"`): runtime bytes come from `InputJSON.images[source.jsonKey]` as either a `Buffer` or a base64-encoded string. If the key is absent and `source.required === false`, the field is skipped entirely; if `required === true` and the key is absent, the engine raises `MISSING_REQUIRED_FIELD` before rendering begins. `source.placeholder` is NEVER consulted at PDF generation — it is designer-time canvas-preview content only.
 
 ### Input Formats
 
@@ -85,7 +92,6 @@ interface ImageRenderInput {
   height: number
   style: {
     fit: 'fill' | 'contain' | 'cover'
-    placeholderFilename?: string
   }
 }
 
@@ -118,5 +124,5 @@ function renderImage(input: ImageRenderInput, ctx: PDFContext): ImageRenderOutpu
 ## Notes
 
 - Supported image formats are PNG and JPEG. Future specs may add SVG or WebP support.
-- The `placeholderFilename` in the style refers to a file in the `placeholders/` directory of the `.tgbl` archive (Spec 001). When no runtime image data is provided, the placeholder is rendered instead.
+- Dynamic image placeholders (canvas-only) live in `source.placeholder.filename` pointing into the `placeholders/` folder; they are never read during PDF generation. Static image content lives in `source.value.filename` pointing into `images/`. See Spec 001 for the archive layout and Spec 023 for the `FieldSource<V>` definition.
 - Open question: should `contain` mode allow configurable alignment (e.g., top-left instead of centre)? Current decision is always centre.

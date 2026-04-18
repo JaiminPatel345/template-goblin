@@ -6,7 +6,7 @@ Draft
 
 ## Summary
 
-Defines how text fields are rendered within their bounding rectangles on the PDF canvas. Covers word wrapping, overflow handling (dynamic font shrinking and truncation with ellipsis), vertical alignment, and the relationship between `maxRows`, `fontSize`, and `lineHeight` in determining the bounding box height. The core invariant is that text NEVER renders outside its bounding rectangle.
+Defines how text fields are rendered within their bounding rectangles on the PDF canvas. Covers word wrapping, overflow handling (dynamic font shrinking and truncation with ellipsis), vertical alignment, and the relationship between `maxRows`, `fontSize`, and `lineHeight` in determining the bounding box height. The core invariant is that text NEVER renders outside its bounding rectangle. Text rendering consumes the resolved `string` value regardless of whether the field's `source` is static (`source.value`) or dynamic (looked up in `InputJSON.texts`) — see Spec 023 for the resolution algorithm.
 
 ## Requirements
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Draft. Creation-popup flow introduced in design 2026-04-18 §8; full spec comes with the Phase 4 implementation plan.
 
 ## Summary
 
@@ -54,7 +54,7 @@ The UI canvas is the central workspace of the `template-goblin-ui` builder appli
 4. User selects a page size (e.g. A4). Canvas dimensions are set to 595x842 pt. Background image is scaled to fill the canvas.
 5. Original vs compressed image size is displayed (e.g. "Original: 2.4 MB, Compressed: 340 KB")
 6. Canvas displays the background image. Grid lines appear if snap-to-grid is enabled. The page tab bar at the bottom shows "Page 1" as the active tab with an "Add Page" button.
-7. User adds fields (text, image, loop) by drawing rectangles on the canvas. Each field is automatically assigned to the current page.
+7. User adds fields (text, image, table) by drawing rectangles on the canvas. The creation popup (design 2026-04-18 §8.1) opens on mouse-up; on confirm the new field is assigned to the current page.
 8. User selects a field, sees resize handles, moves/resizes it. Right panel updates to show the field's properties.
 9. User right-clicks a field, sees context menu, reorders z-index or duplicates/deletes the field.
 10. User Shift+clicks multiple fields, drags them together.

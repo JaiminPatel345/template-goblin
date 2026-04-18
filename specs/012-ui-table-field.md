@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Draft. Creation-popup flow, static-vs-dynamic mode toggle, inline static-table editor, and advanced table styling (zebra rows, per-column body/header overrides, `showHeader`) introduced in design 2026-04-18 §8; full spec comes with the Phase 4 / Phase 6 implementation plans.
 
 ## Summary
 

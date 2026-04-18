@@ -14,7 +14,7 @@ Defines the `.tgbl` file format used by TemplateGoblin to package templates. A `
 - [ ] REQ-002: Read and extract contents from a `.tgbl` ZIP archive.
 - [ ] REQ-003: Verify PK magic bytes (`0x50 0x4B`) at the start of the file before attempting to parse.
 - [ ] REQ-004: Every `.tgbl` archive MUST include a `manifest.json` at the archive root.
-- [ ] REQ-005: Store binary assets (background image, fonts, placeholder images) in their designated paths within the archive (`background.png`, `fonts/*.ttf`, `placeholders/*.png`).
+- [ ] REQ-005: Store binary assets in their designated paths within the archive: `background.png` (single-page legacy), `backgrounds/<id>.png` (multi-page), `images/<name>.<ext>` (static image content baked into the template), `placeholders/<name>.<ext>` (canvas-preview images for dynamic image fields), and `fonts/<name>.<ext>` (custom font files).
 - [ ] REQ-006: Reject files whose extension is not `.tgbl` when loading a template.
 - [ ] REQ-007: Use `~/.templateGoblin/` as the default storage directory on Unix and `%APPDATA%\templateGoblin\` on Windows.
 - [ ] REQ-008: Derive the template ID from the filename without its `.tgbl` extension (e.g., `invoice.tgbl` -> template ID `invoice`).
@@ -67,11 +67,24 @@ function getStoragePath(): string
 - [ ] AC-005: Files with extensions other than `.tgbl` are rejected with `UnsupportedExtensionError`.
 - [ ] AC-006: On Unix the default storage path resolves to `~/.templateGoblin/`; on Windows to `%APPDATA%\templateGoblin\`.
 - [ ] AC-007: `resolveTemplateId("invoice.tgbl")` returns `"invoice"`.
-- [ ] AC-008: The archive contains `manifest.json` at the root, `background.png`, entries under `fonts/`, and entries under `placeholders/`.
+- [ ] AC-008: The archive contains `manifest.json` at the root plus, as applicable, `background.png` or entries under `backgrounds/`, `images/`, `placeholders/`, and `fonts/`.
 
 ## Dependencies
 
 None. This is the foundational spec.
+
+### Archive Layout (v2.0)
+
+```
+manifest.json
+background.png               # legacy single-page templates only
+backgrounds/<id>.png         # page backgrounds in multi-page templates
+images/<name>.<ext>          # static image content baked into the template (rendered on every PDF)
+placeholders/<name>.<ext>    # canvas-preview images for dynamic image fields (designer-time only)
+fonts/<name>.<ext>           # custom fonts referenced by manifest.fonts[]
+```
+
+`images/` and `placeholders/` are disjoint: a single field uses at most one of them. The manifest stores bare filenames; loader and writer apply the folder prefix.
 
 ## Notes
 

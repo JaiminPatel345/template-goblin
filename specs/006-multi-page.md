@@ -6,7 +6,7 @@ Draft
 
 ## Summary
 
-Defines how templates support multiple pages through two distinct mechanisms: (1) user-defined pages where designers manually add pages with independent backgrounds, and (2) loop-overflow pages where table fields automatically generate continuation pages when data exceeds available space. Fields are scoped to a specific page via `pageId`. Each user-defined page has its own background (uploaded image, solid color, or inherited from the previous page). The UI provides page navigation via tabs at the bottom of the canvas.
+Defines how templates support multiple pages through two distinct mechanisms: (1) user-defined pages where designers manually add pages with independent backgrounds, and (2) table-overflow pages where table fields automatically generate continuation pages when data exceeds available space. Multi-page behaviour applies to table fields regardless of whether their `source` is static or dynamic — the engine treats the resolved row array the same way in both cases. Fields are scoped to a specific page via `pageId`. Each user-defined page has its own background (uploaded image, solid color, or inherited from the previous page). The UI provides page navigation via tabs at the bottom of the canvas.
 
 ## Requirements
 
@@ -23,21 +23,21 @@ Defines how templates support multiple pages through two distinct mechanisms: (1
 - [ ] REQ-006: Pages can be deleted. Deleting a page also deletes all fields assigned to that page. If a subsequent page uses `backgroundType: "inherit"` and the deleted page was its source, the inheriting page falls through to the next earlier page or becomes invalid (prompting the user to choose a new background).
 - [ ] REQ-007: A template must always have at least one page. The UI prevents deleting the last remaining page.
 
-### Loop-Overflow Multi-Page (Table Continuation)
+### Table-Overflow Multi-Page (Table Continuation)
 
-- [ ] REQ-008: A loop field with `multiPage: true` triggers automatic page creation when its data rows exceed the available space within the bounding rectangle on the current page.
-- [ ] REQ-009: On each loop-overflow continuation page, the background of the page that contains the loop field is re-rendered (using the resolved background of the loop field's parent page).
-- [ ] REQ-010: On each loop-overflow continuation page, the table's header row is re-rendered at the top of the loop field's bounding rectangle before continuing with data rows.
+- [ ] REQ-008: A table field with `multiPage: true` triggers automatic page creation when its data rows exceed the available space within the bounding rectangle on the current page.
+- [ ] REQ-009: On each table-overflow continuation page, the background of the page that contains the table field is re-rendered (using the resolved background of the table field's parent page).
+- [ ] REQ-010: On each table-overflow continuation page, the table's header row is re-rendered at the top of the table field's bounding rectangle before continuing with data rows.
 - [ ] REQ-011: Data rows on continuation pages pick up exactly where the previous page left off — no duplicated or skipped rows.
-- [ ] REQ-012: Enforce `meta.maxPages` as a hard limit on loop-overflow pages only (not on user-defined pages). If the table requires more overflow pages than `maxPages` allows, throw `MaxPagesExceededError`. The engine does NOT silently truncate data.
-- [ ] REQ-013: Only fields belonging to the loop field's parent page are rendered on loop-overflow pages — and only the loop field itself continues. Other fields (text, image, non-overflowing loops) on the same page do NOT appear on continuation pages.
-- [ ] REQ-014: `meta.maxPages` defaults to `1` when not specified. The engine counts all overflow pages per loop field (including the first page) against this limit.
+- [ ] REQ-012: Enforce `meta.maxPages` as a hard limit on table-overflow pages only (not on user-defined pages). If the table requires more overflow pages than `maxPages` allows, throw `MaxPagesExceededError`. The engine does NOT silently truncate data.
+- [ ] REQ-013: Only fields belonging to the table field's parent page are rendered on table-overflow pages — and only the table field itself continues. Other fields (text, image, non-overflowing tables) on the same page do NOT appear on continuation pages.
+- [ ] REQ-014: `meta.maxPages` defaults to `1` when not specified. The engine counts all overflow pages per table field (including the first page) against this limit.
 
 ### Combined Behaviour
 
-- [ ] REQ-015: User-defined pages and loop-overflow pages coexist. The final PDF page order is: all user-defined pages in index order, with any loop-overflow pages inserted immediately after the page containing the overflowing loop field.
-- [ ] REQ-016: Each user-defined page renders only its own fields (those with matching `pageId`). Loop-overflow pages render only the continuing table with the parent page's background.
-- [ ] REQ-017: Multiple loop fields on different pages can each independently overflow, each generating their own continuation pages after their respective parent page.
+- [ ] REQ-015: User-defined pages and table-overflow pages coexist. The final PDF page order is: all user-defined pages in index order, with any table-overflow pages inserted immediately after the page containing the overflowing table field.
+- [ ] REQ-016: Each user-defined page renders only its own fields (those with matching `pageId`). Table-overflow pages render only the continuing table field with the parent page's background.
+- [ ] REQ-017: Multiple table fields on different pages can each independently overflow, each generating their own continuation pages after their respective parent page.
 
 ## Behaviour
 
@@ -72,22 +72,22 @@ Defines how templates support multiple pages through two distinct mechanisms: (1
 3. If the deleted page is the source for a subsequent page's `"inherit"` background, that page now inherits from whatever page precedes it after renumbering. If no predecessor exists (it became the first page), the UI prompts the user to set an explicit background.
 4. The last remaining page cannot be deleted.
 
-### Loop-Overflow — Trigger and Construction
+### Table-Overflow — Trigger and Construction
 
 1. The engine renders each user-defined page in index order, rendering only the fields assigned to that page.
-2. For a loop field with `multiPage: true` on any page, after filling all available rows within the bounding rectangle, the engine checks if unrendered data rows remain.
+2. For a table field with `multiPage: true` on any page, after filling all available rows within the bounding rectangle, the engine checks if unrendered data rows remain.
 3. If rows remain and `currentOverflowPageCount < meta.maxPages`, a continuation page is created.
 4. If rows remain and `currentOverflowPageCount >= meta.maxPages`, the engine throws `MaxPagesExceededError`.
 5. Each continuation page:
-   - Renders the resolved background of the loop field's parent page.
-   - Renders the loop field's header row at the top of the bounding rectangle.
+   - Renders the resolved background of the table field's parent page.
+   - Renders the table field's header row at the top of the bounding rectangle.
    - Renders data rows below the header, continuing from where the previous page left off.
    - Does NOT render any other fields from the parent page.
-6. After all overflow pages for a loop field are generated, the engine continues to the next user-defined page.
+6. After all overflow pages for a table field are generated, the engine continues to the next user-defined page.
 
-### Page Space Calculation (Loop Overflow)
+### Page Space Calculation (Table Overflow)
 
-On each page, the available space for data rows within the loop field bounding rectangle is:
+On each page, the available space for data rows within the table field bounding rectangle is:
 
 ```
 availableHeight = boundingRect.height - headerRowHeight
@@ -99,18 +99,18 @@ The header occupies space on every page (both the original and continuation page
 ### Happy Path
 
 1. Template has 3 user-defined pages: page 1 (image background), page 2 (color background), page 3 (inherit from page 2).
-2. Page 1 has text fields and an image field. Page 2 has a loop field with `multiPage: true` and 50 data rows. Page 3 has text fields.
-3. Engine renders page 1 with its fields, then page 2 with the loop field (10 rows fit per page), then 4 overflow pages with continued table rows, then page 3 with its fields.
+2. Page 1 has text fields and an image field. Page 2 has a table field with `multiPage: true` and 50 data rows. Page 3 has text fields.
+3. Engine renders page 1 with its fields, then page 2 with the table field (10 rows fit per page), then 4 overflow pages with continued table rows, then page 3 with its fields.
 4. Final PDF: page 1, page 2, overflow page 1, overflow page 2, overflow page 3, overflow page 4, page 3 = 7 total pages.
 
 ### Edge Cases
 
-- `multiPage: false` on a loop field: overflow rows are clipped on the loop field's page, no continuation pages created.
+- `multiPage: false` on a table field: overflow rows are clipped on the table field's page, no continuation pages created.
 - `maxPages: 1` with `multiPage: true` and overflow: throws `MaxPagesExceededError`.
-- Data fits exactly on the loop field's page: no continuation pages created regardless of `multiPage` setting.
+- Data fits exactly on the table field's page: no continuation pages created regardless of `multiPage` setting.
 - Empty data array with `multiPage: true`: single page with header only, no continuation pages.
-- Loop field bounding rect is too small for even one data row: header renders, zero data rows, remaining rows cause `MaxPagesExceededError` if `multiPage: true`.
-- A template with only one user-defined page and no loop overflow: behaves as a single-page template.
+- Table field bounding rect is too small for even one data row: header renders, zero data rows, remaining rows cause `MaxPagesExceededError` if `multiPage: true`.
+- A template with only one user-defined page and no table overflow: behaves as a single-page template.
 - A user-defined page has no fields assigned to it: renders the background only (valid use case, e.g., a blank separator page).
 - All pages use `backgroundType: "inherit"` except the first: each inherits from the resolved background of the page before it (chain resolution).
 - A page in the middle of an inherit chain is deleted: subsequent inheriting pages resolve from the new predecessor.
@@ -140,8 +140,8 @@ interface MultiPageContext {
   maxPages: number
   pages: PageDefinition[]
   resolvedBackgrounds: Map<string, Buffer | string> // pageId -> image Buffer or color string
-  fields: (TextField | ImageField | LoopField)[] // each has pageId
-  loopData: Record<string, Record<string, string>[]> // keyed by field ID
+  fields: (TextField | ImageField | TableField)[] // each has pageId
+  tableData: Record<string, Record<string, string>[]> // keyed by field ID
 }
 
 interface MultiPageOutput {
@@ -152,9 +152,9 @@ interface MultiPageOutput {
 interface PageContent {
   pageNumber: number
   sourcePageId: string // the user-defined page this derives from
-  isOverflowPage: boolean // true for loop-overflow continuation pages
+  isOverflowPage: boolean // true for table-overflow continuation pages
   background: { type: 'image'; data: Buffer } | { type: 'color'; color: string }
-  fields: RenderedField[] // user-defined page: all page fields; overflow: loop continuation only
+  fields: RenderedField[] // user-defined page: all page fields; overflow: table continuation only
 }
 
 function renderMultiPage(ctx: MultiPageContext, pdfCtx: PDFContext): MultiPageOutput
@@ -178,34 +178,34 @@ function resolvePageBackground(
 - [ ] AC-008: Reordering pages renumbers `index` values to remain 0-based and contiguous; fields follow their page by `id`.
 - [ ] AC-009: The last remaining page cannot be deleted.
 
-### Loop-Overflow Pages
+### Table-Overflow Pages
 
-- [ ] AC-010: A loop field with `multiPage: true` and more rows than fit on one page produces continuation pages.
-- [ ] AC-011: Each continuation page includes the resolved background of the loop field's parent page.
-- [ ] AC-012: Each continuation page includes the loop field's header row at the top of the bounding rectangle.
+- [ ] AC-010: A table field with `multiPage: true` and more rows than fit on one page produces continuation pages.
+- [ ] AC-011: Each continuation page includes the resolved background of the table field's parent page.
+- [ ] AC-012: Each continuation page includes the table field's header row at the top of the bounding rectangle.
 - [ ] AC-013: Data rows on continuation pages pick up exactly where the previous page left off (no duplicated or skipped rows).
 - [ ] AC-014: When required overflow pages exceed `meta.maxPages`, the engine throws `MaxPagesExceededError` (not silent truncation).
-- [ ] AC-015: Non-loop fields on the same page as the overflowing loop do NOT appear on continuation pages.
-- [ ] AC-016: A loop field with `multiPage: false` clips overflow rows and does not create continuation pages.
+- [ ] AC-015: Non-table fields on the same page as the overflowing table do NOT appear on continuation pages.
+- [ ] AC-016: A table field with `multiPage: false` clips overflow rows and does not create continuation pages.
 - [ ] AC-017: `maxPages: 1` with overflow data throws `MaxPagesExceededError`.
-- [ ] AC-018: Data that fits exactly within the loop field's page produces no continuation pages even when `multiPage: true`.
+- [ ] AC-018: Data that fits exactly within the table field's page produces no continuation pages even when `multiPage: true`.
 
 ### Combined
 
-- [ ] AC-019: A template with 3 user-defined pages and a loop field on page 2 that overflows produces the correct page order: page 1, page 2, overflow pages, page 3.
-- [ ] AC-020: Multiple loop fields on different pages can each independently overflow, each generating continuation pages after their respective parent page.
+- [ ] AC-019: A template with 3 user-defined pages and a table field on page 2 that overflows produces the correct page order: page 1, page 2, overflow pages, page 3.
+- [ ] AC-020: Multiple table fields on different pages can each independently overflow, each generating continuation pages after their respective parent page.
 
 ## Dependencies
 
 - Spec 001 — .tgbl File Format (background images stored in the archive).
 - Spec 002 — Template Schema (`pages` array, `PageDefinition`, `pageId` on fields, `meta.maxPages`).
-- Spec 005 — Loop/Table Rendering (row rendering logic, header style, row style).
+- Spec 005 — Table Rendering (row rendering logic, header style, row style).
 - Spec 009 — UI Canvas (page tabs, "Add Page" button, page navigation).
 
 ## Notes
 
 - The decision to throw an error rather than silently truncate on `maxPages` violation is deliberate. In document generation (e.g., invoices), missing data rows would produce an incorrect document. The caller should handle the error by increasing `maxPages` or reducing data.
-- `meta.maxPages` is a per-loop-field overflow limit, not a total page count limit. User-defined pages are not counted against it. This allows designers to create templates with many user-defined pages while still controlling loop-overflow behaviour.
-- Open question: should continuation pages support a different bounding rectangle for the loop field (e.g., full-page table on overflow pages but partial on the original page)? Current design reuses the same bounding rectangle on all pages.
+- `meta.maxPages` is a per-table-field overflow limit, not a total page count limit. User-defined pages are not counted against it. This allows designers to create templates with many user-defined pages while still controlling table-overflow behaviour.
+- Open question: should continuation pages support a different bounding rectangle for the table field (e.g., full-page table on overflow pages but partial on the original page)? Current design reuses the same bounding rectangle on all pages.
 - Open question: should the engine support a "page break" marker in the data to force a new page at a specific row? Not included in the current design.
 - Migration: existing single-page templates (no `pages` array) should be auto-migrated by creating a single `PageDefinition` with `backgroundType: "image"` pointing to the existing `background.png`.

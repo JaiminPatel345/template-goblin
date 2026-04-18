@@ -2,11 +2,11 @@
 
 ## Status
 
-Draft
+Draft. Design 2026-04-18 §5.3 clarifies that, for the JSON preview and `InputJSON` contract, groups contain only dynamic fields; static fields may be placed into a group for left-panel organization only and do not participate in any input contract.
 
 ## Summary
 
-Introduces named field groups to the TemplateGoblin UI, allowing designers to organize fields into logical categories (e.g., "Student Info", "Marks Table") for easier navigation in the left panel. Groups are purely organizational and do not affect JSON key structure or PDF output. The left panel displays fields sorted by group, with collapsible sections and an "Ungrouped" section for unassigned fields.
+Introduces named field groups to the TemplateGoblin UI, allowing designers to organize fields into logical categories (e.g., "Student Info", "Marks Table") for easier navigation in the left panel. Groups are purely organizational and do not affect JSON key structure or PDF output. The left panel displays fields sorted by group, with collapsible sections and an "Ungrouped" section for unassigned fields. Static fields may live in a group for organizational purposes; only dynamic fields within a group contribute to the JSON preview (Spec 014).
 
 ## Requirements
 
@@ -31,7 +31,7 @@ Introduces named field groups to the TemplateGoblin UI, allowing designers to or
 3. A new group appears with an editable name (e.g., "Student Info").
 4. Designer drags fields into the group; they appear nested under the group header.
 5. Designer collapses the group to hide its fields, reducing visual clutter.
-6. Designer creates a second group ("Marks Table") and assigns the loop field to it.
+6. Designer creates a second group ("Marks Table") and assigns the table field to it.
 7. On save, the manifest `groups[]` array is populated with each group's `id`, `label`, and `fieldIds`.
 8. On reload, fields appear under their respective groups in the left panel.
 

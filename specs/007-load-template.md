@@ -6,7 +6,7 @@ Draft
 
 ## Summary
 
-The `loadTemplate` function is the entry point for the core library. It reads a `.tgbl` file from disk, verifies it is a valid ZIP archive by checking PK magic bytes, extracts and validates the `manifest.json` against the template schema, and loads all referenced assets (background image, fonts, placeholder images) into memory as Buffers. It is designed to be called once at startup and returns a `LoadedTemplate` object that is reused across unlimited `generatePDF` calls with zero further disk I/O.
+The `loadTemplate` function is the entry point for the core library. It reads a `.tgbl` file from disk, verifies it is a valid ZIP archive by checking PK magic bytes, extracts and validates the `manifest.json` against the template schema, and loads all referenced assets (background image, fonts, static images, placeholder images) into memory as Buffers. It is designed to be called once at startup and returns a `LoadedTemplate` object that is reused across unlimited `generatePDF` calls with zero further disk I/O. Validation runs as part of the load call: `validateManifest` enforces the v2.0 schema rules (including every `source`-related error code), and archive-existence checks raise `MISSING_STATIC_IMAGE_FILE` / `MISSING_PLACEHOLDER_IMAGE_FILE` before the function resolves.
 
 ## Requirements
 
@@ -17,10 +17,12 @@ The `loadTemplate` function is the entry point for the core library. It reads a 
 - [ ] REQ-005: Validate the parsed manifest against the template schema defined in spec 002 (version, meta, fonts, groups, fields)
 - [ ] REQ-006: Load the background image file referenced in the manifest into a `Buffer`, or set to `null` if no background image exists
 - [ ] REQ-007: Load all font files referenced in `manifest.fonts[].filename` into a `Map<string, Buffer>` keyed by `fontId`
-- [ ] REQ-008: Load all placeholder image files referenced in image field `style.placeholderFilename` into a `Map<string, Buffer>` keyed by the filename
-- [ ] REQ-009: Verify that every asset referenced in the manifest (background image, fonts, placeholders) actually exists within the ZIP archive
-- [ ] REQ-010: Return the complete `LoadedTemplate` object containing `manifest`, `backgroundImage`, `fonts`, and `placeholders`
-- [ ] REQ-011: All types must be imported from `@template-goblin/types` -- no local type duplication
+- [ ] REQ-008: Load all placeholder image files referenced by dynamic image fields' `source.placeholder.filename` into a `Map<string, Buffer>` keyed by the bare filename. Files live under `placeholders/` in the archive.
+- [ ] REQ-009: Load all static image files referenced by static image fields' `source.value.filename` into a `Map<string, Buffer>` keyed by the bare filename. Files live under `images/` in the archive. This becomes `LoadedTemplate.staticImages`.
+- [ ] REQ-010: Verify that every asset referenced in the manifest (background image, fonts, static images, placeholders) actually exists within the ZIP archive. Missing static images raise `MISSING_STATIC_IMAGE_FILE`; missing placeholders raise `MISSING_PLACEHOLDER_IMAGE_FILE`.
+- [ ] REQ-011: Call `validateManifest` against the parsed manifest before returning, surfacing any `INVALID_SOURCE_MODE`, `INVALID_STATIC_VALUE`, `INVALID_DYNAMIC_SOURCE`, `DUPLICATE_JSON_KEY`, or `INVALID_TABLE_ROW` violations as `TemplateGoblinError`.
+- [ ] REQ-012: Return the complete `LoadedTemplate` object containing `manifest`, `backgroundImage`, `pageBackgrounds`, `fonts`, `placeholders`, and `staticImages`.
+- [ ] REQ-013: All types must be imported from `@template-goblin/types` -- no local type duplication.
 
 ## Behaviour
 
@@ -69,9 +71,11 @@ loadTemplate(path: string): Promise<LoadedTemplate>
 ```ts
 interface LoadedTemplate {
   manifest: TemplateManifest // Parsed and validated manifest.json
-  backgroundImage: Buffer | null // Background image bytes, or null if none
-  fonts: Map<string, Buffer> // fontId -> .ttf file bytes
-  placeholders: Map<string, Buffer> // filename (e.g. "placeholders/student_photo.png") -> image bytes
+  backgroundImage: Buffer | null // Legacy single-page background bytes, or null
+  pageBackgrounds: Map<string, Buffer> // pageId -> image Buffer for multi-page templates
+  fonts: Map<string, Buffer> // fontId -> font file bytes
+  placeholders: Map<string, Buffer> // bare filename (from `placeholders/`) -> image bytes
+  staticImages: Map<string, Buffer> // bare filename (from `images/`) -> image bytes
 }
 ```
 
@@ -85,6 +89,13 @@ class TemplateGoblinError extends Error {
     | 'MISSING_MANIFEST'
     | 'INVALID_MANIFEST'
     | 'MISSING_ASSET'
+    | 'MISSING_STATIC_IMAGE_FILE'
+    | 'MISSING_PLACEHOLDER_IMAGE_FILE'
+    | 'INVALID_SOURCE_MODE'
+    | 'INVALID_STATIC_VALUE'
+    | 'INVALID_DYNAMIC_SOURCE'
+    | 'DUPLICATE_JSON_KEY'
+    | 'INVALID_TABLE_ROW'
   details?: string
 }
 ```
@@ -100,7 +111,7 @@ class TemplateGoblinError extends Error {
 - [ ] AC-007: Calling `loadTemplate` with a ZIP whose manifest references a placeholder image not present in the ZIP rejects with `MISSING_ASSET`
 - [ ] AC-008: Background image is loaded as a Buffer when present, and is `null` when no background image exists
 - [ ] AC-009: All fonts are loaded into the `fonts` Map keyed by their `fontId` from the manifest
-- [ ] AC-010: All placeholder images are loaded into the `placeholders` Map keyed by their filename path
+- [ ] AC-010: All placeholder images are loaded into the `placeholders` Map keyed by their bare filename; all static images are loaded into the `staticImages` Map keyed by their bare filename
 - [ ] AC-011: The returned `LoadedTemplate` can be passed directly to `generatePDF` without additional processing
 - [ ] AC-012: The function performs zero writes to disk -- all extraction is in-memory only
 - [ ] AC-013: PK magic bytes (`0x50 0x4B`) are checked before any ZIP extraction is attempted

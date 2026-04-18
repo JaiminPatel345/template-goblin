@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Draft. Creation-popup flow, static-vs-dynamic split (static uploads go to `images/`, dynamic placeholders to `placeholders/`), and mode toggle introduced in design 2026-04-18 §8; full spec comes with the Phase 4 implementation plan.
 
 ## Summary
 
@@ -73,8 +73,12 @@ interface ImageFieldDefinition {
 
 interface ImageFieldStyle {
   fit: 'fill' | 'contain' | 'cover'
-  placeholderFilename: string | null // e.g. "placeholders/student_photo.png" or null if not set
 }
+
+// Placeholder filename now lives on the field's `source` for dynamic images:
+//   source: { mode: 'dynamic', jsonKey, required, placeholder: { filename } | null }
+// Static images live on:
+//   source: { mode: 'static', value: { filename } }
 ```
 
 ### Right Panel Props Component
@@ -114,7 +118,7 @@ interface TemplateStore {
 - [ ] AC-009: An image field with no placeholder image shows a generic image icon and the JSON key label
 - [ ] AC-010: Removing a placeholder image reverts the canvas display to the generic icon
 - [ ] AC-011: The placeholder image is stored in the `placeholders/` folder of the `.tgbl` ZIP on save, with the filename matching the field's key (e.g. `placeholders/student_photo.png`)
-- [ ] AC-012: The `style.placeholderFilename` in the manifest correctly references the stored placeholder path
+- [ ] AC-012: The dynamic image field's `source.placeholder.filename` in the manifest correctly references the stored placeholder path (bare filename under `placeholders/`); static images use `source.value.filename` under `images/`.
 - [ ] AC-013: All property changes are reflected in the Zustand `templateStore` and persist in the manifest on save
 
 ## Dependencies

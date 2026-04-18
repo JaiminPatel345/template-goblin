@@ -12,7 +12,7 @@ Establishes a unified error handling strategy for the TemplateGoblin library and
 
 - [ ] REQ-001: All errors thrown by the TemplateGoblin library MUST extend a base `TemplateGoblinError` class.
 - [ ] REQ-002: Every `TemplateGoblinError` instance MUST include a `code` property (string enum) and a human-readable `message`.
-- [ ] REQ-003: Define the following error codes: `FILE_NOT_FOUND`, `INVALID_FORMAT`, `MISSING_MANIFEST`, `INVALID_MANIFEST`, `MISSING_ASSET`, `MISSING_REQUIRED_FIELD`, `INVALID_DATA_TYPE`, `MAX_PAGES_EXCEEDED`, `FONT_LOAD_FAILED`, `PDF_GENERATION_FAILED`.
+- [ ] REQ-003: Define the following error codes: `FILE_NOT_FOUND`, `INVALID_FORMAT`, `MISSING_MANIFEST`, `INVALID_MANIFEST`, `MISSING_ASSET`, `MISSING_REQUIRED_FIELD`, `INVALID_DATA_TYPE`, `MAX_PAGES_EXCEEDED`, `FONT_LOAD_FAILED`, `PDF_GENERATION_FAILED`, `INVALID_SOURCE_MODE`, `INVALID_STATIC_VALUE`, `MISSING_STATIC_IMAGE_FILE`, `MISSING_PLACEHOLDER_IMAGE_FILE`, `INVALID_DYNAMIC_SOURCE`, `DUPLICATE_JSON_KEY`, `INVALID_TABLE_ROW`.
 - [ ] REQ-004: Library errors MUST include sufficient context (e.g., field name, expected type, file path) for consumers to act on them.
 - [ ] REQ-005: The UI MUST display file-level errors (load/save failures) as toast notifications or banners.
 - [ ] REQ-006: The UI MUST display inline warnings for duplicate JSON keys in data input.
@@ -26,18 +26,25 @@ Establishes a unified error handling strategy for the TemplateGoblin library and
 
 ### Error Codes
 
-| Code                     | When Thrown                                                    |
-| ------------------------ | -------------------------------------------------------------- |
-| `FILE_NOT_FOUND`         | The specified `.tgbl` file path does not exist.                |
-| `INVALID_FORMAT`         | The file is not a valid ZIP archive (PK header check fails).   |
-| `MISSING_MANIFEST`       | The `.tgbl` archive does not contain `manifest.json`.          |
-| `INVALID_MANIFEST`       | `manifest.json` fails schema validation.                       |
-| `MISSING_ASSET`          | A referenced asset (background, font, placeholder) is missing. |
-| `MISSING_REQUIRED_FIELD` | Required data fields are absent when generating a PDF.         |
-| `INVALID_DATA_TYPE`      | A data field value does not match the expected type.           |
-| `MAX_PAGES_EXCEEDED`     | Loop data would produce more pages than `maxPages` allows.     |
-| `FONT_LOAD_FAILED`       | A font file in the archive cannot be parsed or loaded.         |
-| `PDF_GENERATION_FAILED`  | An unrecoverable error occurred during PDF rendering.          |
+| Code                             | When Thrown                                                                                        |
+| -------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `FILE_NOT_FOUND`                 | The specified `.tgbl` file path does not exist.                                                    |
+| `INVALID_FORMAT`                 | The file is not a valid ZIP archive (PK header check fails).                                       |
+| `MISSING_MANIFEST`               | The `.tgbl` archive does not contain `manifest.json`.                                              |
+| `INVALID_MANIFEST`               | `manifest.json` fails schema validation.                                                           |
+| `MISSING_ASSET`                  | A referenced asset (background, font, placeholder) is missing.                                     |
+| `MISSING_REQUIRED_FIELD`         | Required data fields are absent when generating a PDF.                                             |
+| `INVALID_DATA_TYPE`              | A data field value does not match the expected type.                                               |
+| `MAX_PAGES_EXCEEDED`             | Table data would produce more pages than `maxPages` allows.                                        |
+| `FONT_LOAD_FAILED`               | A font file in the archive cannot be parsed or loaded.                                             |
+| `PDF_GENERATION_FAILED`          | An unrecoverable error occurred during PDF rendering.                                              |
+| `INVALID_SOURCE_MODE`            | `field.source` is missing or `source.mode` is not `"static"` / `"dynamic"`.                        |
+| `INVALID_STATIC_VALUE`           | `source.mode === "static"` but `source.value` is missing or the wrong shape.                       |
+| `MISSING_STATIC_IMAGE_FILE`      | Static image's `source.value.filename` is absent from the archive's `images/` folder.              |
+| `MISSING_PLACEHOLDER_IMAGE_FILE` | Dynamic image's `source.placeholder.filename` is absent from the archive's `placeholders/` folder. |
+| `INVALID_DYNAMIC_SOURCE`         | `source.mode === "dynamic"` but `jsonKey`, `required`, or `placeholder` is missing or malformed.   |
+| `DUPLICATE_JSON_KEY`             | Two dynamic fields of the same type share a `jsonKey`.                                             |
+| `INVALID_TABLE_ROW`              | A static table row is not an object or contains a key not declared in `style.columns`.             |
 
 ### Library Behaviour
 
@@ -86,6 +93,13 @@ type ErrorCode =
   | 'MAX_PAGES_EXCEEDED'
   | 'FONT_LOAD_FAILED'
   | 'PDF_GENERATION_FAILED'
+  | 'INVALID_SOURCE_MODE'
+  | 'INVALID_STATIC_VALUE'
+  | 'MISSING_STATIC_IMAGE_FILE'
+  | 'MISSING_PLACEHOLDER_IMAGE_FILE'
+  | 'INVALID_DYNAMIC_SOURCE'
+  | 'DUPLICATE_JSON_KEY'
+  | 'INVALID_TABLE_ROW'
 
 interface ValidationError {
   code: ErrorCode
@@ -111,7 +125,7 @@ function validateData(manifest: Manifest, data: Record<string, unknown>): Valida
 - [ ] AC-005: A manifest that fails schema validation throws with code `INVALID_MANIFEST`.
 - [ ] AC-006: Generating a PDF with missing required data fields throws with code `MISSING_REQUIRED_FIELD`.
 - [ ] AC-007: Generating a PDF with wrong data types throws with code `INVALID_DATA_TYPE`.
-- [ ] AC-008: Loop data exceeding `maxPages` throws with code `MAX_PAGES_EXCEEDED`.
+- [ ] AC-008: Table data exceeding `maxPages` throws with code `MAX_PAGES_EXCEEDED`.
 - [ ] AC-009: A corrupt font file triggers `FONT_LOAD_FAILED` with the font ID in details.
 - [ ] AC-010: `validateData()` returns a `ValidationResult` with `valid: false` and a populated `errors` array when data is invalid.
 - [ ] AC-011: The UI never displays raw stack traces to the user; all errors are shown as user-friendly messages.
