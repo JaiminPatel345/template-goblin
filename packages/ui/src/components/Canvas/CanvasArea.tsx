@@ -1066,192 +1066,207 @@ export function CanvasArea() {
         style={{
           width: '100%',
           flex: 1,
+          // Fix for Workstream 5 (left-side zoom clipping): plain
+          // `justify-content: center` + `align-items: center` with
+          // `overflow: auto` has a long-standing bug where, when the flex
+          // item is larger than the container, the overflow on the start
+          // side (left/top) is unreachable — flex centers the item and
+          // distributes negative free space only on the end side. The
+          // `safe` keyword tells the browser to fall back to `start`
+          // alignment when overflow would otherwise clip content, yielding
+          // symmetric scrollbars on both axes at high zoom.
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          justifyContent: 'safe center',
+          alignItems: 'safe center',
           cursor: isPanning ? 'grabbing' : spacePanMode ? 'grab' : undefined,
           overflow: 'auto',
           background: 'var(--canvas-bg)',
           minHeight: 0,
         }}
       >
-        <Stage
-          ref={stageRef}
-          width={stageW}
-          height={stageH}
-          scaleX={zoom}
-          scaleY={zoom}
-          style={{
-            cursor: isPlacing ? 'crosshair' : 'default',
-            boxShadow: '0 4px 32px rgba(0,0,0,0.5)',
-          }}
-          onMouseDown={handleStageMouseDown}
-          onMouseMove={handleStageMouseMove}
-          onMouseUp={handleStageMouseUp}
-          onContextMenu={(e) => e.evt.preventDefault()}
-        >
-          <Layer>
-            {/* Background: image or solid color */}
-            {bgImage ? (
-              <KonvaImage
-                name="bg-image"
-                image={bgImage}
-                x={0}
-                y={0}
-                width={meta.width}
-                height={meta.height}
-                listening={!isPlacing}
-              />
-            ) : (
-              <Rect
-                name="bg-rect"
-                x={0}
-                y={0}
-                width={meta.width}
-                height={meta.height}
-                fill={currentBgColor ?? '#ffffff'}
-              />
-            )}
+        <div data-testid="canvas-stage-wrapper" style={{ flexShrink: 0 }}>
+          <Stage
+            ref={stageRef}
+            width={stageW}
+            height={stageH}
+            scaleX={zoom}
+            scaleY={zoom}
+            style={{
+              cursor: isPlacing ? 'crosshair' : 'default',
+              boxShadow: '0 4px 32px rgba(0,0,0,0.5)',
+            }}
+            onMouseDown={handleStageMouseDown}
+            onMouseMove={handleStageMouseMove}
+            onMouseUp={handleStageMouseUp}
+            onContextMenu={(e) => e.evt.preventDefault()}
+          >
+            <Layer>
+              {/* Background: image or solid color */}
+              {bgImage ? (
+                <KonvaImage
+                  name="bg-image"
+                  image={bgImage}
+                  x={0}
+                  y={0}
+                  width={meta.width}
+                  height={meta.height}
+                  listening={!isPlacing}
+                />
+              ) : (
+                <Rect
+                  name="bg-rect"
+                  x={0}
+                  y={0}
+                  width={meta.width}
+                  height={meta.height}
+                  fill={currentBgColor ?? '#ffffff'}
+                />
+              )}
 
-            {/* Grid overlay */}
-            {renderGrid()}
+              {/* Grid overlay */}
+              {renderGrid()}
 
-            {/* Fields for current page */}
-            {sortedFields.map((field) => {
-              const colors = FIELD_COLORS[field.type]
-              const isSelected = selectedFieldIds.includes(field.id)
+              {/* Fields for current page */}
+              {sortedFields.map((field) => {
+                const colors = FIELD_COLORS[field.type]
+                const isSelected = selectedFieldIds.includes(field.id)
 
-              return (
-                <Group
-                  key={field.id}
-                  id={`field-${field.id}`}
-                  x={field.x}
-                  y={field.y}
-                  draggable={!locked}
-                  onClick={(e) => handleFieldClick(e, field.id)}
-                  onDblClick={(e) => handleFieldDblClick(e, field.id)}
-                  onTap={(e) =>
-                    handleFieldClick(e as unknown as Konva.KonvaEventObject<MouseEvent>, field.id)
-                  }
-                  onDblTap={(e) =>
-                    handleFieldDblClick(
-                      e as unknown as Konva.KonvaEventObject<MouseEvent>,
-                      field.id,
-                    )
-                  }
-                  onDragStart={() => {
-                    // Select the field when drag starts — ensures Transformer
-                    // attaches to the dragged field, not a previously selected one
-                    if (!selectedFieldIds.includes(field.id)) {
-                      selectField(field.id)
-                    }
-                  }}
-                  onDragEnd={(e) => {
-                    const group = e.target
-                    handleFieldDragEnd(field.id, group)
-                  }}
-                  onTransformEnd={(e) => {
-                    if (locked) return
-                    const node = e.target
-                    const scaleX = node.scaleX()
-                    const scaleY = node.scaleY()
-                    const newWidth = snap(Math.max(20, node.width() * scaleX), gridSize, showGrid)
-                    const newHeight = snap(Math.max(20, node.height() * scaleY), gridSize, showGrid)
-                    // Reset scale
-                    node.scaleX(1)
-                    node.scaleY(1)
-                    // Update store
-                    moveField(
-                      field.id,
-                      snap(node.x(), gridSize, showGrid),
-                      snap(node.y(), gridSize, showGrid),
-                    )
-                    resizeField(field.id, newWidth, newHeight)
-                  }}
-                  onContextMenu={(e) => handleContextMenu(e, field.id)}
-                >
-                  <Rect
-                    width={field.width}
-                    height={field.height}
-                    fill={colors.fill}
-                    stroke={isSelected ? SELECTED_STROKE : colors.stroke}
-                    strokeWidth={isSelected ? 2 / zoom : 1 / zoom}
-                    cornerRadius={2 / zoom}
-                    listening={true}
+                return (
+                  <Group
+                    key={field.id}
+                    id={`field-${field.id}`}
+                    x={field.x}
+                    y={field.y}
+                    draggable={!locked}
                     onClick={(e) => handleFieldClick(e, field.id)}
-                  />
-                  <Text
-                    text={fieldCanvasLabel(field)}
-                    x={4 / zoom}
-                    y={4 / zoom}
-                    fontSize={11 / zoom}
-                    fontFamily="sans-serif"
-                    fill={colors.text}
-                    width={field.width - 8 / zoom}
-                    ellipsis={true}
-                    wrap="none"
-                    listening={false}
-                  />
-                  <Text
-                    text={field.type.toUpperCase()}
-                    x={4 / zoom}
-                    y={field.height - 16 / zoom}
-                    fontSize={9 / zoom}
-                    fontFamily="sans-serif"
-                    fontStyle="bold"
-                    fill={colors.text}
-                    opacity={0.7}
-                    listening={false}
-                  />
-                </Group>
-              )
-            })}
+                    onDblClick={(e) => handleFieldDblClick(e, field.id)}
+                    onTap={(e) =>
+                      handleFieldClick(e as unknown as Konva.KonvaEventObject<MouseEvent>, field.id)
+                    }
+                    onDblTap={(e) =>
+                      handleFieldDblClick(
+                        e as unknown as Konva.KonvaEventObject<MouseEvent>,
+                        field.id,
+                      )
+                    }
+                    onDragStart={() => {
+                      // Select the field when drag starts — ensures Transformer
+                      // attaches to the dragged field, not a previously selected one
+                      if (!selectedFieldIds.includes(field.id)) {
+                        selectField(field.id)
+                      }
+                    }}
+                    onDragEnd={(e) => {
+                      const group = e.target
+                      handleFieldDragEnd(field.id, group)
+                    }}
+                    onTransformEnd={(e) => {
+                      if (locked) return
+                      const node = e.target
+                      const scaleX = node.scaleX()
+                      const scaleY = node.scaleY()
+                      const newWidth = snap(Math.max(20, node.width() * scaleX), gridSize, showGrid)
+                      const newHeight = snap(
+                        Math.max(20, node.height() * scaleY),
+                        gridSize,
+                        showGrid,
+                      )
+                      // Reset scale
+                      node.scaleX(1)
+                      node.scaleY(1)
+                      // Update store
+                      moveField(
+                        field.id,
+                        snap(node.x(), gridSize, showGrid),
+                        snap(node.y(), gridSize, showGrid),
+                      )
+                      resizeField(field.id, newWidth, newHeight)
+                    }}
+                    onContextMenu={(e) => handleContextMenu(e, field.id)}
+                  >
+                    <Rect
+                      width={field.width}
+                      height={field.height}
+                      fill={colors.fill}
+                      stroke={isSelected ? SELECTED_STROKE : colors.stroke}
+                      strokeWidth={isSelected ? 2 / zoom : 1 / zoom}
+                      cornerRadius={2 / zoom}
+                      listening={true}
+                      onClick={(e) => handleFieldClick(e, field.id)}
+                    />
+                    <Text
+                      text={fieldCanvasLabel(field)}
+                      x={4 / zoom}
+                      y={4 / zoom}
+                      fontSize={11 / zoom}
+                      fontFamily="sans-serif"
+                      fill={colors.text}
+                      width={field.width - 8 / zoom}
+                      ellipsis={true}
+                      wrap="none"
+                      listening={false}
+                    />
+                    <Text
+                      text={field.type.toUpperCase()}
+                      x={4 / zoom}
+                      y={field.height - 16 / zoom}
+                      fontSize={9 / zoom}
+                      fontFamily="sans-serif"
+                      fontStyle="bold"
+                      fill={colors.text}
+                      opacity={0.7}
+                      listening={false}
+                    />
+                  </Group>
+                )
+              })}
 
-            {/* Draw-to-place rectangle */}
-            {isDrawing && drawRect && (
-              <Rect
-                x={drawRect.x}
-                y={drawRect.y}
-                width={drawRect.w}
-                height={drawRect.h}
-                fill="rgba(233,69,96,0.15)"
-                stroke="#e94560"
-                strokeWidth={1 / zoom}
-                dash={[6 / zoom, 3 / zoom]}
-                listening={false}
+              {/* Draw-to-place rectangle */}
+              {isDrawing && drawRect && (
+                <Rect
+                  x={drawRect.x}
+                  y={drawRect.y}
+                  width={drawRect.w}
+                  height={drawRect.h}
+                  fill="rgba(233,69,96,0.15)"
+                  stroke="#e94560"
+                  strokeWidth={1 / zoom}
+                  dash={[6 / zoom, 3 / zoom]}
+                  listening={false}
+                />
+              )}
+
+              {/* Transformer */}
+              <Transformer
+                ref={transformerRef}
+                borderStroke={SELECTED_STROKE}
+                borderStrokeWidth={1.5 / zoom}
+                anchorStroke={SELECTED_STROKE}
+                anchorFill="#ffffff"
+                anchorSize={8 / zoom}
+                anchorCornerRadius={2 / zoom}
+                rotateEnabled={false}
+                keepRatio={false}
+                ignoreStroke={true}
+                boundBoxFunc={(_oldBox, newBox) => {
+                  const width = Math.max(20, newBox.width)
+                  const height = Math.max(20, newBox.height)
+                  return { ...newBox, width, height }
+                }}
+                enabledAnchors={[
+                  'top-left',
+                  'top-center',
+                  'top-right',
+                  'middle-left',
+                  'middle-right',
+                  'bottom-left',
+                  'bottom-center',
+                  'bottom-right',
+                ]}
               />
-            )}
-
-            {/* Transformer */}
-            <Transformer
-              ref={transformerRef}
-              borderStroke={SELECTED_STROKE}
-              borderStrokeWidth={1.5 / zoom}
-              anchorStroke={SELECTED_STROKE}
-              anchorFill="#ffffff"
-              anchorSize={8 / zoom}
-              anchorCornerRadius={2 / zoom}
-              rotateEnabled={false}
-              keepRatio={false}
-              ignoreStroke={true}
-              boundBoxFunc={(_oldBox, newBox) => {
-                const width = Math.max(20, newBox.width)
-                const height = Math.max(20, newBox.height)
-                return { ...newBox, width, height }
-              }}
-              enabledAnchors={[
-                'top-left',
-                'top-center',
-                'top-right',
-                'middle-left',
-                'middle-right',
-                'bottom-left',
-                'bottom-center',
-                'bottom-right',
-              ]}
-            />
-          </Layer>
-        </Stage>
+            </Layer>
+          </Stage>
+        </div>
       </div>
 
       {/* Page navigation bar */}
