@@ -13,11 +13,21 @@ import type Konva from 'konva'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { createDefaultField } from '../../utils/defaults.js'
+import {
+  FieldCreationPopup,
+  type FieldCreationDraft,
+  type SourceInputs,
+} from './FieldCreationPopup.js'
 import { snapshotSameAsPrevious } from '../../utils/pageSnapshot.js'
 import { FIELD_COLORS } from '../../theme/fieldColors.js'
 import { fieldCanvasLabel } from './fieldLabel.js'
 import { shouldRenderFillRect } from './rectFill.js'
-import type { FieldType, PageDefinition, PageBackgroundType } from '@template-goblin/types'
+import type {
+  FieldDefinition,
+  FieldType,
+  PageDefinition,
+  PageBackgroundType,
+} from '@template-goblin/types'
 
 /**
  * Max-fit font sizer. Given the rect's interior (after padding), pick the
@@ -814,6 +824,11 @@ export function CanvasArea() {
     })
   }, [isDrawing, drawStart, getPointerPos, gridSize, showGrid])
 
+  // Pending draft state for the element creation popup (design §8.1, spec 024).
+  // When the user finishes drawing a rectangle we stash the geometry here and
+  // open the popup; committing or cancelling clears it.
+  const [pendingDraft, setPendingDraft] = useState<FieldCreationDraft | null>(null)
+
   const handleStageMouseUp = useCallback(() => {
     if (!isDrawing || !drawRect || !drawStart) return
 
@@ -826,41 +841,84 @@ export function CanvasArea() {
       }
       const fieldType = toolToType[activeTool]
       if (fieldType) {
-        createField(fieldType, x, y, w, h)
-
-        // Auto-select the newly created field so user can edit its details
-        setTimeout(() => {
-          const currentFields = useTemplateStore.getState().fields
-          const newField = currentFields[currentFields.length - 1]
-          if (newField) {
-            selectField(newField.id)
-          }
-        }, 0)
+        setPendingDraft({
+          type: fieldType,
+          x,
+          y,
+          width: w,
+          height: h,
+          zIndex: fields.length,
+          pageId: currentPageId,
+          groupId: null,
+        })
       }
     }
 
     stopDrawing()
     setDrawRect(null)
     setActiveTool('select')
-  }, [isDrawing, drawRect, drawStart, activeTool, selectField])
+  }, [isDrawing, drawRect, drawStart, activeTool, fields.length, currentPageId])
 
-  const createField = useCallback(
-    (type: FieldType, x: number, y: number, width: number, height: number) => {
-      // `addField` in the store generates the final id; pass empty string here.
-      const field = createDefaultField(type, {
+  const handlePopupConfirm = useCallback(
+    (label: string, source: SourceInputs) => {
+      if (!pendingDraft) return
+      const base = createDefaultField(pendingDraft.type, {
         id: '',
-        groupId: null,
-        pageId: currentPageId,
-        x,
-        y,
-        width,
-        height,
-        zIndex: fields.length,
+        groupId: pendingDraft.groupId,
+        pageId: pendingDraft.pageId,
+        x: pendingDraft.x,
+        y: pendingDraft.y,
+        width: pendingDraft.width,
+        height: pendingDraft.height,
+        zIndex: pendingDraft.zIndex,
       })
-      addField(field)
+      // Overlay the user's label + source choice onto the default field.
+      // createDefaultField produces a dynamic-mode field; when the user chose
+      // static we replace `source` wholesale.
+      const withUserInput: FieldDefinition = (() => {
+        if (source.mode === 'static') {
+          if (base.type === 'text') {
+            return { ...base, label, source: { mode: 'static', value: source.value } }
+          }
+          if (base.type === 'image') {
+            // Static image needs a filename — user will upload in the right
+            // panel. Start with an empty filename so the rect still renders.
+            return {
+              ...base,
+              label,
+              source: { mode: 'static', value: { filename: '' } },
+            }
+          }
+          return { ...base, label, source: { mode: 'static', value: [] } }
+        }
+        const ph = base.type === 'text' ? source.placeholder || null : null
+        return {
+          ...base,
+          label,
+          source: {
+            mode: 'dynamic',
+            jsonKey: source.jsonKey,
+            required: source.required,
+            placeholder: ph as never,
+          },
+        } as FieldDefinition
+      })()
+
+      addField(withUserInput)
+      // Select the new field so the right panel opens for further editing.
+      setTimeout(() => {
+        const currentFields = useTemplateStore.getState().fields
+        const newField = currentFields[currentFields.length - 1]
+        if (newField) selectField(newField.id)
+      }, 0)
+      setPendingDraft(null)
     },
-    [addField, fields.length, currentPageId],
+    [pendingDraft, addField, selectField],
   )
+
+  const handlePopupCancel = useCallback(() => {
+    setPendingDraft(null)
+  }, [])
 
   const handleFieldClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>, fieldId: string) => {
@@ -1522,6 +1580,15 @@ export function CanvasArea() {
       {/* Add page dialog */}
       {showAddPageDialog && (
         <AddPageDialog onClose={() => setShowAddPageDialog(false)} onAdd={handleAddPage} />
+      )}
+
+      {/* Element creation popup (design 2026-04-18 §8.1, spec 024). */}
+      {pendingDraft && (
+        <FieldCreationPopup
+          draft={pendingDraft}
+          onCancel={handlePopupCancel}
+          onConfirm={handlePopupConfirm}
+        />
       )}
     </div>
   )
