@@ -290,6 +290,8 @@ function resolveValue<V>(
 
 The `resolveValue` step is the only place the renderer needs to know about modes. Downstream rendering (wrapping, overflow handling, image fit, table layout) consumes the resolved value unchanged and therefore carries no new logic.
 
+When an `InputJSON` bucket (`texts`, `images`, or `tables`) is absent entirely, `resolveValue` treats it as an empty bucket and returns `undefined` for any dynamic lookup. Static fields are unaffected.
+
 ### 6.2 Images
 
 - **Static image** path: the archive is already loaded by `loadTemplate`; static image bytes are cached in `LoadedTemplate.staticImages: Map<string, Buffer>` keyed by `filename`.
