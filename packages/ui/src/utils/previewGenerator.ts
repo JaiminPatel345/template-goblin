@@ -23,29 +23,56 @@ export async function generatePreviewHtml(
   let fieldsHtml = ''
 
   for (const field of sorted) {
-    // Static fields don't take input from `data` — preview shows the baked-in
-    // value. Phase 1 core renders static images; UI static rendering lands in
-    // later phases. For now, static fields render as placeholders.
-    if (field.source.mode !== 'dynamic') {
-      if (field.type === 'image') fieldsHtml += renderImageHtml(field, field.id)
+    // Static fields render the baked-in `source.value`; dynamic fields render
+    // the supplied preview input data, falling back to `source.placeholder`
+    // when no input is provided. Matches design §8.3 canvas/preview semantics.
+    if (field.source.mode === 'static') {
+      switch (field.type) {
+        case 'text': {
+          const value = (field.source as { mode: 'static'; value: string }).value
+          if (value) fieldsHtml += renderTextHtml(field, value)
+          break
+        }
+        case 'table': {
+          const rows = (field.source as { mode: 'static'; value: Record<string, string>[] }).value
+          if (rows && rows.length > 0) fieldsHtml += renderTableHtml(field, rows)
+          break
+        }
+        case 'image': {
+          const filename = (field.source as { mode: 'static'; value: { filename: string } }).value
+            ?.filename
+          fieldsHtml += renderImageHtml(field, filename || field.id)
+          break
+        }
+      }
       continue
     }
+
+    // Dynamic field
     const name = field.source.jsonKey
     if (!name) continue
 
     switch (field.type) {
       case 'text': {
-        const value = data.texts[name] ?? ''
+        const supplied = data.texts[name]
+        const placeholder = (field.source as { placeholder: string | null }).placeholder
+        const value = supplied && supplied.length > 0 ? supplied : (placeholder ?? '')
         if (value) fieldsHtml += renderTextHtml(field, value)
         break
       }
       case 'table': {
-        const rows = data.tables[name] ?? []
+        const supplied = data.tables[name]
+        const placeholder = (field.source as { placeholder: Record<string, string>[] | null })
+          .placeholder
+        const rows = supplied && supplied.length > 0 ? supplied : (placeholder ?? [])
         if (rows.length > 0) fieldsHtml += renderTableHtml(field, rows)
         break
       }
       case 'image': {
-        fieldsHtml += renderImageHtml(field, name)
+        const placeholder = (field.source as { placeholder: { filename: string } | null })
+          .placeholder
+        const label = data.images[name] ? name : placeholder?.filename || name
+        fieldsHtml += renderImageHtml(field, label)
         break
       }
     }
