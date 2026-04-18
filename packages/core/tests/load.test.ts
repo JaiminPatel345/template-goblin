@@ -6,32 +6,11 @@ import { randomUUID } from 'node:crypto'
 import { loadTemplate } from '../src/load.js'
 import type { TemplateManifest } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
+import { dynImage, dynText, makeManifest } from './helpers/fixtures.js'
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
-
-/** Minimal valid manifest that passes validateManifestStructure. */
-function makeManifest(overrides?: Partial<TemplateManifest>): TemplateManifest {
-  return {
-    version: '1.0',
-    meta: {
-      name: 'Test Template',
-      width: 595,
-      height: 842,
-      unit: 'pt',
-      pageSize: 'A4',
-      locked: false,
-      maxPages: 1,
-      createdAt: '2025-01-01T00:00:00Z',
-      updatedAt: '2025-01-01T00:00:00Z',
-    },
-    fonts: [],
-    groups: [],
-    fields: [],
-    ...overrides,
-  }
-}
 
 /** Build a .tgbl ZIP buffer from a manifest and optional assets. */
 function buildTgbl(opts: {
@@ -89,40 +68,19 @@ describe('loadTemplate', () => {
     const fontBuffer = Buffer.from('fake-font-data')
     const bgBuffer = Buffer.from('fake-background-png')
 
+    const nameField = dynText('name', 'name', true)
+    nameField.style = {
+      ...nameField.style,
+      fontId: 'roboto',
+      fontFamily: 'Roboto',
+      fontSize: 14,
+      fontSizeMin: 8,
+      snapToGrid: false,
+    }
+
     const manifest = makeManifest({
       fonts: [{ id: 'roboto', name: 'Roboto', filename: 'fonts/Roboto.ttf' }],
-      fields: [
-        {
-          id: 'name',
-          type: 'text',
-          groupId: null,
-          required: true,
-          jsonKey: 'texts.name',
-          placeholder: null,
-          x: 0,
-          y: 0,
-          width: 200,
-          height: 40,
-          zIndex: 0,
-          style: {
-            fontId: 'roboto',
-            fontFamily: 'Roboto',
-            fontSize: 14,
-            fontSizeDynamic: false,
-            fontSizeMin: 8,
-            lineHeight: 1.2,
-            fontWeight: 'normal',
-            fontStyle: 'normal',
-            textDecoration: 'none',
-            color: '#000000',
-            align: 'left',
-            verticalAlign: 'top',
-            maxRows: 1,
-            overflowMode: 'truncate',
-            snapToGrid: false,
-          },
-        },
-      ],
+      fields: [nameField],
     })
 
     const tgbl = buildTgbl({
@@ -141,6 +99,7 @@ describe('loadTemplate', () => {
     expect(result.fonts.get('roboto')).toBeInstanceOf(Buffer)
     expect(result.fonts.get('roboto')!.toString()).toBe('fake-font-data')
     expect(result.placeholders).toBeInstanceOf(Map)
+    expect(result.staticImages).toBeInstanceOf(Map)
   })
 
   // ---- Error: FILE_NOT_FOUND ------------------------------------
@@ -252,27 +211,16 @@ describe('loadTemplate', () => {
   it('should load placeholder images referenced by image fields', async () => {
     const placeholderData = Buffer.from('placeholder-png-bytes')
 
-    const manifest = makeManifest({
-      fields: [
-        {
-          id: 'avatar',
-          type: 'image',
-          groupId: null,
-          required: false,
-          jsonKey: 'images.avatar',
-          placeholder: null,
-          x: 0,
-          y: 0,
-          width: 100,
-          height: 100,
-          zIndex: 0,
-          style: {
-            fit: 'cover',
-            placeholderFilename: 'placeholders/avatar.png',
-          },
-        },
-      ],
-    })
+    const avatarField = dynImage(
+      'avatar',
+      'avatar',
+      false,
+      { width: 100, height: 100 },
+      undefined,
+      { filename: 'placeholders/avatar.png' },
+    )
+
+    const manifest = makeManifest({ fields: [avatarField] })
 
     const zip = new AdmZip()
     zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest), 'utf-8'))
@@ -287,30 +235,19 @@ describe('loadTemplate', () => {
     )
   })
 
-  // ---- MISSING_ASSET for placeholder image ----------------------
+  // ---- MISSING_PLACEHOLDER_IMAGE_FILE ---------------------------
 
-  it('should throw MISSING_ASSET when a placeholder image referenced by a field is missing', async () => {
-    const manifest = makeManifest({
-      fields: [
-        {
-          id: 'logo',
-          type: 'image',
-          groupId: null,
-          required: false,
-          jsonKey: 'images.logo',
-          placeholder: null,
-          x: 0,
-          y: 0,
-          width: 80,
-          height: 80,
-          zIndex: 0,
-          style: {
-            fit: 'contain',
-            placeholderFilename: 'placeholders/logo.png',
-          },
-        },
-      ],
-    })
+  it('should throw MISSING_PLACEHOLDER_IMAGE_FILE when a placeholder image referenced by a field is missing', async () => {
+    const logoField = dynImage(
+      'logo',
+      'logo',
+      false,
+      { width: 80, height: 80 },
+      { fit: 'contain' },
+      { filename: 'placeholders/logo.png' },
+    )
+
+    const manifest = makeManifest({ fields: [logoField] })
 
     // ZIP with manifest but WITHOUT the placeholder file
     const tgbl = buildTgbl({ manifest })
@@ -318,7 +255,7 @@ describe('loadTemplate', () => {
 
     await expect(loadTemplate(p)).rejects.toThrow(TemplateGoblinError)
     await expect(loadTemplate(p)).rejects.toMatchObject({
-      code: 'MISSING_ASSET',
+      code: 'MISSING_PLACEHOLDER_IMAGE_FILE',
     })
   })
 })

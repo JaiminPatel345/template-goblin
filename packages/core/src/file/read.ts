@@ -223,7 +223,7 @@ function validateManifestStructure(manifest: TemplateManifest): void {
     }
     fieldIds.add(field.id)
 
-    if (!['text', 'image', 'loop'].includes(field.type)) {
+    if (!['text', 'image', 'table'].includes(field.type)) {
       throw new TemplateGoblinError(
         'INVALID_MANIFEST',
         `Invalid manifest: field "${field.id}" has invalid type "${String(field.type)}"`,

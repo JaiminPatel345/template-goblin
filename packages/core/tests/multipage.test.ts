@@ -5,11 +5,12 @@ import { tmpdir } from 'node:os'
 import { loadTemplate } from '../src/load.js'
 import { generatePDF } from '../src/generate.js'
 import type {
-  InputJSON,
-  TemplateManifest,
-  PageDefinition,
   FieldDefinition,
+  InputJSON,
+  PageDefinition,
+  TemplateManifest,
 } from '@template-goblin/types'
+import { dynText, makeManifest } from './helpers/fixtures.js'
 
 const TEST_DIR = join(tmpdir(), 'tg-test-multipage-' + Date.now())
 
@@ -21,25 +22,10 @@ const TINY_PNG = Buffer.from(
 
 /** Build a base manifest, merging any overrides */
 function createManifest(overrides: Partial<TemplateManifest> = {}): TemplateManifest {
-  return {
-    version: '1.0',
-    meta: {
-      name: 'Test',
-      width: 595,
-      height: 842,
-      unit: 'pt',
-      pageSize: 'A4',
-      locked: false,
-      maxPages: 10,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    fonts: [],
-    groups: [],
-    pages: [],
-    fields: [],
+  return makeManifest({
+    meta: { ...makeManifest().meta, name: 'Test', maxPages: 10 },
     ...overrides,
-  }
+  })
 }
 
 /** Build a text field assigned to a page */
@@ -49,37 +35,14 @@ function textField(
   pageId: string | null,
   zIndex = 1,
 ): FieldDefinition {
-  return {
-    id,
-    type: 'text',
-    groupId: null,
+  return dynText(id, jsonKey, false, {
     pageId,
-    required: false,
-    jsonKey,
-    placeholder: null,
     x: 50,
     y: 50,
     width: 200,
     height: 30,
     zIndex,
-    style: {
-      fontId: null,
-      fontFamily: 'Helvetica',
-      fontSize: 12,
-      fontSizeDynamic: false,
-      fontSizeMin: 6,
-      lineHeight: 1.2,
-      fontWeight: 'normal',
-      fontStyle: 'normal',
-      textDecoration: 'none',
-      color: '#000000',
-      align: 'left',
-      verticalAlign: 'top',
-      maxRows: 1,
-      overflowMode: 'truncate',
-      snapToGrid: false,
-    },
-  }
+  })
 }
 
 /** Write a .tgbl ZIP to disk and return the path */
@@ -123,7 +86,7 @@ describe('Multi-page PDF generation', () => {
   it('should generate a single-page PDF when no pages array is present (backward compat)', async () => {
     const manifest = createManifest({
       pages: [],
-      fields: [textField('f1', 'texts.title', null)],
+      fields: [textField('f1', 'title', null)],
     })
 
     const zip = buildZip(manifest)
@@ -132,7 +95,7 @@ describe('Multi-page PDF generation', () => {
 
     const data: InputJSON = {
       texts: { title: 'Hello' },
-      loops: {},
+      tables: {},
       images: {},
     }
 
@@ -163,10 +126,7 @@ describe('Multi-page PDF generation', () => {
 
     const manifest = createManifest({
       pages,
-      fields: [
-        textField('f1', 'texts.title', 'page-0'),
-        textField('f2', 'texts.subtitle', 'page-1'),
-      ],
+      fields: [textField('f1', 'title', 'page-0'), textField('f2', 'subtitle', 'page-1')],
     })
 
     const pageImages = new Map<string, Buffer>([
@@ -180,7 +140,7 @@ describe('Multi-page PDF generation', () => {
 
     const data: InputJSON = {
       texts: { title: 'Page One', subtitle: 'Page Two' },
-      loops: {},
+      tables: {},
       images: {},
     }
 
@@ -204,7 +164,7 @@ describe('Multi-page PDF generation', () => {
 
     const manifest = createManifest({
       pages,
-      fields: [textField('f1', 'texts.heading', 'page-red')],
+      fields: [textField('f1', 'heading', 'page-red')],
     })
 
     const zip = buildZip(manifest)
@@ -213,7 +173,7 @@ describe('Multi-page PDF generation', () => {
 
     const data: InputJSON = {
       texts: { heading: 'Red Page' },
-      loops: {},
+      tables: {},
       images: {},
     }
 
@@ -244,7 +204,7 @@ describe('Multi-page PDF generation', () => {
 
     const manifest = createManifest({
       pages,
-      fields: [textField('f1', 'texts.title', 'page-0'), textField('f2', 'texts.body', 'page-1')],
+      fields: [textField('f1', 'title', 'page-0'), textField('f2', 'body', 'page-1')],
     })
 
     const pageImages = new Map<string, Buffer>([['backgrounds/page-0.png', TINY_PNG]])
@@ -255,7 +215,7 @@ describe('Multi-page PDF generation', () => {
 
     const data: InputJSON = {
       texts: { title: 'First', body: 'Second (inherited bg)' },
-      loops: {},
+      tables: {},
       images: {},
     }
 
@@ -287,9 +247,9 @@ describe('Multi-page PDF generation', () => {
     const manifest = createManifest({
       pages,
       fields: [
-        textField('field-a1', 'texts.name', 'pg-a', 1),
-        textField('field-a2', 'texts.email', 'pg-a', 2),
-        textField('field-b1', 'texts.address', 'pg-b', 1),
+        textField('field-a1', 'name', 'pg-a', 1),
+        textField('field-a2', 'email', 'pg-a', 2),
+        textField('field-b1', 'address', 'pg-b', 1),
       ],
     })
 
@@ -299,7 +259,7 @@ describe('Multi-page PDF generation', () => {
 
     const data: InputJSON = {
       texts: { name: 'Alice', email: 'alice@example.com', address: '123 Main St' },
-      loops: {},
+      tables: {},
       images: {},
     }
 
@@ -331,10 +291,10 @@ describe('Multi-page PDF generation', () => {
       pages,
       fields: [
         // These fields have pageId: null — should render on page 0
-        textField('legacy-1', 'texts.greeting', null, 1),
-        textField('legacy-2', 'texts.footer', null, 2),
+        textField('legacy-1', 'greeting', null, 1),
+        textField('legacy-2', 'footer', null, 2),
         // This field is explicitly on page 1
-        textField('page1-f', 'texts.note', 'pg-second', 1),
+        textField('page1-f', 'note', 'pg-second', 1),
       ],
     })
 
@@ -344,7 +304,7 @@ describe('Multi-page PDF generation', () => {
 
     const data: InputJSON = {
       texts: { greeting: 'Welcome', footer: 'Bye', note: 'See page 2' },
-      loops: {},
+      tables: {},
       images: {},
     }
 
@@ -378,7 +338,7 @@ describe('Multi-page PDF generation', () => {
 
     const data: InputJSON = {
       texts: {},
-      loops: {},
+      tables: {},
       images: {},
     }
 
@@ -417,9 +377,9 @@ describe('Multi-page PDF generation', () => {
     const manifest = createManifest({
       pages,
       fields: [
-        textField('t0', 'texts.page0', 'p0', 1),
-        textField('t1', 'texts.page1', 'p1', 1),
-        textField('t2', 'texts.page2', 'p2', 1),
+        textField('t0', 'page0', 'p0', 1),
+        textField('t1', 'page1', 'p1', 1),
+        textField('t2', 'page2', 'p2', 1),
       ],
     })
 
@@ -431,7 +391,7 @@ describe('Multi-page PDF generation', () => {
 
     const data: InputJSON = {
       texts: { page0: 'Image BG', page1: 'Color BG', page2: 'Inherited BG' },
-      loops: {},
+      tables: {},
       images: {},
     }
 

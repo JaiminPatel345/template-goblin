@@ -6,13 +6,13 @@ import AdmZip from 'adm-zip'
 import { TemplateGoblinError } from '@template-goblin/types'
 import type { TemplateManifest } from '@template-goblin/types'
 import { readTgblBuffer, parseManifestFromZip, readManifest } from '../../src/file/read.js'
+import { dynImage, dynTable, dynText, makeManifest } from '../helpers/fixtures.js'
 
 /**
  * Build a minimal valid TemplateManifest for testing.
  */
 function createValidManifest(overrides: Partial<TemplateManifest> = {}): TemplateManifest {
-  return {
-    version: '1.0',
+  return makeManifest({
     meta: {
       name: 'Test Template',
       width: 595,
@@ -24,11 +24,8 @@ function createValidManifest(overrides: Partial<TemplateManifest> = {}): Templat
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     },
-    fonts: [],
-    groups: [],
-    fields: [],
     ...overrides,
-  }
+  })
 }
 
 /**
@@ -345,19 +342,20 @@ describe('parseManifestFromZip', () => {
     const zip = new AdmZip()
     const manifest = createValidManifest({
       fields: [
+        // Deliberately invalid: missing `id` so the structural validator rejects it.
         {
           type: 'text',
           groupId: null,
-          required: false,
-          jsonKey: 'x',
-          placeholder: null,
+          pageId: null,
+          label: 'no-id',
           x: 0,
           y: 0,
           width: 100,
           height: 50,
           zIndex: 0,
-          style: {} as any,
-        } as any,
+          style: {} as never,
+          source: { mode: 'dynamic', jsonKey: 'x', required: false, placeholder: null },
+        } as never,
       ],
     })
     zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest), 'utf-8'))
@@ -378,18 +376,18 @@ describe('parseManifestFromZip', () => {
       fields: [
         {
           id: 'f1',
-          type: 'video' as any,
+          type: 'video' as never,
           groupId: null,
-          required: false,
-          jsonKey: 'x',
-          placeholder: null,
+          pageId: null,
+          label: 'video-f',
           x: 0,
           y: 0,
           width: 100,
           height: 50,
           zIndex: 0,
-          style: {} as any,
-        },
+          style: {} as never,
+          source: { mode: 'dynamic', jsonKey: 'x', required: false, placeholder: null },
+        } as never,
       ],
     })
     zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest), 'utf-8'))
@@ -404,52 +402,19 @@ describe('parseManifestFromZip', () => {
     }
   })
 
-  it('should accept a manifest with valid text, image, and loop fields', () => {
+  it('should accept a manifest with valid text, image, and table fields', () => {
     const zip = new AdmZip()
     const manifest = createValidManifest({
       fields: [
-        {
-          id: 'f-text',
-          type: 'text',
-          groupId: null,
-          required: false,
-          jsonKey: 'name',
-          placeholder: null,
-          x: 0,
-          y: 0,
-          width: 100,
-          height: 50,
-          zIndex: 0,
-          style: {} as any,
-        },
-        {
-          id: 'f-image',
-          type: 'image',
-          groupId: null,
-          required: false,
-          jsonKey: 'photo',
-          placeholder: null,
-          x: 0,
-          y: 60,
-          width: 100,
-          height: 100,
-          zIndex: 1,
-          style: {} as any,
-        },
-        {
-          id: 'f-loop',
-          type: 'loop',
-          groupId: null,
-          required: false,
-          jsonKey: 'rows',
-          placeholder: null,
+        dynText('f-text', 'name', false, { x: 0, y: 0, width: 100, height: 50, zIndex: 0 }),
+        dynImage('f-image', 'photo', false, { x: 0, y: 60, width: 100, height: 100, zIndex: 1 }),
+        dynTable('f-table', 'rows', false, ['col'], {
           x: 0,
           y: 170,
           width: 400,
           height: 200,
           zIndex: 2,
-          style: {} as any,
-        },
+        }),
       ],
     })
     zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest), 'utf-8'))
@@ -458,7 +423,7 @@ describe('parseManifestFromZip', () => {
     expect(result.fields).toHaveLength(3)
     expect(result.fields[0]!.type).toBe('text')
     expect(result.fields[1]!.type).toBe('image')
-    expect(result.fields[2]!.type).toBe('loop')
+    expect(result.fields[2]!.type).toBe('table')
   })
 })
 
@@ -518,25 +483,27 @@ describe('readManifest', () => {
   })
 
   it('should preserve manifest data with fonts and groups', async () => {
+    const titleField = dynText(
+      'title',
+      'title',
+      true,
+      {
+        x: 10,
+        y: 10,
+        width: 200,
+        height: 30,
+        zIndex: 0,
+        groupId: 'grp1',
+        label: 'Title',
+      },
+      undefined,
+      'Enter title',
+    )
+
     const manifest = createValidManifest({
       fonts: [{ id: 'font1', name: 'Roboto', filename: 'fonts/roboto.ttf' }],
       groups: [{ id: 'grp1', name: 'Header' }],
-      fields: [
-        {
-          id: 'title',
-          type: 'text',
-          groupId: 'grp1',
-          required: true,
-          jsonKey: 'title',
-          placeholder: 'Enter title',
-          x: 10,
-          y: 10,
-          width: 200,
-          height: 30,
-          zIndex: 0,
-          style: {} as any,
-        },
-      ],
+      fields: [titleField],
     })
     const zipBuffer = createZipWithManifest(manifest)
     const filePath = join(tmpDir, 'read-manifest-full.tgbl')
@@ -550,6 +517,11 @@ describe('readManifest', () => {
     expect(result.groups[0]!.id).toBe('grp1')
     expect(result.fields).toHaveLength(1)
     expect(result.fields[0]!.id).toBe('title')
-    expect(result.fields[0]!.required).toBe(true)
+    const f = result.fields[0]!
+    expect(f.source.mode).toBe('dynamic')
+    if (f.source.mode === 'dynamic') {
+      expect(f.source.required).toBe(true)
+      expect(f.source.jsonKey).toBe('title')
+    }
   })
 })

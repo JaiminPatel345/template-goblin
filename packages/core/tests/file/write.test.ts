@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import AdmZip from 'adm-zip'
-import type { TemplateManifest, TemplateAssets } from '@template-goblin/types'
+import type { TemplateAssets, TemplateManifest } from '@template-goblin/types'
 import { saveTemplate } from '../../src/file/write.js'
 import { readTgblBuffer, readManifest } from '../../src/file/read.js'
 import {
@@ -12,13 +12,13 @@ import {
   FONTS_DIR,
   PLACEHOLDERS_DIR,
 } from '../../src/file/constants.js'
+import { dynImage, dynTable, dynText, makeManifest } from '../helpers/fixtures.js'
 
 /**
  * Build a minimal valid TemplateManifest for testing.
  */
 function createValidManifest(overrides: Partial<TemplateManifest> = {}): TemplateManifest {
-  return {
-    version: '1.0',
+  return makeManifest({
     meta: {
       name: 'Test Template',
       width: 595,
@@ -30,11 +30,8 @@ function createValidManifest(overrides: Partial<TemplateManifest> = {}): Templat
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     },
-    fonts: [],
-    groups: [],
-    fields: [],
     ...overrides,
-  }
+  })
 }
 
 /**
@@ -43,8 +40,10 @@ function createValidManifest(overrides: Partial<TemplateManifest> = {}): Templat
 function createEmptyAssets(): TemplateAssets {
   return {
     backgroundImage: null,
+    pageBackgrounds: new Map(),
     fonts: new Map(),
     placeholders: new Map(),
+    staticImages: new Map(),
   }
 }
 
@@ -113,9 +112,8 @@ describe('saveTemplate', () => {
     const manifest = createValidManifest()
     const bgData = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0xff, 0xfe, 0xfd]) // fake PNG-ish bytes
     const assets: TemplateAssets = {
+      ...createEmptyAssets(),
       backgroundImage: bgData,
-      fonts: new Map(),
-      placeholders: new Map(),
     }
     const outputPath = join(tmpDir, 'with-bg.tgbl')
 
@@ -148,12 +146,11 @@ describe('saveTemplate', () => {
     const robotoData = Buffer.from('fake-roboto-ttf-data')
     const opensansData = Buffer.from('fake-opensans-ttf-data')
     const assets: TemplateAssets = {
-      backgroundImage: null,
+      ...createEmptyAssets(),
       fonts: new Map([
         ['roboto', robotoData],
         ['opensans', opensansData],
       ]),
-      placeholders: new Map(),
     }
     const outputPath = join(tmpDir, 'with-fonts.tgbl')
 
@@ -172,9 +169,8 @@ describe('saveTemplate', () => {
     const manifest = createValidManifest({ fonts: [] })
     const fontData = Buffer.from('mystery-font')
     const assets: TemplateAssets = {
-      backgroundImage: null,
+      ...createEmptyAssets(),
       fonts: new Map([['unknown-font', fontData]]),
-      placeholders: new Map(),
     }
     const outputPath = join(tmpDir, 'font-fallback.tgbl')
 
@@ -191,8 +187,7 @@ describe('saveTemplate', () => {
     const placeholder1 = Buffer.from('placeholder-image-1')
     const placeholder2 = Buffer.from('placeholder-image-2')
     const assets: TemplateAssets = {
-      backgroundImage: null,
-      fonts: new Map(),
+      ...createEmptyAssets(),
       placeholders: new Map([
         ['avatar.png', placeholder1],
         ['logo.png', placeholder2],
@@ -215,8 +210,7 @@ describe('saveTemplate', () => {
     const manifest = createValidManifest()
     const imgData = Buffer.from('img-bytes')
     const assets: TemplateAssets = {
-      backgroundImage: null,
-      fonts: new Map(),
+      ...createEmptyAssets(),
       placeholders: new Map([['placeholders/already-prefixed.png', imgData]]),
     }
     const outputPath = join(tmpDir, 'no-double-prefix.tgbl')
@@ -248,6 +242,7 @@ describe('saveTemplate', () => {
     const fontData = Buffer.from('font-bytes')
     const placeholderData = Buffer.from('placeholder-bytes')
     const assets: TemplateAssets = {
+      ...createEmptyAssets(),
       backgroundImage: bgData,
       fonts: new Map([['myfont', fontData]]),
       placeholders: new Map([['thumb.png', placeholderData]]),
@@ -285,26 +280,28 @@ describe('roundtrip: save then read', () => {
   })
 
   it('should roundtrip manifest data through save and readManifest', async () => {
+    const companyField = dynText(
+      'company_name',
+      'company',
+      true,
+      {
+        x: 50,
+        y: 30,
+        width: 300,
+        height: 40,
+        zIndex: 1,
+        groupId: 'header',
+        label: 'Company Name',
+      },
+      undefined,
+      'Acme Corp',
+    )
+
     const manifest = createValidManifest({
       version: '1.0',
       fonts: [{ id: 'inter', name: 'Inter', filename: 'fonts/inter.ttf' }],
       groups: [{ id: 'header', name: 'Header Section' }],
-      fields: [
-        {
-          id: 'company_name',
-          type: 'text',
-          groupId: 'header',
-          required: true,
-          jsonKey: 'company',
-          placeholder: 'Acme Corp',
-          x: 50,
-          y: 30,
-          width: 300,
-          height: 40,
-          zIndex: 1,
-          style: {} as any,
-        },
-      ],
+      fields: [companyField],
     })
     const assets = createEmptyAssets()
     const outputPath = join(tmpDir, 'roundtrip-manifest.tgbl')
@@ -317,10 +314,14 @@ describe('roundtrip: save then read', () => {
     expect(result.fonts).toEqual(manifest.fonts)
     expect(result.groups).toEqual(manifest.groups)
     expect(result.fields).toHaveLength(1)
-    expect(result.fields[0]!.id).toBe('company_name')
-    expect(result.fields[0]!.type).toBe('text')
-    expect(result.fields[0]!.required).toBe(true)
-    expect(result.fields[0]!.jsonKey).toBe('company')
+    const f = result.fields[0]!
+    expect(f.id).toBe('company_name')
+    expect(f.type).toBe('text')
+    expect(f.source.mode).toBe('dynamic')
+    if (f.source.mode === 'dynamic') {
+      expect(f.source.required).toBe(true)
+      expect(f.source.jsonKey).toBe('company')
+    }
   })
 
   it('should roundtrip binary assets through save and AdmZip re-read', async () => {
@@ -333,6 +334,7 @@ describe('roundtrip: save then read', () => {
     const placeholderData = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) // PNG header
 
     const assets: TemplateAssets = {
+      ...createEmptyAssets(),
       backgroundImage: bgData,
       fonts: new Map([['bold', fontData]]),
       placeholders: new Map([['avatar.png', placeholderData]]),
@@ -361,48 +363,27 @@ describe('roundtrip: save then read', () => {
   it('should roundtrip a manifest with multiple fields of all types', async () => {
     const manifest = createValidManifest({
       fields: [
-        {
-          id: 'txt1',
-          type: 'text',
-          groupId: null,
-          required: true,
-          jsonKey: 'name',
-          placeholder: 'Name',
+        dynText('txt1', 'name', true, {
           x: 0,
           y: 0,
           width: 200,
           height: 30,
           zIndex: 0,
-          style: {} as any,
-        },
-        {
-          id: 'img1',
-          type: 'image',
-          groupId: null,
-          required: false,
-          jsonKey: 'photo',
-          placeholder: null,
+        }),
+        dynImage('img1', 'photo', false, {
           x: 0,
           y: 40,
           width: 150,
           height: 150,
           zIndex: 1,
-          style: {} as any,
-        },
-        {
-          id: 'loop1',
-          type: 'loop',
-          groupId: null,
-          required: false,
-          jsonKey: 'items',
-          placeholder: null,
+        }),
+        dynTable('table1', 'items', false, ['col'], {
           x: 0,
           y: 200,
           width: 500,
           height: 300,
           zIndex: 2,
-          style: {} as any,
-        },
+        }),
       ],
     })
     const assets = createEmptyAssets()
@@ -412,8 +393,8 @@ describe('roundtrip: save then read', () => {
     const result = await readManifest(outputPath)
 
     expect(result.fields).toHaveLength(3)
-    expect(result.fields.map((f) => f.type)).toEqual(['text', 'image', 'loop'])
-    expect(result.fields.map((f) => f.id)).toEqual(['txt1', 'img1', 'loop1'])
+    expect(result.fields.map((f) => f.type)).toEqual(['text', 'image', 'table'])
+    expect(result.fields.map((f) => f.id)).toEqual(['txt1', 'img1', 'table1'])
   })
 
   it('should roundtrip with no assets at all', async () => {

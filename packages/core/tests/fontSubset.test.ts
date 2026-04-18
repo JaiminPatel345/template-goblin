@@ -1,24 +1,9 @@
-import type { TemplateManifest, LoopFieldStyle } from '@template-goblin/types'
+import type { TemplateManifest } from '@template-goblin/types'
 import { extractUsedCodePoints, subsetFont, subsetTemplateFonts } from '../src/utils/fontSubset.js'
+import { dynTable, dynText, makeManifest } from './helpers/fixtures.js'
 
 function createManifest(fields: TemplateManifest['fields'] = []): TemplateManifest {
-  return {
-    version: '1.0',
-    meta: {
-      name: 'Test',
-      width: 595,
-      height: 842,
-      unit: 'pt',
-      pageSize: 'A4',
-      locked: false,
-      maxPages: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    fonts: [],
-    groups: [],
-    fields,
-  }
+  return makeManifest({ fields })
 }
 
 describe('extractUsedCodePoints', () => {
@@ -32,20 +17,14 @@ describe('extractUsedCodePoints', () => {
 
   it('should include characters from field placeholders', () => {
     const manifest = createManifest([
-      {
-        id: 'f1',
-        type: 'text',
-        groupId: null,
-        required: false,
-        jsonKey: 'texts.name',
-        placeholder: 'Hello World!',
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 30,
-        zIndex: 0,
-        style: {} as any,
-      },
+      dynText(
+        'f1',
+        'name',
+        false,
+        { x: 0, y: 0, width: 100, height: 30 },
+        undefined,
+        'Hello World!',
+      ),
     ])
 
     const codePoints = extractUsedCodePoints(manifest)
@@ -53,57 +32,18 @@ describe('extractUsedCodePoints', () => {
     expect(codePoints.has('W'.codePointAt(0)!)).toBe(true)
   })
 
-  it('should include characters from loop column labels', () => {
-    const manifest = createManifest([
-      {
-        id: 'f1',
-        type: 'loop',
-        groupId: null,
-        required: false,
-        jsonKey: 'loops.marks',
-        placeholder: null,
-        x: 0,
-        y: 0,
-        width: 400,
-        height: 200,
-        zIndex: 0,
-        style: {
-          maxRows: 10,
-          maxColumns: 2,
-          multiPage: false,
-          headerStyle: {
-            fontFamily: 'Helvetica',
-            fontSize: 10,
-            fontWeight: 'bold',
-            align: 'left',
-            color: '#000',
-            backgroundColor: '#f0f0f0',
-          },
-          rowStyle: {
-            fontFamily: 'Helvetica',
-            fontSize: 10,
-            fontWeight: 'normal',
-            color: '#000',
-            overflowMode: 'truncate',
-            fontSizeDynamic: false,
-            fontSizeMin: 6,
-            lineHeight: 1.2,
-          },
-          cellStyle: {
-            borderWidth: 1,
-            borderColor: '#000',
-            paddingTop: 2,
-            paddingBottom: 2,
-            paddingLeft: 4,
-            paddingRight: 4,
-          },
-          columns: [
-            { key: 'subject', label: 'Subject Name', width: 200, align: 'left' },
-            { key: 'grade', label: 'Grade', width: 100, align: 'center' },
-          ],
-        } satisfies LoopFieldStyle,
-      },
-    ])
+  it('should include characters from table column labels', () => {
+    const tableField = dynTable('f1', 'marks', false, ['subject', 'grade'], {
+      x: 0,
+      y: 0,
+      width: 400,
+      height: 200,
+    })
+    // Customize the labels so they actually contain the characters under test.
+    tableField.style.columns[0]!.label = 'Subject Name'
+    tableField.style.columns[1]!.label = 'Grade'
+
+    const manifest = createManifest([tableField])
 
     const codePoints = extractUsedCodePoints(manifest)
     expect(codePoints.has('S'.codePointAt(0)!)).toBe(true)
@@ -112,53 +52,15 @@ describe('extractUsedCodePoints', () => {
   })
 
   it('should use column key as fallback when label is empty', () => {
-    const manifest = createManifest([
-      {
-        id: 'f1',
-        type: 'loop',
-        groupId: null,
-        required: false,
-        jsonKey: 'loops.data',
-        placeholder: null,
-        x: 0,
-        y: 0,
-        width: 400,
-        height: 200,
-        zIndex: 0,
-        style: {
-          maxRows: 10,
-          maxColumns: 1,
-          multiPage: false,
-          headerStyle: {
-            fontFamily: 'Helvetica',
-            fontSize: 10,
-            fontWeight: 'bold',
-            align: 'left',
-            color: '#000',
-            backgroundColor: '#f0f0f0',
-          },
-          rowStyle: {
-            fontFamily: 'Helvetica',
-            fontSize: 10,
-            fontWeight: 'normal',
-            color: '#000',
-            overflowMode: 'truncate',
-            fontSizeDynamic: false,
-            fontSizeMin: 6,
-            lineHeight: 1.2,
-          },
-          cellStyle: {
-            borderWidth: 1,
-            borderColor: '#000',
-            paddingTop: 2,
-            paddingBottom: 2,
-            paddingLeft: 4,
-            paddingRight: 4,
-          },
-          columns: [{ key: 'myKey', label: '', width: 200, align: 'left' }],
-        } satisfies LoopFieldStyle,
-      },
-    ])
+    const tableField = dynTable('f1', 'data', false, ['myKey'], {
+      x: 0,
+      y: 0,
+      width: 400,
+      height: 200,
+    })
+    tableField.style.columns[0]!.label = ''
+
+    const manifest = createManifest([tableField])
 
     const codePoints = extractUsedCodePoints(manifest)
     expect(codePoints.has('m'.codePointAt(0)!)).toBe(true)
