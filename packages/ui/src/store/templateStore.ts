@@ -244,7 +244,12 @@ export const useTemplateStore = create<TemplateState>()(
         set((state) => {
           // `{ ...f, ...updates }` widens the discriminated union — cast back to
           // `FieldDefinition` once the shape is known to match (`type` stays put,
-          // style stays wired to its field type).
+          // style stays wired to its field type). BUG-005 (NIT, Option B): we do
+          // NOT guard against a discriminator swap here. Callers never pass a
+          // conflicting `type` in practice, and the guard would only trade one
+          // inconsistent state for another (type changed, style still the old
+          // shape). See templateStore.discriminator.test.ts for the pinned
+          // behaviour.
           const fields = state.fields.map((f) =>
             f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
           )
