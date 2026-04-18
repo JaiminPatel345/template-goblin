@@ -285,6 +285,47 @@ describe('Integration tests', () => {
   })
 
   /* -------------------------------------------------------------- */
+  /*  5b. Multi-page: static table with baked-in rows overflow      */
+  /* -------------------------------------------------------------- */
+
+  describe('Multi-page static table overflow', () => {
+    it('should generate a multi-page PDF when a static table has enough baked-in rows to overflow', async () => {
+      // 30 baked-in rows with a deliberately-small field height so the table
+      // cannot render on a single page.
+      const rows = Array.from({ length: 30 }, (_, i) => ({
+        subject: `Subject ${i + 1}`,
+        score: String(60 + (i % 40)),
+      }))
+
+      const tableField = staticTable('report', ['subject', 'score'], rows, {
+        x: 50,
+        y: 60,
+        width: 400,
+        height: 100, // Deliberately small so rows overflow
+        zIndex: 1,
+      })
+      tableField.style.multiPage = true
+
+      const manifest = makeManifest({ fields: [tableField] })
+
+      const path = writeTgbl('multi-page-static.tgbl', manifest)
+      const template = await loadTemplate(path)
+
+      const pdf = await generatePDF(template, { texts: {}, tables: {}, images: {} })
+
+      expect(pdf).toBeInstanceOf(Buffer)
+      expect(pdf.length).toBeGreaterThan(0)
+      expect(pdf.toString('utf-8', 0, 5)).toBe('%PDF-')
+
+      // Count `/Type /Page ` occurrences in the PDF stream to verify >1 page.
+      // PDFKit emits one such entry per page object.
+      const pageMatches = pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g)
+      expect(pageMatches).not.toBeNull()
+      expect(pageMatches!.length).toBeGreaterThan(1)
+    })
+  })
+
+  /* -------------------------------------------------------------- */
   /*  6. generatePDF with background image                          */
   /* -------------------------------------------------------------- */
 
