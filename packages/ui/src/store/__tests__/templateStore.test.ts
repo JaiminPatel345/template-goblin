@@ -12,12 +12,16 @@ vi.stubGlobal('localStorage', {
 import { useTemplateStore } from '../templateStore'
 import type {
   FieldDefinition,
+  TextField,
+  ImageField,
+  TableField,
   TextFieldStyle,
   ImageFieldStyle,
-  LoopFieldStyle,
+  TableFieldStyle,
   GroupDefinition,
   FontDefinition,
   TemplateMeta,
+  FieldSource,
 } from '@template-goblin/types'
 
 // ---------------------------------------------------------------------------
@@ -45,96 +49,119 @@ function makeTextStyle(overrides: Partial<TextFieldStyle> = {}): TextFieldStyle 
   }
 }
 
-function makeTextField(overrides: Partial<FieldDefinition> = {}): FieldDefinition {
+type TextFieldOverrides = Partial<Omit<TextField, 'source'>> & {
+  jsonKey?: string
+  required?: boolean
+}
+
+/** Extract `{ jsonKey, required, ... }` conveniences for test assertions. */
+function asDynamic<V>(source: FieldSource<V>): { jsonKey: string; required: boolean } | null {
+  return source.mode === 'dynamic' ? { jsonKey: source.jsonKey, required: source.required } : null
+}
+
+function makeTextField(overrides: TextFieldOverrides = {}): FieldDefinition {
+  const { jsonKey = 'test', required = false, ...rest } = overrides
   return {
     id: '',
     type: 'text',
     groupId: null,
     pageId: null,
-    required: false,
-    jsonKey: 'texts.test',
-    placeholder: null,
+    label: '',
+    source: { mode: 'dynamic', jsonKey, required, placeholder: null },
     x: 0,
     y: 0,
     width: 100,
     height: 30,
     zIndex: 0,
     style: makeTextStyle(),
-    ...overrides,
+    ...rest,
   }
 }
 
-function makeImageField(overrides: Partial<FieldDefinition> = {}): FieldDefinition {
-  const imageStyle: ImageFieldStyle = {
-    fit: 'contain',
-    placeholderFilename: null,
-  }
+function makeImageField(
+  overrides: Partial<ImageField> & { jsonKey?: string } = {},
+): FieldDefinition {
+  const { jsonKey = 'logo', ...rest } = overrides
+  const imageStyle: ImageFieldStyle = { fit: 'contain' }
   return {
     id: '',
     type: 'image',
     groupId: null,
     pageId: null,
-    required: false,
-    jsonKey: 'images.logo',
-    placeholder: null,
+    label: '',
+    source: { mode: 'dynamic', jsonKey, required: false, placeholder: null },
     x: 0,
     y: 0,
     width: 200,
     height: 200,
     zIndex: 0,
     style: imageStyle,
-    ...overrides,
+    ...rest,
   }
 }
 
-function makeLoopField(overrides: Partial<FieldDefinition> = {}): FieldDefinition {
-  const loopStyle: LoopFieldStyle = {
+function makeLoopField(
+  overrides: Partial<TableField> & { jsonKey?: string } = {},
+): FieldDefinition {
+  const { jsonKey = 'items', ...rest } = overrides
+  const tableStyle: TableFieldStyle = {
     maxRows: 10,
     maxColumns: 3,
     multiPage: false,
+    showHeader: true,
     headerStyle: {
       fontFamily: 'Helvetica',
       fontSize: 12,
       fontWeight: 'bold',
-      align: 'left',
+      fontStyle: 'normal',
+      textDecoration: 'none',
       color: '#000',
       backgroundColor: '#eee',
-    },
-    rowStyle: {
-      fontFamily: 'Helvetica',
-      fontSize: 11,
-      fontWeight: 'normal',
-      color: '#333',
-      overflowMode: 'truncate',
-      fontSizeDynamic: false,
-      fontSizeMin: 8,
-      lineHeight: 1.2,
-    },
-    cellStyle: {
       borderWidth: 1,
       borderColor: '#ccc',
       paddingTop: 2,
       paddingBottom: 2,
       paddingLeft: 4,
       paddingRight: 4,
+      align: 'left',
+      verticalAlign: 'top',
     },
-    columns: [{ key: 'col1', label: 'Column 1', width: 100, align: 'left' }],
+    rowStyle: {
+      fontFamily: 'Helvetica',
+      fontSize: 11,
+      fontWeight: 'normal',
+      fontStyle: 'normal',
+      textDecoration: 'none',
+      color: '#333',
+      backgroundColor: '#fff',
+      borderWidth: 1,
+      borderColor: '#ccc',
+      paddingTop: 2,
+      paddingBottom: 2,
+      paddingLeft: 4,
+      paddingRight: 4,
+      align: 'left',
+      verticalAlign: 'top',
+    },
+    oddRowStyle: null,
+    evenRowStyle: null,
+    cellStyle: { overflowMode: 'truncate' },
+    columns: [{ key: 'col1', label: 'Column 1', width: 100, style: null, headerStyle: null }],
   }
   return {
     id: '',
-    type: 'loop',
+    type: 'table',
     groupId: null,
     pageId: null,
-    required: false,
-    jsonKey: 'tables.items',
-    placeholder: null,
+    label: '',
+    source: { mode: 'dynamic', jsonKey, required: false, placeholder: null },
     x: 0,
     y: 0,
     width: 400,
     height: 300,
     zIndex: 0,
-    style: loopStyle,
-    ...overrides,
+    style: tableStyle,
+    ...rest,
   }
 }
 
@@ -187,10 +214,10 @@ describe('addField', () => {
     expect(state().fields[0]?.id).toBe('img-1')
   })
 
-  it('adds a loop field', () => {
+  it('adds a table field', () => {
     state().addField(makeLoopField({ id: 'loop-1' }))
     expect(state().fields).toHaveLength(1)
-    expect(state().fields[0]?.type).toBe('loop')
+    expect(state().fields[0]?.type).toBe('table')
     expect(state().fields[0]?.id).toBe('loop-1')
   })
 
@@ -219,10 +246,13 @@ describe('addField', () => {
 // ----------------------------- updateField ---------------------------------
 
 describe('updateField', () => {
-  it('updates the jsonKey of an existing field', () => {
+  it('updates the source.jsonKey of an existing field', () => {
     state().addField(makeTextField({ id: 'u1' }))
-    state().updateField('u1', { jsonKey: 'texts.updated' })
-    expect(state().fields[0]?.jsonKey).toBe('texts.updated')
+    state().updateField('u1', {
+      source: { mode: 'dynamic', jsonKey: 'updated', required: false, placeholder: null },
+    } as Partial<FieldDefinition>)
+    const f = state().fields[0]!
+    expect(asDynamic(f.source as FieldSource<string>)?.jsonKey).toBe('updated')
   })
 
   it('updates the position (x, y)', () => {
@@ -233,17 +263,23 @@ describe('updateField', () => {
     expect(f?.y).toBe(75)
   })
 
-  it('updates the required flag', () => {
+  it('updates the required flag via source', () => {
     state().addField(makeTextField({ id: 'u3', required: false }))
-    state().updateField('u3', { required: true })
-    expect(state().fields[0]?.required).toBe(true)
+    state().updateField('u3', {
+      source: { mode: 'dynamic', jsonKey: 'test', required: true, placeholder: null },
+    } as Partial<FieldDefinition>)
+    const f = state().fields[0]!
+    expect(asDynamic(f.source as FieldSource<string>)?.required).toBe(true)
   })
 
   it('does not affect other fields when updating one', () => {
-    state().addField(makeTextField({ id: 'a', jsonKey: 'texts.a' }))
-    state().addField(makeTextField({ id: 'b', jsonKey: 'texts.b' }))
-    state().updateField('a', { jsonKey: 'texts.a2' })
-    expect(state().fields.find((f) => f.id === 'b')?.jsonKey).toBe('texts.b')
+    state().addField(makeTextField({ id: 'a', jsonKey: 'a' }))
+    state().addField(makeTextField({ id: 'b', jsonKey: 'b' }))
+    state().updateField('a', {
+      source: { mode: 'dynamic', jsonKey: 'a2', required: false, placeholder: null },
+    } as Partial<FieldDefinition>)
+    const b = state().fields.find((f) => f.id === 'b')!
+    expect(asDynamic(b.source as FieldSource<string>)?.jsonKey).toBe('b')
   })
 })
 
@@ -343,17 +379,18 @@ describe('duplicateField', () => {
     state().addField(
       makeTextField({
         id: 'dup2',
-        jsonKey: 'texts.special',
+        jsonKey: 'special',
         required: true,
         width: 250,
         height: 50,
       }),
     )
-    const dup = state().duplicateField('dup2')
-    expect(dup!.jsonKey).toBe('texts.special')
-    expect(dup!.required).toBe(true)
-    expect(dup!.width).toBe(250)
-    expect(dup!.height).toBe(50)
+    const dup = state().duplicateField('dup2')!
+    const dupDyn = asDynamic(dup.source as FieldSource<string>)
+    expect(dupDyn?.jsonKey).toBe('special')
+    expect(dupDyn?.required).toBe(true)
+    expect(dup.width).toBe(250)
+    expect(dup.height).toBe(50)
   })
 })
 
@@ -377,21 +414,21 @@ describe('moveField / resizeField', () => {
   })
 
   it('moveField preserves other field properties', () => {
-    state().addField(makeTextField({ id: 'mv2', jsonKey: 'texts.keep', width: 100, height: 30 }))
+    state().addField(makeTextField({ id: 'mv2', jsonKey: 'keep', width: 100, height: 30 }))
     state().moveField('mv2', 50, 60)
-    const f = state().fields[0]
-    expect(f?.jsonKey).toBe('texts.keep')
-    expect(f?.width).toBe(100)
-    expect(f?.height).toBe(30)
+    const f = state().fields[0]!
+    expect(asDynamic(f.source as FieldSource<string>)?.jsonKey).toBe('keep')
+    expect(f.width).toBe(100)
+    expect(f.height).toBe(30)
   })
 
   it('resizeField preserves other field properties', () => {
-    state().addField(makeTextField({ id: 'rs2', jsonKey: 'texts.keep', x: 10, y: 20 }))
+    state().addField(makeTextField({ id: 'rs2', jsonKey: 'keep', x: 10, y: 20 }))
     state().resizeField('rs2', 500, 400)
-    const f = state().fields[0]
-    expect(f?.jsonKey).toBe('texts.keep')
-    expect(f?.x).toBe(10)
-    expect(f?.y).toBe(20)
+    const f = state().fields[0]!
+    expect(asDynamic(f.source as FieldSource<string>)?.jsonKey).toBe('keep')
+    expect(f.x).toBe(10)
+    expect(f.y).toBe(20)
   })
 })
 
@@ -457,19 +494,12 @@ describe('Z-index operations', () => {
 // ----------------------------- Undo / Redo ---------------------------------
 
 describe('Undo / Redo', () => {
-  // Note: pushHistory captures a snapshot of the *new* state after each action.
-  // After reset(), history = [] and historyIndex = -1.
-  // The first action creates snapshot[0] (with the field already present).
-  // There is no "empty state" snapshot, so undo from index 0 is a no-op.
-  // Meaningful undo requires at least 2 history entries (2 actions).
-
   it('canUndo returns false initially (no history)', () => {
     expect(state().canUndo()).toBe(false)
   })
 
   it('canUndo returns false after a single action (only one snapshot exists)', () => {
     state().addField(makeTextField({ id: 'ur0' }))
-    // historyIndex is 0, and undo checks historyIndex <= 0
     expect(state().canUndo()).toBe(false)
   })
 
@@ -483,7 +513,6 @@ describe('Undo / Redo', () => {
     state().addField(makeTextField({ id: 'ur2b' }))
     expect(state().fields).toHaveLength(2)
     state().undo()
-    // Reverts to snapshot[0] which has the first field
     expect(state().fields).toHaveLength(1)
     expect(state().fields[0]?.id).toBe('ur2a')
   })
@@ -529,7 +558,6 @@ describe('Undo / Redo', () => {
     state().addField(makeTextField({ id: 'cu2' }))
     expect(state().canUndo()).toBe(true)
     state().undo()
-    // Now at index 0, canUndo is false
     expect(state().canUndo()).toBe(false)
   })
 
@@ -621,7 +649,7 @@ describe('setMeta / setPageSize / setLocked', () => {
     vi.useFakeTimers()
     try {
       const before = state().meta.updatedAt
-      vi.advanceTimersByTime(1000) // advance 1 second so updatedAt differs
+      vi.advanceTimersByTime(1000)
       state().setMeta({ name: 'Invoice Template' })
       expect(state().meta.name).toBe('Invoice Template')
       expect(state().meta.updatedAt).not.toBe(before)
@@ -645,7 +673,6 @@ describe('setMeta / setPageSize / setLocked', () => {
 
   it('setMeta preserves fields not included in the partial update', () => {
     state().setMeta({ name: 'New Name' })
-    // pageSize should still be the default
     expect(state().meta.pageSize).toBe('A4')
     expect(state().meta.unit).toBe('pt')
   })
@@ -655,7 +682,6 @@ describe('setMeta / setPageSize / setLocked', () => {
 
 describe('reset', () => {
   it('clears all state back to defaults', () => {
-    // Build up some state
     state().addField(makeTextField({ id: 'rf1' }))
     state().addField(makeImageField({ id: 'ri1' }))
     state().addGroup(makeGroup({ id: 'rg1' }))
@@ -695,8 +721,8 @@ describe('loadFromManifest', () => {
       updatedAt: '2025-06-15T12:00:00.000Z',
     }
     const fields: FieldDefinition[] = [
-      makeTextField({ id: 'lf1', jsonKey: 'texts.title' }),
-      makeImageField({ id: 'li1', jsonKey: 'images.header' }),
+      makeTextField({ id: 'lf1', jsonKey: 'title' }),
+      makeImageField({ id: 'li1', jsonKey: 'header' }),
     ]
     const fonts: FontDefinition[] = [makeFont({ id: 'lfont1' })]
     const groups: GroupDefinition[] = [makeGroup({ id: 'lg1', name: 'Loaded Group' })]
@@ -731,7 +757,6 @@ describe('loadFromManifest', () => {
     expect(state().backgroundBuffer).toBe(bgBuffer)
     expect(state().fontBuffers.size).toBe(1)
     expect(state().placeholderBuffers.size).toBe(1)
-    // History is initialized with one snapshot
     expect(state().history).toHaveLength(1)
     expect(state().historyIndex).toBe(0)
   })

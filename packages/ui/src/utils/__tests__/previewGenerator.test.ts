@@ -1,8 +1,34 @@
 import { describe, it, expect } from 'vitest'
 import { generatePreviewHtml } from '../previewGenerator.js'
-import type { FieldDefinition, TextFieldStyle, LoopFieldStyle } from '@template-goblin/types'
+import type {
+  FieldDefinition,
+  TextFieldStyle,
+  TableFieldStyle,
+  CellStyle,
+} from '@template-goblin/types'
 
 /* ---- helpers ---- */
+
+function cell(overrides: Partial<CellStyle> = {}): CellStyle {
+  return {
+    fontFamily: 'Helvetica',
+    fontSize: 10,
+    fontWeight: 'normal',
+    fontStyle: 'normal',
+    textDecoration: 'none',
+    color: '#000',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    paddingTop: 2,
+    paddingBottom: 2,
+    paddingLeft: 4,
+    paddingRight: 4,
+    align: 'left',
+    verticalAlign: 'top',
+    ...overrides,
+  }
+}
 
 function textField(jsonKey: string, zIndex = 0): FieldDefinition {
   return {
@@ -10,9 +36,8 @@ function textField(jsonKey: string, zIndex = 0): FieldDefinition {
     type: 'text',
     groupId: null,
     pageId: null,
-    required: true,
-    jsonKey,
-    placeholder: null,
+    label: '',
+    source: { mode: 'dynamic', jsonKey, required: true, placeholder: null },
     x: 10,
     y: 20,
     width: 200,
@@ -38,20 +63,14 @@ function textField(jsonKey: string, zIndex = 0): FieldDefinition {
   }
 }
 
-// imageField helper available for future tests
-// function imageField(jsonKey: string, zIndex = 0): FieldDefinition {
-//   return { id: `f-${jsonKey}`, type: 'image', groupId: null, required: true, jsonKey, placeholder: null, x: 50, y: 60, width: 100, height: 100, zIndex, style: { fit: 'contain', placeholderFilename: null } satisfies ImageFieldStyle }
-// }
-
-function loopField(jsonKey: string, zIndex = 0): FieldDefinition {
+function tableField(jsonKey: string, zIndex = 0): FieldDefinition {
   return {
     id: `f-${jsonKey}`,
-    type: 'loop',
+    type: 'table',
     groupId: null,
     pageId: null,
-    required: true,
-    jsonKey,
-    placeholder: null,
+    label: '',
+    source: { mode: 'dynamic', jsonKey, required: true, placeholder: null },
     x: 0,
     y: 0,
     width: 400,
@@ -61,44 +80,24 @@ function loopField(jsonKey: string, zIndex = 0): FieldDefinition {
       maxRows: 10,
       maxColumns: 3,
       multiPage: false,
-      headerStyle: {
-        fontFamily: 'Helvetica',
-        fontSize: 10,
-        fontWeight: 'bold',
-        align: 'left',
-        color: '#000',
-        backgroundColor: '#eee',
-      },
-      rowStyle: {
-        fontFamily: 'Helvetica',
-        fontSize: 10,
-        fontWeight: 'normal',
-        color: '#000',
-        overflowMode: 'truncate',
-        fontSizeDynamic: false,
-        fontSizeMin: 6,
-        lineHeight: 1.2,
-      },
-      cellStyle: {
-        borderWidth: 1,
-        borderColor: '#ccc',
-        paddingTop: 2,
-        paddingBottom: 2,
-        paddingLeft: 4,
-        paddingRight: 4,
-      },
+      showHeader: true,
+      headerStyle: cell({ fontWeight: 'bold', backgroundColor: '#eee' }),
+      rowStyle: cell(),
+      oddRowStyle: null,
+      evenRowStyle: null,
+      cellStyle: { overflowMode: 'truncate' },
       columns: [
-        { key: 'name', label: 'Name', width: 150, align: 'left' },
-        { key: 'grade', label: 'Grade', width: 80, align: 'center' },
+        { key: 'name', label: 'Name', width: 150, style: null, headerStyle: null },
+        { key: 'grade', label: 'Grade', width: 80, style: null, headerStyle: null },
       ],
-    } satisfies LoopFieldStyle,
+    } satisfies TableFieldStyle,
   }
 }
 
 const defaultMeta = { name: 'Test Template', width: 595, height: 842 }
 
 function emptyData() {
-  return { texts: {}, loops: {}, images: {} }
+  return { texts: {}, tables: {}, images: {} }
 }
 
 /* ---- tests ---- */
@@ -136,16 +135,16 @@ describe('generatePreviewHtml', () => {
 
   describe('text fields', () => {
     it('renders text field values in output HTML', async () => {
-      const fields = [textField('texts.name')]
-      const data = { texts: { name: 'John Doe' }, loops: {}, images: {} }
+      const fields = [textField('name')]
+      const data = { texts: { name: 'John Doe' }, tables: {}, images: {} }
       const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
       const html = await blob.text()
       expect(html).toContain('John Doe')
     })
 
     it('does not render text field when value is empty', async () => {
-      const fields = [textField('texts.name')]
-      const data = { texts: { name: '' }, loops: {}, images: {} }
+      const fields = [textField('name')]
+      const data = { texts: { name: '' }, tables: {}, images: {} }
       const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
       const html = await blob.text()
       // The text div should not appear when value is empty
@@ -153,19 +152,19 @@ describe('generatePreviewHtml', () => {
     })
 
     it('does not render text field when key is missing from data', async () => {
-      const fields = [textField('texts.name')]
+      const fields = [textField('name')]
       const blob = await generatePreviewHtml(fields, defaultMeta, null, emptyData())
       const html = await blob.text()
       expect(html).not.toContain('class="f"')
     })
   })
 
-  describe('loop fields', () => {
+  describe('table fields', () => {
     it('renders table headers in output', async () => {
-      const fields = [loopField('loops.marks')]
+      const fields = [tableField('marks')]
       const data = {
         texts: {},
-        loops: { marks: [{ name: 'Alice', grade: 'A' }] },
+        tables: { marks: [{ name: 'Alice', grade: 'A' }] },
         images: {},
       }
       const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
@@ -175,10 +174,10 @@ describe('generatePreviewHtml', () => {
     })
 
     it('renders row data in table cells', async () => {
-      const fields = [loopField('loops.marks')]
+      const fields = [tableField('marks')]
       const data = {
         texts: {},
-        loops: { marks: [{ name: 'Alice', grade: 'A+' }] },
+        tables: { marks: [{ name: 'Alice', grade: 'A+' }] },
         images: {},
       }
       const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
@@ -187,9 +186,9 @@ describe('generatePreviewHtml', () => {
       expect(html).toContain('A+')
     })
 
-    it('does not render loop when rows are empty', async () => {
-      const fields = [loopField('loops.marks')]
-      const data = { texts: {}, loops: { marks: [] }, images: {} }
+    it('does not render table when rows are empty', async () => {
+      const fields = [tableField('marks')]
+      const data = { texts: {}, tables: { marks: [] }, images: {} }
       const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
       const html = await blob.text()
       expect(html).not.toContain('<table>')
@@ -224,39 +223,37 @@ describe('generatePreviewHtml', () => {
 
   describe('XSS prevention', () => {
     it('HTML-escapes text values', async () => {
-      const fields = [textField('texts.name')]
+      const fields = [textField('name')]
       const data = {
         texts: { name: '<script>alert("xss")</script>' },
-        loops: {},
+        tables: {},
         images: {},
       }
       const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
       const html = await blob.text()
-      // Raw script tag must not appear
       expect(html).not.toContain('<script>alert')
-      // Escaped version should be present
       expect(html).toContain('&lt;script&gt;')
     })
 
     it('escapes ampersands in text values', async () => {
-      const fields = [textField('texts.name')]
-      const data = { texts: { name: 'Tom & Jerry' }, loops: {}, images: {} }
+      const fields = [textField('name')]
+      const data = { texts: { name: 'Tom & Jerry' }, tables: {}, images: {} }
       const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
       const html = await blob.text()
       expect(html).toContain('Tom &amp; Jerry')
     })
 
     it('escapes quotes in text values', async () => {
-      const fields = [textField('texts.name')]
-      const data = { texts: { name: 'He said "hello"' }, loops: {}, images: {} }
+      const fields = [textField('name')]
+      const data = { texts: { name: 'He said "hello"' }, tables: {}, images: {} }
       const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
       const html = await blob.text()
       expect(html).toContain('&quot;hello&quot;')
     })
 
     it('escapes single quotes in text values', async () => {
-      const fields = [textField('texts.name')]
-      const data = { texts: { name: "it's fine" }, loops: {}, images: {} }
+      const fields = [textField('name')]
+      const data = { texts: { name: "it's fine" }, tables: {}, images: {} }
       const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
       const html = await blob.text()
       expect(html).toContain('it&#x27;s fine')
@@ -270,13 +267,13 @@ describe('generatePreviewHtml', () => {
       expect(html).toContain('&lt;b&gt;Evil&lt;/b&gt;')
     })
 
-    it('escapes loop column labels', async () => {
-      const field = loopField('loops.marks')
-      const style = field.style as LoopFieldStyle
+    it('escapes table column labels', async () => {
+      const field = tableField('marks')
+      const style = field.style as TableFieldStyle
       style.columns[0]!.label = '<img src=x onerror=alert(1)>'
       const data = {
         texts: {},
-        loops: { marks: [{ name: 'test', grade: 'A' }] },
+        tables: { marks: [{ name: 'test', grade: 'A' }] },
         images: {},
       }
       const blob = await generatePreviewHtml([field], defaultMeta, null, data)
@@ -285,11 +282,11 @@ describe('generatePreviewHtml', () => {
       expect(html).toContain('&lt;img src=x')
     })
 
-    it('escapes loop cell values', async () => {
-      const fields = [loopField('loops.marks')]
+    it('escapes table cell values', async () => {
+      const fields = [tableField('marks')]
       const data = {
         texts: {},
-        loops: { marks: [{ name: '<b>bold</b>', grade: 'A' }] },
+        tables: { marks: [{ name: '<b>bold</b>', grade: 'A' }] },
         images: {},
       }
       const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
@@ -300,12 +297,12 @@ describe('generatePreviewHtml', () => {
   })
 
   describe('field jsonKey handling', () => {
-    it('skips fields with no name part in jsonKey', async () => {
-      const field = textField('texts.')
-      const data = { texts: { '': 'value' }, loops: {}, images: {} }
+    it('skips fields with empty jsonKey', async () => {
+      const field = textField('')
+      const data = { texts: { '': 'value' }, tables: {}, images: {} }
       const blob = await generatePreviewHtml([field], defaultMeta, null, data)
       const html = await blob.text()
-      // Field with empty name after the dot should be skipped
+      // Field with empty key should be skipped
       expect(html).not.toContain('class="f"')
     })
   })

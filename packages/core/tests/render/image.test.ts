@@ -25,18 +25,15 @@ function createImageField(fit: 'fill' | 'contain' | 'cover'): FieldDefinition {
     id: 'test-img',
     type: 'image',
     groupId: null,
-    required: false,
-    jsonKey: 'images.test',
-    placeholder: null,
+    pageId: null,
+    label: '',
+    source: { mode: 'dynamic', jsonKey: 'test', required: false, placeholder: null },
     x: 50,
     y: 50,
     width: 100,
     height: 100,
     zIndex: 0,
-    style: {
-      fit,
-      placeholderFilename: null,
-    } satisfies ImageFieldStyle,
+    style: { fit } satisfies ImageFieldStyle,
   }
 }
 

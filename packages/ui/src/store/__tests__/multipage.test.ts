@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type {
   PageDefinition,
   FieldDefinition,
+  TextField,
+  ImageField,
   TextFieldStyle,
   ImageFieldStyle,
 } from '@template-goblin/types'
@@ -49,15 +51,14 @@ function makeTextStyle(overrides: Partial<TextFieldStyle> = {}): TextFieldStyle 
   }
 }
 
-function makeTextField(overrides: Partial<FieldDefinition> = {}): FieldDefinition {
+function makeTextField(overrides: Partial<TextField> = {}): FieldDefinition {
   return {
     id: '',
     type: 'text',
     groupId: null,
     pageId: null,
-    required: false,
-    jsonKey: 'texts.test',
-    placeholder: null,
+    label: '',
+    source: { mode: 'dynamic', jsonKey: 'test', required: false, placeholder: null },
     x: 0,
     y: 0,
     width: 100,
@@ -68,19 +69,15 @@ function makeTextField(overrides: Partial<FieldDefinition> = {}): FieldDefinitio
   }
 }
 
-function makeImageField(overrides: Partial<FieldDefinition> = {}): FieldDefinition {
-  const imageStyle: ImageFieldStyle = {
-    fit: 'contain',
-    placeholderFilename: null,
-  }
+function makeImageField(overrides: Partial<ImageField> = {}): FieldDefinition {
+  const imageStyle: ImageFieldStyle = { fit: 'contain' }
   return {
     id: '',
     type: 'image',
     groupId: null,
     pageId: null,
-    required: false,
-    jsonKey: 'images.logo',
-    placeholder: null,
+    label: '',
+    source: { mode: 'dynamic', jsonKey: 'logo', required: false, placeholder: null },
     x: 0,
     y: 0,
     width: 200,
