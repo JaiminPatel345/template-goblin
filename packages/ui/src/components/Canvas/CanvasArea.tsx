@@ -793,11 +793,66 @@ export function CanvasArea() {
     }
   }
 
+  const reset = useTemplateStore((s) => s.reset)
+
   // --- Remove page handler ---
-  function handleRemovePage(pageId: string) {
-    // Don't allow removing the last page if it's the only explicit page
+  //
+  // Behaviour:
+  //   - Non-last page (including the explicit page 0 PageDefinition when other
+  //     pages exist): remove as today; fields on that page are reassigned to
+  //     page 0 by the store's `removePage`, and remaining pages re-index.
+  //   - Last page in the template (i.e. the user is about to delete the ONLY
+  //     page the canvas is rendering): prompt for confirmation and, on OK,
+  //     reset the whole template to the empty onboarding state so the user
+  //     starts fresh from the background picker.
+  //
+  // "Last page" detection:
+  //   Page 0 is implicit when `pages` is empty OR when `pages` contains no
+  //   entry with `index === 0`. In either case the legacy single-page canvas
+  //   counts as 1. Total visible pages = 1 (implicit page 0) + pages.length if
+  //   page 0 is implicit, otherwise = pages.length (page 0 is explicit).
+  function handleRemovePage(pageId: string | null) {
+    const page0IsExplicit = pages.some((p) => p.index === 0)
+    const visiblePageCount = page0IsExplicit ? pages.length : 1 + pages.length
+
+    if (visiblePageCount <= 1) {
+      const ok = window.confirm(
+        'Deleting the last page will clear all fields and settings. Continue?',
+      )
+      if (!ok) return
+      reset()
+      setCurrentPage(null)
+      clearSelection()
+      return
+    }
+
+    // Non-last: delete as today.
+    if (pageId === null) {
+      // Deleting the implicit page 0 — promote the next page to page 0 by
+      // clearing its pageId reference. `removePage` only handles explicit
+      // PageDefinitions, so for page 0 we just clear its fields + legacy bg.
+      const state = useTemplateStore.getState()
+      const nextFields = state.fields.filter((f) => f.pageId !== null)
+      state.loadFromManifest(
+        state.meta,
+        nextFields,
+        state.fonts,
+        state.groups,
+        null,
+        null,
+        state.fontBuffers,
+        state.placeholderBuffers,
+        state.pages,
+        state.pageBackgroundDataUrls,
+        state.pageBackgroundBuffers,
+      )
+      setCurrentPage(state.pages[0]?.id ?? null)
+      clearSelection()
+      return
+    }
+
     removePage(pageId)
-    setCurrentPage(null) // go back to page 0
+    setCurrentPage(null)
     clearSelection()
   }
 
@@ -846,17 +901,39 @@ export function CanvasArea() {
           overflowX: 'auto',
         }}
       >
-        {/* Page 0 tab (legacy/implicit first page) */}
-        <button
-          className={`tg-btn ${currentPageId === null ? 'tg-btn--active' : ''}`}
-          style={{ fontSize: '11px', padding: '4px 12px' }}
-          onClick={() => {
-            setCurrentPage(null)
-            clearSelection()
-          }}
-        >
-          Page 1
-        </button>
+        {/* Page 0 tab (legacy/implicit first page). X button now rendered here
+            too so the user can drop page 1 without opening a hidden menu. */}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <button
+            className={`tg-btn ${currentPageId === null ? 'tg-btn--active' : ''}`}
+            style={{ fontSize: '11px', padding: '4px 12px' }}
+            onClick={() => {
+              setCurrentPage(null)
+              clearSelection()
+            }}
+          >
+            Page 1
+          </button>
+          <button
+            className="tg-btn tg-btn--danger"
+            style={{ fontSize: '10px', padding: '2px 6px', marginLeft: '2px' }}
+            title="Remove this page"
+            data-testid="remove-page-1"
+            onClick={() => handleRemovePage(null)}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
 
         {/* Explicit pages */}
         {pages.map((page, idx) => (
@@ -871,26 +948,24 @@ export function CanvasArea() {
             >
               Page {idx + 2}
             </button>
-            {currentPageId === page.id && (
-              <button
-                className="tg-btn tg-btn--danger"
-                style={{ fontSize: '10px', padding: '2px 6px', marginLeft: '2px' }}
-                title="Remove this page"
-                onClick={() => handleRemovePage(page.id)}
+            <button
+              className="tg-btn tg-btn--danger"
+              style={{ fontSize: '10px', padding: '2px 6px', marginLeft: '2px' }}
+              title="Remove this page"
+              onClick={() => handleRemovePage(page.id)}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
               >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            )}
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           </div>
         ))}
 

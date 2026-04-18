@@ -38,7 +38,7 @@ The UI canvas is the central workspace of the `template-goblin-ui` builder appli
 - [ ] REQ-026: The "Inherit from Previous" option is disabled when the new page would be the first page (index 0)
 - [ ] REQ-027: When a new page is added, the canvas automatically switches to the new page
 - [ ] REQ-028: Page tabs support right-click context menu with "Delete Page" and "Duplicate Page" options
-- [ ] REQ-029: The "Delete Page" option is disabled when only one page remains
+- [ ] REQ-029: Every page tab (including Page 1) renders a small "X" close button adjacent to its label. Clicking the X deletes that page. When `pages.length > 1`, the field reassignment / re-indexing rules of REQ-023/REQ-031 apply. When the page being deleted is the last remaining page (`pages.length === 1` counting the implicit page 0), the user is first shown a `window.confirm` with the message "Deleting the last page will clear all fields and settings. Continue?"; on OK the entire template is reset to its empty-state defaults and the onboarding picker (REQ-034) is shown; on Cancel nothing changes.
 - [ ] REQ-030: Page tabs support drag-and-drop reordering. When pages are reordered, `index` values are renumbered and any page with `backgroundType: "inherit"` at index 0 prompts the user to choose a new background
 - [ ] REQ-031: When the canvas is on a specific page, newly added fields are automatically assigned to the current page's `pageId`
 - [ ] REQ-032: The background choice dialog for "Upload Image" includes image compression and shows original vs compressed size (same flow as the existing background upload in REQ-007)
@@ -199,7 +199,7 @@ type PageSizeOption = 'A4' | 'A3' | 'Letter' | 'Legal' | 'Custom' | 'MatchImage'
 - [ ] AC-027: "Inherit from Previous" is disabled when the new page would be the first page
 - [ ] AC-028: After adding a new page, the canvas switches to it automatically
 - [ ] AC-029: Right-clicking a page tab shows a context menu with "Delete Page" and "Duplicate Page"
-- [ ] AC-030: "Delete Page" removes the page and all its fields; it is disabled when only one page remains
+- [ ] AC-030: Every page tab (including Page 1) has an "X" close button. Clicking it on a non-last page removes that page and re-indexes the rest. Clicking it on the last page opens a confirmation dialog; confirming resets the template to its empty state and returns to the onboarding picker.
 - [ ] AC-031: Newly added fields are assigned the `pageId` of the currently active page
 - [ ] AC-032: Switching pages clears the current field selection
 - [ ] AC-033: Page tabs can be reordered via drag-and-drop; indices are renumbered after reordering
