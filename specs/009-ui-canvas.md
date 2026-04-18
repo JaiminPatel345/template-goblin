@@ -13,7 +13,7 @@ The UI canvas is the central workspace of the `template-goblin-ui` builder appli
 - [ ] REQ-001: Canvas is rendered using `react-konva` (Konva.js React bindings) inside the main application layout
 - [ ] REQ-002: Canvas dimensions match the PDF page size defined in `manifest.meta.width` and `manifest.meta.height` (in points)
 - [ ] REQ-003: Canvas is scaled to fit the available screen area with zoom controls (zoom in, zoom out, fit to screen, zoom percentage display)
-- [ ] REQ-004: User must upload a background image before placing fields -- the background image is the base layer of the canvas
+- [ ] REQ-004: User must choose a background before placing fields. The onboarding picker (shown when `pages[0]` has no background) offers two options: **Upload image** (existing flow) or **Solid color** (HTML `<input type="color">` + hex text input, default `#FFFFFF`). Choosing a solid color sets `pages[0].backgroundType = 'color'` with `backgroundColor = '#RRGGBB'` and `backgroundFilename = null`.
 - [ ] REQ-005: On background image upload, display a PageSizeDialog that detects image dimensions and offers page size options: Match Image, A4 (595x842 pt), A3 (842x1191 pt), US Letter (612x792 pt), US Legal (612x1008 pt), Custom (user enters width and height in pt)
 - [ ] REQ-006: "Match Image" converts image pixel dimensions to points at 72 DPI (1 px = 1 pt at 72 DPI)
 - [ ] REQ-007: Background image is compressed on upload using a lightweight browser-based compressor; display original size vs compressed size to the user
@@ -43,6 +43,7 @@ The UI canvas is the central workspace of the `template-goblin-ui` builder appli
 - [ ] REQ-031: When the canvas is on a specific page, newly added fields are automatically assigned to the current page's `pageId`
 - [ ] REQ-032: The background choice dialog for "Upload Image" includes image compression and shows original vs compressed size (same flow as the existing background upload in REQ-007)
 - [ ] REQ-033: The background choice dialog for "Solid Color" includes a color picker defaulting to `#FFFFFF`
+- [ ] REQ-034: First-time onboarding picker: when the app launches with an empty `pages[0]` (no image, no color), the canvas area shows a picker with two side-by-side buttons: "Upload image" and "Solid color". Selecting "Solid color" reveals an inline `<input type="color">` plus a monospace hex text input (default `#FFFFFF`), a Back button to return to the two-button state, and an Apply button that commits the chosen color. On Apply, the store writes `pages[0]` with `backgroundType: 'color'`, `backgroundColor: <lowercased hex>`, `backgroundFilename: null`, and clears any legacy `backgroundDataUrl`/`backgroundBuffer`. After Apply the canvas transitions to the standard drawing state with a solid-color Konva Rect as the background, and field-creation tools (Text/Image/Table) become enabled.
 
 ## Behaviour
 
