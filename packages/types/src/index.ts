@@ -32,5 +32,6 @@ export type { InputJSON, TextInputs, TableInputs, ImageInputs } from './input.js
 export type { StaticSource, DynamicSource, FieldSource } from './source.js'
 export { isStaticSource, isDynamicSource } from './source.js'
 export type { LoadedTemplate, TemplateAssets } from './loaded.js'
+export { isSafeKey } from './safeKey.js'
 export { TemplateGoblinError } from './errors.js'
 export type { ValidationResult, ValidationError, ValidationErrorCode, ErrorCode } from './errors.js'
