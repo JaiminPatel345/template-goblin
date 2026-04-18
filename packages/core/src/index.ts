@@ -9,6 +9,8 @@
 export { loadTemplate } from './load.js'
 export { generatePDF, generatePDFFromFile } from './generate.js'
 export { validateData } from './validate.js'
+export { validateManifest } from './validateManifest.js'
+export { resolveValue } from './utils/resolveValue.js'
 export { saveTemplate } from './file/write.js'
 export { readManifest } from './file/read.js'
 export { generateBatchPDF } from './batch.js'
