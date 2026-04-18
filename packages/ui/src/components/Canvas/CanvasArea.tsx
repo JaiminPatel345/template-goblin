@@ -1124,73 +1124,63 @@ export function CanvasArea() {
           overflowX: 'auto',
         }}
       >
-        {/* Page 0 tab (legacy/implicit first page). X button now rendered here
-            too so the user can drop page 1 without opening a hidden menu. */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <button
-            className={`tg-btn ${currentPageId === null ? 'tg-btn--active' : ''}`}
-            style={{ fontSize: '11px', padding: '4px 12px' }}
-            onClick={() => {
-              setCurrentPage(null)
-              clearSelection()
-            }}
-          >
-            Page 1
-          </button>
-          <button
-            className="tg-btn tg-btn--danger"
-            style={{ fontSize: '10px', padding: '2px 6px', marginLeft: '2px' }}
-            title="Remove this page"
-            data-testid="remove-page-1"
-            onClick={() => handleRemovePage(null)}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Explicit pages */}
-        {pages.map((page, idx) => (
-          <div key={page.id} style={{ display: 'flex', alignItems: 'center' }}>
-            <button
-              className={`tg-btn ${currentPageId === page.id ? 'tg-btn--active' : ''}`}
-              style={{ fontSize: '11px', padding: '4px 12px' }}
-              onClick={() => {
-                setCurrentPage(page.id)
-                clearSelection()
-              }}
-            >
-              Page {idx + 2}
-            </button>
-            <button
-              className="tg-btn tg-btn--danger"
-              style={{ fontSize: '10px', padding: '2px 6px', marginLeft: '2px' }}
-              title="Remove this page"
-              onClick={() => handleRemovePage(page.id)}
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+        {/* Tab rendering — one tab per visible page.
+            Page 1 is either (a) the implicit legacy page-0 (pageId=null) when
+            no PageDefinition with index 0 exists, OR (b) the explicit
+            PageDefinition at index 0. It is NEVER both at once — the old code
+            always rendered a null-pageId "Page 1" even when an explicit
+            index-0 page also existed, which produced a phantom extra tab
+            after solid-color onboarding (and then "deleting Page 2" nuked
+            everything because pages.length was 1). */}
+        {(() => {
+          const sorted = [...pages].sort((a, b) => a.index - b.index)
+          const explicitFirst = sorted[0]?.index === 0 ? sorted[0] : undefined
+          const firstTab = explicitFirst
+            ? { id: explicitFirst.id, label: 'Page 1', pageId: explicitFirst.id as string | null }
+            : { id: '__implicit_page_0__', label: 'Page 1', pageId: null as string | null }
+          const remaining = explicitFirst ? sorted.slice(1) : sorted
+          const tabs: Array<{ key: string; label: string; pageId: string | null }> = [
+            { key: firstTab.id, label: firstTab.label, pageId: firstTab.pageId },
+            ...remaining.map((p, i) => ({
+              key: p.id,
+              label: `Page ${i + 2}`,
+              pageId: p.id as string | null,
+            })),
+          ]
+          return tabs.map((tab, idx) => (
+            <div key={tab.key} style={{ display: 'flex', alignItems: 'center' }}>
+              <button
+                className={`tg-btn ${currentPageId === tab.pageId ? 'tg-btn--active' : ''}`}
+                style={{ fontSize: '11px', padding: '4px 12px' }}
+                onClick={() => {
+                  setCurrentPage(tab.pageId)
+                  clearSelection()
+                }}
               >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-        ))}
+                {tab.label}
+              </button>
+              <button
+                className="tg-btn tg-btn--danger"
+                style={{ fontSize: '10px', padding: '2px 6px', marginLeft: '2px' }}
+                title="Remove this page"
+                data-testid={idx === 0 ? 'remove-page-1' : undefined}
+                onClick={() => handleRemovePage(tab.pageId)}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          ))
+        })()}
 
         {/* Add page button */}
         <button
