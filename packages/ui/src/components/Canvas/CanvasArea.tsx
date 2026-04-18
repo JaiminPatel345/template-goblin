@@ -351,6 +351,7 @@ export function CanvasArea() {
   const pages = useTemplateStore((s) => s.pages)
   const backgroundDataUrl = useTemplateStore((s) => s.backgroundDataUrl)
   const pageBackgroundDataUrls = useTemplateStore((s) => s.pageBackgroundDataUrls)
+  const pageBackgroundBuffers = useTemplateStore((s) => s.pageBackgroundBuffers)
   const addField = useTemplateStore((s) => s.addField)
   const moveField = useTemplateStore((s) => s.moveField)
   const resizeField = useTemplateStore((s) => s.resizeField)
@@ -794,10 +795,77 @@ export function CanvasArea() {
   }
 
   // --- Add page handler ---
+  //
+  // "Same as previous" (bgType === 'inherit') is treated as a one-time
+  // SNAPSHOT of the current previous page's background, NOT a live reference.
+  // This matches user expectation: if the previous page changes or is deleted
+  // later, the snapshotted page keeps its original look. (Fix for
+  // BUG-F — removing the middle page silently changed downstream pages when
+  // they stored backgroundType: 'inherit'.)
   function handleAddPage(bgType: PageBackgroundType, bgColor?: string, bgFile?: File) {
     setShowAddPageDialog(false)
     const pageId = generatePageId()
-    const index = pages.length // new page goes at end (page 0 is the legacy implicit page)
+    const index = pages.length
+
+    // Resolve "same as previous" into a concrete snapshot of the previous page.
+    if (bgType === 'inherit') {
+      const prev = pages[pages.length - 1]
+      if (prev) {
+        // Walk back through any previous inherit chain to the nearest concrete page.
+        let source: PageDefinition | undefined = prev
+        let cursor = pages.length - 1
+        while (source && source.backgroundType === 'inherit' && cursor > 0) {
+          cursor -= 1
+          source = pages[cursor]
+        }
+        if (source && source.backgroundType === 'color') {
+          const snap: PageDefinition = {
+            id: pageId,
+            index,
+            backgroundType: 'color',
+            backgroundColor: source.backgroundColor,
+            backgroundFilename: null,
+          }
+          addPage(snap)
+          setCurrentPage(pageId)
+          return
+        }
+        if (source && source.backgroundType === 'image' && source.backgroundFilename) {
+          // Reuse the previous page's image buffer + data URL so the snapshot
+          // survives the source page being edited or deleted later.
+          const prevDataUrl = pageBackgroundDataUrls.get(source.id) ?? null
+          const prevBuffer = pageBackgroundBuffers.get(source.id) ?? null
+          const snap: PageDefinition = {
+            id: pageId,
+            index,
+            backgroundType: 'image',
+            backgroundColor: null,
+            backgroundFilename: `backgrounds/${pageId}.png`,
+          }
+          if (prevDataUrl && prevBuffer) {
+            // Clone the ArrayBuffer so the store owns an independent copy.
+            const cloned = prevBuffer.slice(0)
+            addPage(snap, prevDataUrl, cloned)
+          } else {
+            addPage(snap)
+          }
+          setCurrentPage(pageId)
+          return
+        }
+      }
+      // No resolvable previous page — fall back to a white solid color.
+      const fallback: PageDefinition = {
+        id: pageId,
+        index,
+        backgroundType: 'color',
+        backgroundColor: '#ffffff',
+        backgroundFilename: null,
+      }
+      addPage(fallback)
+      setCurrentPage(pageId)
+      return
+    }
+
     const page: PageDefinition = {
       id: pageId,
       index,
@@ -819,12 +887,7 @@ export function CanvasArea() {
         bufReader.readAsArrayBuffer(bgFile)
       }
       reader.readAsDataURL(bgFile)
-    } else if (bgType === 'inherit') {
-      // Inherit from previous page — no separate background needed
-      addPage(page)
-      setCurrentPage(pageId)
     } else {
-      // Solid color — no image buffer needed
       addPage(page)
       setCurrentPage(pageId)
     }
