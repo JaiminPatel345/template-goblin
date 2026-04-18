@@ -1,8 +1,10 @@
-const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+import { isSafeKey } from './safeKey.js'
 
 /**
  * Resolve a dot-notation key against a data object.
- * Protected against prototype pollution — rejects __proto__, constructor, prototype keys.
+ * Protected against prototype pollution — rejects any path segment that is not
+ * a safe identifier (see `isSafeKey`), including `__proto__`, `constructor`,
+ * `prototype`, `hasOwnProperty`, `toString`, `valueOf`.
  *
  * @param data - The root data object
  * @param jsonKey - Dot-notation path (e.g., "texts.name")
@@ -15,7 +17,7 @@ export function resolveKey(data: Record<string, unknown>, jsonKey: string): unkn
   let current: unknown = data
 
   for (const part of parts) {
-    if (DANGEROUS_KEYS.has(part)) return undefined
+    if (!isSafeKey(part)) return undefined
     if (current === null || current === undefined || typeof current !== 'object') {
       return undefined
     }

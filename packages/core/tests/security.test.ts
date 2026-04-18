@@ -145,39 +145,20 @@ function expectCode(fn: () => void, code: string): void {
 
 describe('security — prototype pollution via jsonKey', () => {
   /*
-   * The spec's jsonKey regex is `^[A-Za-z_][A-Za-z0-9_]*$` — which *allows*
+   * The spec's jsonKey regex is `^[A-Za-z_][A-Za-z0-9_]*$` — which *allowed*
    * dangerous JavaScript property names: `__proto__`, `constructor`,
    * `prototype`, `hasOwnProperty`. These later become direct property
    * accesses on an InputJSON bucket (`bucket[key]`); if the bucket is a plain
    * object the access walks the prototype chain and can return the Object
    * prototype's native functions.
    *
-   * The runtime-data lookup helper `resolveKey` already rejects these names
-   * (see resolveKey.test.ts), but `validateManifest` currently accepts them
-   * at template-load time. That means a malicious .tgbl author could ship a
-   * template whose "dynamic text" field has `jsonKey: "__proto__"`, and a
-   * downstream consumer of `resolveValue` might read back the Object
-   * prototype instead of their own data.
-   *
-   * TODO: PRODUCT BUG — see QA report §5 "prototype pollution in jsonKey".
-   *
-   * Below we:
-   *   1. Pin the *current* (wrong) behaviour with a regression test so we
-   *      don't silently regress when someone adds a different validator.
-   *   2. Add a RED test that asserts the spec-aligned behaviour. The Dev
-   *      should update the schema to explicitly exclude these keys and flip
-   *      the RED test to green (and delete the regression test).
+   * `validateManifest` now rejects these keys at template-load time via the
+   * shared `isSafeKey` helper, matching `resolveKey`'s runtime behaviour.
    */
   const dangerous = ['__proto__', 'constructor', 'prototype', 'hasOwnProperty']
 
   for (const k of dangerous) {
-    it(`CURRENT behaviour: validateManifest accepts jsonKey "${k}" (regression only)`, () => {
-      const m = baseManifest([textDyn(k, 'f1')])
-      expect(() => validateManifest(m)).not.toThrow()
-    })
-
-    it.skip(`SPEC-ALIGNED: should reject jsonKey "${k}" with INVALID_DYNAMIC_SOURCE`, () => {
-      // Un-skip once validateManifest is hardened against prototype keys.
+    it(`SPEC-ALIGNED: should reject jsonKey "${k}" with INVALID_DYNAMIC_SOURCE`, () => {
       const m = baseManifest([textDyn(k, 'f1')])
       expectCode(() => validateManifest(m), 'INVALID_DYNAMIC_SOURCE')
     })

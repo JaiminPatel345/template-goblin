@@ -128,7 +128,13 @@ export function parseManifestFromZip(zip: AdmZip): TemplateManifest {
 function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
   const clean: Record<string, unknown> = {}
   for (const key of Object.keys(obj)) {
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue
+    if (
+      key === '__proto__' ||
+      key === 'constructor' ||
+      key === 'prototype' ||
+      key === 'hasOwnProperty'
+    )
+      continue
     const value = obj[key]
     if (
       value !== null &&

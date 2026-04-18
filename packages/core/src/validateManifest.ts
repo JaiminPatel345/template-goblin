@@ -9,8 +9,7 @@ import {
   type TemplateManifest,
   type TextField,
 } from '@template-goblin/types'
-
-const JSON_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/
+import { isSafeKey } from './utils/safeKey.js'
 
 function fail(code: ErrorCode, message: string, details?: Record<string, unknown>): never {
   throw new TemplateGoblinError(code, message, details)
@@ -33,7 +32,7 @@ function assertDynamicCommon(
   source: { jsonKey: unknown; required: unknown },
   fieldId: string,
 ): void {
-  if (typeof source.jsonKey !== 'string' || !JSON_KEY_RE.test(source.jsonKey)) {
+  if (typeof source.jsonKey !== 'string' || !isSafeKey(source.jsonKey)) {
     fail(
       'INVALID_DYNAMIC_SOURCE',
       `Field ${fieldId}: jsonKey must match /^[A-Za-z_][A-Za-z0-9_]*$/`,
