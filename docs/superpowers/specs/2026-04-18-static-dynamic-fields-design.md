@@ -20,6 +20,7 @@
 - No per-row override styles (e.g. first/last row emphasis). Zebra striping + per-column styles cover the common needs; further granularity can be added without a breaking change.
 - No vertical-vs-horizontal border split. Borders remain a single `borderWidth`/`borderColor`.
 - No separate authoring UI for importing large static tables from CSV. Designer types rows inline.
+- A Zustand-persisted-state migration **is** required for the UI (schema v1 -> v2) even though `.tgbl` files are not migrated. Browsers that already held a pre-Phase-1 designer session in localStorage would crash on first rehydrate without it. See `templateStore.ts` persist `version`/`migrate`.
 
 ## 3. Conceptual model
 
