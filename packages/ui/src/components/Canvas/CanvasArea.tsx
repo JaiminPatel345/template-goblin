@@ -889,11 +889,16 @@ export function CanvasArea() {
 
     // Non-last: delete as today.
     if (pageId === null) {
-      // Deleting the implicit page 0 — promote the next page to page 0 by
-      // clearing its pageId reference. `removePage` only handles explicit
-      // PageDefinitions, so for page 0 we just clear its fields + legacy bg.
+      // Deleting the implicit page 0 while other explicit pages exist.
+      // We remove the implicit page 0's fields (pageId === null) AND promote
+      // the remaining explicit pages so one of them becomes the new page 0
+      // (index 0). Without re-indexing we would leave an index gap
+      // (pages start at 1, 2, ...) which violates the schema's "contiguous,
+      // 0-based, no gaps" rule and breaks canvas rendering (BUG-D root cause).
       const state = useTemplateStore.getState()
       const nextFields = state.fields.filter((f) => f.pageId !== null)
+      const sortedPages = [...state.pages].sort((a, b) => a.index - b.index)
+      const reindexedPages = sortedPages.map((p, i) => ({ ...p, index: i }))
       state.loadFromManifest(
         state.meta,
         nextFields,
@@ -903,11 +908,11 @@ export function CanvasArea() {
         null,
         state.fontBuffers,
         state.placeholderBuffers,
-        state.pages,
+        reindexedPages,
         state.pageBackgroundDataUrls,
         state.pageBackgroundBuffers,
       )
-      setCurrentPage(state.pages[0]?.id ?? null)
+      setCurrentPage(reindexedPages[0]?.id ?? null)
       clearSelection()
       return
     }

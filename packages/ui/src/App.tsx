@@ -18,7 +18,18 @@ export function App() {
   useKeyboard()
 
   const theme = useUiStore((s) => s.theme)
-  const hasBackground = useTemplateStore((s) => s.backgroundDataUrl !== null)
+  // Onboarding is complete once page 0 has ANY concrete background — either
+  // the legacy image (stored as `backgroundDataUrl`) OR a solid color set via
+  // the onboarding picker (stored on `pages[0]`). Without this second check,
+  // picking solid color leaves `backgroundDataUrl: null` and the side panels
+  // would stay hidden (BUG-B).
+  const hasBackground = useTemplateStore((s) => {
+    if (s.backgroundDataUrl !== null) return true
+    const page0 = s.pages.find((p) => p.index === 0)
+    return (
+      page0 !== undefined && (page0.backgroundType === 'color' || page0.backgroundType === 'image')
+    )
+  })
   const showLeftPanel = useUiStore((s) => s.showLeftPanel)
   const showRightPanel = useUiStore((s) => s.showRightPanel)
   const showPageSizeDialog = useUiStore((s) => s.showPageSizeDialog)
