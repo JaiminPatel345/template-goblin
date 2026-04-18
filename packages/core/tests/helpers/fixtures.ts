@@ -12,6 +12,7 @@ import type {
   PageDefinition,
   TableField,
   TableFieldStyle,
+  TableRow,
   TemplateManifest,
   TextField,
   TextFieldStyle,
@@ -171,6 +172,62 @@ export function dynImage(
     zIndex: geom.zIndex ?? 0,
     style,
     source: { mode: 'dynamic', jsonKey, required, placeholder },
+  }
+}
+
+/**
+ * Build a static image field.
+ *
+ * `filename` is the bare filename stored in the manifest (no folder prefix).
+ * Static image assets live under `images/<filename>` inside the archive.
+ */
+export function staticImage(
+  id: string,
+  filename: string,
+  geom: FieldGeometry = {},
+  style: ImageFieldStyle = IMAGE_STYLE,
+): ImageField {
+  return {
+    id,
+    type: 'image',
+    label: geom.label ?? id,
+    groupId: geom.groupId ?? null,
+    pageId: geom.pageId ?? null,
+    x: geom.x ?? 0,
+    y: geom.y ?? 0,
+    width: geom.width ?? 150,
+    height: geom.height ?? 150,
+    zIndex: geom.zIndex ?? 0,
+    style,
+    source: { mode: 'static', value: { filename } },
+  }
+}
+
+/**
+ * Build a static table field with baked-in rows.
+ *
+ * `columnKeys` drives the generated `TableFieldStyle.columns`. `rows` is the
+ * literal set of rows rendered on every generated PDF.
+ */
+export function staticTable(
+  id: string,
+  columnKeys: string[],
+  rows: TableRow[],
+  geom: FieldGeometry = {},
+): TableField {
+  return {
+    id,
+    type: 'table',
+    label: geom.label ?? id,
+    groupId: geom.groupId ?? null,
+    pageId: geom.pageId ?? null,
+    x: geom.x ?? 0,
+    y: geom.y ?? 0,
+    width: geom.width ?? 400,
+    height: geom.height ?? 200,
+    zIndex: geom.zIndex ?? 0,
+    style: tableStyle(columnKeys),
+    source: { mode: 'static', value: rows },
   }
 }
 
