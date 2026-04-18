@@ -40,7 +40,7 @@ export interface StoreResult {
  * Avoids writing the PDF to disk — generates in memory and streams to storage.
  *
  * @param template - LoadedTemplate returned by loadTemplate()
- * @param data - Input JSON with texts, loops, and images
+ * @param data - Input JSON with texts, images, and tables
  * @param storage - Storage provider implementation
  * @param options - Storage key and optional prefix
  * @returns StoreResult with the URL and file size

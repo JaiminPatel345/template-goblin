@@ -127,7 +127,7 @@ Binary assets are stored as real files inside the ZIP — ~33% smaller than base
     "indexnumber": "12345",
     "school_name": "Example School"
   },
-  "loops": {
+  "tables": {
     "marks": [
       { "subjectcode": "101", "subject_name": "Mathematics", "grade": "A" },
       { "subjectcode": "102", "subject_name": "Science", "grade": "B+" }
@@ -140,7 +140,7 @@ Binary assets are stored as real files inside the ZIP — ~33% smaller than base
 ```
 
 - `texts` — string values for text fields
-- `loops` — arrays of row objects for table fields
+- `tables` — arrays of row objects for table fields
 - `images` — Buffer or base64 string for image fields
 - Keys must match `jsonKey` values in the template (dot notation: `texts.name`)
 
@@ -180,8 +180,8 @@ Read only the manifest from a `.tgbl` file without loading assets. Fast operatio
 | `INVALID_MANIFEST`       | Manifest fails schema validation  | `Invalid manifest: field "fields[2].style.fontSize" must be a number` |
 | `MISSING_ASSET`          | Referenced font/image not in ZIP  | `Missing asset: fonts/custom-font.ttf referenced but not found`       |
 | `MISSING_REQUIRED_FIELD` | Required field missing from input | `Missing required field: texts.name`                                  |
-| `INVALID_DATA_TYPE`      | Wrong data type for field         | `Invalid data for "loops.marks": expected array, got string`          |
-| `MAX_PAGES_EXCEEDED`     | Table exceeds max page limit      | `Table "loops.marks" requires 5 pages but maxPages is 3`              |
+| `INVALID_DATA_TYPE`      | Wrong data type for field         | `Invalid data for "tables.marks": expected array, got string`         |
+| `MAX_PAGES_EXCEEDED`     | Table exceeds max page limit      | `Table "tables.marks" requires 5 pages but maxPages is 3`             |
 | `FONT_LOAD_FAILED`       | Corrupt or invalid font file      | `Failed to load font: fonts/custom-font.ttf`                          |
 | `PDF_GENERATION_FAILED`  | PDFKit error during rendering     | `PDF generation failed: [error details]`                              |
 
@@ -284,9 +284,9 @@ import { loadTemplate, generateBatchPDF } from 'template-goblin'
 const template = await loadTemplate('./template.tgbl')
 
 const students = [
-  { texts: { name: 'Alice' }, loops: {}, images: {} },
-  { texts: { name: 'Bob' }, loops: {}, images: {} },
-  { texts: { name: 'Charlie' }, loops: {}, images: {} },
+  { texts: { name: 'Alice' }, tables: {}, images: {} },
+  { texts: { name: 'Bob' }, tables: {}, images: {} },
+  { texts: { name: 'Charlie' }, tables: {}, images: {} },
 ]
 
 const results = await generateBatchPDF(template, students, {

@@ -30,7 +30,7 @@ import { renderLoop } from './render/loop.js'
  * 5. Render all fields in zIndex order (lowest first)
  *
  * @param template - LoadedTemplate returned by loadTemplate()
- * @param data - Input JSON with texts, loops, and images
+ * @param data - Input JSON with texts, images, and tables
  * @returns PDF as a Buffer
  * @throws TemplateGoblinError with code MISSING_REQUIRED_FIELD, INVALID_DATA_TYPE, MAX_PAGES_EXCEEDED, or PDF_GENERATION_FAILED
  */
@@ -242,7 +242,7 @@ function renderField(
  * Do NOT use this in a loop — use loadTemplate() + generatePDF() instead.
  *
  * @param path - Path to the .tgbl file
- * @param data - Input JSON with texts, loops, and images
+ * @param data - Input JSON with texts, images, and tables
  * @returns PDF as a Buffer
  */
 export async function generatePDFFromFile(path: string, data: InputJSON): Promise<Buffer> {

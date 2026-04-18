@@ -56,5 +56,5 @@ Summary of what was reviewed and why it passes.
 - **Be thorough** — check every function, every branch, every error path
 - **Reference spec requirement IDs** in feedback (e.g., "REQ-003 not satisfied because...")
 - **Check error codes** from spec 021 are used correctly
-- **Verify no overflow** — text, images, loops must stay within bounding rectangles
+- **Verify no overflow** — text, images, tables must stay within bounding rectangles
 - **Check import paths** — no direct imports from other packages' src/

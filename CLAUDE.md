@@ -23,7 +23,7 @@ developers use the npm library to generate PDFs at scale.
 7. No large icon libraries — use inline SVGs only
 8. Code implements specs — not the other way around. If spec is ambiguous, clarify.
 9. Tests are written from specs, not from code.
-10. All text/images/loops render inside their bounding rectangle — NEVER overflow.
+10. All text/images/tables render inside their bounding rectangle — NEVER overflow.
 
 ## Tech Stack
 
