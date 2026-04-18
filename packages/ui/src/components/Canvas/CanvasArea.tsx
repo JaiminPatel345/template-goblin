@@ -13,6 +13,7 @@ import type Konva from 'konva'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { createDefaultField } from '../../utils/defaults.js'
+import { snapshotSameAsPrevious } from '../../utils/pageSnapshot.js'
 import type {
   FieldDefinition,
   FieldType,
@@ -809,59 +810,19 @@ export function CanvasArea() {
 
     // Resolve "same as previous" into a concrete snapshot of the previous page.
     if (bgType === 'inherit') {
-      const prev = pages[pages.length - 1]
-      if (prev) {
-        // Walk back through any previous inherit chain to the nearest concrete page.
-        let source: PageDefinition | undefined = prev
-        let cursor = pages.length - 1
-        while (source && source.backgroundType === 'inherit' && cursor > 0) {
-          cursor -= 1
-          source = pages[cursor]
-        }
-        if (source && source.backgroundType === 'color') {
-          const snap: PageDefinition = {
-            id: pageId,
-            index,
-            backgroundType: 'color',
-            backgroundColor: source.backgroundColor,
-            backgroundFilename: null,
-          }
+      const { page: snap, sourceId } = snapshotSameAsPrevious(pages, pageId, index)
+      if (snap.backgroundType === 'image' && sourceId) {
+        const prevDataUrl = pageBackgroundDataUrls.get(sourceId) ?? null
+        const prevBuffer = pageBackgroundBuffers.get(sourceId) ?? null
+        if (prevDataUrl && prevBuffer) {
+          const cloned = prevBuffer.slice(0)
+          addPage(snap, prevDataUrl, cloned)
+        } else {
           addPage(snap)
-          setCurrentPage(pageId)
-          return
         }
-        if (source && source.backgroundType === 'image' && source.backgroundFilename) {
-          // Reuse the previous page's image buffer + data URL so the snapshot
-          // survives the source page being edited or deleted later.
-          const prevDataUrl = pageBackgroundDataUrls.get(source.id) ?? null
-          const prevBuffer = pageBackgroundBuffers.get(source.id) ?? null
-          const snap: PageDefinition = {
-            id: pageId,
-            index,
-            backgroundType: 'image',
-            backgroundColor: null,
-            backgroundFilename: `backgrounds/${pageId}.png`,
-          }
-          if (prevDataUrl && prevBuffer) {
-            // Clone the ArrayBuffer so the store owns an independent copy.
-            const cloned = prevBuffer.slice(0)
-            addPage(snap, prevDataUrl, cloned)
-          } else {
-            addPage(snap)
-          }
-          setCurrentPage(pageId)
-          return
-        }
+      } else {
+        addPage(snap)
       }
-      // No resolvable previous page — fall back to a white solid color.
-      const fallback: PageDefinition = {
-        id: pageId,
-        index,
-        backgroundType: 'color',
-        backgroundColor: '#ffffff',
-        backgroundFilename: null,
-      }
-      addPage(fallback)
       setCurrentPage(pageId)
       return
     }
