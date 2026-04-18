@@ -33,7 +33,7 @@ The `generatePDF` function is the hot path of the library. It takes a pre-loaded
 ### Happy path
 
 1. Caller passes a `LoadedTemplate` and an `InputJSON` object
-2. Input data is validated: all required fields are present, data types are correct
+2. Input data is validated: every **dynamic** field with `source.required: true` has a matching entry in the input, and data types are correct. Static fields are never consulted against the input — their values are already baked into the template.
 3. A new PDFKit document is created with dimensions from `manifest.meta.width` and `manifest.meta.height`
 4. All custom fonts from `template.fonts` are registered with PDFKit
 5. Background image (if present) is rendered on the first page
@@ -60,7 +60,7 @@ The `generatePDF` function is the hot path of the library. It takes a pre-loaded
 
 ### Error conditions
 
-- `MISSING_REQUIRED_FIELD`: A field marked `required: true` in the template has no corresponding key in the input data (or the value is `null`/`undefined`). Error includes the missing field's `jsonKey`.
+- `MISSING_REQUIRED_FIELD`: A **dynamic** field marked `source.required: true` in the template has no corresponding key in the input data (or the value is `null`/`undefined`). Error includes the missing field's `source.jsonKey`. Static fields (`source.mode === 'static'`) are never checked against the input — they always resolve to their baked-in `source.value` and cannot raise this error.
 - `INVALID_DATA_TYPE`: A field receives data of the wrong type (e.g. a string where an array is expected for a table, or a non-image value for an image field). Error includes the field `jsonKey` and expected vs actual type.
 - `MAX_PAGES_EXCEEDED`: A multi-page table would require more pages than `meta.maxPages` allows. Error includes the number of pages required and the maximum allowed.
 - `PDF_GENERATION_FAILED`: An unexpected error during PDFKit rendering (e.g. corrupt font buffer, invalid image data). Wraps the underlying error with context about which field was being rendered.
