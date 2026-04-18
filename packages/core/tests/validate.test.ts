@@ -1,19 +1,15 @@
-import { validateData } from '../src/validate.js'
 import type {
-  LoadedTemplate,
-  InputJSON,
-  TemplateManifest,
+  CellStyle,
   FieldDefinition,
-  TextFieldStyle,
   ImageFieldStyle,
-  LoopFieldStyle,
+  InputJSON,
+  LoadedTemplate,
+  TableFieldStyle,
+  TemplateManifest,
+  TextFieldStyle,
 } from '@template-goblin/types'
+import { validateData } from '../src/validate.js'
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                           */
-/* ------------------------------------------------------------------ */
-
-/** Minimal text field style to satisfy the FieldDefinition type. */
 const TEXT_STYLE: TextFieldStyle = {
   fontId: null,
   fontFamily: 'Helvetica',
@@ -32,74 +28,50 @@ const TEXT_STYLE: TextFieldStyle = {
   snapToGrid: false,
 }
 
-/** Minimal image field style. */
-const IMAGE_STYLE: ImageFieldStyle = {
-  fit: 'cover',
-  placeholderFilename: null,
+const IMAGE_STYLE: ImageFieldStyle = { fit: 'cover' }
+
+const BASE_CELL: CellStyle = {
+  fontFamily: 'Helvetica',
+  fontSize: 10,
+  fontWeight: 'normal',
+  fontStyle: 'normal',
+  textDecoration: 'none',
+  color: '#000000',
+  backgroundColor: '#ffffff',
+  borderWidth: 1,
+  borderColor: '#cccccc',
+  paddingTop: 2,
+  paddingBottom: 2,
+  paddingLeft: 4,
+  paddingRight: 4,
+  align: 'left',
+  verticalAlign: 'top',
 }
 
-/** Minimal loop field style. */
-const LOOP_STYLE: LoopFieldStyle = {
-  maxRows: 50,
-  maxColumns: 5,
-  multiPage: false,
-  headerStyle: {
-    fontFamily: 'Helvetica',
-    fontSize: 10,
-    fontWeight: 'bold',
-    align: 'left',
-    color: '#000000',
-    backgroundColor: '#eeeeee',
-  },
-  rowStyle: {
-    fontFamily: 'Helvetica',
-    fontSize: 10,
-    fontWeight: 'normal',
-    color: '#000000',
-    overflowMode: 'truncate',
-    fontSizeDynamic: false,
-    fontSizeMin: 8,
-    lineHeight: 1.2,
-  },
-  cellStyle: {
-    borderWidth: 1,
-    borderColor: '#cccccc',
-    paddingTop: 2,
-    paddingBottom: 2,
-    paddingLeft: 4,
-    paddingRight: 4,
-  },
-  columns: [{ key: 'item', label: 'Item', width: 100, align: 'left' }],
-}
-
-/** Build a FieldDefinition helper. */
-function makeField(
-  overrides: Partial<FieldDefinition> & Pick<FieldDefinition, 'id' | 'type' | 'jsonKey'>,
-): FieldDefinition {
-  const styleMap: Record<string, TextFieldStyle | ImageFieldStyle | LoopFieldStyle> = {
-    text: TEXT_STYLE,
-    image: IMAGE_STYLE,
-    loop: LOOP_STYLE,
-  }
-
+function tableStyle(columnKeys: string[]): TableFieldStyle {
   return {
-    groupId: null,
-    required: true,
-    placeholder: null,
-    x: 0,
-    y: 0,
-    width: 200,
-    height: 40,
-    zIndex: 0,
-    style: styleMap[overrides.type],
-    ...overrides,
+    maxRows: 50,
+    maxColumns: 5,
+    multiPage: false,
+    showHeader: true,
+    headerStyle: { ...BASE_CELL, fontWeight: 'bold', backgroundColor: '#eeeeee' },
+    rowStyle: BASE_CELL,
+    oddRowStyle: null,
+    evenRowStyle: null,
+    cellStyle: { overflowMode: 'truncate' },
+    columns: columnKeys.map((key) => ({
+      key,
+      label: key,
+      width: 100,
+      style: null,
+      headerStyle: null,
+    })),
   }
 }
 
-/** Build a minimal LoadedTemplate with the given fields. */
 function makeTemplate(fields: FieldDefinition[]): LoadedTemplate {
   const manifest: TemplateManifest = {
-    version: '1.0',
+    version: '2.0',
     meta: {
       name: 'Test',
       width: 595,
@@ -108,271 +80,282 @@ function makeTemplate(fields: FieldDefinition[]): LoadedTemplate {
       pageSize: 'A4',
       locked: false,
       maxPages: 1,
-      createdAt: '2025-01-01T00:00:00Z',
-      updatedAt: '2025-01-01T00:00:00Z',
+      createdAt: '2026-04-18T00:00:00Z',
+      updatedAt: '2026-04-18T00:00:00Z',
     },
     fonts: [],
     groups: [],
+    pages: [],
     fields,
   }
-
   return {
     manifest,
     backgroundImage: null,
+    pageBackgrounds: new Map(),
     fonts: new Map(),
     placeholders: new Map(),
+    staticImages: new Map(),
   }
 }
 
-/* ------------------------------------------------------------------ */
-/*  The template shared by most tests:                                */
-/*    - required text field  (texts.name)                             */
-/*    - required image field (images.photo)                           */
-/*    - required loop field  (loops.items)                            */
-/*    - optional text field  (texts.subtitle)                         */
-/* ------------------------------------------------------------------ */
+function dynText(id: string, jsonKey: string, required: boolean): FieldDefinition {
+  return {
+    id,
+    type: 'text',
+    label: id,
+    groupId: null,
+    pageId: null,
+    x: 0,
+    y: 0,
+    width: 200,
+    height: 40,
+    zIndex: 0,
+    style: TEXT_STYLE,
+    source: { mode: 'dynamic', jsonKey, required, placeholder: null },
+  }
+}
+
+function dynImage(id: string, jsonKey: string, required: boolean): FieldDefinition {
+  return {
+    id,
+    type: 'image',
+    label: id,
+    groupId: null,
+    pageId: null,
+    x: 0,
+    y: 0,
+    width: 200,
+    height: 200,
+    zIndex: 0,
+    style: IMAGE_STYLE,
+    source: { mode: 'dynamic', jsonKey, required, placeholder: null },
+  }
+}
+
+function dynTable(
+  id: string,
+  jsonKey: string,
+  required: boolean,
+  columnKeys = ['item'],
+): FieldDefinition {
+  return {
+    id,
+    type: 'table',
+    label: id,
+    groupId: null,
+    pageId: null,
+    x: 0,
+    y: 0,
+    width: 500,
+    height: 200,
+    zIndex: 0,
+    style: tableStyle(columnKeys),
+    source: { mode: 'dynamic', jsonKey, required, placeholder: null },
+  }
+}
 
 const FIELDS: FieldDefinition[] = [
-  makeField({ id: 'name', type: 'text', jsonKey: 'texts.name', required: true }),
-  makeField({ id: 'photo', type: 'image', jsonKey: 'images.photo', required: true }),
-  makeField({ id: 'items', type: 'loop', jsonKey: 'loops.items', required: true }),
-  makeField({ id: 'subtitle', type: 'text', jsonKey: 'texts.subtitle', required: false }),
+  dynText('name', 'name', true),
+  dynImage('photo', 'photo', true),
+  dynTable('items', 'items', true, ['item']),
+  dynText('subtitle', 'subtitle', false),
 ]
 
 const TEMPLATE = makeTemplate(FIELDS)
 
-/* ------------------------------------------------------------------ */
-/*  Tests                                                             */
-/* ------------------------------------------------------------------ */
-
 describe('validateData', () => {
-  // ---- Complete valid data → valid: true -------------------------
-
-  it('should return valid: true with no errors for complete valid data', () => {
+  it('returns valid: true with no errors for complete valid data', () => {
     const data: InputJSON = {
       texts: { name: 'Alice', subtitle: 'Engineer' },
       images: { photo: 'base64encodedstring' },
-      loops: { items: [{ item: 'Widget' }] },
+      tables: { items: [{ item: 'Widget' }] },
     }
-
     const result = validateData(TEMPLATE, data)
-
     expect(result.valid).toBe(true)
     expect(result.errors).toEqual([])
   })
 
-  // ---- Missing required text field ------------------------------
-
-  it('should return MISSING_REQUIRED_FIELD when a required text field is missing', () => {
+  it('MISSING_REQUIRED_FIELD when required text field is missing', () => {
     const data: InputJSON = {
-      texts: {}, // name missing
+      texts: {},
       images: { photo: 'data' },
-      loops: { items: [{ item: 'A' }] },
+      tables: { items: [{ item: 'A' }] },
     }
-
     const result = validateData(TEMPLATE, data)
-
     expect(result.valid).toBe(false)
     expect(result.errors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          code: 'MISSING_REQUIRED_FIELD',
-          field: 'texts.name',
-        }),
+        expect.objectContaining({ code: 'MISSING_REQUIRED_FIELD', field: 'name' }),
       ]),
     )
   })
 
-  // ---- Missing required image field -----------------------------
-
-  it('should return MISSING_REQUIRED_FIELD when a required image field is missing', () => {
+  it('MISSING_REQUIRED_FIELD when required image field is missing', () => {
     const data: InputJSON = {
       texts: { name: 'Alice' },
-      images: {}, // photo missing
-      loops: { items: [{ item: 'A' }] },
+      images: {},
+      tables: { items: [{ item: 'A' }] },
     }
-
     const result = validateData(TEMPLATE, data)
-
     expect(result.valid).toBe(false)
     expect(result.errors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          code: 'MISSING_REQUIRED_FIELD',
-          field: 'images.photo',
-        }),
+        expect.objectContaining({ code: 'MISSING_REQUIRED_FIELD', field: 'photo' }),
       ]),
     )
   })
 
-  // ---- Optional field missing → still valid ---------------------
-
-  it('should remain valid when an optional field is missing', () => {
+  it('stays valid when optional field is missing', () => {
     const data: InputJSON = {
-      texts: { name: 'Alice' }, // subtitle omitted — it's optional
+      texts: { name: 'Alice' },
       images: { photo: 'data' },
-      loops: { items: [{ item: 'A' }] },
+      tables: { items: [{ item: 'A' }] },
     }
-
-    const result = validateData(TEMPLATE, data)
-
-    expect(result.valid).toBe(true)
-    expect(result.errors).toEqual([])
+    expect(validateData(TEMPLATE, data)).toEqual({ valid: true, errors: [] })
   })
 
-  // ---- Text field with number value → INVALID_DATA_TYPE ---------
-
-  it('should return INVALID_DATA_TYPE when a text field receives a number', () => {
+  it('INVALID_DATA_TYPE for text field with number value', () => {
     const data = {
       texts: { name: 42 as unknown as string },
       images: { photo: 'data' },
-      loops: { items: [{ item: 'A' }] },
+      tables: { items: [{ item: 'A' }] },
     } as unknown as InputJSON
-
     const result = validateData(TEMPLATE, data)
-
     expect(result.valid).toBe(false)
     expect(result.errors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          code: 'INVALID_DATA_TYPE',
-          field: 'texts.name',
-        }),
+        expect.objectContaining({ code: 'INVALID_DATA_TYPE', field: 'name' }),
       ]),
     )
   })
 
-  // ---- Loop field with non-array → INVALID_DATA_TYPE ------------
-
-  it('should return INVALID_DATA_TYPE when a loop field receives a non-array value', () => {
+  it('INVALID_DATA_TYPE for table field with non-array', () => {
     const data = {
       texts: { name: 'Alice' },
       images: { photo: 'data' },
-      loops: { items: 'not-an-array' },
+      tables: { items: 'not-an-array' },
     } as unknown as InputJSON
-
     const result = validateData(TEMPLATE, data)
-
-    expect(result.valid).toBe(false)
     expect(result.errors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          code: 'INVALID_DATA_TYPE',
-          field: 'loops.items',
-        }),
+        expect.objectContaining({ code: 'INVALID_DATA_TYPE', field: 'items' }),
       ]),
     )
   })
 
-  // ---- Image field with number → INVALID_DATA_TYPE --------------
-
-  it('should return INVALID_DATA_TYPE when an image field receives a number', () => {
+  it('INVALID_DATA_TYPE for image field with number', () => {
     const data = {
       texts: { name: 'Alice' },
       images: { photo: 12345 },
-      loops: { items: [{ item: 'A' }] },
+      tables: { items: [{ item: 'A' }] },
     } as unknown as InputJSON
-
     const result = validateData(TEMPLATE, data)
-
-    expect(result.valid).toBe(false)
     expect(result.errors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          code: 'INVALID_DATA_TYPE',
-          field: 'images.photo',
-        }),
+        expect.objectContaining({ code: 'INVALID_DATA_TYPE', field: 'photo' }),
       ]),
     )
   })
 
-  // ---- Empty string for required field → MISSING_REQUIRED_FIELD --
-
-  it('should return MISSING_REQUIRED_FIELD when a required field has an empty string', () => {
+  it('empty string for required field → MISSING_REQUIRED_FIELD', () => {
     const data: InputJSON = {
-      texts: { name: '' }, // empty string
+      texts: { name: '' },
       images: { photo: 'data' },
-      loops: { items: [{ item: 'A' }] },
+      tables: { items: [{ item: 'A' }] },
     }
-
     const result = validateData(TEMPLATE, data)
-
-    expect(result.valid).toBe(false)
     expect(result.errors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          code: 'MISSING_REQUIRED_FIELD',
-          field: 'texts.name',
-        }),
+        expect.objectContaining({ code: 'MISSING_REQUIRED_FIELD', field: 'name' }),
       ]),
     )
   })
 
-  // ---- Multiple errors collected at once ------------------------
-
-  it('should collect multiple errors when several fields are invalid', () => {
+  it('collects multiple errors at once', () => {
     const data: InputJSON = {
-      texts: {}, // name missing
-      images: {}, // photo missing
-      loops: { items: [{ item: 'A' }] },
+      texts: {},
+      images: {},
+      tables: { items: [{ item: 'A' }] },
     }
-
     const result = validateData(TEMPLATE, data)
-
     expect(result.valid).toBe(false)
     expect(result.errors.length).toBeGreaterThanOrEqual(2)
-
-    const codes = result.errors.map((e) => e.code)
-    expect(codes).toContain('MISSING_REQUIRED_FIELD')
+    expect(result.errors.map((e) => e.code)).toContain('MISSING_REQUIRED_FIELD')
   })
 
-  // ---- Template with no fields → always valid -------------------
-
-  it('should return valid: true for a template with no fields', () => {
+  it('template with no fields is always valid', () => {
     const emptyTemplate = makeTemplate([])
-    const data: InputJSON = { texts: {}, images: {}, loops: {} }
-
-    const result = validateData(emptyTemplate, data)
-
-    expect(result.valid).toBe(true)
-    expect(result.errors).toEqual([])
+    const data: InputJSON = { texts: {}, images: {}, tables: {} }
+    expect(validateData(emptyTemplate, data)).toEqual({ valid: true, errors: [] })
   })
 
-  // ---- Image field with valid Buffer → valid --------------------
-
-  it('should accept a Buffer as a valid image field value', () => {
+  it('accepts Buffer as valid image field value', () => {
     const data = {
       texts: { name: 'Alice' },
       images: { photo: Buffer.from('png-data') },
-      loops: { items: [{ item: 'A' }] },
+      tables: { items: [{ item: 'A' }] },
     } as unknown as InputJSON
-
     const result = validateData(TEMPLATE, data)
-
-    // The photo field should not produce an INVALID_DATA_TYPE error
-    const photoErrors = result.errors.filter((e) => e.field === 'images.photo')
-    expect(photoErrors).toEqual([])
+    expect(result.errors.filter((e) => e.field === 'photo')).toEqual([])
   })
 
-  // ---- Loop field with object (not array) → INVALID_DATA_TYPE ---
-
-  it('should return INVALID_DATA_TYPE when a loop field receives a plain object', () => {
+  it('INVALID_DATA_TYPE for table field with plain object instead of array', () => {
     const data = {
       texts: { name: 'Alice' },
       images: { photo: 'data' },
-      loops: { items: { item: 'not-array' } },
+      tables: { items: { item: 'not-array' } },
     } as unknown as InputJSON
-
     const result = validateData(TEMPLATE, data)
-
-    expect(result.valid).toBe(false)
     expect(result.errors).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          code: 'INVALID_DATA_TYPE',
-          field: 'loops.items',
-        }),
+        expect.objectContaining({ code: 'INVALID_DATA_TYPE', field: 'items' }),
       ]),
     )
+  })
+
+  it('INVALID_TABLE_ROW when dynamic table row has unknown column key', () => {
+    const template = makeTemplate([dynTable('t', 'rows', true, ['a'])])
+    const data: InputJSON = {
+      texts: {},
+      images: {},
+      tables: { rows: [{ a: '1', b: 'bogus' }] },
+    }
+    const result = validateData(template, data)
+    expect(result.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'INVALID_TABLE_ROW', field: 'rows' }),
+      ]),
+    )
+  })
+
+  it('static fields contribute no input-data requirements', () => {
+    const staticOnly = makeTemplate([
+      {
+        id: 'title',
+        type: 'text',
+        label: 'Title',
+        groupId: null,
+        pageId: null,
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 40,
+        zIndex: 0,
+        style: TEXT_STYLE,
+        source: { mode: 'static', value: 'Baked-in Title' },
+      },
+    ])
+    const result = validateData(staticOnly, { texts: {}, images: {}, tables: {} })
+    expect(result).toEqual({ valid: true, errors: [] })
+  })
+
+  it('required dynamic field missing reports correct jsonKey', () => {
+    const template = makeTemplate([dynText('greet', 'greeting', true)])
+    const result = validateData(template, { texts: {}, images: {}, tables: {} })
+    expect(result.valid).toBe(false)
+    expect(result.errors[0]).toMatchObject({
+      code: 'MISSING_REQUIRED_FIELD',
+      field: 'greeting',
+    })
   })
 })

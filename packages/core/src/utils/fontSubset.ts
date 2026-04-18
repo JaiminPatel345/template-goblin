@@ -1,4 +1,4 @@
-import type { TemplateManifest, LoopFieldStyle } from '@template-goblin/types'
+import type { TemplateManifest } from '@template-goblin/types'
 
 /**
  * Common characters to always include in subsetted fonts.
@@ -30,17 +30,23 @@ export function extractUsedCodePoints(manifest: TemplateManifest): Set<number> {
   const codePoints = new Set(COMMON_CHARS)
 
   for (const field of manifest.fields) {
-    // Collect text from placeholders
-    if (field.placeholder) {
-      addStringCodePoints(codePoints, field.placeholder)
+    // Collect text from source (static value for text; placeholder string for dynamic text)
+    if (field.type === 'text') {
+      if (field.source.mode === 'static') {
+        addStringCodePoints(codePoints, field.source.value)
+      } else if (typeof field.source.placeholder === 'string') {
+        addStringCodePoints(codePoints, field.source.placeholder)
+      }
     }
 
-    // Collect text from loop column labels
-    if (field.type === 'loop') {
-      const style = field.style as LoopFieldStyle
-      if (style.columns) {
-        for (const col of style.columns) {
-          addStringCodePoints(codePoints, col.label || col.key)
+    // Collect text from table column labels and static baked-in cell values
+    if (field.type === 'table') {
+      for (const col of field.style.columns) {
+        addStringCodePoints(codePoints, col.label || col.key)
+      }
+      if (field.source.mode === 'static') {
+        for (const row of field.source.value) {
+          for (const v of Object.values(row)) addStringCodePoints(codePoints, v)
         }
       }
     }

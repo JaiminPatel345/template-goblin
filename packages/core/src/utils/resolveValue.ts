@@ -25,6 +25,10 @@ export function resolveValue(
   input: InputJSON,
 ): ImageSourceValue | Buffer | string | undefined
 export function resolveValue(field: TableField, input: InputJSON): TableRow[] | undefined
+export function resolveValue(
+  field: FieldDefinition,
+  input: InputJSON,
+): string | ImageSourceValue | Buffer | TableRow[] | undefined
 export function resolveValue(field: FieldDefinition, input: InputJSON): unknown {
   if (field.source.mode === 'static') {
     return field.source.value

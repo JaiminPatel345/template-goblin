@@ -3,14 +3,14 @@ import type {
   LoadedTemplate,
   InputJSON,
   FieldDefinition,
-  LoopRow,
+  TableRow,
   PageDefinition,
   TemplateMeta,
 } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
 import { validateData } from './validate.js'
 import { registerFonts } from './utils/font.js'
-import { resolveKey } from './utils/resolveKey.js'
+import { resolveValue } from './utils/resolveValue.js'
 import { renderBackground, renderColorBackground } from './render/background.js'
 import { renderText } from './render/text.js'
 import { renderImage } from './render/image.js'
@@ -198,9 +198,9 @@ function renderField(
   fontMap: Map<string, string>,
   template: LoadedTemplate,
 ): void {
-  const value = resolveKey(data as unknown as Record<string, unknown>, field.jsonKey)
+  const value = resolveValue(field as FieldDefinition, data) as unknown
 
-  // Skip if value is not provided (optional field)
+  // Skip if value is not provided (optional dynamic field or unresolved static)
   if (value === undefined || value === null) return
 
   switch (field.type) {
@@ -209,16 +209,25 @@ function renderField(
       renderText(doc, field, value, fontMap)
       break
 
-    case 'image':
-      if (typeof value !== 'string' && !Buffer.isBuffer(value)) break
-      renderImage(doc, field, value)
+    case 'image': {
+      // Dynamic image: value is Buffer or base64 string — passed directly.
+      // Static image: value is { filename } — look up bytes in staticImages.
+      let imageData: Buffer | string | undefined
+      if (typeof value === 'string' || Buffer.isBuffer(value)) {
+        imageData = value
+      } else if (value && typeof value === 'object' && 'filename' in value) {
+        imageData = template.staticImages.get((value as { filename: string }).filename)
+      }
+      if (!imageData) break
+      renderImage(doc, field, imageData)
       break
+    }
 
-    case 'loop':
+    case 'table':
       renderLoop(
         doc,
         field,
-        value as LoopRow[],
+        value as TableRow[],
         fontMap,
         template.manifest.meta,
         template.backgroundImage,

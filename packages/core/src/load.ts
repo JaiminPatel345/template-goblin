@@ -68,22 +68,36 @@ export async function loadTemplate(path: string): Promise<LoadedTemplate> {
     }
   }
 
-  // REQ: Load all placeholder images referenced by image fields
+  // Load placeholder images (dynamic image fields) and static images
+  // (static image fields). Both live in the archive; which folder they come
+  // from is determined by the field's source.
   const placeholders = new Map<string, Buffer>()
+  const staticImages = new Map<string, Buffer>()
   for (const field of manifest.fields) {
-    if (field.type === 'image') {
-      const style = field.style as { placeholderFilename?: string | null }
-      if (style.placeholderFilename) {
-        if (!placeholders.has(style.placeholderFilename)) {
-          const entry = zip.getEntry(style.placeholderFilename)
-          if (!entry) {
-            throw new TemplateGoblinError(
-              'MISSING_ASSET',
-              `Missing asset: ${style.placeholderFilename} referenced in manifest but not found in archive`,
-            )
-          }
-          placeholders.set(style.placeholderFilename, entry.getData())
+    if (field.type !== 'image') continue
+    if (field.source.mode === 'static') {
+      const filename = field.source.value.filename
+      if (!staticImages.has(filename)) {
+        const entry = zip.getEntry(filename)
+        if (!entry) {
+          throw new TemplateGoblinError(
+            'MISSING_STATIC_IMAGE_FILE',
+            `Missing static image: ${filename} referenced by field ${field.id} but not found in archive`,
+          )
         }
+        staticImages.set(filename, entry.getData())
+      }
+    } else if (field.source.placeholder) {
+      const filename = field.source.placeholder.filename
+      if (!placeholders.has(filename)) {
+        const entry = zip.getEntry(filename)
+        if (!entry) {
+          throw new TemplateGoblinError(
+            'MISSING_PLACEHOLDER_IMAGE_FILE',
+            `Missing placeholder image: ${filename} referenced by field ${field.id} but not found in archive`,
+          )
+        }
+        placeholders.set(filename, entry.getData())
       }
     }
   }
@@ -94,5 +108,6 @@ export async function loadTemplate(path: string): Promise<LoadedTemplate> {
     pageBackgrounds,
     fonts,
     placeholders,
+    staticImages,
   }
 }

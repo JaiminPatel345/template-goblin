@@ -33,6 +33,7 @@ interface SerializedTemplate {
   pageBackgrounds: [string, string][]
   fonts: [string, string][]
   placeholders: [string, string][]
+  staticImages: [string, string][]
 }
 
 function serializeTemplate(template: LoadedTemplate): SerializedTemplate {
@@ -45,6 +46,10 @@ function serializeTemplate(template: LoadedTemplate): SerializedTemplate {
     ]),
     fonts: Array.from(template.fonts.entries()).map(([k, v]) => [k, v.toString('base64')]),
     placeholders: Array.from(template.placeholders.entries()).map(([k, v]) => [
+      k,
+      v.toString('base64'),
+    ]),
+    staticImages: Array.from(template.staticImages.entries()).map(([k, v]) => [
       k,
       v.toString('base64'),
     ]),
@@ -61,6 +66,7 @@ export function deserializeTemplate(data: SerializedTemplate): LoadedTemplate {
     ),
     fonts: new Map(data.fonts.map(([k, v]) => [k, Buffer.from(v, 'base64')])),
     placeholders: new Map(data.placeholders.map(([k, v]) => [k, Buffer.from(v, 'base64')])),
+    staticImages: new Map((data.staticImages ?? []).map(([k, v]) => [k, Buffer.from(v, 'base64')])),
   }
 }
 

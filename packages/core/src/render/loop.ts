@@ -1,140 +1,132 @@
 import type PDFDocument from 'pdfkit'
 import type {
-  FieldDefinition,
-  LoopFieldStyle,
-  LoopRow,
+  CellStyle,
+  TableColumn,
+  TableField,
+  TableFieldStyle,
+  TableRow,
   TemplateMeta,
-  LoopColumn,
 } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
 import { renderBackground } from './background.js'
 import { measureText, truncateLines } from '../utils/measure.js'
 
 /**
- * Render a loop/table field onto a PDFKit document.
+ * Render a table field onto a PDFKit document.
  *
- * Handles header rendering, data rows with column styles, cell borders/padding,
- * and multi-page overflow.
+ * Handles header rendering, data rows with per-column style overrides,
+ * cell borders/padding, and multi-page overflow.
  *
- * @param doc - PDFKit document
- * @param field - Field definition with loop style
- * @param loopData - Array of row objects
- * @param fonts - Map of fontId → registered font name
- * @param meta - Template metadata (for multi-page background re-rendering)
- * @param backgroundImage - Background image buffer for multi-page re-rendering
+ * Note: advanced styling (showHeader, oddRowStyle, evenRowStyle, per-column
+ * headerStyle) will be layered in during Phase 3. This version honours the
+ * v2.0 shared CellStyle shape and the `Partial<CellStyle>` column override.
  */
 export function renderLoop(
   doc: InstanceType<typeof PDFDocument>,
-  field: FieldDefinition,
-  loopData: LoopRow[],
-  fonts: Map<string, string>,
+  field: TableField,
+  rowData: TableRow[],
+  _fonts: Map<string, string>,
   meta: TemplateMeta,
   backgroundImage: Buffer | null,
 ): void {
-  const style = field.style as LoopFieldStyle
+  const style = field.style
   const { x, y, width } = field
   const columns = style.columns
 
-  // Calculate column widths — use defined widths, or distribute evenly
-  const totalDefinedWidth = columns.reduce((sum, col) => sum + col.width, 0)
+  const totalDefinedWidth = columns.reduce((sum: number, col: TableColumn) => sum + col.width, 0)
   const scaleFactor = totalDefinedWidth > 0 ? width / totalDefinedWidth : 1
 
-  const dataRowHeight = calculateRowHeight(
-    style.rowStyle.fontSize,
-    style.rowStyle.lineHeight,
-    style,
-  )
+  const headerRowHeight = cellRowHeight(style.headerStyle)
+  const dataRowHeight = cellRowHeight(style.rowStyle)
 
   let currentY = y
   let currentPage = 1
   let rowIndex = 0
 
-  // REQ: Render header row first
-  currentY = renderHeaderRow(doc, columns, style, x, currentY, scaleFactor)
+  if (style.showHeader !== false) {
+    currentY = renderHeaderRow(doc, columns, style, x, currentY, scaleFactor)
+  }
 
-  // REQ: Render data rows
-  while (rowIndex < loopData.length) {
-    const row = loopData[rowIndex]
+  while (rowIndex < rowData.length) {
+    const row = rowData[rowIndex]
     if (!row) {
       rowIndex++
       continue
     }
 
-    // Check if this row fits on the current page
     const pageBottom = y + field.height
     if (currentY + dataRowHeight > pageBottom) {
-      if (!style.multiPage) {
-        // Single page — stop rendering
-        break
-      }
+      if (!style.multiPage) break
 
-      // REQ: Multi-page — check maxPages limit
       currentPage++
       if (currentPage > meta.maxPages) {
+        const label = field.source.mode === 'dynamic' ? field.source.jsonKey : `static-${field.id}`
         throw new TemplateGoblinError(
           'MAX_PAGES_EXCEEDED',
-          `Table "${field.jsonKey}" requires ${currentPage} pages but maxPages is ${meta.maxPages}`,
+          `Table "${label}" requires ${currentPage} pages but maxPages is ${meta.maxPages}`,
         )
       }
 
-      // REQ: Add new page, re-render background
       doc.addPage({ size: [meta.width, meta.height] })
       renderBackground(doc, backgroundImage, meta)
 
-      // REQ: Re-render header on new page
       currentY = y
-      currentY = renderHeaderRow(doc, columns, style, x, currentY, scaleFactor)
+      if (style.showHeader !== false) {
+        currentY = renderHeaderRow(doc, columns, style, x, currentY, scaleFactor)
+      }
     }
 
-    // Render data row
-    currentY = renderDataRow(doc, columns, row, style, x, currentY, scaleFactor, fonts)
+    currentY = renderDataRow(doc, columns, row, style, x, currentY, scaleFactor)
     rowIndex++
+    void headerRowHeight
   }
 }
 
-/**
- * Render the header row of a table.
- */
+/** Compute a single-row height from a CellStyle (font-size baseline + padding). */
+function cellRowHeight(cs: CellStyle): number {
+  return cs.fontSize + cs.paddingTop + cs.paddingBottom
+}
+
+function mergeStyle(base: CellStyle, override: Partial<CellStyle> | null): CellStyle {
+  if (!override) return base
+  return { ...base, ...override }
+}
+
 function renderHeaderRow(
   doc: InstanceType<typeof PDFDocument>,
-  columns: LoopColumn[],
-  style: LoopFieldStyle,
+  columns: TableColumn[],
+  style: TableFieldStyle,
   startX: number,
   startY: number,
   scaleFactor: number,
 ): number {
-  const hs = style.headerStyle
-  const cs = style.cellStyle
-  const rowHeight = calculateRowHeight(hs.fontSize, style.rowStyle.lineHeight, style)
-
   let colX = startX
 
   for (const col of columns) {
     const colWidth = col.width * scaleFactor
+    const hs = mergeStyle(style.headerStyle, col.headerStyle)
+    const rowHeight = cellRowHeight(hs)
 
-    // REQ: Header background color
     if (hs.backgroundColor) {
       doc.save()
       doc.rect(colX, startY, colWidth, rowHeight).fill(hs.backgroundColor)
       doc.restore()
     }
 
-    // REQ: Cell borders
-    if (cs.borderWidth > 0) {
+    if (hs.borderWidth > 0) {
       doc.save()
-      doc.lineWidth(cs.borderWidth).strokeColor(cs.borderColor)
+      doc.lineWidth(hs.borderWidth).strokeColor(hs.borderColor)
       doc.rect(colX, startY, colWidth, rowHeight).stroke()
       doc.restore()
     }
 
-    // Header text
-    doc.font(hs.fontFamily ?? 'Helvetica')
+    doc.font(hs.fontFamily || 'Helvetica')
     doc.fontSize(hs.fontSize)
     doc.fillColor(hs.color)
 
-    const textX = colX + cs.paddingLeft
-    const textY = startY + cs.paddingTop
-    const textWidth = colWidth - cs.paddingLeft - cs.paddingRight
+    const textX = colX + hs.paddingLeft
+    const textY = startY + hs.paddingTop
+    const textWidth = colWidth - hs.paddingLeft - hs.paddingRight
 
     doc.text(col.label || col.key, textX, textY, {
       width: textWidth,
@@ -145,92 +137,95 @@ function renderHeaderRow(
     colX += colWidth
   }
 
-  return startY + rowHeight
+  return startY + cellRowHeight(style.headerStyle)
 }
 
-/**
- * Render a single data row of the table.
- */
 function renderDataRow(
   doc: InstanceType<typeof PDFDocument>,
-  columns: LoopColumn[],
-  row: LoopRow,
-  style: LoopFieldStyle,
+  columns: TableColumn[],
+  row: TableRow,
+  style: TableFieldStyle,
   startX: number,
   startY: number,
   scaleFactor: number,
-  _fonts: Map<string, string>,
 ): number {
-  const rs = style.rowStyle
-  const cs = style.cellStyle
-  const rowHeight = calculateRowHeight(rs.fontSize, rs.lineHeight, style)
-
+  const rowHeight = cellRowHeight(style.rowStyle)
   let colX = startX
 
   for (const col of columns) {
     const colWidth = col.width * scaleFactor
+    const rs = mergeStyle(style.rowStyle, col.style)
     const cellValue = row[col.key] ?? ''
 
-    // REQ: Cell borders
-    if (cs.borderWidth > 0) {
+    if (rs.backgroundColor) {
       doc.save()
-      doc.lineWidth(cs.borderWidth).strokeColor(cs.borderColor)
+      doc.rect(colX, startY, colWidth, rowHeight).fill(rs.backgroundColor)
+      doc.restore()
+    }
+
+    if (rs.borderWidth > 0) {
+      doc.save()
+      doc.lineWidth(rs.borderWidth).strokeColor(rs.borderColor)
       doc.rect(colX, startY, colWidth, rowHeight).stroke()
       doc.restore()
     }
 
-    // REQ: Column style overrides for fontSize, fontWeight, color, textDecoration
-    const fontSize = col.style?.fontSize ?? rs.fontSize
-    const fontWeight = col.style?.fontWeight ?? rs.fontWeight
-    const color = col.style?.color ?? rs.color
-    const align = col.align ?? 'left'
-
-    // Set font based on weight
-    const fontFamily = rs.fontFamily ?? 'Helvetica'
-    const fontName = fontWeight === 'bold' ? `${fontFamily}-Bold` : fontFamily
+    const fontFamily = rs.fontFamily || 'Helvetica'
+    const fontName = rs.fontWeight === 'bold' ? `${fontFamily}-Bold` : fontFamily
     doc.font(fontName)
-    doc.fontSize(fontSize)
-    doc.fillColor(color)
+    doc.fontSize(rs.fontSize)
+    doc.fillColor(rs.color)
 
-    const textX = colX + cs.paddingLeft
-    const textY = startY + cs.paddingTop
-    const textWidth = colWidth - cs.paddingLeft - cs.paddingRight
-    const maxTextRows = 1 // Each cell is typically single-line in tables
+    const textX = colX + rs.paddingLeft
+    const textY = startY + rs.paddingTop
+    const textWidth = colWidth - rs.paddingLeft - rs.paddingRight
+    const maxTextRows = 1
 
-    // REQ: Per-cell overflow handling using same logic as text fields
-    if (rs.overflowMode === 'dynamic_font' && rs.fontSizeDynamic) {
-      let currentSize = fontSize
+    if (style.cellStyle.overflowMode === 'dynamic_font') {
+      let currentSize = rs.fontSize
       let result = measureText(doc, cellValue, currentSize, textWidth, maxTextRows)
-      while (!result.fits && currentSize > rs.fontSizeMin) {
+      const minSize = Math.max(1, currentSize - 6)
+      while (!result.fits && currentSize > minSize) {
         currentSize -= 1
         doc.fontSize(currentSize)
         result = measureText(doc, cellValue, currentSize, textWidth, maxTextRows)
       }
       if (!result.fits) {
         const truncated = truncateLines(doc, result.lines, maxTextRows, textWidth)
-        doc.text(truncated[0] ?? '', textX, textY, { width: textWidth, align, lineBreak: false })
+        doc.text(truncated[0] ?? '', textX, textY, {
+          width: textWidth,
+          align: rs.align,
+          lineBreak: false,
+        })
       } else {
-        doc.text(result.lines[0] ?? '', textX, textY, { width: textWidth, align, lineBreak: false })
+        doc.text(result.lines[0] ?? '', textX, textY, {
+          width: textWidth,
+          align: rs.align,
+          lineBreak: false,
+        })
       }
     } else {
-      const result = measureText(doc, cellValue, fontSize, textWidth, maxTextRows)
+      const result = measureText(doc, cellValue, rs.fontSize, textWidth, maxTextRows)
       if (!result.fits) {
         const truncated = truncateLines(doc, result.lines, maxTextRows, textWidth)
-        doc.text(truncated[0] ?? '', textX, textY, { width: textWidth, align, lineBreak: false })
+        doc.text(truncated[0] ?? '', textX, textY, {
+          width: textWidth,
+          align: rs.align,
+          lineBreak: false,
+        })
       } else {
-        doc.text(cellValue, textX, textY, { width: textWidth, align, lineBreak: false })
+        doc.text(cellValue, textX, textY, { width: textWidth, align: rs.align, lineBreak: false })
       }
     }
 
-    // REQ: Text decoration (underline)
-    if (col.style?.textDecoration === 'underline') {
-      const textWidthActual = doc.widthOfString(cellValue)
+    if (rs.textDecoration === 'underline') {
+      const actualWidth = doc.widthOfString(cellValue)
       doc.save()
-      doc.strokeColor(color)
+      doc.strokeColor(rs.color)
       doc.lineWidth(0.5)
       doc
-        .moveTo(textX, textY + fontSize + 1)
-        .lineTo(textX + Math.min(textWidthActual, textWidth), textY + fontSize + 1)
+        .moveTo(textX, textY + rs.fontSize + 1)
+        .lineTo(textX + Math.min(actualWidth, textWidth), textY + rs.fontSize + 1)
         .stroke()
       doc.restore()
     }
@@ -239,12 +234,4 @@ function renderDataRow(
   }
 
   return startY + rowHeight
-}
-
-/**
- * Calculate row height based on font size, line height, and cell padding.
- */
-function calculateRowHeight(fontSize: number, lineHeight: number, style: LoopFieldStyle): number {
-  const cs = style.cellStyle
-  return fontSize * lineHeight + cs.paddingTop + cs.paddingBottom
 }

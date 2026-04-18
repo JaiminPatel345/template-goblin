@@ -241,11 +241,12 @@ function validateManifestStructure(manifest: TemplateManifest): void {
       )
     }
 
-    // Validate jsonKey format
-    if (!field.jsonKey || typeof field.jsonKey !== 'string') {
+    // Field source shape (mode + mode-specific slots) is validated exhaustively
+    // by validateManifest(); only shallow shape checks remain here.
+    if (!field.source || typeof field.source !== 'object') {
       throw new TemplateGoblinError(
         'INVALID_MANIFEST',
-        `Invalid manifest: field "${field.id}" missing "jsonKey"`,
+        `Invalid manifest: field "${field.id}" missing "source"`,
       )
     }
   }
