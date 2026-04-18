@@ -1,8 +1,10 @@
+import type { FieldSource } from './source.js'
+
 /** Page size presets supported by the template */
 export type PageSize = 'custom' | 'A4' | 'A3' | 'Letter' | 'Legal'
 
 /** Field types available in a template */
-export type FieldType = 'text' | 'image' | 'loop'
+export type FieldType = 'text' | 'image' | 'table'
 
 /** Text alignment options */
 export type TextAlign = 'left' | 'center' | 'right'
@@ -17,7 +19,7 @@ export type FontWeight = 'normal' | 'bold'
 export type FontStyle = 'normal' | 'italic'
 
 /** Text decoration options */
-export type TextDecoration = 'none' | 'underline'
+export type TextDecoration = 'none' | 'underline' | 'line-through'
 
 /** Overflow handling mode */
 export type OverflowMode = 'dynamic_font' | 'truncate'
@@ -51,6 +53,30 @@ export interface GroupDefinition {
   name: string
 }
 
+/**
+ * Shared cell style used by header, row, odd/even rows, and per-column overrides
+ * in a table field. Every property is required at the top-level slots
+ * (`headerStyle`, `rowStyle`); `Partial<CellStyle>` is used at override slots
+ * (odd/even row, per-column).
+ */
+export interface CellStyle {
+  fontFamily: string
+  fontSize: number
+  fontWeight: FontWeight
+  fontStyle: FontStyle
+  textDecoration: TextDecoration
+  color: string
+  backgroundColor: string
+  borderWidth: number
+  borderColor: string
+  paddingTop: number
+  paddingBottom: number
+  paddingLeft: number
+  paddingRight: number
+  align: TextAlign
+  verticalAlign: VerticalAlign
+}
+
 /** Style properties for text fields */
 export interface TextFieldStyle {
   fontId: string | null
@@ -70,70 +96,53 @@ export interface TextFieldStyle {
   snapToGrid: boolean
 }
 
-/** Style properties for image fields */
+/**
+ * Image field style. The placeholder filename (previously `placeholderFilename`)
+ * has moved to `source.placeholder.filename` on dynamic image fields.
+ */
 export interface ImageFieldStyle {
   fit: ImageFit
-  placeholderFilename: string | null
 }
 
-/** Style override for individual loop columns */
-export interface LoopColumnStyle {
-  fontWeight?: FontWeight
-  fontSize?: number
-  textDecoration?: TextDecoration
-  color?: string
-}
-
-/** Column definition in a loop/table field */
-export interface LoopColumn {
+/** Column definition in a table field */
+export interface TableColumn {
   key: string
   label: string
   width: number
-  align: TextAlign
-  style?: LoopColumnStyle
+  /** Body-cell override (null = inherit from row / odd-even / header styles). */
+  style: Partial<CellStyle> | null
+  /** Header-cell override (null = inherit from table-level headerStyle). */
+  headerStyle: Partial<CellStyle> | null
 }
 
-/** Header style for loop/table fields */
-export interface HeaderStyle {
-  fontFamily: string
-  fontSize: number
-  fontWeight: FontWeight
-  align: TextAlign
-  color: string
-  backgroundColor: string
-}
-
-/** Row style for loop/table data rows */
-export interface RowStyle {
-  fontFamily: string
-  fontSize: number
-  fontWeight: FontWeight
-  color: string
+/** Runtime-only style properties that govern cell rendering behaviour */
+export interface TableCellRuntimeStyle {
   overflowMode: OverflowMode
-  fontSizeDynamic: boolean
-  fontSizeMin: number
-  lineHeight: number
 }
 
-/** Cell border and padding style */
-export interface CellStyle {
-  borderWidth: number
-  borderColor: string
-  paddingTop: number
-  paddingBottom: number
-  paddingLeft: number
-  paddingRight: number
-}
-
-/** Style properties for loop/table fields */
-export interface LoopFieldStyle {
+/** Style properties for table fields */
+export interface TableFieldStyle {
   maxRows: number
   maxColumns: number
   multiPage: boolean
-  headerStyle: HeaderStyle
-  rowStyle: RowStyle
-  cellStyle: CellStyle
-  columns: LoopColumn[]
+  /** When false, the header row is skipped entirely at render time. */
+  showHeader: boolean
+  headerStyle: CellStyle
+  rowStyle: CellStyle
+  /** Applied to rows with odd 0-indexed position (rows 1, 3, 5...). */
+  oddRowStyle: Partial<CellStyle> | null
+  /** Applied to rows with even 0-indexed position (rows 0, 2, 4...). */
+  evenRowStyle: Partial<CellStyle> | null
+  cellStyle: TableCellRuntimeStyle
+  columns: TableColumn[]
+}
+
+/** A single row in a table — column key -> cell string value. */
+export type TableRow = Record<string, string>
+
+/** Image source value shape — a filename inside the `.tgbl` archive. */
+export interface ImageSourceValue {
+  filename: string
 }
 
 /** Background type for a page */
@@ -152,23 +161,47 @@ export interface PageDefinition {
   backgroundFilename: string | null
 }
 
-/** A field definition in the template manifest */
-export interface FieldDefinition {
+/** Common geometric and organizational properties shared by every field type. */
+export interface FieldBase {
   id: string
-  type: FieldType
   groupId: string | null
-  /** Which page this field belongs to (null = page 0 for backward compatibility) */
+  /** Which page this field belongs to (null = page 0 default). */
   pageId: string | null
-  required: boolean
-  jsonKey: string
-  placeholder: string | null
+  label: string
   x: number
   y: number
   width: number
   height: number
   zIndex: number
-  style: TextFieldStyle | ImageFieldStyle | LoopFieldStyle
 }
+
+/** A text field — static value is the literal rendered string. */
+export interface TextField extends FieldBase {
+  type: 'text'
+  style: TextFieldStyle
+  source: FieldSource<string>
+}
+
+/**
+ * An image field. Static `source.value.filename` references a file in
+ * `images/` inside the archive; dynamic `source.placeholder.filename`
+ * references a file in `placeholders/` used only for canvas preview.
+ */
+export interface ImageField extends FieldBase {
+  type: 'image'
+  style: ImageFieldStyle
+  source: FieldSource<ImageSourceValue>
+}
+
+/** A table field — static value is the baked-in row array. */
+export interface TableField extends FieldBase {
+  type: 'table'
+  style: TableFieldStyle
+  source: FieldSource<TableRow[]>
+}
+
+/** Discriminated union of all field variants stored in the manifest. */
+export type FieldDefinition = TextField | ImageField | TableField
 
 /** The complete template manifest stored as manifest.json inside .tgbl */
 export interface TemplateManifest {
@@ -176,7 +209,7 @@ export interface TemplateManifest {
   meta: TemplateMeta
   fonts: FontDefinition[]
   groups: GroupDefinition[]
-  /** Pages in the template (if empty, treated as single-page with background image) */
+  /** Pages in the template (at least one). */
   pages: PageDefinition[]
   fields: FieldDefinition[]
 }

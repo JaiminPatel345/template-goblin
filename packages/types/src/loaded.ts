@@ -7,7 +7,10 @@ export interface TemplateAssets {
   /** Per-page background images keyed by page ID */
   pageBackgrounds: Map<string, Buffer>
   fonts: Map<string, Buffer>
+  /** Placeholder images for dynamic image fields, keyed by filename (e.g. "logo.png"). */
   placeholders: Map<string, Buffer>
+  /** Baked-in image files for static image fields, keyed by filename. */
+  staticImages: Map<string, Buffer>
 }
 
 /** Returned by loadTemplate(). Everything in memory, ready for fast PDF generation. */
@@ -18,5 +21,8 @@ export interface LoadedTemplate {
   /** Per-page background images keyed by page ID */
   pageBackgrounds: Map<string, Buffer>
   fonts: Map<string, Buffer>
+  /** Placeholder images for dynamic image fields, keyed by filename. */
   placeholders: Map<string, Buffer>
+  /** Baked-in image files for static image fields, keyed by filename. */
+  staticImages: Map<string, Buffer>
 }
