@@ -56,6 +56,7 @@ Defines the right-side properties panel in the template builder UI. When a field
 type FieldType = 'text' | 'image' | 'table'
 
 // Common properties shared by all fields
+// Shape superseded by source: FieldSource<V> per spec 023; retained for historical reference and to be rewritten in the Phase 5 plan.
 interface CommonFieldProperties {
   jsonKey: string
   group: string | null
