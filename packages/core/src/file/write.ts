@@ -9,6 +9,7 @@ import {
   BACKGROUND_FILENAME,
   BACKGROUNDS_DIR,
   FONTS_DIR,
+  IMAGES_DIR,
   PLACEHOLDERS_DIR,
 } from './constants.js'
 import { subsetTemplateFonts } from '../utils/fontSubset.js'
@@ -71,6 +72,14 @@ export async function saveTemplate(
     for (const [name, imageBuffer] of assets.placeholders) {
       const filename = name.startsWith(PLACEHOLDERS_DIR) ? name : `${PLACEHOLDERS_DIR}${name}`
       zip.addFile(filename, imageBuffer)
+    }
+
+    // REQ: static image assets stored as real binaries under images/
+    if (assets.staticImages) {
+      for (const [name, imageBuffer] of assets.staticImages) {
+        const filename = name.startsWith(IMAGES_DIR) ? name : `${IMAGES_DIR}${name}`
+        zip.addFile(filename, imageBuffer)
+      }
     }
 
     // Ensure output directory exists

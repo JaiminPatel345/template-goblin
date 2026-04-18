@@ -2,7 +2,12 @@ import AdmZip from 'adm-zip'
 import type { LoadedTemplate } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
 import { readTgblBuffer, parseManifestFromZip } from './file/read.js'
-import { BACKGROUND_FILENAME, BACKGROUNDS_DIR } from './file/constants.js'
+import {
+  BACKGROUND_FILENAME,
+  BACKGROUNDS_DIR,
+  IMAGES_DIR,
+  PLACEHOLDERS_DIR,
+} from './file/constants.js'
 
 /**
  * Load a .tgbl template from disk into memory.
@@ -70,7 +75,9 @@ export async function loadTemplate(path: string): Promise<LoadedTemplate> {
 
   // Load placeholder images (dynamic image fields) and static images
   // (static image fields). Both live in the archive; which folder they come
-  // from is determined by the field's source.
+  // from is determined by the field's source. Manifest filenames are BARE
+  // (e.g. "logo.png"); this loader prepends the folder prefix when reading
+  // the archive entry and stores the bare filename as the Map key.
   const placeholders = new Map<string, Buffer>()
   const staticImages = new Map<string, Buffer>()
   for (const field of manifest.fields) {
@@ -78,7 +85,7 @@ export async function loadTemplate(path: string): Promise<LoadedTemplate> {
     if (field.source.mode === 'static') {
       const filename = field.source.value.filename
       if (!staticImages.has(filename)) {
-        const entry = zip.getEntry(filename)
+        const entry = zip.getEntry(`${IMAGES_DIR}${filename}`)
         if (!entry) {
           throw new TemplateGoblinError(
             'MISSING_STATIC_IMAGE_FILE',
@@ -90,7 +97,7 @@ export async function loadTemplate(path: string): Promise<LoadedTemplate> {
     } else if (field.source.placeholder) {
       const filename = field.source.placeholder.filename
       if (!placeholders.has(filename)) {
-        const entry = zip.getEntry(filename)
+        const entry = zip.getEntry(`${PLACEHOLDERS_DIR}${filename}`)
         if (!entry) {
           throw new TemplateGoblinError(
             'MISSING_PLACEHOLDER_IMAGE_FILE',

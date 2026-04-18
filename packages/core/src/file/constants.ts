@@ -16,6 +16,9 @@ export const FONTS_DIR = 'fonts/'
 /** Placeholders directory inside the ZIP archive */
 export const PLACEHOLDERS_DIR = 'placeholders/'
 
+/** Static image assets directory inside the ZIP archive */
+export const IMAGES_DIR = 'images/'
+
 /** Per-page backgrounds directory inside the ZIP archive */
 export const BACKGROUNDS_DIR = 'backgrounds/'
 
