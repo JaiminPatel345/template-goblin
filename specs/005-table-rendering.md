@@ -1,4 +1,4 @@
-# Spec 005 — Loop/Table Rendering
+# Spec 005 — Table Rendering
 
 ## Status
 
@@ -6,7 +6,7 @@ Draft
 
 ## Summary
 
-Defines how loop (table) fields are rendered within their bounding rectangles. Covers header row rendering, data row rendering, per-column style overrides, cell borders, cell padding, and per-cell overflow handling. Tables are drawn inside a user-defined rectangle and follow the same text overflow rules as standalone text fields for cell content.
+Defines how table fields are rendered within their bounding rectangles. Covers header row rendering, data row rendering, per-column style overrides, cell borders, cell padding, and per-cell overflow handling. Tables are drawn inside a user-defined rectangle and follow the same text overflow rules as standalone text fields for cell content.
 
 ## Requirements
 
@@ -21,7 +21,7 @@ Defines how loop (table) fields are rendered within their bounding rectangles. C
 
 ### Table Layout
 
-The loop field defines a bounding rectangle `{x, y, width, height}`. The table is rendered top-down within this rectangle:
+The table field defines a bounding rectangle `{x, y, width, height}`. The table is rendered top-down within this rectangle:
 
 1. **Header row** is rendered first, starting at `(x, y)`.
 2. **Data rows** follow immediately below the header.
@@ -68,7 +68,7 @@ The loop field defines a bounding rectangle `{x, y, width, height}`. The table i
 
 ### Happy Path
 
-1. Engine reads the loop field definition and input data array.
+1. Engine reads the table field definition and input data array.
 2. Computes column widths and row heights.
 3. Renders the header row with `headerStyle`.
 4. Iterates over data rows, rendering each with `rowStyle` plus any column overrides.
@@ -93,7 +93,7 @@ The loop field defines a bounding rectangle `{x, y, width, height}`. The table i
 ## Input / Output
 
 ```typescript
-interface LoopRenderInput {
+interface TableRenderInput {
   data: Record<string, string>[] // array of row data objects
   x: number
   y: number
@@ -136,14 +136,14 @@ interface ColumnDef {
   }
 }
 
-interface LoopRenderOutput {
+interface TableRenderOutput {
   rowsRendered: number
   rowsRemaining: number // rows that did not fit (relevant for multi-page)
   pagesUsed: number
   boundingRect: { x: number; y: number; width: number; height: number }
 }
 
-function renderLoop(input: LoopRenderInput, ctx: PDFContext): LoopRenderOutput
+function renderTable(input: TableRenderInput, ctx: PDFContext): TableRenderOutput
 ```
 
 ## Acceptance Criteria
@@ -162,7 +162,7 @@ function renderLoop(input: LoopRenderInput, ctx: PDFContext): LoopRenderOutput
 
 ## Dependencies
 
-- Spec 002 — Template Schema (loop field and style schema definitions).
+- Spec 002 — Template Schema (table field and style schema definitions).
 - Spec 003 — Text Rendering (cell overflow logic reuses text rendering overflow modes).
 
 ## Notes
