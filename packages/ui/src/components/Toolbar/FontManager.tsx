@@ -1,46 +1,30 @@
 import { useRef } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
+import { processFontFiles } from './fontUpload.js'
 
 export function FontManager() {
   const inputRef = useRef<HTMLInputElement>(null)
   const fonts = useTemplateStore((s) => s.fonts)
   const fields = useTemplateStore((s) => s.fields)
-  const addFont = useTemplateStore((s) => s.addFont)
   const removeFont = useTemplateStore((s) => s.removeFont)
   const setShowFontManager = useUiStore((s) => s.setShowFontManager)
 
-  function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !file.name.toLowerCase().endsWith('.ttf')) return
-
-    // Size limit: 10 MB
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Font file too large. Maximum size is 10 MB.')
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      const buffer = reader.result as ArrayBuffer
-
-      // Validate TTF magic bytes
-      if (buffer.byteLength >= 4) {
-        const view = new DataView(buffer)
-        const magic = view.getUint32(0)
-        if (magic !== 0x00010000 && magic !== 0x74727565 && magic !== 0x4f54544f) {
-          alert('Invalid font file. Please select a valid .ttf file.')
-          return
-        }
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+    const results = await processFontFiles(files)
+    // Surface meaningful failures to the user. Extension rejections are
+    // silent because the `accept=".ttf"` attribute already filters the
+    // picker; magic-byte / size / duplicate failures are worth flagging.
+    for (const r of results) {
+      if (r.ok) continue
+      if (r.reason === 'size') {
+        alert(`Font file too large: ${r.filename}. Maximum size is 10 MB.`)
+      } else if (r.reason === 'magic') {
+        alert(`Invalid font file: ${r.filename}. Please select a valid .ttf file.`)
       }
-
-      const id = `font-${Date.now()}`
-      // Sanitize filename
-      const safeName = file.name.replace(/[/\\:*?"<>|]/g, '_').replace(/\.\./g, '_')
-      const name = safeName.replace(/\.ttf$/i, '')
-      addFont({ id, name, filename: `fonts/${safeName}` }, buffer)
     }
-    reader.readAsArrayBuffer(file)
     e.target.value = ''
   }
 
@@ -78,7 +62,7 @@ export function FontManager() {
           <button className="tg-btn tg-btn--primary" onClick={() => inputRef.current?.click()}>
             Upload .ttf Font
           </button>
-          <input ref={inputRef} type="file" accept=".ttf" hidden onChange={handleUpload} />
+          <input ref={inputRef} type="file" accept=".ttf" multiple hidden onChange={handleUpload} />
         </div>
 
         {fonts.length === 0 ? (
