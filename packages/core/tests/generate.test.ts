@@ -6,7 +6,8 @@ import { loadTemplate } from '../src/load.js'
 import { generatePDF } from '../src/generate.js'
 import type { InputJSON } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
-import { dynText, makeManifest } from './helpers/fixtures.js'
+import { dynText, makeManifest, staticText } from './helpers/fixtures.js'
+import type { LoadedTemplate } from '@template-goblin/types'
 
 const TEST_DIR = join(tmpdir(), 'tg-test-generate-' + Date.now())
 
@@ -90,5 +91,52 @@ describe('generatePDF', () => {
 
     const pdf = await generatePDF(template, data)
     expect(pdf.length).toBeGreaterThan(100)
+  })
+
+  it('static text field renders identically regardless of InputJSON contents', async () => {
+    // Build a template with a single static text field. The PDF bytes should be
+    // independent of anything supplied in the InputJSON buckets.
+    const field = staticText('greeting', 'Static hello', {
+      x: 20,
+      y: 20,
+      width: 300,
+      height: 30,
+      zIndex: 0,
+    })
+    const manifest = makeManifest({ fields: [field] })
+
+    const buildTemplate = (): LoadedTemplate => ({
+      manifest,
+      backgroundImage: null,
+      pageBackgrounds: new Map(),
+      fonts: new Map(),
+      placeholders: new Map(),
+      staticImages: new Map(),
+    })
+
+    // Freeze Date so PDFKit's CreationDate metadata is identical across runs.
+    const RealDate = Date
+    const frozen = new RealDate('2026-04-18T00:00:00.000Z')
+    global.Date = class extends RealDate {
+      constructor(...args: ConstructorParameters<typeof Date>) {
+        super(...(args.length ? args : [frozen.getTime()]))
+      }
+      static now(): number {
+        return frozen.getTime()
+      }
+    } as unknown as DateConstructor
+
+    try {
+      const pdf1 = await generatePDF(buildTemplate(), { texts: {}, tables: {}, images: {} })
+      const pdf2 = await generatePDF(buildTemplate(), {
+        texts: { unrelated: 'noise' },
+        tables: {},
+        images: {},
+      })
+
+      expect(pdf1.equals(pdf2)).toBe(true)
+    } finally {
+      global.Date = RealDate
+    }
   })
 })

@@ -6,7 +6,16 @@ import { loadTemplate } from '../src/load.js'
 import { generatePDF, generatePDFFromFile } from '../src/generate.js'
 import type { InputJSON, TemplateManifest } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
-import { dynImage, dynTable, dynText, makeManifest, TEXT_STYLE } from './helpers/fixtures.js'
+import {
+  dynImage,
+  dynTable,
+  dynText,
+  makeManifest,
+  staticImage,
+  staticTable,
+  staticText,
+} from './helpers/fixtures.js'
+import type { LoadedTemplate } from '@template-goblin/types'
 
 // Minimal valid 1x1 PNG
 const TINY_PNG = Buffer.from(
@@ -455,5 +464,51 @@ describe('Integration tests', () => {
   })
 })
 
-// Avoid unused import warning if helpers grow apart
-void TEXT_STYLE
+/* -------------------------------------------------------------- */
+/*  Static-only template renders without consulting InputJSON     */
+/* -------------------------------------------------------------- */
+
+describe('generatePDF with static-only fields', () => {
+  it('generatePDF renders a template containing only static fields without consulting InputJSON', async () => {
+    const textField = staticText('greeting', 'Hello, static world!', {
+      x: 40,
+      y: 40,
+      width: 300,
+      height: 30,
+      zIndex: 0,
+    })
+    const imageField = staticImage('logo', 'logo.png', {
+      x: 40,
+      y: 100,
+      width: 64,
+      height: 64,
+      zIndex: 1,
+    })
+    const tableField = staticTable(
+      'facts',
+      ['k', 'v'],
+      [
+        { k: 'answer', v: '42' },
+        { k: 'pi', v: '3.14' },
+      ],
+      { x: 40, y: 200, width: 400, height: 100, zIndex: 2 },
+    )
+
+    const manifest = makeManifest({ fields: [textField, imageField, tableField] })
+
+    const template: LoadedTemplate = {
+      manifest,
+      backgroundImage: null,
+      pageBackgrounds: new Map(),
+      fonts: new Map(),
+      placeholders: new Map(),
+      staticImages: new Map([['logo.png', TINY_PNG]]),
+    }
+
+    const pdf = await generatePDF(template, { texts: {}, tables: {}, images: {} })
+
+    expect(pdf).toBeInstanceOf(Buffer)
+    expect(pdf.length).toBeGreaterThan(0)
+    expect(pdf.toString('utf-8', 0, 5)).toBe('%PDF-')
+  })
+})
