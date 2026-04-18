@@ -17,7 +17,13 @@ export function PdfPreview() {
   const fields = useTemplateStore((s) => s.fields)
   const meta = useTemplateStore((s) => s.meta)
   const backgroundDataUrl = useTemplateStore((s) => s.backgroundDataUrl)
+  const pages = useTemplateStore((s) => s.pages)
   const prevUrl = useRef<string | null>(null)
+
+  // Resolve page-0 solid color (if chosen during onboarding) so the preview
+  // honours it instead of falling back to white.
+  const page0 = pages.find((p) => p.index === 0)
+  const page0Color = page0?.backgroundType === 'color' ? (page0.backgroundColor ?? '#ffffff') : null
 
   // Generate the JSON data based on current mode
   const previewData = useMemo(
@@ -37,6 +43,7 @@ export function PdfPreview() {
           { name: meta.name, width: meta.width, height: meta.height },
           backgroundDataUrl,
           previewData,
+          { backgroundColor: page0Color },
         )
 
         if (cancelled) return

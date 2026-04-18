@@ -1,11 +1,20 @@
 import type { FieldDefinition, TextField, TableField } from '@template-goblin/types'
 
 /**
+ * Options for the preview's page-1 background. Callers pass either a
+ * `backgroundDataUrl` (image) OR a `backgroundColor` (hex, e.g. `#ffffff`).
+ * If both are supplied the image wins. If neither, the page renders white.
+ */
+export interface PreviewBackgroundOptions {
+  backgroundColor?: string | null
+}
+
+/**
  * Generate a PDF-accurate preview as an HTML page.
  *
  * Renders text at exact positions with correct fonts/sizes/colors,
  * tables with headers/rows/borders, and image placeholders —
- * all positioned absolutely over the background image.
+ * all positioned absolutely over the background image or solid color.
  *
  * The user can print this page (Ctrl+P) to get an actual PDF.
  */
@@ -18,11 +27,19 @@ export async function generatePreviewHtml(
     tables: Record<string, Record<string, string>[]>
     images: Record<string, string | null>
   },
+  options: PreviewBackgroundOptions = {},
 ): Promise<Blob> {
   const sorted = [...fields].sort((a, b) => a.zIndex - b.zIndex)
   let fieldsHtml = ''
 
   for (const field of sorted) {
+    // Defence in depth: skip fields that are missing `source` (corrupt
+    // rehydrated state). These can't be rendered because they have no
+    // addressable value.
+    if (!field.source) {
+      console.warn('[previewGenerator] skipping field with missing source:', field.id)
+      continue
+    }
     // Static fields render the baked-in `source.value`; dynamic fields render
     // the supplied preview input data, falling back to `source.placeholder`
     // when no input is provided. Matches design §8.3 canvas/preview semantics.
@@ -78,6 +95,11 @@ export async function generatePreviewHtml(
     }
   }
 
+  // Body background: solid hex (if supplied) falls through when no image is
+  // present so the printed page shows the right color. When an image IS
+  // supplied, it still overlays via the `.bg` <img>.
+  const bodyBg = sc(options.backgroundColor ?? '#ffffff')
+
   const html = `<!DOCTYPE html>
 <html><head>
 <title>${esc(meta.name)} — Preview</title>
@@ -85,7 +107,7 @@ export async function generatePreviewHtml(
   @page { size: ${meta.width}pt ${meta.height}pt; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: ${meta.width}pt; height: ${meta.height}pt; }
-  body { position: relative; overflow: hidden; font-family: Helvetica, Arial, sans-serif; background: #fff; }
+  body { position: relative; overflow: hidden; font-family: Helvetica, Arial, sans-serif; background: ${bodyBg}; }
   .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
   .f { position: absolute; overflow: hidden; }
   table { border-collapse: collapse; width: 100%; }

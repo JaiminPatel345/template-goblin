@@ -9,7 +9,14 @@ export function Toolbar() {
 
   const meta = useTemplateStore((s) => s.meta)
   const locked = meta.locked
-  const hasBackground = useTemplateStore((s) => s.backgroundDataUrl !== null)
+  // Page 0 has a "background" when either the legacy image data URL is set
+  // OR when the user chose a solid color during onboarding (stored as a
+  // `color` PageDefinition at index 0).
+  const hasBackground = useTemplateStore(
+    (s) =>
+      s.backgroundDataUrl !== null ||
+      s.pages.some((p) => p.index === 0 && p.backgroundType === 'color'),
+  )
   const canUndo = useTemplateStore((s) => s.canUndo())
   const canRedo = useTemplateStore((s) => s.canRedo())
   const undo = useTemplateStore((s) => s.undo)

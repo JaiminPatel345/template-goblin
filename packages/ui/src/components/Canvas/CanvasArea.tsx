@@ -28,6 +28,9 @@ const FIELD_COLORS: Record<FieldType, { fill: string; stroke: string; text: stri
 
 /** Label shown inside a field's bounding box on the canvas. */
 function fieldCanvasLabel(field: FieldDefinition): string {
+  // Defensive guard: a corrupt or in-flight migrated field may be missing
+  // `source`. Render a visible fallback instead of crashing the canvas.
+  if (!field.source) return `<legacy ${field.type}>`
   if (field.source.mode !== 'dynamic') return `<static ${field.type}>`
   if (!field.source.jsonKey) return `(${field.type})`
   const prefix = field.type === 'text' ? 'texts.' : field.type === 'image' ? 'images.' : 'tables.'
@@ -45,6 +48,171 @@ let pageIdCounter = 0
 function generatePageId(): string {
   pageIdCounter++
   return `page-${Date.now()}-${pageIdCounter}`
+}
+
+/**
+ * Empty-state onboarding picker. Shown on page 0 when no background has been
+ * chosen yet. Offers two options:
+ *   - Upload image: reuses the existing upload flow (PageSizeDialog follows).
+ *   - Solid color: HTML `<input type="color">` + hex input, applied to page 0
+ *     as `backgroundType: 'color'` with the chosen `#RRGGBB`.
+ * Defaults to `#FFFFFF` if the user hits Apply without touching the picker.
+ */
+function OnboardingPicker({
+  isDragOver,
+  onDrop,
+  onDragOver,
+  onDragLeave,
+  onChooseImage,
+  onChooseColor,
+  fileInputRef,
+  onFileChange,
+  containerRef,
+}: {
+  isDragOver: boolean
+  onDrop: (e: React.DragEvent) => void
+  onDragOver: (e: React.DragEvent) => void
+  onDragLeave: () => void
+  onChooseImage: () => void
+  onChooseColor: (hex: string) => void
+  fileInputRef: React.RefObject<HTMLInputElement | null>
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  containerRef: React.RefObject<HTMLDivElement | null>
+}) {
+  const [mode, setMode] = useState<'choose' | 'color'>('choose')
+  const [color, setColor] = useState('#ffffff')
+
+  return (
+    <div
+      ref={(el) => {
+        // Imperatively forward the ref so we can accept the mutable
+        // `RefObject<T | null>` shape without fighting the JSX `LegacyRef`
+        // typing.
+        if (containerRef && typeof containerRef === 'object') {
+          ;(containerRef as { current: HTMLDivElement | null }).current = el
+        }
+      }}
+      className={`tg-upload-zone ${isDragOver ? 'tg-upload-zone--active' : ''}`}
+      onDrop={onDrop}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+    >
+      <div className="tg-upload-content">
+        {mode === 'choose' && (
+          <>
+            <svg
+              width="64"
+              height="64"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--text-muted)"
+              strokeWidth="1.5"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+            <h2 className="tg-upload-title">Choose a background</h2>
+            <p className="tg-upload-subtitle">Upload an image or start with a solid color.</p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8 }}>
+              <button
+                className="tg-btn tg-btn--primary tg-upload-btn"
+                onClick={onChooseImage}
+                data-testid="onboarding-upload-image"
+              >
+                Upload image
+              </button>
+              <button
+                className="tg-btn tg-upload-btn"
+                onClick={() => setMode('color')}
+                data-testid="onboarding-solid-color"
+              >
+                Solid color
+              </button>
+            </div>
+            <input
+              ref={(el) => {
+                if (fileInputRef && typeof fileInputRef === 'object') {
+                  ;(fileInputRef as { current: HTMLInputElement | null }).current = el
+                }
+              }}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={onFileChange}
+            />
+            <p className="tg-upload-hint">
+              Drag and drop an image here too — supports PNG, JPG, WEBP.
+            </p>
+          </>
+        )}
+
+        {mode === 'color' && (
+          <>
+            <svg
+              width="64"
+              height="64"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--text-muted)"
+              strokeWidth="1.5"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <circle cx="12" cy="12" r="3" fill="currentColor" />
+            </svg>
+            <h2 className="tg-upload-title">Pick a background color</h2>
+            <div
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 8,
+              }}
+            >
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                style={{ width: 56, height: 40, border: 'none', cursor: 'pointer' }}
+                data-testid="onboarding-color-input"
+              />
+              <input
+                type="text"
+                className="tg-input"
+                value={color}
+                onChange={(e) => {
+                  const v = e.target.value
+                  // Accept partial typing; validate & persist only on Apply.
+                  setColor(v)
+                }}
+                style={{ width: 100, fontFamily: 'monospace' }}
+                maxLength={7}
+                data-testid="onboarding-color-hex"
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
+              <button className="tg-btn" onClick={() => setMode('choose')}>
+                Back
+              </button>
+              <button
+                className="tg-btn tg-btn--primary"
+                onClick={() => {
+                  // Normalise: default to white if the user cleared the input,
+                  // and lowercase the hex for consistency.
+                  const hex = /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : '#ffffff'
+                  onChooseColor(hex)
+                }}
+                data-testid="onboarding-color-apply"
+              >
+                Apply
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
 }
 
 /** Inline dialog for adding a new page */
@@ -188,6 +356,7 @@ export function CanvasArea() {
   const resizeField = useTemplateStore((s) => s.resizeField)
   const addPage = useTemplateStore((s) => s.addPage)
   const removePage = useTemplateStore((s) => s.removePage)
+  const setPage0BackgroundColor = useTemplateStore((s) => s.setPage0BackgroundColor)
 
   const activeTool = useUiStore((s) => s.activeTool)
   const selectedFieldIds = useUiStore((s) => s.selectedFieldIds)
@@ -258,10 +427,19 @@ export function CanvasArea() {
     return null
   }, [pages, currentPageId, backgroundDataUrl, pageBackgroundDataUrls])
 
-  // Resolve the current page's background color (for 'color' type pages)
+  // Resolve the current page's background color (for 'color' type pages).
+  // Page 0 (the implicit first page, `currentPageId === null`) may now also
+  // be a color page if the user picked "Solid color" during onboarding — in
+  // that case the page lives in `pages` at index 0 with no legacy
+  // `backgroundDataUrl` set.
   const resolveCurrentBgColor = useCallback((): string | null => {
     if (pages.length === 0) return null
-    if (currentPageId === null) return null
+
+    if (currentPageId === null) {
+      const page0 = pages.find((p) => p.index === 0)
+      if (page0 && page0.backgroundType === 'color') return page0.backgroundColor
+      return null
+    }
 
     const page = pages.find((p) => p.id === currentPageId)
     if (!page) return null
@@ -740,51 +918,27 @@ export function CanvasArea() {
     )
   }
 
-  // ===== EMPTY STATE: No background uploaded (page 0 has no background) =====
-  if (!backgroundDataUrl && pages.length === 0) {
+  // ===== EMPTY STATE: No background chosen (page 0 has no image and no color) =====
+  // Page 0 is "empty" when:
+  //   - there's no legacy backgroundDataUrl, AND
+  //   - there's no explicit page-0 PageDefinition of type 'color'.
+  const page0 = pages.find((p) => p.index === 0)
+  const page0IsColor = page0?.backgroundType === 'color'
+  if (!backgroundDataUrl && !page0IsColor) {
     return (
-      <div
-        ref={containerRef}
-        className={`tg-upload-zone ${isDragOver ? 'tg-upload-zone--active' : ''}`}
+      <OnboardingPicker
+        isDragOver={isDragOver}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-      >
-        <div className="tg-upload-content">
-          <svg
-            width="64"
-            height="64"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="var(--text-muted)"
-            strokeWidth="1.5"
-          >
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-          <h2 className="tg-upload-title">Upload a background image</h2>
-          <p className="tg-upload-subtitle">
-            Drag and drop an image here, or click below to browse
-          </p>
-          <button
-            className="tg-btn tg-btn--primary tg-upload-btn"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            Choose Image
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={handleInputChange}
-          />
-          <p className="tg-upload-hint">
-            Supports PNG, JPG, WEBP — this will be your template background
-          </p>
-        </div>
-      </div>
+        onChooseImage={() => fileInputRef.current?.click()}
+        onChooseColor={(hex) => {
+          setPage0BackgroundColor(hex)
+        }}
+        fileInputRef={fileInputRef}
+        onFileChange={handleInputChange}
+        containerRef={containerRef}
+      />
     )
   }
 
