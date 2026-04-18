@@ -4,6 +4,7 @@ import AdmZip from 'adm-zip'
 import type { TemplateManifest } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
 import { ZIP_MAGIC_BYTES, MANIFEST_FILENAME, TGBL_EXTENSION } from './constants.js'
+import { validateManifest } from '../validateManifest.js'
 
 /** Maximum allowed .tgbl file size: 100 MB */
 const MAX_FILE_SIZE = 100 * 1024 * 1024
@@ -109,6 +110,7 @@ export function parseManifestFromZip(zip: AdmZip): TemplateManifest {
       parsed as Record<string, unknown>,
     ) as unknown as TemplateManifest
     validateManifestStructure(manifest)
+    validateManifest(manifest)
     return manifest
   } catch (error) {
     if (error instanceof TemplateGoblinError) throw error
