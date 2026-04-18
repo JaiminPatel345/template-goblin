@@ -14,28 +14,81 @@ import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { createDefaultField } from '../../utils/defaults.js'
 import { snapshotSameAsPrevious } from '../../utils/pageSnapshot.js'
-import type {
-  FieldDefinition,
-  FieldType,
-  PageDefinition,
-  PageBackgroundType,
-} from '@template-goblin/types'
+import { FIELD_COLORS } from '../../theme/fieldColors.js'
+import { fieldCanvasLabel } from './fieldLabel.js'
+import { shouldRenderFillRect } from './rectFill.js'
+import type { FieldType, PageDefinition, PageBackgroundType } from '@template-goblin/types'
 
-const FIELD_COLORS: Record<FieldType, { fill: string; stroke: string; text: string }> = {
-  text: { fill: 'rgba(37,99,235,0.35)', stroke: '#60a5fa', text: '#ffffff' },
-  image: { fill: 'rgba(22,163,74,0.35)', stroke: '#4ade80', text: '#ffffff' },
-  table: { fill: 'rgba(217,119,6,0.35)', stroke: '#fb923c', text: '#ffffff' },
+/**
+ * Max-fit font sizer. Given the rect's interior (after padding), pick the
+ * largest font size at which `text` fits within `width` × `height` when
+ * wrapped at word boundaries. Capped at `min(48, height * 0.8)`.
+ *
+ * Strategy: binary-search over integer font sizes; use a canvas 2D context
+ * to measure, wrapping greedily. No Konva `measureSize` dependency — the
+ * 2D-canvas measurement matches Konva.Text closely enough for label sizing.
+ */
+let __labelMeasureCtx: CanvasRenderingContext2D | null = null
+function getMeasureCtx(): CanvasRenderingContext2D | null {
+  if (typeof document === 'undefined') return null
+  if (__labelMeasureCtx) return __labelMeasureCtx
+  const cv = document.createElement('canvas')
+  __labelMeasureCtx = cv.getContext('2d')
+  return __labelMeasureCtx
 }
 
-/** Label shown inside a field's bounding box on the canvas. */
-function fieldCanvasLabel(field: FieldDefinition): string {
-  // Defensive guard: a corrupt or in-flight migrated field may be missing
-  // `source`. Render a visible fallback instead of crashing the canvas.
-  if (!field.source) return `<legacy ${field.type}>`
-  if (field.source.mode !== 'dynamic') return `<static ${field.type}>`
-  if (!field.source.jsonKey) return `(${field.type})`
-  const prefix = field.type === 'text' ? 'texts.' : field.type === 'image' ? 'images.' : 'tables.'
-  return prefix + field.source.jsonKey
+function wrapTextToLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  if (maxWidth <= 0) return [text]
+  const words = text.split(/\s+/).filter(Boolean)
+  if (words.length === 0) return ['']
+  const lines: string[] = []
+  let current = ''
+  for (const w of words) {
+    const test = current ? current + ' ' + w : w
+    const width = ctx.measureText(test).width
+    if (width <= maxWidth || current === '') {
+      current = test
+    } else {
+      lines.push(current)
+      current = w
+    }
+  }
+  if (current) lines.push(current)
+  return lines
+}
+
+function fitFontSize(
+  text: string,
+  rectWidth: number,
+  rectHeight: number,
+  fontFamily: string,
+): number {
+  if (!text || rectWidth <= 0 || rectHeight <= 0) return 8
+  const ctx = getMeasureCtx()
+  if (!ctx) {
+    // SSR / jsdom fallback: pick a size proportional to the rect height.
+    return Math.max(8, Math.min(48, Math.floor(rectHeight * 0.4)))
+  }
+  const lineHeightFactor = 1.2
+  const upper = Math.max(8, Math.min(48, Math.floor(rectHeight * 0.8)))
+  let lo = 8
+  let hi = upper
+  let best = 8
+
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2)
+    ctx.font = `${mid}px ${fontFamily}`
+    const lines = wrapTextToLines(ctx, text, rectWidth)
+    const totalHeight = lines.length * mid * lineHeightFactor
+    const maxLineWidth = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0)
+    if (maxLineWidth <= rectWidth && totalHeight <= rectHeight) {
+      best = mid
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+  return best
 }
 
 const SELECTED_STROKE = '#e94560'
@@ -68,7 +121,7 @@ function OnboardingPicker({
   onChooseColor,
   fileInputRef,
   onFileChange,
-  containerRef,
+  setContainerRef,
 }: {
   isDragOver: boolean
   onDrop: (e: React.DragEvent) => void
@@ -78,21 +131,14 @@ function OnboardingPicker({
   onChooseColor: (hex: string) => void
   fileInputRef: React.RefObject<HTMLInputElement | null>
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-  containerRef: React.RefObject<HTMLDivElement | null>
+  setContainerRef: (el: HTMLDivElement | null) => void
 }) {
   const [mode, setMode] = useState<'choose' | 'color'>('choose')
   const [color, setColor] = useState('#ffffff')
 
   return (
     <div
-      ref={(el) => {
-        // Imperatively forward the ref so we can accept the mutable
-        // `RefObject<T | null>` shape without fighting the JSX `LegacyRef`
-        // typing.
-        if (containerRef && typeof containerRef === 'object') {
-          ;(containerRef as { current: HTMLDivElement | null }).current = el
-        }
-      }}
+      ref={setContainerRef}
       className={`tg-upload-zone ${isDragOver ? 'tg-upload-zone--active' : ''}`}
       onDrop={onDrop}
       onDragOver={onDragOver}
@@ -353,6 +399,7 @@ export function CanvasArea() {
   const backgroundDataUrl = useTemplateStore((s) => s.backgroundDataUrl)
   const pageBackgroundDataUrls = useTemplateStore((s) => s.pageBackgroundDataUrls)
   const pageBackgroundBuffers = useTemplateStore((s) => s.pageBackgroundBuffers)
+  const placeholderBuffers = useTemplateStore((s) => s.placeholderBuffers)
   const addField = useTemplateStore((s) => s.addField)
   const moveField = useTemplateStore((s) => s.moveField)
   const resizeField = useTemplateStore((s) => s.resizeField)
@@ -489,6 +536,67 @@ export function CanvasArea() {
     return undefined
   }, [currentBgDataUrl, currentBgColor, meta.width, meta.height])
 
+  // Resolve each placeholder filename referenced by a visible image field into
+  // an HTMLImageElement. Used by the render loop to skip the coloured fill rect
+  // (IMP-3) when a placeholder image is available. We keep the map keyed by
+  // filename so multiple fields pointing at the same asset reuse the element.
+  const [placeholderImages, setPlaceholderImages] = useState<Map<string, HTMLImageElement>>(
+    new Map(),
+  )
+  useEffect(() => {
+    // Collect all image filenames visible fields care about on any page (we
+    // cheaply resolve the whole template so field-page switches don't refetch).
+    const filenames = new Set<string>()
+    for (const f of fields) {
+      if (f.type !== 'image' || !f.source) continue
+      if (f.source.mode === 'dynamic') {
+        const ph = f.source.placeholder as unknown
+        if (ph && typeof ph === 'object' && 'filename' in ph) {
+          const name = (ph as { filename: unknown }).filename
+          if (typeof name === 'string' && name.length > 0) filenames.add(name)
+        }
+      } else if (f.source.mode === 'static') {
+        const v = f.source.value as unknown
+        if (v && typeof v === 'object' && 'filename' in v) {
+          const name = (v as { filename: unknown }).filename
+          if (typeof name === 'string' && name.length > 0) filenames.add(name)
+        }
+      }
+    }
+
+    const next = new Map<string, HTMLImageElement>()
+    let pending = 0
+    let resolved = 0
+    filenames.forEach((filename) => {
+      const buf = placeholderBuffers.get(filename)
+      if (!buf) return
+      pending++
+      const blob = new Blob([buf])
+      const url = URL.createObjectURL(blob)
+      const img = new window.Image()
+      img.onload = () => {
+        next.set(filename, img)
+        resolved++
+        if (resolved === pending) {
+          setPlaceholderImages(new Map(next))
+        }
+      }
+      img.onerror = () => {
+        resolved++
+        if (resolved === pending) {
+          setPlaceholderImages(new Map(next))
+        }
+      }
+      img.src = url
+    })
+
+    if (pending === 0) {
+      setPlaceholderImages(new Map())
+    }
+    // Note: we intentionally don't revoke object URLs on cleanup — they live
+    // for the lifetime of the page's HTMLImageElement; React will GC them.
+  }, [fields, placeholderBuffers])
+
   // Filter fields by current page
   const pageFields = fields.filter((f) => {
     // null pageId means page 0 — show when currentPageId is null
@@ -515,23 +623,72 @@ export function CanvasArea() {
     tr.getLayer()?.batchDraw()
   }, [selectedFieldIds, pageFields, meta.locked])
 
-  // Scroll-to-zoom: native non-passive listener to prevent page scroll
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
+  // Scroll-to-zoom / scroll / pan handler. Attached via a **ref callback**
+  // (`setContainerRef` below, REQ-040/AC-041) so the listener re-binds every
+  // time the container node changes — notably the onboarding → canvas
+  // transition, where the old `useEffect([])` pattern latched onto the
+  // onboarding picker's div and was orphaned when the canvas container
+  // mounted under a different React subtree.
+  //
+  // Modifier rules (REQ-037..039, AC-037..040):
+  //   - ctrl/meta      → zoom at cursor; clamped [0.1, 5]; step ±0.1
+  //   - shift (no mod) → horizontal scroll
+  //   - none           → vertical scroll
+  // We always preventDefault + stopPropagation on the container-scoped wheel
+  // so the browser never scrolls the page when the cursor is over the canvas.
+  const onWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const container = e.currentTarget as HTMLDivElement | null
+    if (!container) return
 
-    function onWheel(e: WheelEvent) {
-      e.preventDefault()
-      e.stopPropagation()
-      const currentZoom = useUiStore.getState().zoom
-      const delta = e.deltaY > 0 ? -0.05 : 0.05
-      const newZoom = Math.max(0.1, Math.min(5, currentZoom + delta))
+    const isZoom = e.ctrlKey || e.metaKey
+    if (isZoom) {
+      const oldZoom = useUiStore.getState().zoom
+      const step = e.deltaY > 0 ? -0.1 : 0.1
+      const newZoom = Math.max(0.1, Math.min(5, oldZoom + step))
+      if (newZoom === oldZoom) return
+
+      // Cursor position relative to container viewport.
+      const rect = container.getBoundingClientRect()
+      const cx = e.clientX - rect.left
+      const cy = e.clientY - rect.top
+      const scale = newZoom / oldZoom
+
       useUiStore.getState().setZoom(newZoom)
+
+      // The Stage's rendered size grows on the next paint; adjust scroll on
+      // the next animation frame so the cursor point stays stationary.
+      requestAnimationFrame(() => {
+        container.scrollLeft = (container.scrollLeft + cx) * scale - cx
+        container.scrollTop = (container.scrollTop + cy) * scale - cy
+      })
+      return
     }
 
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
+    if (e.shiftKey) {
+      // Horizontal scroll. Most mice only populate deltaY; trackpads may send
+      // deltaX. Prefer deltaY (classic wheel) then fall back to deltaX.
+      container.scrollLeft += e.deltaY || e.deltaX
+      return
+    }
+
+    container.scrollTop += e.deltaY
   }, [])
+
+  const setContainerRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      // Detach from previous node, then attach to the new one.
+      if (containerRef.current) {
+        containerRef.current.removeEventListener('wheel', onWheel)
+      }
+      containerRef.current = el
+      if (el) {
+        el.addEventListener('wheel', onWheel, { passive: false })
+      }
+    },
+    [onWheel],
+  )
 
   // Pan state: activated either by (a) middle mouse button down, or
   // (b) spacebar held + left mouse button down. Canva uses spacebar; Figma
@@ -1078,7 +1235,7 @@ export function CanvasArea() {
         }}
         fileInputRef={fileInputRef}
         onFileChange={handleInputChange}
-        containerRef={containerRef}
+        setContainerRef={setContainerRef}
       />
     )
   }
@@ -1087,7 +1244,7 @@ export function CanvasArea() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
       <div
-        ref={containerRef}
+        ref={setContainerRef}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMovePan}
         onMouseUp={handleMouseUpPan}
@@ -1107,7 +1264,13 @@ export function CanvasArea() {
           display: 'flex',
           justifyContent: 'safe center',
           alignItems: 'safe center',
-          cursor: isPanning ? 'grabbing' : spacePanMode ? 'grab' : undefined,
+          cursor: isPanning
+            ? 'grabbing'
+            : spacePanMode
+              ? 'grab'
+              : isPlacing
+                ? 'crosshair'
+                : 'default',
           overflow: 'auto',
           background: 'var(--canvas-bg)',
           minHeight: 0,
@@ -1159,6 +1322,43 @@ export function CanvasArea() {
               {sortedFields.map((field) => {
                 const colors = FIELD_COLORS[field.type]
                 const isSelected = selectedFieldIds.includes(field.id)
+
+                // Resolve image asset (W3 / IMP-3). Image fields with a
+                // placeholder filename (dynamic) OR a static value filename
+                // skip the coloured rect fill.
+                let imageEl: HTMLImageElement | null = null
+                if (field.type === 'image' && field.source) {
+                  let filename: string | null = null
+                  if (field.source.mode === 'dynamic') {
+                    const ph = field.source.placeholder as unknown
+                    if (ph && typeof ph === 'object' && 'filename' in ph) {
+                      const name = (ph as { filename: unknown }).filename
+                      if (typeof name === 'string' && name.length > 0) filename = name
+                    }
+                  } else {
+                    const v = field.source.value as unknown
+                    if (v && typeof v === 'object' && 'filename' in v) {
+                      const name = (v as { filename: unknown }).filename
+                      if (typeof name === 'string' && name.length > 0) filename = name
+                    }
+                  }
+                  if (filename) {
+                    imageEl = placeholderImages.get(filename) ?? null
+                  }
+                }
+
+                // Fill-rect visibility per IMP-3/IMP-4 — delegated to the
+                // testable `shouldRenderFillRect` helper so this branch and
+                // the unit tests share a single source of truth.
+                const shouldFill = shouldRenderFillRect(field, {
+                  placeholderResolved: imageEl !== null,
+                })
+
+                const label = fieldCanvasLabel(field)
+                const innerPad = 6 / zoom
+                const labelW = Math.max(0, field.width - innerPad * 2)
+                const labelH = Math.max(0, field.height - innerPad * 2)
+                const labelFontSize = label ? fitFontSize(label, labelW, labelH, 'sans-serif') : 0
 
                 return (
                   <Group
@@ -1213,39 +1413,67 @@ export function CanvasArea() {
                     }}
                     onContextMenu={(e) => handleContextMenu(e, field.id)}
                   >
-                    <Rect
-                      width={field.width}
-                      height={field.height}
-                      fill={colors.fill}
-                      stroke={isSelected ? SELECTED_STROKE : colors.stroke}
-                      strokeWidth={isSelected ? 2 / zoom : 1 / zoom}
-                      cornerRadius={2 / zoom}
-                      listening={true}
-                      onClick={(e) => handleFieldClick(e, field.id)}
-                    />
-                    <Text
-                      text={fieldCanvasLabel(field)}
-                      x={4 / zoom}
-                      y={4 / zoom}
-                      fontSize={11 / zoom}
-                      fontFamily="sans-serif"
-                      fill={colors.text}
-                      width={field.width - 8 / zoom}
-                      ellipsis={true}
-                      wrap="none"
-                      listening={false}
-                    />
-                    <Text
-                      text={field.type.toUpperCase()}
-                      x={4 / zoom}
-                      y={field.height - 16 / zoom}
-                      fontSize={9 / zoom}
-                      fontFamily="sans-serif"
-                      fontStyle="bold"
-                      fill={colors.text}
-                      opacity={0.7}
-                      listening={false}
-                    />
+                    {/* Fill rect (only when no image placeholder & not static) */}
+                    {shouldFill && (
+                      <Rect
+                        width={field.width}
+                        height={field.height}
+                        fill={colors.fill}
+                        stroke={isSelected ? SELECTED_STROKE : colors.stroke}
+                        strokeWidth={isSelected ? 2 / zoom : 1 / zoom}
+                        cornerRadius={2 / zoom}
+                        listening={true}
+                        onClick={(e) => handleFieldClick(e, field.id)}
+                      />
+                    )}
+
+                    {/* Placeholder image (image fields with a resolved asset) */}
+                    {imageEl && (
+                      <KonvaImage
+                        image={imageEl}
+                        width={field.width}
+                        height={field.height}
+                        listening={true}
+                        onClick={(e) => handleFieldClick(e, field.id)}
+                      />
+                    )}
+
+                    {/* Border-only rect when we skipped the fill but still want
+                        the outline (static fields, or image fields with an
+                        image — the image covers the interior, but we keep a
+                        thin stroke so selection/type colour is visible). */}
+                    {!shouldFill && (
+                      <Rect
+                        width={field.width}
+                        height={field.height}
+                        fill={undefined}
+                        stroke={isSelected ? SELECTED_STROKE : colors.stroke}
+                        strokeWidth={isSelected ? 2 / zoom : 1 / zoom}
+                        cornerRadius={2 / zoom}
+                        listening={true}
+                        onClick={(e) => handleFieldClick(e, field.id)}
+                      />
+                    )}
+
+                    {/* Auto-fit label — only when (a) we have text AND (b) no
+                        image is being rendered (image covers the interior so
+                        a label on top would be unreadable). */}
+                    {label && !imageEl && labelFontSize > 0 && (
+                      <Text
+                        text={label}
+                        x={innerPad}
+                        y={innerPad}
+                        fontSize={labelFontSize}
+                        fontFamily="sans-serif"
+                        fill={colors.text}
+                        width={labelW}
+                        height={labelH}
+                        align="left"
+                        verticalAlign="top"
+                        wrap="word"
+                        listening={false}
+                      />
+                    )}
                   </Group>
                 )
               })}

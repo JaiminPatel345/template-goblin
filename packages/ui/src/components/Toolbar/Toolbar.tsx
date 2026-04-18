@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { saveTemplate, openTemplate } from '../../utils/saveOpen.js'
+import { FIELD_COLORS } from '../../theme/fieldColors.js'
 
 export function Toolbar() {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -232,6 +233,11 @@ export function Toolbar() {
           className={`tg-btn ${activeTool === 'addText' ? 'tg-btn--active' : ''}`}
           onClick={() => setActiveTool(activeTool === 'addText' ? 'select' : 'addText')}
           disabled={locked || !hasBackground}
+          style={{
+            background: FIELD_COLORS.text.toolbarBg,
+            color: FIELD_COLORS.text.toolbarFg,
+            borderColor: FIELD_COLORS.text.stroke,
+          }}
         >
           <svg
             width="14"
@@ -251,6 +257,11 @@ export function Toolbar() {
           className={`tg-btn ${activeTool === 'addImage' ? 'tg-btn--active' : ''}`}
           onClick={() => setActiveTool(activeTool === 'addImage' ? 'select' : 'addImage')}
           disabled={locked || !hasBackground}
+          style={{
+            background: FIELD_COLORS.image.toolbarBg,
+            color: FIELD_COLORS.image.toolbarFg,
+            borderColor: FIELD_COLORS.image.stroke,
+          }}
         >
           <svg
             width="14"
@@ -270,6 +281,11 @@ export function Toolbar() {
           className={`tg-btn ${activeTool === 'addLoop' ? 'tg-btn--active' : ''}`}
           onClick={() => setActiveTool(activeTool === 'addLoop' ? 'select' : 'addLoop')}
           disabled={locked || !hasBackground}
+          style={{
+            background: FIELD_COLORS.table.toolbarBg,
+            color: FIELD_COLORS.table.toolbarFg,
+            borderColor: FIELD_COLORS.table.stroke,
+          }}
         >
           <svg
             width="14"

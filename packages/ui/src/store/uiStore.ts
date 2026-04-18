@@ -59,6 +59,18 @@ export interface UiState {
   zoomIn: () => void
   zoomOut: () => void
   resetZoom: () => void
+  /**
+   * Compute and apply the zoom that fits the given page size inside the given
+   * container (viewport) bounds with a small padding on every side.
+   * Returns the new zoom. Clamped to [0.1, 5].
+   */
+  fitZoom: (
+    containerW: number,
+    containerH: number,
+    pageW: number,
+    pageH: number,
+    padding?: number,
+  ) => number
   setShowPreview: (show: boolean) => void
   setJsonPreviewMode: (mode: JsonPreviewMode) => void
   setMaxModeRepeatCount: (count: number) => void
@@ -120,6 +132,17 @@ export const useUiStore = create<UiState>()(
       zoomIn: () => set((s) => ({ zoom: Math.min(5, s.zoom + 0.1) })),
       zoomOut: () => set((s) => ({ zoom: Math.max(0.1, s.zoom - 0.1) })),
       resetZoom: () => set({ zoom: 1.0 }),
+      fitZoom: (containerW, containerH, pageW, pageH, padding = 16) => {
+        if (pageW <= 0 || pageH <= 0 || containerW <= 0 || containerH <= 0) {
+          return 1.0
+        }
+        const scaleX = (containerW - padding * 2) / pageW
+        const scaleY = (containerH - padding * 2) / pageH
+        const fit = Math.min(scaleX, scaleY)
+        const clamped = Math.max(0.1, Math.min(5, fit))
+        set({ zoom: clamped })
+        return clamped
+      },
       setShowPreview: (show) => set({ showPreview: show }),
       setJsonPreviewMode: (mode) => set({ jsonPreviewMode: mode }),
       setMaxModeRepeatCount: (count) => set({ maxModeRepeatCount: count }),
