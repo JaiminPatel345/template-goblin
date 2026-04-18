@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./validateManifest": {
+      "types": "./dist/validateManifest.d.ts",
+      "import": "./dist/validateManifest.js"
     }
   },
   "license": "MIT",

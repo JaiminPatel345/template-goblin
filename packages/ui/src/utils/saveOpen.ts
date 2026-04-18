@@ -1,5 +1,7 @@
 import JSZip from 'jszip'
 import type { TemplateManifest, PageDefinition } from '@template-goblin/types'
+import { TemplateGoblinError } from '@template-goblin/types'
+import { validateManifest } from 'template-goblin/validateManifest'
 import { useTemplateStore } from '../store/templateStore.js'
 
 const MANIFEST_FILENAME = 'manifest.json'
@@ -171,7 +173,9 @@ export async function openTemplate(file: File): Promise<void> {
   try {
     const parsed = sanitizeJson(JSON.parse(manifestText)) as TemplateManifest
 
-    // Validate structure
+    // Defensive layering: shape check — cheap, fast, narrows for the core
+    // validator (which expects a roughly-shaped manifest). Detailed field
+    // validation lives in `validateManifest` below.
     if (!parsed.version || typeof parsed.version !== 'string') throw new Error('missing version')
     if (!parsed.meta || typeof parsed.meta !== 'object') throw new Error('missing meta')
     if (!Array.isArray(parsed.fields)) throw new Error('missing fields array')
@@ -194,6 +198,19 @@ export async function openTemplate(file: File): Promise<void> {
     // Backward compat: if pages is missing, default to empty array
     if (!Array.isArray(parsed.pages)) {
       parsed.pages = []
+    }
+
+    // Route through core `validateManifest` — enforces deep schema validation
+    // (including `isSafeKey` on every `source.jsonKey`) so hostile manifests
+    // are rejected at open time rather than surfacing as silent runtime
+    // failures at PDF generation time.
+    try {
+      validateManifest(parsed)
+    } catch (err) {
+      if (err instanceof TemplateGoblinError) {
+        throw new Error(`${err.message} (${err.code})`, { cause: err })
+      }
+      throw err
     }
 
     manifest = parsed

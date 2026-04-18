@@ -28,6 +28,7 @@
   "devDependencies": {
     "@playwright/test": "^1.49.1",
     "@template-goblin/types": "workspace:*",
+    "template-goblin": "workspace:*",
     "@types/react": "^18.3.14",
     "@types/react-dom": "^18.3.3",
     "@vitejs/plugin-react": "^4.3.4",
