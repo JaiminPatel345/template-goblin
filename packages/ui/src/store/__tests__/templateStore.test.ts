@@ -789,3 +789,33 @@ describe('setFieldZIndex', () => {
     expect(state().fields[0]?.zIndex).toBe(10)
   })
 })
+
+describe('setPage0BackgroundColor', () => {
+  it('creates a page 0 PageDefinition with backgroundType: "color" when none exists', () => {
+    expect(state().pages).toHaveLength(0)
+    state().setPage0BackgroundColor('#ff0000')
+    const page0 = state().pages.find((p) => p.index === 0)
+    expect(page0).toBeDefined()
+    expect(page0?.backgroundType).toBe('color')
+    expect(page0?.backgroundColor).toBe('#ff0000')
+    expect(page0?.backgroundFilename).toBeNull()
+  })
+
+  it('clears any legacy backgroundDataUrl / backgroundBuffer', () => {
+    // Seed a legacy image background first
+    state().setBackground('data:image/png;base64,AAA', new ArrayBuffer(4))
+    expect(state().backgroundDataUrl).not.toBeNull()
+
+    state().setPage0BackgroundColor('#123456')
+    expect(state().backgroundDataUrl).toBeNull()
+    expect(state().backgroundBuffer).toBeNull()
+  })
+
+  it('updates in place when page 0 already exists (does not create a duplicate)', () => {
+    state().setPage0BackgroundColor('#ffffff')
+    state().setPage0BackgroundColor('#00ff00')
+    const page0s = state().pages.filter((p) => p.index === 0)
+    expect(page0s).toHaveLength(1)
+    expect(page0s[0]?.backgroundColor).toBe('#00ff00')
+  })
+})

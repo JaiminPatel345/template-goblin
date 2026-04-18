@@ -219,6 +219,21 @@ describe('generatePreviewHtml', () => {
       const html = await blob.text()
       expect(html).not.toContain('<img class="bg"')
     })
+
+    it('uses supplied solid backgroundColor on the body when no image is present', async () => {
+      const blob = await generatePreviewHtml([], defaultMeta, null, emptyData(), {
+        backgroundColor: '#ff0000',
+      })
+      const html = await blob.text()
+      expect(html).toContain('background: #ff0000')
+      expect(html).not.toContain('<img class="bg"')
+    })
+
+    it('defaults body background to #ffffff when no image and no color supplied', async () => {
+      const blob = await generatePreviewHtml([], defaultMeta, null, emptyData())
+      const html = await blob.text()
+      expect(html).toContain('background: #ffffff')
+    })
   })
 
   describe('XSS prevention', () => {
