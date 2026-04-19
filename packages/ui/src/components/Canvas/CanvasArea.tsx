@@ -930,18 +930,21 @@ export function CanvasArea() {
     [locked, selectField, toggleFieldSelection],
   )
 
+  const setShowRightPanel = useUiStore((s) => s.setShowRightPanel)
   const handleFieldDblClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>, fieldId: string) => {
       if (locked) return
       e.cancelBubble = true
-      // Double-click toggles: deselect if already selected, select if not
-      if (selectedFieldIds.includes(fieldId)) {
-        clearSelection()
-      } else {
-        selectField(fieldId)
-      }
+      // Double-click opens the right panel for that field. Konva fires
+      // `onClick` before `onDblClick`, so the single-click already called
+      // `selectField`; we just need to make sure the right panel is visible.
+      // (The previous implementation toggled selection here, which combined
+      // with the preceding click effectively deselected the field — see
+      // issue #1.)
+      selectField(fieldId)
+      setShowRightPanel(true)
     },
-    [locked, selectedFieldIds, selectField, clearSelection],
+    [locked, selectField, setShowRightPanel],
   )
 
   const handleFieldDragEnd = useCallback(
@@ -1489,12 +1492,18 @@ export function CanvasArea() {
                     {/* Border-only rect when we skipped the fill but still want
                         the outline (static fields, or image fields with an
                         image — the image covers the interior, but we keep a
-                        thin stroke so selection/type colour is visible). */}
+                        thin stroke so selection/type colour is visible).
+                        NOTE: we set `fill` to a near-transparent colour (not
+                        `undefined`) so Konva hit-detects the interior and the
+                        parent Group stays draggable / clickable. Without a
+                        fill, Konva only catches the stroke line and the
+                        rectangle's interior is un-clickable / un-draggable
+                        (issue #1). */}
                     {!shouldFill && (
                       <Rect
                         width={field.width}
                         height={field.height}
-                        fill={undefined}
+                        fill="rgba(0,0,0,0.001)"
                         stroke={isSelected ? SELECTED_STROKE : colors.stroke}
                         strokeWidth={isSelected ? 2 / zoom : 1 / zoom}
                         cornerRadius={2 / zoom}
