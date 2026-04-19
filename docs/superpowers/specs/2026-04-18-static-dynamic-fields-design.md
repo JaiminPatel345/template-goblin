@@ -444,3 +444,14 @@ Documentation in the README / CHANGELOG points at the changeset for the full ver
 ## 12. Open questions
 
 None remaining after brainstorming. Any ambiguity discovered during implementation is surfaced back to this spec and resolved before code lands (per CLAUDE.md Hard Rule 8).
+
+## 13. Render engine
+
+Addendum (2026-04-19): the UI editor's render engine is being migrated from Konva / react-konva to **Fabric.js v6**. This design document is unaffected by that migration for the following reasons:
+
+- The `FieldSource<V>` discriminator defined in §3 is render-engine-agnostic. It describes the template's data model, not how the editor draws it.
+- The manifest shape in §4.7 is unchanged. The on-disk `.tgbl` format, the PDFKit-based PDF pipeline in `packages/core`, and the `InputJSON` contract in §4.8 remain identical.
+- The only files touched by the engine migration live under `packages/ui/src/components/Canvas/` and adjacent utils; see spec 009 for the Fabric-specific REQs / ACs and the F-Mapping between `fabric.Group` trees and `FieldDefinition[]`.
+- The UI flows in §8 (creation popup, right panel, static table editor) are engine-agnostic at the UX layer — the popup and right panel read and write `FieldDefinition`, and the renderer (whether Konva or Fabric) is the consumer of that data.
+
+In short: Fabric replaces Konva as the paintbrush; the template model, archive format, and PDF pipeline are unchanged.
