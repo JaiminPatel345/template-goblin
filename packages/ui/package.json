@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.2",
-    "fabric": "^6",
+    "fabric": "^6.9.1",
     "jszip": "^3.10.1",
     "konva": "^9.3.18",
     "react": "^18.3.1",
