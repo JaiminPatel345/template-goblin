@@ -433,3 +433,17 @@ function resolvePageSize(
 - The `locked` meta flag is reserved for a future feature that prevents edits via the UI builder.
 - `meta.maxPages` serves as the hard limit for table-overflow page generation only. User-defined pages in the `pages` array are not counted against `maxPages`. The `pages` array defines the explicit structure; `maxPages` limits dynamic expansion from table overflow.
 - `CellStyle` is defined once and reused at every level of `TableFieldStyle` — baseline header, baseline row, odd/even overrides, per-column body overrides, per-column header overrides. Implementations must resolve style per property, not per object.
+- The editor's rendering engine is Fabric.js (v6); the manifest schema defined above is engine-agnostic. The UI serialises Fabric's object tree into `FieldDefinition[]` at save time and rebuilds Fabric objects from `FieldDefinition[]` at load time. See spec 009 §F-Mapping for the Fabric↔Field mapping. Neither the schema nor the PDF output pipeline (`packages/core`, PDFKit) has any dependency on the editor's rendering engine — swapping Fabric for another 2D canvas library in the future would touch only `packages/ui`.
+
+## F-Mapping
+
+The UI binds `FieldDefinition` instances to Fabric objects via the following mapping. This is a pointer to spec 009 §F-Mapping; the authoritative mapping lives there.
+
+| Fabric construct                             | Template-schema mapping                                                                        |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `fabric.Group` with custom `__fieldId` prop  | One `FieldDefinition` of any type                                                              |
+| `fabric.Rect` child                          | Visible bounds: `field.x`, `field.y`, `field.width`, `field.height`, plus stroke/fill          |
+| `fabric.Text` child                          | `TextField` label text (and, when resolvable, the rendered value)                              |
+| `fabric.Image` child                         | `ImageField` content — static `source.value.filename` OR dynamic `source.placeholder.filename` |
+| `fabric.Group` of cells                      | `TableField` content                                                                           |
+| `canvas.backgroundImage` / `backgroundColor` | `PageDefinition.backgroundFilename` / `backgroundColor`                                        |
