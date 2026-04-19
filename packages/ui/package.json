@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.2",
+    "fabric": "^6",
     "jszip": "^3.10.1",
     "konva": "^9.3.18",
     "react": "^18.3.1",
@@ -28,16 +29,17 @@
   "devDependencies": {
     "@playwright/test": "^1.49.1",
     "@template-goblin/types": "workspace:*",
-    "template-goblin": "workspace:*",
     "@types/react": "^18.3.14",
     "@types/react-dom": "^18.3.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "template-goblin": "workspace:*",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
     "vitest": "^4.1.4"
   },
+  "comment:fabric": "Canvas rendering engine (v6) replacing Konva — imperative 2D canvas, built-in drag/resize/selection, no React binding library required",
   "comment:jszip": "ZIP read/write for .tgbl files in browser",
-  "comment:konva": "Canvas rendering engine for react-konva",
-  "comment:react-konva": "React bindings for Konva — drag-and-drop canvas",
+  "comment:konva": "Canvas rendering engine — BEING REMOVED in favour of Fabric.js (kept during migration only)",
+  "comment:react-konva": "React bindings for Konva — BEING REMOVED in favour of Fabric.js (kept during migration only)",
   "comment:zustand": "Lightweight state management — canvas state, undo/redo, UI state"
 }
