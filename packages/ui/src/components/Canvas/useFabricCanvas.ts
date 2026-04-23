@@ -17,7 +17,13 @@ import type { FieldType } from '@template-goblin/types'
 import type { FieldCreationDraft } from './FieldCreationPopup.js'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
-import { groupToFieldPatch, fitZoomLevel, centreViewport, snap } from './fabricUtils.js'
+import {
+  groupToFieldPatch,
+  fitZoomLevel,
+  centreViewport,
+  snap,
+  syncSelectionEmphasis,
+} from './fabricUtils.js'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -137,18 +143,23 @@ function wireSelectionEvents(fc: FabricCanvas) {
     const current = useUiStore.getState().selectedFieldIds
     const sortedNew = [...ids].sort()
     const sortedCur = [...current].sort()
-    if (sortedNew.length === sortedCur.length && sortedNew.every((id, i) => id === sortedCur[i])) {
-      return
+    const storeInSync =
+      sortedNew.length === sortedCur.length && sortedNew.every((id, i) => id === sortedCur[i])
+    if (!storeInSync) {
+      if (ids.length === 0) {
+        if (current.length > 0) useUiStore.getState().clearSelection()
+      } else if (ids.length === 1) {
+        const onlyId = ids[0]
+        if (onlyId) useUiStore.getState().selectAndFocus(onlyId)
+      } else {
+        useUiStore.getState().selectFields(ids)
+        useUiStore.getState().setShowRightPanel(true)
+      }
     }
-    if (ids.length === 0) {
-      if (current.length > 0) useUiStore.getState().clearSelection()
-    } else if (ids.length === 1) {
-      const onlyId = ids[0]
-      if (onlyId) useUiStore.getState().selectAndFocus(onlyId)
-    } else {
-      useUiStore.getState().selectFields(ids)
-      useUiStore.getState().setShowRightPanel(true)
-    }
+    // Visual emphasis reflects the canvas active-object set regardless of
+    // whether the store changed (the set itself may still differ from the
+    // previous emphasis state — e.g. on a shift-click that grew the selection).
+    syncSelectionEmphasis(fc)
   }
 
   fc.on('selection:created', sync)
@@ -157,6 +168,7 @@ function wireSelectionEvents(fc: FabricCanvas) {
     if (useUiStore.getState().selectedFieldIds.length > 0) {
       useUiStore.getState().clearSelection()
     }
+    syncSelectionEmphasis(fc)
   })
 }
 

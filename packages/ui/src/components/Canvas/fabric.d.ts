@@ -19,5 +19,11 @@ declare module 'fabric' {
     __fieldType?: string
     /** Internal flag: marks Fabric objects that are part of the grid overlay. */
     __isGrid?: boolean
+    /** Default (un-selected) fill saved on the field's background Rect. */
+    __defaultFill?: string
+    /** Default (un-selected) stroke saved on the field's background Rect. */
+    __defaultStroke?: string
+    /** Default (un-selected) strokeWidth saved on the field's background Rect. */
+    __defaultStrokeWidth?: number
   }
 }
