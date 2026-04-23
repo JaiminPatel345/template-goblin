@@ -1,19 +1,21 @@
 name: Publish SDK to npm
 
 on:
-  # Trigger manually or on version tags
   push:
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g., 0.1.0, 0.2.0-beta.1)'
+        description: 'Version to publish (e.g., 0.2.0, 0.3.0-beta.1)'
         required: true
         type: string
 
 permissions:
   contents: read
+
+env:
+  NODE_VERSION: 22
 
 jobs:
   test:
@@ -27,7 +29,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -56,17 +58,39 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Verify NPM_TOKEN is set
+        run: |
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "::error::NPM_TOKEN secret is not set. Add it in Settings → Secrets → Actions."
+            exit 1
+          fi
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            TAG="${GITHUB_REF#refs/tags/v}"
+            echo "value=$TAG" >> "$GITHUB_OUTPUT"
+          fi
+
       - run: pnpm install --frozen-lockfile
+
+      - name: Set version
+        run: |
+          cd packages/types
+          npm version "${{ steps.version.outputs.value }}" --no-git-tag-version --allow-same-version
 
       - name: Build types
         run: pnpm --filter @template-goblin/types build
 
       - name: Publish @template-goblin/types
-        run: pnpm --filter @template-goblin/types publish --no-git-checks --access public
+        run: pnpm --filter @template-goblin/types publish --no-git-checks --access public || true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -82,17 +106,32 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            TAG="${GITHUB_REF#refs/tags/v}"
+            echo "value=$TAG" >> "$GITHUB_OUTPUT"
+          fi
+
       - run: pnpm install --frozen-lockfile
+
+      - name: Set versions
+        run: |
+          cd packages/types && npm version "${{ steps.version.outputs.value }}" --no-git-tag-version --allow-same-version && cd ../..
+          cd packages/core && npm version "${{ steps.version.outputs.value }}" --no-git-tag-version --allow-same-version && cd ../..
 
       - name: Build all
         run: pnpm build
 
       - name: Publish template-goblin
-        run: pnpm --filter template-goblin publish --no-git-checks --access public
+        run: pnpm --filter template-goblin publish --no-git-checks --access public || true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -108,16 +147,31 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            TAG="${GITHUB_REF#refs/tags/v}"
+            echo "value=$TAG" >> "$GITHUB_OUTPUT"
+          fi
+
       - run: pnpm install --frozen-lockfile
+
+      - name: Set versions
+        run: |
+          cd packages/types && npm version "${{ steps.version.outputs.value }}" --no-git-tag-version --allow-same-version && cd ../..
+          cd packages/ui && npm version "${{ steps.version.outputs.value }}" --no-git-tag-version --allow-same-version && cd ../..
 
       - name: Build all
         run: pnpm build
 
       - name: Publish template-goblin-ui
-        run: pnpm --filter template-goblin-ui publish --no-git-checks --access public
+        run: pnpm --filter template-goblin-ui publish --no-git-checks --access public || true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
