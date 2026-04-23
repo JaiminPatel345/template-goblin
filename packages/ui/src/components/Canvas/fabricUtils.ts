@@ -35,7 +35,7 @@
 import { Rect, Group, FabricText, FabricImage, Point, Line } from 'fabric'
 import type { FabricObject } from 'fabric'
 import type { FieldDefinition } from '@template-goblin/types'
-import { FIELD_COLORS } from '../../theme/fieldColors.js'
+import { FIELD_COLORS, SELECTED_STROKE_WIDTH } from '../../theme/fieldColors.js'
 import { fieldCanvasLabel } from './fieldLabel.js'
 import { shouldRenderFillRect } from './rectFill.js'
 
@@ -252,6 +252,90 @@ export function applyFieldToGroup(
   })
   group.setCoords()
   group.__fieldType = field.type
+
+  // Re-apply current selection visuals — children were just rebuilt so the
+  // bgRect is back to defaults; if the group is still part of the canvas's
+  // active selection we need to restore the emphasis.
+  const canvas = group.canvas
+  if (canvas) {
+    const active = canvas.getActiveObjects().some((o) => o.__fieldId === field.id)
+    applySelectionVisuals(group, active)
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Selection visual emphasis (GH #10)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Toggle the visual emphasis on a field Group to reflect selection state.
+ *
+ * Design: a subtle default fill/stroke makes unselected fields easy to skim
+ * past; when the user clicks or drag-selects a field Fabric's corner handles
+ * alone are too small to register at a glance. We darken the bgRect fill to
+ * `selectedFill` (same hue, higher alpha) and widen the stroke to
+ * `SELECTED_STROKE_WIDTH` in `selectedStroke`. Fields with a transparent
+ * default fill (static / image-with-placeholder fields per REQ-047) get
+ * stroke-only emphasis so we don't paint over a rendered image.
+ *
+ * @param group - The field Group to update.
+ * @param selected - True if the group is (or is part of) the active selection.
+ */
+export function applySelectionVisuals(group: Group, selected: boolean): void {
+  const bgRect = group.getObjects()[0] as Rect | undefined
+  if (!bgRect) return
+  const fieldType = group.__fieldType
+  if (!fieldType || !(fieldType in FIELD_COLORS)) return
+  const tokens = FIELD_COLORS[fieldType as keyof typeof FIELD_COLORS]
+
+  const defaultFill = bgRect.__defaultFill ?? tokens.fill
+  const defaultStroke = bgRect.__defaultStroke ?? tokens.stroke
+  const defaultStrokeWidth = bgRect.__defaultStrokeWidth ?? 1
+
+  if (selected) {
+    // Transparent-default fields keep a transparent fill on selection so a
+    // rendered image / placeholder isn't painted over — stroke alone signals.
+    const nextFill = defaultFill === 'transparent' ? 'transparent' : tokens.selectedFill
+    bgRect.set({
+      fill: nextFill,
+      stroke: tokens.selectedStroke,
+      strokeWidth: SELECTED_STROKE_WIDTH,
+    })
+  } else {
+    bgRect.set({
+      fill: defaultFill,
+      stroke: defaultStroke,
+      strokeWidth: defaultStrokeWidth,
+    })
+  }
+  // Fabric v6 caches Group renders; mutating a child's fill/stroke does NOT
+  // invalidate the parent cache on its own, so the viewport stays stale
+  // until the group is marked dirty.
+  bgRect.set('dirty', true)
+  group.set('dirty', true)
+}
+
+/**
+ * Refresh every field Group on the canvas so its visuals reflect the current
+ * Fabric active-object set. Call from `selection:created` / `selection:updated`
+ * / `selection:cleared` handlers. Cheap: iterates top-level objects once.
+ */
+export function syncSelectionEmphasis(canvas: {
+  getObjects: () => FabricObject[]
+  getActiveObjects: () => FabricObject[]
+  requestRenderAll: () => void
+}): void {
+  const activeIds = new Set(
+    canvas
+      .getActiveObjects()
+      .map((o) => o.__fieldId)
+      .filter((id): id is string => !!id),
+  )
+  for (const obj of canvas.getObjects()) {
+    if (!obj.__fieldId || obj.__isGrid) continue
+    applySelectionVisuals(obj as Group, activeIds.has(obj.__fieldId))
+  }
+  canvas.requestRenderAll()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -452,14 +536,17 @@ export function buildGroupChildren(
   // 1. Background rect — always present so the Group has a stable bounding box
   //    and hit-testing works (Fabric needs a non-zero area; fill: 'transparent'
   //    still participates in hit-detection unlike fill: null or fill: '').
+  const defaultFill = shouldFill ? colors.fill : 'transparent'
+  const defaultStroke = colors.stroke
+  const defaultStrokeWidth = 1
   const bgRect = new Rect({
     left: 0,
     top: 0,
     width: w,
     height: h,
-    fill: shouldFill ? colors.fill : 'transparent',
-    stroke: colors.stroke,
-    strokeWidth: 1,
+    fill: defaultFill,
+    stroke: defaultStroke,
+    strokeWidth: defaultStrokeWidth,
     strokeUniform: true,
     rx: 2,
     ry: 2,
@@ -468,6 +555,9 @@ export function buildGroupChildren(
     originX: 'left',
     originY: 'top',
   })
+  bgRect.__defaultFill = defaultFill
+  bgRect.__defaultStroke = defaultStroke
+  bgRect.__defaultStrokeWidth = defaultStrokeWidth
 
   const children: FabricObject[] = [bgRect]
 
