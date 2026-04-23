@@ -8,6 +8,8 @@ dist/
 # Turbo
 .turbo/
 
+temp/
+
 # IDE
 .vscode/
 .idea/
