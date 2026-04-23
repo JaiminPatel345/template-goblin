@@ -34,11 +34,17 @@ function useCurrentBackground() {
   const pageBackgroundDataUrls = useTemplateStore((s) => s.pageBackgroundDataUrls)
   const currentPageId = useUiStore((s) => s.currentPageId)
 
+  // Guard: if the persisted currentPageId no longer exists in the current
+  // template (e.g. stale localStorage from a previous session), treat it as
+  // null so that page-0 / backgroundDataUrl fallbacks apply correctly.
+  const effectivePageId =
+    currentPageId !== null && pages.some((p) => p.id === currentPageId) ? currentPageId : null
+
   const currentBgDataUrl = ((): string | null => {
     if (pages.length === 0) return backgroundDataUrl
-    if (currentPageId === null) return backgroundDataUrl
+    if (effectivePageId === null) return backgroundDataUrl
 
-    const page = pages.find((p) => p.id === currentPageId)
+    const page = pages.find((p) => p.id === effectivePageId)
     if (!page) return backgroundDataUrl
 
     if (page.backgroundType === 'image') {
@@ -60,12 +66,12 @@ function useCurrentBackground() {
 
   const currentBgColor = ((): string | null => {
     if (pages.length === 0) return null
-    if (currentPageId === null) {
+    if (effectivePageId === null) {
       const page0 = pages.find((p) => p.index === 0)
       if (page0 && page0.backgroundType === 'color') return page0.backgroundColor
       return null
     }
-    const page = pages.find((p) => p.id === currentPageId)
+    const page = pages.find((p) => p.id === effectivePageId)
     if (!page) return null
     if (page.backgroundType === 'color') return page.backgroundColor
     return null
@@ -93,6 +99,7 @@ export function CanvasArea() {
   const gridSize = useUiStore((s) => s.gridSize)
   const zoom = useUiStore((s) => s.zoom)
   const currentPageId = useUiStore((s) => s.currentPageId)
+  const setCurrentPage = useUiStore((s) => s.setCurrentPage)
 
   // ── Refs ───────────────────────────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -158,7 +165,12 @@ export function CanvasArea() {
         onDragOver={pageHandlers.handleDragOver}
         onDragLeave={pageHandlers.handleDragLeave}
         onChooseImage={() => pageHandlers.fileInputRef.current?.click()}
-        onChooseColor={(hex) => setPage0BackgroundColor(hex)}
+        onChooseColor={(hex) => {
+          // Reset currentPageId to null so stale persisted ids don't prevent
+          // useCurrentBackground from resolving the newly created page 0.
+          setCurrentPage(null)
+          setPage0BackgroundColor(hex)
+        }}
         fileInputRef={pageHandlers.fileInputRef}
         onFileChange={pageHandlers.handleInputChange}
         setContainerRef={setContainerRef}

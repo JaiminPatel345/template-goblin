@@ -9,7 +9,6 @@ import {
   type Canvas as FabricCanvas,
   FabricImage,
   ActiveSelection,
-  Rect,
   type Group as FabricGroup,
 } from 'fabric'
 import type { FabricObject } from 'fabric'
@@ -149,16 +148,14 @@ export function useFabricSync(deps: SyncDeps) {
       })
       fc.backgroundImage = fabricImg
       fc.backgroundColor = ''
-    } else if (currentBgColor && meta.width > 0 && meta.height > 0) {
-      const bgRect = new Rect({
-        width: meta.width,
-        height: meta.height,
-        fill: currentBgColor,
-        originX: 'left',
-        originY: 'top',
-      })
-      fc.backgroundImage = bgRect
-      fc.backgroundColor = ''
+    } else if (currentBgColor) {
+      // Solid-colour background: use Fabric's native canvas.backgroundColor so
+      // that the page colour is always visible regardless of zoom/pan.  The
+      // previous implementation set backgroundImage to a Rect which is a type
+      // mismatch (Fabric v6 types backgroundImage as FabricImage) and can cause
+      // the Rect to silently fail to render when it has no canvas reference.
+      fc.backgroundImage = undefined
+      fc.backgroundColor = currentBgColor
     } else {
       fc.backgroundImage = undefined
       fc.backgroundColor = ''
