@@ -28,6 +28,14 @@ export function Toolbar() {
   const toggleTheme = useUiStore((s) => s.toggleTheme)
   const activeTool = useUiStore((s) => s.activeTool)
   const setActiveTool = useUiStore((s) => s.setActiveTool)
+  const selectedFieldIds = useUiStore((s) => s.selectedFieldIds)
+  const fields = useTemplateStore((s) => s.fields)
+  // Set of field types present in the current selection — each matching
+  // toolbar button gets a ring so the user can see at a glance what types
+  // they have selected on the canvas.
+  const selectedFieldTypes = new Set(
+    fields.filter((f) => selectedFieldIds.includes(f.id)).map((f) => f.type),
+  )
   const showGrid = useUiStore((s) => s.showGrid)
   const setShowGrid = useUiStore((s) => s.setShowGrid)
   const showPreview = useUiStore((s) => s.showPreview)
@@ -230,7 +238,7 @@ export function Toolbar() {
       {/* Field tools */}
       <div className="tg-toolbar-group">
         <button
-          className={`tg-btn ${activeTool === 'addText' ? 'tg-btn--active' : ''}`}
+          className={`tg-btn ${activeTool === 'addText' ? 'tg-btn--active' : ''} ${selectedFieldTypes.has('text') ? 'tg-btn--selected-ring' : ''}`}
           onClick={() => setActiveTool(activeTool === 'addText' ? 'select' : 'addText')}
           disabled={locked || !hasBackground}
           style={{
@@ -254,7 +262,7 @@ export function Toolbar() {
           Text
         </button>
         <button
-          className={`tg-btn ${activeTool === 'addImage' ? 'tg-btn--active' : ''}`}
+          className={`tg-btn ${activeTool === 'addImage' ? 'tg-btn--active' : ''} ${selectedFieldTypes.has('image') ? 'tg-btn--selected-ring' : ''}`}
           onClick={() => setActiveTool(activeTool === 'addImage' ? 'select' : 'addImage')}
           disabled={locked || !hasBackground}
           style={{
@@ -278,7 +286,7 @@ export function Toolbar() {
           Image
         </button>
         <button
-          className={`tg-btn ${activeTool === 'addLoop' ? 'tg-btn--active' : ''}`}
+          className={`tg-btn ${activeTool === 'addLoop' ? 'tg-btn--active' : ''} ${selectedFieldTypes.has('table') ? 'tg-btn--selected-ring' : ''}`}
           onClick={() => setActiveTool(activeTool === 'addLoop' ? 'select' : 'addLoop')}
           disabled={locked || !hasBackground}
           style={{

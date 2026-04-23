@@ -308,6 +308,11 @@ export function applySelectionVisuals(group: Group, selected: boolean): void {
       strokeWidth: defaultStrokeWidth,
     })
   }
+  // Fabric v6 caches Group renders; mutating a child's fill/stroke does NOT
+  // invalidate the parent cache on its own, so the viewport stays stale
+  // until the group is marked dirty.
+  bgRect.set('dirty', true)
+  group.set('dirty', true)
 }
 
 /**
