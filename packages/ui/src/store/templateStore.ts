@@ -41,6 +41,14 @@ export interface TemplateState {
   fontBuffers: Map<string, ArrayBuffer>
   /** Placeholder image buffers for saving */
   placeholderBuffers: Map<string, ArrayBuffer>
+  /**
+   * Static image buffers (baked into `.tgbl` under `images/`). Keyed by bare
+   * filename. Populated by the field-creation popup's image picker and by
+   * loadTemplate on open.
+   */
+  staticImageBuffers: Map<string, ArrayBuffer>
+  /** Data-URL mirror of staticImageBuffers for canvas preview. */
+  staticImageDataUrls: Map<string, string>
 
   /** Undo/redo history */
   history: HistorySnapshot[]
@@ -78,6 +86,14 @@ export interface TemplateState {
   removeFont: (id: string) => void
 
   addPlaceholder: (filename: string, buffer: ArrayBuffer) => void
+
+  /**
+   * Register a static image (baked into the template) for a static image
+   * field. Stored under `images/<filename>` in the saved archive.
+   */
+  addStaticImage: (filename: string, dataUrl: string, buffer: ArrayBuffer) => void
+  /** Remove a static image by its bare filename. */
+  removeStaticImage: (filename: string) => void
 
   /** Add a page to the template */
   addPage: (
@@ -125,6 +141,8 @@ export interface TemplateState {
     pages?: PageDefinition[],
     pageBackgroundDataUrls?: Map<string, string>,
     pageBackgroundBuffers?: Map<string, ArrayBuffer>,
+    staticImageBuffers?: Map<string, ArrayBuffer>,
+    staticImageDataUrls?: Map<string, string>,
   ) => void
 }
 
@@ -205,6 +223,8 @@ interface PersistedState {
   pageBackgroundBuffers: [string, string][]
   fontBuffers: [string, string][]
   placeholderBuffers: [string, string][]
+  staticImageBuffers?: [string, string][]
+  staticImageDataUrls?: [string, string][]
 }
 
 /** Persist schema version. Bumped to 2 in Phase 1 when `source: FieldSource<V>` replaced
@@ -304,6 +324,8 @@ export const useTemplateStore = create<TemplateState>()(
       pageBackgroundBuffers: new Map(),
       fontBuffers: new Map(),
       placeholderBuffers: new Map(),
+      staticImageBuffers: new Map(),
+      staticImageDataUrls: new Map(),
 
       history: [],
       historyIndex: -1,
@@ -494,6 +516,24 @@ export const useTemplateStore = create<TemplateState>()(
           return { placeholderBuffers }
         }),
 
+      addStaticImage: (filename, dataUrl, buffer) =>
+        set((state) => {
+          const staticImageBuffers = new Map(state.staticImageBuffers)
+          const staticImageDataUrls = new Map(state.staticImageDataUrls)
+          staticImageBuffers.set(filename, buffer)
+          staticImageDataUrls.set(filename, dataUrl)
+          return { staticImageBuffers, staticImageDataUrls }
+        }),
+
+      removeStaticImage: (filename) =>
+        set((state) => {
+          const staticImageBuffers = new Map(state.staticImageBuffers)
+          const staticImageDataUrls = new Map(state.staticImageDataUrls)
+          staticImageBuffers.delete(filename)
+          staticImageDataUrls.delete(filename)
+          return { staticImageBuffers, staticImageDataUrls }
+        }),
+
       addPage: (page, bgDataUrl, bgBuffer) =>
         set((state) => {
           const pages = [...state.pages, page]
@@ -626,6 +666,8 @@ export const useTemplateStore = create<TemplateState>()(
           pageBackgroundBuffers: new Map(),
           fontBuffers: new Map(),
           placeholderBuffers: new Map(),
+          staticImageBuffers: new Map(),
+          staticImageDataUrls: new Map(),
           history: [],
           historyIndex: -1,
         }),
@@ -642,6 +684,8 @@ export const useTemplateStore = create<TemplateState>()(
         pages,
         pageBackgroundDataUrls,
         pageBackgroundBuffers,
+        staticImageBuffers,
+        staticImageDataUrls,
       ) =>
         set({
           meta,
@@ -655,6 +699,8 @@ export const useTemplateStore = create<TemplateState>()(
           pageBackgroundBuffers: pageBackgroundBuffers ?? new Map(),
           fontBuffers,
           placeholderBuffers,
+          staticImageBuffers: staticImageBuffers ?? new Map(),
+          staticImageDataUrls: staticImageDataUrls ?? new Map(),
           history: [createSnapshot({ fields, groups })],
           historyIndex: 0,
         }),
@@ -675,6 +721,8 @@ export const useTemplateStore = create<TemplateState>()(
         pageBackgroundBuffers: state.pageBackgroundBuffers,
         fontBuffers: state.fontBuffers,
         placeholderBuffers: state.placeholderBuffers,
+        staticImageBuffers: state.staticImageBuffers,
+        staticImageDataUrls: state.staticImageDataUrls,
       }),
       // Zustand invokes `migrate` when the stored version differs from the
       // current `version`. Pre-Phase-1 entries were written with implicit
@@ -707,6 +755,10 @@ export const useTemplateStore = create<TemplateState>()(
                 placeholderBuffers: new Map(
                   (s.placeholderBuffers ?? []).map(([k, v]) => [k, b642ab(v)]),
                 ),
+                staticImageBuffers: new Map(
+                  (s.staticImageBuffers ?? []).map(([k, v]) => [k, b642ab(v)]),
+                ),
+                staticImageDataUrls: new Map(s.staticImageDataUrls ?? []),
               },
               version,
             }
@@ -738,6 +790,11 @@ export const useTemplateStore = create<TemplateState>()(
               k,
               ab2b64(v),
             ]),
+            staticImageBuffers: Array.from(state.staticImageBuffers.entries()).map(([k, v]) => [
+              k,
+              ab2b64(v),
+            ]),
+            staticImageDataUrls: Array.from(state.staticImageDataUrls.entries()),
           }
           localStorage.setItem(
             name,

@@ -123,7 +123,9 @@ export function LeftPanel() {
   const addGroup = useTemplateStore((s) => s.addGroup)
   const updateField = useTemplateStore((s) => s.updateField)
   const selectedFieldIds = useUiStore((s) => s.selectedFieldIds)
-  const selectField = useUiStore((s) => s.selectField)
+  // Clicking a row in the left panel is equivalent to picking the element
+  // on the canvas — select + show its properties in the right panel.
+  const selectField = useUiStore((s) => s.selectAndFocus)
 
   // Build a map from groupId to fields
   const groupedFields = new Map<string | null, FieldDefinition[]>()

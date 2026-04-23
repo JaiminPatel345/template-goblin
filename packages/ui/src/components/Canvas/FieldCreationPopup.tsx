@@ -35,8 +35,15 @@ export interface FieldCreationDraft {
   groupId: string | null
 }
 
+/** An image payload the user picked in the popup (inline image picker). */
+export interface PickedImage {
+  filename: string
+  dataUrl: string
+  buffer: ArrayBuffer
+}
+
 export type SourceInputs =
-  | { mode: 'static'; value: string }
+  | { mode: 'static'; value: string; image?: PickedImage }
   | { mode: 'dynamic'; jsonKey: string; required: boolean; placeholder: string }
 
 export interface FieldCreationPopupProps {
@@ -72,6 +79,9 @@ export function FieldCreationPopup({
   const [required, setRequired] = useState(true)
   const [placeholder, setPlaceholder] = useState('')
   const [value, setValue] = useState('')
+  const [pickedImage, setPickedImage] = useState<PickedImage | null>(null)
+  const [imagePickMode, setImagePickMode] = useState<'choose' | 'color'>('choose')
+  const [imageColor, setImageColor] = useState('#ffffff')
   const [error, setError] = useState<string | null>(null)
 
   const commit = useCallback(() => {
@@ -97,9 +107,58 @@ export function FieldCreationPopup({
         placeholder: required ? '' : placeholder,
       })
     } else {
-      onConfirm(label.trim(), { mode: 'static', value })
+      if (draft.type === 'image' && !pickedImage) {
+        setError('Pick an image or a solid color for this static image field.')
+        return
+      }
+      onConfirm(label.trim(), {
+        mode: 'static',
+        value,
+        image: draft.type === 'image' && pickedImage ? pickedImage : undefined,
+      })
     }
-  }, [label, mode, jsonKey, required, placeholder, value, onConfirm])
+  }, [label, mode, jsonKey, required, placeholder, value, draft.type, pickedImage, onConfirm])
+
+  async function onPickFile(file: File) {
+    const buffer = await file.arrayBuffer()
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error('Failed to read image'))
+      reader.readAsDataURL(file)
+    })
+    const ext = file.name.match(/\.[A-Za-z0-9]+$/)?.[0] ?? '.png'
+    const filename = `static-${Date.now()}${ext}`
+    setPickedImage({ filename, dataUrl, buffer })
+  }
+
+  async function onPickSolidColor(hex: string) {
+    // Render the chosen colour to a 1x1 PNG and treat it as an image payload.
+    // This keeps the schema image-first (source.value.filename) while still
+    // supporting the "solid color" ergonomic the user asked for.
+    const canvas = document.createElement('canvas')
+    canvas.width = 1
+    canvas.height = 1
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      setError('Could not build a solid-color image in this browser.')
+      return
+    }
+    ctx.fillStyle = hex
+    ctx.fillRect(0, 0, 1, 1)
+    const blob: Blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png')
+    })
+    const buffer = await blob.arrayBuffer()
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error('Failed to read blob'))
+      reader.readAsDataURL(blob)
+    })
+    const filename = `static-color-${hex.replace('#', '').toLowerCase()}.png`
+    setPickedImage({ filename, dataUrl, buffer })
+  }
 
   // Keyboard shortcuts: Esc = cancel, Ctrl/Cmd+Enter = create
   useEffect(() => {
@@ -251,17 +310,146 @@ export function FieldCreationPopup({
             </label>
           )}
 
-          {mode === 'static' && draft.type !== 'text' && (
+          {mode === 'static' && draft.type === 'image' && (
+            <div className="tg-field-row">
+              <span className="tg-field-label">Image content</span>
+              {pickedImage ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <img
+                    src={pickedImage.dataUrl}
+                    alt="preview"
+                    style={{
+                      width: 48,
+                      height: 48,
+                      objectFit: 'contain',
+                      border: '1px solid var(--border)',
+                      borderRadius: 4,
+                      background: '#fff',
+                    }}
+                  />
+                  <span style={{ fontFamily: 'monospace', fontSize: 12 }}>
+                    {pickedImage.filename}
+                  </span>
+                  <button
+                    className="tg-btn"
+                    onClick={() => {
+                      setPickedImage(null)
+                      setImagePickMode('choose')
+                    }}
+                    data-testid="create-popup-image-clear"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : imagePickMode === 'choose' ? (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <label className="tg-btn tg-btn--primary" data-testid="create-popup-upload-image">
+                    Upload image
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        if (f) void onPickFile(f)
+                      }}
+                    />
+                  </label>
+                  <button
+                    className="tg-btn"
+                    onClick={() => setImagePickMode('color')}
+                    data-testid="create-popup-solid-color"
+                  >
+                    Solid color
+                  </button>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <input
+                    type="color"
+                    value={imageColor}
+                    onChange={(e) => setImageColor(e.target.value)}
+                    style={{ width: 44, height: 32 }}
+                    data-testid="create-popup-image-color-input"
+                  />
+                  <input
+                    type="text"
+                    className="tg-input"
+                    value={imageColor}
+                    onChange={(e) => setImageColor(e.target.value)}
+                    maxLength={7}
+                    style={{ width: 100, fontFamily: 'monospace' }}
+                    data-testid="create-popup-image-color-hex"
+                  />
+                  <button className="tg-btn" onClick={() => setImagePickMode('choose')}>
+                    Back
+                  </button>
+                  <button
+                    className="tg-btn tg-btn--primary"
+                    onClick={() => {
+                      const hex = /^#[0-9a-fA-F]{6}$/.test(imageColor)
+                        ? imageColor.toLowerCase()
+                        : '#ffffff'
+                      void onPickSolidColor(hex)
+                    }}
+                    data-testid="create-popup-image-color-apply"
+                  >
+                    Apply color
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {mode === 'static' && draft.type === 'table' && (
             <div className="tg-field-hint">
-              {draft.type === 'image'
-                ? 'Upload the image for this static field from the right panel after creation.'
-                : 'Edit the baked-in rows from the right panel after creation.'}
+              Edit the baked-in rows from the right panel after creation.
             </div>
           )}
 
           {error && (
-            <div className="tg-error" role="alert" data-testid="create-popup-error">
-              {error}
+            <div
+              className="tg-validation-banner"
+              role="alert"
+              aria-live="polite"
+              data-testid="create-popup-error"
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8,
+                padding: '8px 12px',
+                borderRadius: 6,
+                background: 'color-mix(in srgb, var(--error) 14%, transparent)',
+                borderLeft: '3px solid var(--error)',
+                color: 'var(--error)',
+                fontSize: 13,
+                lineHeight: 1.4,
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ flexShrink: 0, marginTop: 1 }}
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>{error}</span>
             </div>
           )}
         </div>

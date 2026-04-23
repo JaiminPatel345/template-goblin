@@ -67,6 +67,7 @@ export async function saveTemplate(): Promise<void> {
     pageBackgroundBuffers,
     fontBuffers,
     placeholderBuffers,
+    staticImageBuffers,
   } = state
 
   // Defence in depth: filter out fields missing `source` before serialising.
@@ -117,6 +118,14 @@ export async function saveTemplate(): Promise<void> {
 
   for (const [filename, buffer] of placeholderBuffers) {
     const path = filename.startsWith('placeholders/') ? filename : `placeholders/${filename}`
+    if (isSafeZipPath(path)) {
+      zip.file(path, buffer)
+    }
+  }
+
+  // Static image files referenced by static-image fields (images/<filename>).
+  for (const [filename, buffer] of staticImageBuffers) {
+    const path = filename.startsWith('images/') ? filename : `images/${filename}`
     if (isSafeZipPath(path)) {
       zip.file(path, buffer)
     }
@@ -283,6 +292,27 @@ export async function openTemplate(file: File): Promise<void> {
     }
   }
 
+  // Load static images baked into the archive under `images/`. Field references
+  // use the bare filename per spec 023; archive entries live at
+  // `images/<filename>`.
+  const staticImageBuffers = new Map<string, ArrayBuffer>()
+  const staticImageDataUrls = new Map<string, string>()
+  for (const field of manifest.fields) {
+    if (field.type !== 'image') continue
+    if (field.source.mode !== 'static') continue
+    const filename = field.source.value?.filename
+    if (!filename) continue
+    const archivePath = filename.startsWith('images/') ? filename : `images/${filename}`
+    if (!isSafeZipPath(archivePath)) continue
+    const entry = zip.file(archivePath)
+    if (!entry) continue
+    const buffer = await entry.async('arraybuffer')
+    const blob = new Blob([buffer])
+    const dataUrl = await blobToDataUrl(blob)
+    staticImageBuffers.set(filename, buffer)
+    staticImageDataUrls.set(filename, dataUrl)
+  }
+
   store.loadFromManifest(
     manifest.meta,
     manifest.fields,
@@ -295,6 +325,8 @@ export async function openTemplate(file: File): Promise<void> {
     pages,
     pageBackgroundDataUrls,
     pageBackgroundBuffers,
+    staticImageBuffers,
+    staticImageDataUrls,
   )
 }
 

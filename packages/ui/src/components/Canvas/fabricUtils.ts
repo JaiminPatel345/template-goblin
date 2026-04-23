@@ -176,9 +176,16 @@ export type ImageResolver = (filename: string) => string | null
  *          update the child if needed).
  */
 export function createFieldGroup(field: FieldDefinition, resolveImage: ImageResolver): Group {
-  const children = buildGroupChildren(field, resolveImage)
+  let createdGroup: Group | null = null
+  const children = buildGroupChildren(field, resolveImage, (img, phId) => {
+    if (!createdGroup) return
+    const ph = createdGroup.getObjects().find((c) => c.__fieldId === phId)
+    if (ph) createdGroup.remove(ph)
+    createdGroup.add(img)
+    createdGroup.canvas?.requestRenderAll()
+  })
 
-  const group = new Group(children, {
+  createdGroup = new Group(children, {
     left: field.x,
     top: field.y,
     width: field.width,
@@ -191,15 +198,13 @@ export function createFieldGroup(field: FieldDefinition, resolveImage: ImageReso
     hasControls: true,
     hasBorders: true,
     subTargetCheck: false,
-    // Prevent individual children from receiving pointer events;
-    // all interaction routes through the Group.
     evented: true,
   })
 
-  group.__fieldId = field.id
-  group.__fieldType = field.type
+  createdGroup.__fieldId = field.id
+  createdGroup.__fieldType = field.type
 
-  return group
+  return createdGroup
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -226,7 +231,12 @@ export function applyFieldToGroup(
     group.remove(...existing)
   }
 
-  const children = buildGroupChildren(field, resolveImage)
+  const children = buildGroupChildren(field, resolveImage, (img, phId) => {
+    const ph = group.getObjects().find((c) => c.__fieldId === phId)
+    if (ph) group.remove(ph)
+    group.add(img)
+    group.canvas?.requestRenderAll()
+  })
   if (children.length > 0) {
     group.add(...children)
   }
@@ -405,7 +415,11 @@ export function fitZoomLevel(
  *    `fill: 'transparent'`; the FabricImage child is added instead.
  *  - All other dynamic fields: fill rect uses the per-type colour token.
  */
-function buildGroupChildren(field: FieldDefinition, resolveImage: ImageResolver): FabricObject[] {
+export function buildGroupChildren(
+  field: FieldDefinition,
+  resolveImage: ImageResolver,
+  onAsyncUpdate?: (img: FabricImage, placeholderId: string) => void,
+): FabricObject[] {
   const colors = FIELD_COLORS[field.type]
   const w = field.width
   const h = field.height
@@ -461,9 +475,6 @@ function buildGroupChildren(field: FieldDefinition, resolveImage: ImageResolver)
   //    a dummy element; the caller is responsible for re-rendering after load).
   //    We create a lightweight placeholder if the data URL is available.
   if (placeholderResolved && imageDataUrl) {
-    // FabricImage.fromURL is async; we create a synchronous empty Image here
-    // and set its element later in the async path.  For now, create a
-    // coloured rect as a placeholder until the image loads.
     const imgPlaceholder = new Rect({
       left: 0,
       top: 0,
@@ -478,31 +489,11 @@ function buildGroupChildren(field: FieldDefinition, resolveImage: ImageResolver)
     imgPlaceholder.__fieldId = `__img_placeholder_${field.id}`
     children.push(imgPlaceholder)
 
-    // Load the actual image asynchronously — caller handles re-render.
-    void FabricImage.fromURL(imageDataUrl, { crossOrigin: 'anonymous' }).then((img) => {
-      img.set({
-        left: 0,
-        top: 0,
-        width: w,
-        height: h,
-        selectable: false,
-        evented: false,
-        originX: 'left',
-        originY: 'top',
-        scaleX: 1,
-        scaleY: 1,
-      })
-      img.__fieldId = `__img_${field.id}`
-      // Remove the placeholder rect
-      const placeholderIdx = children.findIndex(
-        (c) => (c as FabricObject).__fieldId === `__img_placeholder_${field.id}`,
-      )
-      if (placeholderIdx !== -1) {
-        children.splice(placeholderIdx, 1)
+    loadFabricImage(imageDataUrl, w, h, field.id).then((img) => {
+      if (!img) return
+      if (onAsyncUpdate) {
+        onAsyncUpdate(img, `__img_placeholder_${field.id}`)
       }
-      children.push(img)
-      // The parent Group may have been disposed; canvas re-renders on the
-      // next object:modified or explicit requestRenderAll.
     })
   }
 

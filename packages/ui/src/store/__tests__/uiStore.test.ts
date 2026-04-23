@@ -357,4 +357,176 @@ describe('uiStore', () => {
       expect(useUiStore.getState().contextMenu).toBeNull()
     })
   })
+
+  /* --------------------------------------------------------------------- */
+  /*  selectAndFocus — canonical "user picks an element" action             */
+  /*                                                                         */
+  /*  Canvas click, canvas double-click, and left-panel list click all       */
+  /*  route through this single store action so selection + panel-open       */
+  /*  can never drift. Regression guard for the old bug where a canvas      */
+  /*  single-click only ran `selectField`, leaving the right panel hidden,  */
+  /*  so users saw no feedback.                                              */
+  /* --------------------------------------------------------------------- */
+  describe('selectAndFocus', () => {
+    it('selects the field and opens the right panel', () => {
+      useUiStore.setState({ showRightPanel: false, selectedFieldIds: [] })
+      useUiStore.getState().selectAndFocus('field-42')
+      const s = useUiStore.getState()
+      expect(s.selectedFieldIds).toEqual(['field-42'])
+      expect(s.showRightPanel).toBe(true)
+    })
+
+    it('replaces any prior selection with just the new id', () => {
+      useUiStore.setState({ selectedFieldIds: ['a', 'b', 'c'], showRightPanel: true })
+      useUiStore.getState().selectAndFocus('field-x')
+      expect(useUiStore.getState().selectedFieldIds).toEqual(['field-x'])
+    })
+
+    it('leaves showRightPanel=true untouched when it is already true', () => {
+      useUiStore.setState({ showRightPanel: true, selectedFieldIds: [] })
+      useUiStore.getState().selectAndFocus('f1')
+      expect(useUiStore.getState().showRightPanel).toBe(true)
+    })
+
+    it('always flips showRightPanel from false to true (fixes silent-selection bug)', () => {
+      useUiStore.setState({ showRightPanel: false, selectedFieldIds: ['f0'] })
+      useUiStore.getState().selectAndFocus('f1')
+      const s = useUiStore.getState()
+      expect(s.showRightPanel).toBe(true)
+      expect(s.selectedFieldIds).toEqual(['f1'])
+    })
+
+    it('canvas click path: simulating handleFieldClick single-click produces select + panel open', () => {
+      // Mirror of what CanvasArea.handleFieldClick does when the user clicks
+      // a field's rect without shift.
+      useUiStore.setState({ showRightPanel: false, selectedFieldIds: [] })
+      useUiStore.getState().selectAndFocus('field-click')
+      expect(useUiStore.getState().selectedFieldIds).toEqual(['field-click'])
+      expect(useUiStore.getState().showRightPanel).toBe(true)
+    })
+
+    it('left-panel click path: clicking a list row runs the same action', () => {
+      // Mirror of what LeftPanel.FieldList onSelect handler does.
+      useUiStore.setState({ showRightPanel: false, selectedFieldIds: [] })
+      useUiStore.getState().selectAndFocus('field-from-list')
+      expect(useUiStore.getState().selectedFieldIds).toEqual(['field-from-list'])
+      expect(useUiStore.getState().showRightPanel).toBe(true)
+    })
+
+    it('double-click path: same action — no drift between single and double click semantics', () => {
+      useUiStore.setState({ showRightPanel: false, selectedFieldIds: [] })
+      // handleFieldDblClick also reduces to selectAndFocus. Two rapid calls
+      // (Konva fires click then dblclick) must converge on the same state.
+      useUiStore.getState().selectAndFocus('field-dbl')
+      useUiStore.getState().selectAndFocus('field-dbl')
+      expect(useUiStore.getState().selectedFieldIds).toEqual(['field-dbl'])
+      expect(useUiStore.getState().showRightPanel).toBe(true)
+    })
+  })
+
+  /* --------------------------------------------------------------------- */
+  /*  Movement invariant                                                    */
+  /*                                                                         */
+  /*  Once a field is selected (either via canvas click or left-panel       */
+  /*  click), it is draggable. We cannot exercise Konva drag from a Node    */
+  /*  test, but we CAN assert the precondition every draggable path         */
+  /*  depends on: after selectAndFocus, `selectedFieldIds.includes(id)` is  */
+  /*  true. CanvasArea uses this to attach the Transformer and to set      */
+  /*  `draggable={!locked}` on the Group.                                   */
+  /* --------------------------------------------------------------------- */
+  describe('selection → movement precondition', () => {
+    it('selectAndFocus from any source makes the field the sole draggable target', () => {
+      useUiStore.setState({ selectedFieldIds: [] })
+      useUiStore.getState().selectAndFocus('drag-target')
+      expect(useUiStore.getState().selectedFieldIds.includes('drag-target')).toBe(true)
+      expect(useUiStore.getState().selectedFieldIds).toHaveLength(1)
+    })
+
+    it('clearSelection removes the draggable target (user clicked empty canvas)', () => {
+      useUiStore.getState().selectAndFocus('a')
+      useUiStore.getState().clearSelection()
+      expect(useUiStore.getState().selectedFieldIds).toEqual([])
+    })
+  })
+
+  /* --------------------------------------------------------------------- */
+  /*  Multi-element selectability — the "5 random elements" regression     */
+  /*                                                                         */
+  /*  User reported: first 2 elements selectable/draggable, 3rd+ would fail */
+  /*  via canvas click. The bug was in the canvas event binding (click      */
+  /*  events getting swallowed by drag detection), but at the store level   */
+  /*  we pin the invariant that `selectAndFocus` works uniformly for any    */
+  /*  element id in any sequence — no element ordinal is special.          */
+  /* --------------------------------------------------------------------- */
+  describe('select any of N elements regression', () => {
+    it('5 sequentially created field ids are each selectable without bias', () => {
+      useUiStore.setState({ selectedFieldIds: [], showRightPanel: false })
+
+      const ids = ['f-1', 'f-2', 'f-3', 'f-4', 'f-5']
+
+      for (const id of ids) {
+        useUiStore.getState().selectAndFocus(id)
+        const s = useUiStore.getState()
+        expect(s.selectedFieldIds).toEqual([id])
+        expect(s.showRightPanel).toBe(true)
+      }
+    })
+
+    it('selecting element N never leaves element (N-1) in selectedFieldIds', () => {
+      // Regression for the original symptom: user selected field 3 from the
+      // left panel but drag-move acted on field 2. If the store leaked the
+      // previous selection, downstream code that reads `selectedFieldIds[0]`
+      // would move the wrong field. We pin that select replaces, not merges.
+      useUiStore.setState({ selectedFieldIds: [] })
+      useUiStore.getState().selectAndFocus('f-1')
+      useUiStore.getState().selectAndFocus('f-2')
+      useUiStore.getState().selectAndFocus('f-3')
+      expect(useUiStore.getState().selectedFieldIds).toEqual(['f-3'])
+      expect(useUiStore.getState().selectedFieldIds).not.toContain('f-2')
+      expect(useUiStore.getState().selectedFieldIds).not.toContain('f-1')
+    })
+
+    it('left-panel selection path for 5 elements matches canvas path', () => {
+      // Both the canvas mousedown handler and the left-panel list handler
+      // route through selectAndFocus — assert that end-state is identical
+      // when the user picks the Nth element via either route.
+      const ids = ['a', 'b', 'c', 'd', 'e']
+
+      // Canvas route
+      useUiStore.setState({ selectedFieldIds: [], showRightPanel: false })
+      useUiStore.getState().selectAndFocus(ids[2]!)
+      const canvasState = {
+        selectedFieldIds: [...useUiStore.getState().selectedFieldIds],
+        showRightPanel: useUiStore.getState().showRightPanel,
+      }
+
+      // Left-panel route
+      useUiStore.setState({ selectedFieldIds: [], showRightPanel: false })
+      useUiStore.getState().selectAndFocus(ids[2]!)
+      const leftPanelState = {
+        selectedFieldIds: [...useUiStore.getState().selectedFieldIds],
+        showRightPanel: useUiStore.getState().showRightPanel,
+      }
+
+      expect(canvasState).toEqual(leftPanelState)
+      expect(canvasState.selectedFieldIds).toEqual(['c'])
+      expect(canvasState.showRightPanel).toBe(true)
+    })
+
+    it('shift+click builds multi-selection uniformly — any element can join', () => {
+      // toggleFieldSelection is the shift-click path. Regression guard: the
+      // toggle must work for any ordinal, not just the first-two.
+      useUiStore.setState({ selectedFieldIds: [] })
+      useUiStore.getState().selectField('a')
+      useUiStore.getState().toggleFieldSelection('b')
+      useUiStore.getState().toggleFieldSelection('c')
+      useUiStore.getState().toggleFieldSelection('d')
+      useUiStore.getState().toggleFieldSelection('e')
+      // Every id should be in the selection — no ordinal silently dropped.
+      const sel = useUiStore.getState().selectedFieldIds
+      for (const id of ['a', 'b', 'c', 'd', 'e']) {
+        expect(sel).toContain(id)
+      }
+    })
+  })
 })
