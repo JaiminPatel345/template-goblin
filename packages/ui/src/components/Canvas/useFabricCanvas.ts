@@ -56,9 +56,15 @@ export function useFabricCanvas(
       }
       if (!el) return
 
-      const container = containerRef.current
-      const w = container?.clientWidth ?? 800
-      const h = container?.clientHeight ?? 600
+      // Container ref is populated by the *parent* div's ref-callback which
+      // fires after this canvas ref-callback (React attaches child refs before
+      // parent refs in the same commit).  Read from the DOM element directly
+      // if containerRef.current is not yet set; fall back to 800×600 only when
+      // the parent element itself cannot be found.
+      const container =
+        containerRef.current ?? (el.parentElement?.parentElement as HTMLDivElement | null)
+      const w = container?.clientWidth || 800
+      const h = container?.clientHeight || 600
 
       const fc = new FabricCanvas(el, {
         width: w,
@@ -89,13 +95,23 @@ export function useFabricCanvas(
       )
       wireWheelEvents(fc)
 
-      // Auto-fit zoom on canvas creation
+      // Auto-fit zoom on canvas creation.  Re-read container dimensions after
+      // the current micro-task so the parent ref-callback has a chance to fire
+      // and the DOM has been laid out (avoids 800×600 fallback when the
+      // container ref fires after this canvas ref in the same React commit).
       const { width: pageW, height: pageH } = useTemplateStore.getState().meta
       if (pageW > 0 && pageH > 0) {
-        const z = fitZoomLevel(pageW, pageH, w, h, 40)
-        const vpt = centreViewport(z, pageW, pageH, w, h)
-        fc.setViewportTransform(vpt)
-        useUiStore.getState().setZoom(z)
+        requestAnimationFrame(() => {
+          const cw = containerRef.current?.clientWidth || fc.width || 800
+          const ch = containerRef.current?.clientHeight || fc.height || 600
+          if (fc.width !== cw || fc.height !== ch) {
+            fc.setDimensions({ width: cw, height: ch })
+          }
+          const z = fitZoomLevel(pageW, pageH, cw, ch, 40)
+          const vpt = centreViewport(z, pageW, pageH, cw, ch)
+          fc.setViewportTransform(vpt)
+          useUiStore.getState().setZoom(z)
+        })
       }
     },
     [setPendingDraft, containerRef],
