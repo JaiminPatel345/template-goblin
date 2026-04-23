@@ -120,15 +120,6 @@ html, body, #root {
 .tg-btn:active { background: var(--border); }
 .tg-btn--active { background: var(--accent); color: #fff; }
 .tg-btn--active:hover { background: var(--accent-hover); }
-/* Selection-aware ring: applied to the field-type toolbar buttons when a
- * field of that type is currently selected on the canvas. The ring uses
- * the button's own foreground colour (set via inline style) so it inherits
- * the per-type accent. */
-.tg-btn--selected-ring {
-  box-shadow:
-    0 0 0 2px var(--bg-primary),
-    0 0 0 4px currentColor;
-}
 .tg-btn:disabled { @apply opacity-40 cursor-not-allowed; }
 .tg-btn:disabled:hover { background: transparent; }
 .tg-btn--danger:hover { background: var(--error); color: #fff; }

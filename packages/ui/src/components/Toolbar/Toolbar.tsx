@@ -238,14 +238,22 @@ export function Toolbar() {
       {/* Field tools */}
       <div className="tg-toolbar-group">
         <button
-          className={`tg-btn ${activeTool === 'addText' ? 'tg-btn--active' : ''} ${selectedFieldTypes.has('text') ? 'tg-btn--selected-ring' : ''}`}
+          className={`tg-btn ${activeTool === 'addText' || selectedFieldTypes.has('text') ? 'tg-btn--active' : ''}`}
           onClick={() => setActiveTool(activeTool === 'addText' ? 'select' : 'addText')}
           disabled={locked || !hasBackground}
-          style={{
-            background: FIELD_COLORS.text.toolbarBg,
-            color: FIELD_COLORS.text.toolbarFg,
-            borderColor: FIELD_COLORS.text.stroke,
-          }}
+          style={
+            activeTool === 'addText' || selectedFieldTypes.has('text')
+              ? {
+                  background: FIELD_COLORS.text.stroke,
+                  color: '#fff',
+                  borderColor: FIELD_COLORS.text.stroke,
+                }
+              : {
+                  background: FIELD_COLORS.text.toolbarBg,
+                  color: FIELD_COLORS.text.toolbarFg,
+                  borderColor: FIELD_COLORS.text.stroke,
+                }
+          }
         >
           <svg
             width="14"
@@ -262,14 +270,22 @@ export function Toolbar() {
           Text
         </button>
         <button
-          className={`tg-btn ${activeTool === 'addImage' ? 'tg-btn--active' : ''} ${selectedFieldTypes.has('image') ? 'tg-btn--selected-ring' : ''}`}
+          className={`tg-btn ${activeTool === 'addImage' || selectedFieldTypes.has('image') ? 'tg-btn--active' : ''}`}
           onClick={() => setActiveTool(activeTool === 'addImage' ? 'select' : 'addImage')}
           disabled={locked || !hasBackground}
-          style={{
-            background: FIELD_COLORS.image.toolbarBg,
-            color: FIELD_COLORS.image.toolbarFg,
-            borderColor: FIELD_COLORS.image.stroke,
-          }}
+          style={
+            activeTool === 'addImage' || selectedFieldTypes.has('image')
+              ? {
+                  background: FIELD_COLORS.image.stroke,
+                  color: '#fff',
+                  borderColor: FIELD_COLORS.image.stroke,
+                }
+              : {
+                  background: FIELD_COLORS.image.toolbarBg,
+                  color: FIELD_COLORS.image.toolbarFg,
+                  borderColor: FIELD_COLORS.image.stroke,
+                }
+          }
         >
           <svg
             width="14"
@@ -286,14 +302,22 @@ export function Toolbar() {
           Image
         </button>
         <button
-          className={`tg-btn ${activeTool === 'addLoop' ? 'tg-btn--active' : ''} ${selectedFieldTypes.has('table') ? 'tg-btn--selected-ring' : ''}`}
+          className={`tg-btn ${activeTool === 'addLoop' || selectedFieldTypes.has('table') ? 'tg-btn--active' : ''}`}
           onClick={() => setActiveTool(activeTool === 'addLoop' ? 'select' : 'addLoop')}
           disabled={locked || !hasBackground}
-          style={{
-            background: FIELD_COLORS.table.toolbarBg,
-            color: FIELD_COLORS.table.toolbarFg,
-            borderColor: FIELD_COLORS.table.stroke,
-          }}
+          style={
+            activeTool === 'addLoop' || selectedFieldTypes.has('table')
+              ? {
+                  background: FIELD_COLORS.table.stroke,
+                  color: '#fff',
+                  borderColor: FIELD_COLORS.table.stroke,
+                }
+              : {
+                  background: FIELD_COLORS.table.toolbarBg,
+                  color: FIELD_COLORS.table.toolbarFg,
+                  borderColor: FIELD_COLORS.table.stroke,
+                }
+          }
         >
           <svg
             width="14"
