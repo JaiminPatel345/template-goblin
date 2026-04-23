@@ -1,0 +1,16 @@
+{
+  "name": "template-goblin-examples",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build-tgbl": "tsx src/01-build-tgbl.ts",
+    "generate-pdf": "tsx src/02-generate-pdf.ts",
+    "demo": "tsx src/01-build-tgbl.ts && tsx src/02-generate-pdf.ts"
+  },
+  "dependencies": {
+    "template-goblin": "workspace:*",
+    "@template-goblin/types": "workspace:*",
+    "tsx": "^4.19.0"
+  }
+}

@@ -66,6 +66,8 @@ export function useFabricCanvas(
         selection: true,
         preserveObjectStacking: true,
         controlsAboveOverlay: true,
+        fireMiddleClick: true,
+        fireRightClick: true,
       })
       fabricRef.current = fc
 
