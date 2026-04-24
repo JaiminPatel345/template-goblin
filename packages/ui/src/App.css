@@ -128,7 +128,11 @@ html, body, #root {
 
 /* ===== Panels ===== */
 .tg-left-panel {
-  @apply relative shrink-0 flex flex-col overflow-y-auto;
+  /* `overflow: hidden` on the OUTER panel prevents the browser scrollbar
+   * from landing on the right edge where the resize handle lives (any
+   * overlap would eat the handle's mousedown and make the panel
+   * non-resizable — GH #19 follow-up). Scrolling moves to `.tg-panel-scroll`. */
+  @apply relative shrink-0 flex flex-col overflow-hidden;
   min-width: 180px; max-width: 400px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
@@ -141,10 +145,18 @@ html, body, #root {
 }
 
 .tg-right-panel {
-  @apply relative shrink-0 overflow-y-auto;
+  /* Same reasoning as `.tg-left-panel` — keep the scrollbar off the edge
+   * that holds the resize handle. */
+  @apply relative shrink-0 flex flex-col overflow-hidden;
   min-width: 220px; max-width: 500px;
   background: var(--bg-secondary);
   border-left: 1px solid var(--border);
+}
+
+/* Inner scroll container used by both sidebars so the outer panel can
+ * keep its edges free for the resize handle. */
+.tg-panel-scroll {
+  @apply flex-1 overflow-y-auto min-h-0;
 }
 
 .tg-panel-section {

@@ -30,6 +30,10 @@ export function Toolbar() {
   const setActiveTool = useUiStore((s) => s.setActiveTool)
   const selectedFieldIds = useUiStore((s) => s.selectedFieldIds)
   const fields = useTemplateStore((s) => s.fields)
+  const showLeftPanel = useUiStore((s) => s.showLeftPanel)
+  const setShowLeftPanel = useUiStore((s) => s.setShowLeftPanel)
+  const showRightPanelUi = useUiStore((s) => s.showRightPanel)
+  const setShowRightPanelUi = useUiStore((s) => s.setShowRightPanel)
   // Set of field types present in the current selection — each matching
   // toolbar button gets a ring so the user can see at a glance what types
   // they have selected on the canvas.
@@ -199,7 +203,34 @@ export function Toolbar() {
 
   return (
     <div className="tg-toolbar">
-      {/* Open / Upload — leftmost */}
+      {/* Left-sidebar hamburger — toggles the styling / properties panel. */}
+      <div className="tg-toolbar-group">
+        <button
+          className={`tg-btn ${showLeftPanel ? 'tg-btn--active' : ''}`}
+          onClick={() => setShowLeftPanel(!showLeftPanel)}
+          title={showLeftPanel ? 'Hide properties panel' : 'Show properties panel'}
+          data-testid="toolbar-toggle-left-panel"
+          aria-pressed={showLeftPanel}
+          aria-label="Toggle properties panel"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="tg-toolbar-separator" />
+
+      {/* Open / Upload — leftmost of the action groups */}
       <div className="tg-toolbar-group">
         <button className="tg-btn" onClick={handleOpen}>
           <svg
@@ -488,6 +519,31 @@ export function Toolbar() {
         </svg>
         {locked ? 'Unlock' : 'Lock'}
       </button>
+
+      {/* Right-sidebar hamburger — toggles the structure / JSON panel. */}
+      <button
+        className={`tg-btn ${showRightPanelUi ? 'tg-btn--active' : ''}`}
+        onClick={() => setShowRightPanelUi(!showRightPanelUi)}
+        title={showRightPanelUi ? 'Hide structure panel' : 'Show structure panel'}
+        data-testid="toolbar-toggle-right-panel"
+        aria-pressed={showRightPanelUi}
+        aria-label="Toggle structure panel"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+
+      <div className="tg-toolbar-separator" />
 
       {/* Save — last, green */}
       <button

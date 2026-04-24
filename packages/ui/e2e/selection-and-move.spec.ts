@@ -405,10 +405,12 @@ function describeSweep(title: string, buildSeeds: (count: number) => SeedField[]
         })
       }
 
-      test(`clicking any field shows the right panel`, async ({ page }) => {
+      test(`clicking any field shows the properties (left) panel`, async ({ page }) => {
         const c = await centerOfFieldInViewport(page, seeds[0]!.id)
         await page.mouse.click(c.x, c.y)
-        await expect(page.locator('.tg-right-panel')).toBeVisible()
+        // Under the GH #19 layout the properties editor lives on the left
+        // and `selectAndFocus` auto-opens the left panel.
+        await expect(page.locator('.tg-left-panel')).toBeVisible()
       })
     })
   }
