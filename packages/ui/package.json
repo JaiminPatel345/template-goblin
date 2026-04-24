@@ -30,6 +30,7 @@
     "@types/react": "^18.3.14",
     "@types/react-dom": "^18.3.3",
     "@vitejs/plugin-react": "^4.3.4",
+    "fake-indexeddb": "^6.2.5",
     "template-goblin": "workspace:*",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
@@ -39,5 +40,6 @@
   "comment:jszip": "ZIP read/write for .tgbl files in browser",
   "comment:konva": "Canvas rendering engine — BEING REMOVED in favour of Fabric.js (kept during migration only)",
   "comment:react-konva": "React bindings for Konva — BEING REMOVED in favour of Fabric.js (kept during migration only)",
-  "comment:zustand": "Lightweight state management — canvas state, undo/redo, UI state"
+  "comment:zustand": "Lightweight state management — canvas state, undo/redo, UI state",
+  "comment:fake-indexeddb": "Test-only: polyfills IndexedDB in jsdom/Node so the templateStore's IDB-backed persist adapter (GH #11) is exercised by Vitest. Loaded via vite.config `test.setupFiles`."
 }
