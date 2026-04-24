@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { generateSecureId } from '../../utils/id.js'
 import type { FieldType } from '@template-goblin/types'
 import { isSafeKey } from '@template-goblin/types'
 import { CloseIcon } from '../icons/index.js'
@@ -128,7 +129,7 @@ export function FieldCreationPopup({
       reader.readAsDataURL(file)
     })
     const ext = file.name.match(/\.[A-Za-z0-9]+$/)?.[0] ?? '.png'
-    const filename = `static-${Date.now()}${ext}`
+    const filename = generateSecureId('static-') + ext
     setPickedImage({ filename, dataUrl, buffer })
   }
 

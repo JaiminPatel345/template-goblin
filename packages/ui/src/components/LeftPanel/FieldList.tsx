@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { generateSecureId } from '../../utils/id.js'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import type { FieldDefinition, GroupDefinition } from '@template-goblin/types'
@@ -142,7 +143,7 @@ export function LeftPanel() {
   function handleNewGroup() {
     const name = prompt('Group name:')
     if (!name || !name.trim()) return
-    const id = `group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const id = generateSecureId('group-')
     addGroup({ id, name: name.trim() })
   }
 
