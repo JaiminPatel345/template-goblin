@@ -28,7 +28,20 @@ import {
 
 export interface SyncDeps {
   fabricRef: React.RefObject<FabricCanvas | null>
+  /**
+   * State mirror of `fabricRef.current`. Effects that react to canvas
+   * creation/disposal MUST depend on this — refs have stable identity and
+   * don't trigger dep re-fires (GH #17).
+   */
+  fabricInstance: FabricCanvas | null
   containerRef: React.RefObject<HTMLDivElement | null>
+  /**
+   * State mirror of `containerRef.current`. Effects that must re-attach to
+   * a new container element (e.g. the ResizeObserver) depend on this so the
+   * observer doesn't stay bound to the unmounted onboarding picker on the
+   * first visit (GH #17).
+   */
+  containerEl: HTMLDivElement | null
   pageFields: FieldDefinition[]
   bgImage: HTMLImageElement | null
   currentBgColor: string | null
@@ -46,7 +59,9 @@ export interface SyncDeps {
 export function useFabricSync(deps: SyncDeps) {
   const {
     fabricRef,
+    fabricInstance,
     containerRef,
+    containerEl,
     pageFields,
     bgImage,
     currentBgColor,
@@ -96,7 +111,7 @@ export function useFabricSync(deps: SyncDeps) {
     })
 
     fc.requestRenderAll()
-  }, [fabricRef, pageFields, resolveImage])
+  }, [fabricRef, fabricInstance, pageFields, resolveImage])
 
   // ═══════════════ Selection sync: store → canvas ═════════════════════════
   useEffect(() => {
@@ -131,7 +146,7 @@ export function useFabricSync(deps: SyncDeps) {
       }
     }
     fc.requestRenderAll()
-  }, [fabricRef, selectedFieldIds])
+  }, [fabricRef, fabricInstance, selectedFieldIds])
 
   // ═══════════════ Background sync (REQ-034, AC-001) ═════════════════════
   useEffect(() => {
@@ -161,7 +176,7 @@ export function useFabricSync(deps: SyncDeps) {
       fc.backgroundColor = ''
     }
     fc.requestRenderAll()
-  }, [fabricRef, bgImage, currentBgColor, meta.width, meta.height])
+  }, [fabricRef, fabricInstance, bgImage, currentBgColor, meta.width, meta.height])
 
   // ═══════════════ Grid sync (REQ-009, AC-008) ═══════════════════════════
   useEffect(() => {
@@ -177,7 +192,7 @@ export function useFabricSync(deps: SyncDeps) {
       lines.forEach((l) => fc.sendObjectToBack(l))
     }
     fc.requestRenderAll()
-  }, [fabricRef, showGrid, gridSize, meta.width, meta.height])
+  }, [fabricRef, fabricInstance, showGrid, gridSize, meta.width, meta.height])
 
   // ═══════════════ Zoom sync: store → canvas (REQ-037..042) ══════════════
   useEffect(() => {
@@ -190,7 +205,7 @@ export function useFabricSync(deps: SyncDeps) {
     const vpt = centreViewport(zoom, meta.width, meta.height, canW, canH)
     fc.setViewportTransform(vpt)
     fc.requestRenderAll()
-  }, [fabricRef, zoom, meta.width, meta.height])
+  }, [fabricRef, fabricInstance, zoom, meta.width, meta.height])
 
   // ═══════════════ Auto-fit Zoom on Meta Change ══════════════════════════
   useEffect(() => {
@@ -201,18 +216,21 @@ export function useFabricSync(deps: SyncDeps) {
     const canH = containerRef.current?.clientHeight ?? fc.height ?? 600
     const z = fitZoomLevel(meta.width, meta.height, canW, canH, 40)
     useUiStore.getState().setZoom(z)
-  }, [fabricRef, containerRef, meta.width, meta.height])
+  }, [fabricRef, fabricInstance, containerRef, containerEl, meta.width, meta.height])
 
   // ═══════════════ Resize observer ═══════════════════════════════════════
+  // Depend on `containerEl` (state mirror) and `fabricInstance` rather than
+  // the ref objects — refs have stable identity so the old implementation
+  // stayed bound to the onboarding picker's <div> after the canvas subtree
+  // mounted on the first visit (GH #17).
   useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
+    if (!containerEl || !fabricInstance) return
 
     const observer = new ResizeObserver(() => {
       const fc = fabricRef.current
       if (!fc) return
-      const w = container.clientWidth
-      const h = container.clientHeight
+      const w = containerEl.clientWidth
+      const h = containerEl.clientHeight
       fc.setDimensions({ width: w, height: h })
 
       const z = fc.getZoom()
@@ -223,9 +241,9 @@ export function useFabricSync(deps: SyncDeps) {
         fc.requestRenderAll()
       }
     })
-    observer.observe(container)
+    observer.observe(containerEl)
     return () => observer.disconnect()
-  }, [fabricRef, containerRef])
+  }, [fabricRef, fabricInstance, containerEl])
 
   // ═══════════════ Cursor sync (REQ-043) ═════════════════════════════════
   useEffect(() => {
@@ -238,7 +256,7 @@ export function useFabricSync(deps: SyncDeps) {
       fc.defaultCursor = 'default'
       fc.hoverCursor = 'move'
     }
-  }, [fabricRef, isPlacing])
+  }, [fabricRef, fabricInstance, isPlacing])
 }
 
 // ─── Standalone hooks for background & placeholder image loading ─────────────
