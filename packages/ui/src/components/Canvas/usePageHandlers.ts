@@ -248,7 +248,14 @@ export function usePageHandlers() {
       }
 
       removePage(pageId)
-      setCurrentPage(null)
+      // After the reducer runs, land on whichever page ended up at index 0
+      // instead of dropping back to null. Leaving `currentPageId` null when
+      // explicit pages remain is what caused GH #23 — the canvas
+      // background-resolver had no page to look at and rendered blank,
+      // making it look like the remaining page had also been closed.
+      const nextPages = useTemplateStore.getState().pages
+      const nextFirst = [...nextPages].sort((a, b) => a.index - b.index)[0]
+      setCurrentPage(nextFirst?.id ?? null)
       clearSelection()
     },
     [pages, reset, removePage, setCurrentPage, clearSelection],

@@ -42,7 +42,17 @@ function useCurrentBackground() {
 
   const currentBgDataUrl = ((): string | null => {
     if (pages.length === 0) return backgroundDataUrl
-    if (effectivePageId === null) return backgroundDataUrl
+    if (effectivePageId === null) {
+      // No explicit page is "current". Prefer an explicit `pages[0]` image
+      // if one exists (this happens after removing a color page while an
+      // image page remains — GH #23). Otherwise fall back to the legacy
+      // `backgroundDataUrl`.
+      const page0 = pages.find((p) => p.index === 0)
+      if (page0 && page0.backgroundType === 'image') {
+        return pageBackgroundDataUrls.get(page0.id) ?? backgroundDataUrl
+      }
+      return backgroundDataUrl
+    }
 
     const page = pages.find((p) => p.id === effectivePageId)
     if (!page) return backgroundDataUrl
