@@ -159,7 +159,15 @@ export function usePageHandlers() {
     (bgType: PageBackgroundType, bgColor?: string, bgFile?: File) => {
       setShowAddPageDialog(false)
       const pageId = generatePageId()
-      const index = pages.length
+      // If the user onboarded via image there's a legacy background stored in
+      // `backgroundDataUrl` and NO explicit entry in `pages[]`. The implicit
+      // legacy occupies tab 1 in PageBar — so a newly-added page must take
+      // the NEXT slot (index 1), otherwise it would sit at index 0 and hide
+      // the legacy tab entirely. Clicking ✕ on the shadowed tab used to
+      // trigger the "last page" reset and wipe both pages (GH #23).
+      const legacyBg = useTemplateStore.getState().backgroundDataUrl
+      const hasLegacyPage0 = legacyBg !== null && !pages.some((p) => p.index === 0)
+      const index = pages.length + (hasLegacyPage0 ? 1 : 0)
 
       if (bgType === 'inherit') {
         const { page: snap, sourceId } = snapshotSameAsPrevious(pages, pageId, index)
@@ -210,8 +218,10 @@ export function usePageHandlers() {
 
   const handleRemovePage = useCallback(
     (pageId: string | null) => {
+      // Mirror what PageBar renders: every explicit page gets a tab, plus
+      // one implicit tab when no explicit page sits at index 0.
       const page0IsExplicit = pages.some((p) => p.index === 0)
-      const visiblePageCount = page0IsExplicit ? pages.length : 1 + pages.length
+      const visiblePageCount = pages.length + (page0IsExplicit ? 0 : 1)
 
       if (visiblePageCount <= 1) {
         const ok = window.confirm(
@@ -248,7 +258,14 @@ export function usePageHandlers() {
       }
 
       removePage(pageId)
-      setCurrentPage(null)
+      // After the reducer runs, land on whichever page ended up at index 0
+      // instead of dropping back to null. Leaving `currentPageId` null when
+      // explicit pages remain is what caused GH #23 — the canvas
+      // background-resolver had no page to look at and rendered blank,
+      // making it look like the remaining page had also been closed.
+      const nextPages = useTemplateStore.getState().pages
+      const nextFirst = [...nextPages].sort((a, b) => a.index - b.index)[0]
+      setCurrentPage(nextFirst?.id ?? null)
       clearSelection()
     },
     [pages, reset, removePage, setCurrentPage, clearSelection],
