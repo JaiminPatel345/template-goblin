@@ -16,7 +16,9 @@ export function Toolbar() {
   const hasBackground = useTemplateStore(
     (s) =>
       s.backgroundDataUrl !== null ||
-      s.pages.some((p) => p.index === 0 && p.backgroundType === 'color'),
+      s.pages.some(
+        (p) => p.index === 0 && (p.backgroundType === 'color' || p.backgroundType === 'image'),
+      ),
   )
   const canUndo = useTemplateStore((s) => s.canUndo())
   const canRedo = useTemplateStore((s) => s.canRedo())

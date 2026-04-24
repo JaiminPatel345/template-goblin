@@ -172,10 +172,14 @@ export function CanvasArea() {
   // ═══════════════════════════════════════════════════════════════════════
 
   const page0 = pages.find((p) => p.index === 0)
-  const page0IsColor = page0?.backgroundType === 'color'
+  const page0HasConcreteBg = page0?.backgroundType === 'color' || page0?.backgroundType === 'image'
 
   // ── Empty state: no background chosen ──────────────────────────────────
-  if (!backgroundDataUrl && !page0IsColor) {
+  // Previously only `page0IsColor` was accepted here, so a template with an
+  // image `pages[0]` and no legacy `backgroundDataUrl` (the state after
+  // closing the legacy tab in a 2-page template — GH #23) was
+  // mis-classified as "onboarding" and the picker took over the canvas.
+  if (!backgroundDataUrl && !page0HasConcreteBg) {
     return (
       <OnboardingPicker
         isDragOver={pageHandlers.isDragOver}

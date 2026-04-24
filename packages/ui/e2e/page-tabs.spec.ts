@@ -104,22 +104,53 @@ function fabricCanvas(page: Page) {
   return page.locator('[data-testid="canvas-stage-wrapper"] canvas').first()
 }
 
-async function readPages(page: Page): Promise<PageDef[]> {
-  return await page.evaluate(() => {
-    const raw = localStorage.getItem('template-goblin-template')
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as { state?: { pages?: PageDef[] } }
-    return parsed.state?.pages ?? []
+/**
+ * The templateStore's persist backing is IndexedDB (GH #11). localStorage is
+ * only used as a migration source on first load, after which it's cleared.
+ * These helpers read the live blob out of IDB so assertions see the current
+ * state.
+ */
+async function readPersistBlob(
+  page: Page,
+): Promise<{ pages?: PageDef[]; fields?: Array<{ id: string }> } | null> {
+  return await page.evaluate(async () => {
+    const DB_NAME = 'template-goblin'
+    const STORE_NAME = 'kv'
+    const KEY = 'template-goblin-template'
+
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1)
+      req.onupgradeneeded = () => {
+        const d = req.result
+        if (!d.objectStoreNames.contains(STORE_NAME)) d.createObjectStore(STORE_NAME)
+      }
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => reject(req.error)
+    })
+
+    const raw = await new Promise<string | undefined>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly')
+      const req = tx.objectStore(STORE_NAME).get(KEY) as IDBRequest<string | undefined>
+      tx.oncomplete = () => resolve(req.result)
+      tx.onerror = () => reject(tx.error)
+    })
+
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as {
+      state?: { pages?: PageDef[]; fields?: Array<{ id: string }> }
+    }
+    return parsed.state ?? null
   })
 }
 
+async function readPages(page: Page): Promise<PageDef[]> {
+  const blob = await readPersistBlob(page)
+  return blob?.pages ?? []
+}
+
 async function readFieldIds(page: Page): Promise<string[]> {
-  return await page.evaluate(() => {
-    const raw = localStorage.getItem('template-goblin-template')
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as { state?: { fields?: Array<{ id: string }> } }
-    return (parsed.state?.fields ?? []).map((f) => f.id)
-  })
+  const blob = await readPersistBlob(page)
+  return (blob?.fields ?? []).map((f) => f.id)
 }
 
 async function pageTabCount(page: Page): Promise<number> {
