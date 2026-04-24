@@ -130,6 +130,23 @@ describe('readTgblBuffer', () => {
       expect((err as TemplateGoblinError).code).toBe('INVALID_FORMAT')
     }
   })
+
+  it('should throw INVALID_FORMAT when file starts with magic bytes but is corrupted', async () => {
+    const filePath = join(tmpDir, 'corrupted.tgbl')
+    // PK magic bytes + garbage
+    writeFileSync(filePath, Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00, 0x00, 0x00]))
+
+    // readTgblBuffer only checks magic bytes, so it should PASS
+    const buffer = readTgblBuffer(filePath)
+    expect(buffer).toBeDefined()
+
+    // readManifest should FAIL because AdmZip will fail to parse it
+    await expect(readManifest(filePath)).rejects.toThrow(TemplateGoblinError)
+    await expect(readManifest(filePath)).rejects.toMatchObject({
+      code: 'INVALID_FORMAT',
+      message: /corrupted ZIP archive/,
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

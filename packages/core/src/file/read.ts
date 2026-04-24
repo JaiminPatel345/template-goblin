@@ -81,7 +81,15 @@ export function readTgblBuffer(path: string): Buffer {
  * @throws TemplateGoblinError MISSING_MANIFEST or INVALID_MANIFEST
  */
 export function parseManifestFromZip(zip: AdmZip): TemplateManifest {
-  const manifestEntry = zip.getEntry(MANIFEST_FILENAME)
+  let manifestEntry: AdmZip.IZipEntry | null
+  try {
+    manifestEntry = zip.getEntry(MANIFEST_FILENAME)
+  } catch (error) {
+    throw new TemplateGoblinError(
+      'INVALID_FORMAT',
+      `Invalid .tgbl file: corrupted ZIP archive (${error instanceof Error ? error.message : 'unknown error'})`,
+    )
+  }
 
   if (!manifestEntry) {
     throw new TemplateGoblinError('MISSING_MANIFEST', 'Invalid .tgbl file: missing manifest.json')
@@ -95,7 +103,15 @@ export function parseManifestFromZip(zip: AdmZip): TemplateManifest {
     )
   }
 
-  const manifestText = manifestEntry.getData().toString('utf-8')
+  let manifestText: string
+  try {
+    manifestText = manifestEntry.getData().toString('utf-8')
+  } catch (error) {
+    throw new TemplateGoblinError(
+      'INVALID_FORMAT',
+      `Invalid .tgbl file: corrupted ZIP archive (${error instanceof Error ? error.message : 'unknown error'})`,
+    )
+  }
 
   try {
     const parsed: unknown = JSON.parse(manifestText)
@@ -342,6 +358,14 @@ function validateManifestStructure(manifest: TemplateManifest): void {
  */
 export async function readManifest(path: string): Promise<TemplateManifest> {
   const buffer = readTgblBuffer(path)
-  const zip = new AdmZip(buffer)
-  return parseManifestFromZip(zip)
+  try {
+    const zip = new AdmZip(buffer)
+    return parseManifestFromZip(zip)
+  } catch (error) {
+    if (error instanceof TemplateGoblinError) throw error
+    throw new TemplateGoblinError(
+      'INVALID_FORMAT',
+      `Invalid .tgbl file: corrupted ZIP archive (${error instanceof Error ? error.message : 'unknown error'})`,
+    )
+  }
 }
