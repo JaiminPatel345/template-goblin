@@ -1,4 +1,5 @@
 import { useTemplateStore } from '../../store/templateStore.js'
+import { generateSecureId } from '../../utils/id.js'
 
 /**
  * TTF magic bytes we accept. 0x00010000 is TrueType, 0x74727565 is the legacy
@@ -105,7 +106,7 @@ export async function processFontFiles(files: File[] | FileList): Promise<FontUp
       }
     }
 
-    const id = `font-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const id = generateSecureId('font-')
     const name = safeName.replace(/\.ttf$/i, '')
     useTemplateStore.getState().addFont({ id, name, filename: targetFilename }, buffer)
     results.push({ filename: file.name, ok: true })

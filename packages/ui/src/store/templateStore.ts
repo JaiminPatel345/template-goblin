@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { generateSecureId } from '../utils/id.js'
 import type {
   FieldDefinition,
   TemplateMeta,
@@ -184,11 +185,8 @@ function pushHistory(state: TemplateState): Partial<TemplateState> {
   }
 }
 
-let fieldCounter = 0
-
 function generateId(): string {
-  fieldCounter++
-  return `field-${Date.now()}-${fieldCounter}`
+  return generateSecureId('field-')
 }
 
 /** Convert ArrayBuffer to base64 for JSON serialization */
@@ -596,7 +594,7 @@ export const useTemplateStore = create<TemplateState>()(
             )
           } else {
             const page0: PageDefinition = {
-              id: `page-0-${Date.now()}`,
+              id: generateSecureId('page-0-'),
               index: 0,
               backgroundType: 'color',
               backgroundColor: hex,

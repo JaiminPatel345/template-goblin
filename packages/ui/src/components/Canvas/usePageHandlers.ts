@@ -3,6 +3,7 @@
  * logic extracted from CanvasArea for separation of concerns.
  */
 import { useState, useCallback, useRef } from 'react'
+import { generateSecureId } from '../../utils/id.js'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { createDefaultField } from '../../utils/defaults.js'
@@ -12,10 +13,8 @@ import type { FieldCreationDraft, SourceInputs } from './FieldCreationPopup.js'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-let pageIdCounter = 0
 function generatePageId(): string {
-  pageIdCounter++
-  return `page-${Date.now()}-${pageIdCounter}`
+  return generateSecureId('page-')
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
