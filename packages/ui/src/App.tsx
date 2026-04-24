@@ -48,8 +48,11 @@ export function App() {
           <div className="tg-left-panel" style={{ width: leftWidth }}>
             {/* Left panel now renders the styling/properties editor for the
                 active selection (GH #19 — content swapped with the right
-                panel). */}
-            <PropertiesPanel />
+                panel). The scrollable content is wrapped so the outer
+                panel's right edge stays free for the resize handle. */}
+            <div className="tg-panel-scroll">
+              <PropertiesPanel />
+            </div>
             <ResizeHandle
               side="right"
               width={leftWidth}
@@ -90,8 +93,12 @@ export function App() {
               max={500}
             />
             {/* Right panel now renders the structural tree — field list +
-                JSON preview + PDF size estimate (GH #19). */}
-            <StructurePanel />
+                JSON preview + PDF size estimate (GH #19). Scrollable
+                content wrapped so the outer panel edge stays free for the
+                resize handle. */}
+            <div className="tg-panel-scroll">
+              <StructurePanel />
+            </div>
           </div>
         )}
       </div>
