@@ -53,12 +53,11 @@ export interface UiState {
   toggleFieldSelection: (id: string) => void
   clearSelection: () => void
   /**
-   * Select a single field AND ensure its properties panel is visible. This is
-   * the canonical "user picks an element" action: a click on the canvas, a
-   * click on the left-panel list, or a double-click all ultimately reduce to
-   * this. Keeping the two store updates in one action prevents selection+panel
-   * drift (old bug: single-click on canvas only ran `selectField` and the
-   * right panel stayed hidden, so users believed the click had done nothing).
+   * Select a single field AND ensure the properties panel (left under
+   * GH #19) is visible. This is the canonical "user picks an element"
+   * action: a click on the canvas, a click on the structure-panel list,
+   * or a double-click all ultimately reduce to this. Keeping the two
+   * store updates in one action prevents selection+panel drift.
    */
   selectAndFocus: (id: string) => void
   setActiveTool: (tool: ActiveTool) => void
@@ -125,7 +124,10 @@ export const useUiStore = create<UiState>()(
       drawStart: null,
 
       selectField: (id) => set({ selectedFieldIds: [id] }),
-      selectAndFocus: (id) => set({ selectedFieldIds: [id], showRightPanel: true }),
+      // The properties panel lives on the LEFT under the GH #19 layout —
+      // picking a field must make the left panel visible so the user can
+      // see and edit its properties. (Pre-#19 this flipped showRightPanel.)
+      selectAndFocus: (id) => set({ selectedFieldIds: [id], showLeftPanel: true }),
       selectFields: (ids) => set({ selectedFieldIds: ids }),
       toggleFieldSelection: (id) =>
         set((state) => {

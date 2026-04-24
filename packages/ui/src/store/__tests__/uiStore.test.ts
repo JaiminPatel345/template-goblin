@@ -368,59 +368,59 @@ describe('uiStore', () => {
   /*  so users saw no feedback.                                              */
   /* --------------------------------------------------------------------- */
   describe('selectAndFocus', () => {
-    it('selects the field and opens the right panel', () => {
-      useUiStore.setState({ showRightPanel: false, selectedFieldIds: [] })
+    it('selects the field and opens the properties (left) panel', () => {
+      useUiStore.setState({ showLeftPanel: false, selectedFieldIds: [] })
       useUiStore.getState().selectAndFocus('field-42')
       const s = useUiStore.getState()
       expect(s.selectedFieldIds).toEqual(['field-42'])
-      expect(s.showRightPanel).toBe(true)
+      expect(s.showLeftPanel).toBe(true)
     })
 
     it('replaces any prior selection with just the new id', () => {
-      useUiStore.setState({ selectedFieldIds: ['a', 'b', 'c'], showRightPanel: true })
+      useUiStore.setState({ selectedFieldIds: ['a', 'b', 'c'], showLeftPanel: true })
       useUiStore.getState().selectAndFocus('field-x')
       expect(useUiStore.getState().selectedFieldIds).toEqual(['field-x'])
     })
 
-    it('leaves showRightPanel=true untouched when it is already true', () => {
-      useUiStore.setState({ showRightPanel: true, selectedFieldIds: [] })
+    it('leaves showLeftPanel=true untouched when it is already true', () => {
+      useUiStore.setState({ showLeftPanel: true, selectedFieldIds: [] })
       useUiStore.getState().selectAndFocus('f1')
-      expect(useUiStore.getState().showRightPanel).toBe(true)
+      expect(useUiStore.getState().showLeftPanel).toBe(true)
     })
 
-    it('always flips showRightPanel from false to true (fixes silent-selection bug)', () => {
-      useUiStore.setState({ showRightPanel: false, selectedFieldIds: ['f0'] })
+    it('always flips showLeftPanel from false to true (fixes silent-selection bug)', () => {
+      useUiStore.setState({ showLeftPanel: false, selectedFieldIds: ['f0'] })
       useUiStore.getState().selectAndFocus('f1')
       const s = useUiStore.getState()
-      expect(s.showRightPanel).toBe(true)
+      expect(s.showLeftPanel).toBe(true)
       expect(s.selectedFieldIds).toEqual(['f1'])
     })
 
     it('canvas click path: simulating handleFieldClick single-click produces select + panel open', () => {
       // Mirror of what CanvasArea.handleFieldClick does when the user clicks
       // a field's rect without shift.
-      useUiStore.setState({ showRightPanel: false, selectedFieldIds: [] })
+      useUiStore.setState({ showLeftPanel: false, selectedFieldIds: [] })
       useUiStore.getState().selectAndFocus('field-click')
       expect(useUiStore.getState().selectedFieldIds).toEqual(['field-click'])
-      expect(useUiStore.getState().showRightPanel).toBe(true)
+      expect(useUiStore.getState().showLeftPanel).toBe(true)
     })
 
-    it('left-panel click path: clicking a list row runs the same action', () => {
-      // Mirror of what LeftPanel.FieldList onSelect handler does.
-      useUiStore.setState({ showRightPanel: false, selectedFieldIds: [] })
+    it('field-list click path: clicking a list row runs the same action', () => {
+      // Mirror of what the field list onSelect handler does.
+      useUiStore.setState({ showLeftPanel: false, selectedFieldIds: [] })
       useUiStore.getState().selectAndFocus('field-from-list')
       expect(useUiStore.getState().selectedFieldIds).toEqual(['field-from-list'])
-      expect(useUiStore.getState().showRightPanel).toBe(true)
+      expect(useUiStore.getState().showLeftPanel).toBe(true)
     })
 
     it('double-click path: same action — no drift between single and double click semantics', () => {
-      useUiStore.setState({ showRightPanel: false, selectedFieldIds: [] })
+      useUiStore.setState({ showLeftPanel: false, selectedFieldIds: [] })
       // handleFieldDblClick also reduces to selectAndFocus. Two rapid calls
-      // (Konva fires click then dblclick) must converge on the same state.
+      // (single then double) must converge on the same state.
       useUiStore.getState().selectAndFocus('field-dbl')
       useUiStore.getState().selectAndFocus('field-dbl')
       expect(useUiStore.getState().selectedFieldIds).toEqual(['field-dbl'])
-      expect(useUiStore.getState().showRightPanel).toBe(true)
+      expect(useUiStore.getState().showLeftPanel).toBe(true)
     })
   })
 
@@ -460,7 +460,7 @@ describe('uiStore', () => {
   /* --------------------------------------------------------------------- */
   describe('select any of N elements regression', () => {
     it('5 sequentially created field ids are each selectable without bias', () => {
-      useUiStore.setState({ selectedFieldIds: [], showRightPanel: false })
+      useUiStore.setState({ selectedFieldIds: [], showLeftPanel: false })
 
       const ids = ['f-1', 'f-2', 'f-3', 'f-4', 'f-5']
 
@@ -468,7 +468,7 @@ describe('uiStore', () => {
         useUiStore.getState().selectAndFocus(id)
         const s = useUiStore.getState()
         expect(s.selectedFieldIds).toEqual([id])
-        expect(s.showRightPanel).toBe(true)
+        expect(s.showLeftPanel).toBe(true)
       }
     })
 
@@ -486,31 +486,31 @@ describe('uiStore', () => {
       expect(useUiStore.getState().selectedFieldIds).not.toContain('f-1')
     })
 
-    it('left-panel selection path for 5 elements matches canvas path', () => {
-      // Both the canvas mousedown handler and the left-panel list handler
-      // route through selectAndFocus — assert that end-state is identical
-      // when the user picks the Nth element via either route.
+    it('list selection path for 5 elements matches canvas path', () => {
+      // Both the canvas mousedown handler and the structure-panel list
+      // handler route through selectAndFocus — assert that end-state is
+      // identical when the user picks the Nth element via either route.
       const ids = ['a', 'b', 'c', 'd', 'e']
 
       // Canvas route
-      useUiStore.setState({ selectedFieldIds: [], showRightPanel: false })
+      useUiStore.setState({ selectedFieldIds: [], showLeftPanel: false })
       useUiStore.getState().selectAndFocus(ids[2]!)
       const canvasState = {
         selectedFieldIds: [...useUiStore.getState().selectedFieldIds],
-        showRightPanel: useUiStore.getState().showRightPanel,
+        showLeftPanel: useUiStore.getState().showLeftPanel,
       }
 
-      // Left-panel route
-      useUiStore.setState({ selectedFieldIds: [], showRightPanel: false })
+      // List route
+      useUiStore.setState({ selectedFieldIds: [], showLeftPanel: false })
       useUiStore.getState().selectAndFocus(ids[2]!)
-      const leftPanelState = {
+      const listState = {
         selectedFieldIds: [...useUiStore.getState().selectedFieldIds],
-        showRightPanel: useUiStore.getState().showRightPanel,
+        showLeftPanel: useUiStore.getState().showLeftPanel,
       }
 
-      expect(canvasState).toEqual(leftPanelState)
+      expect(canvasState).toEqual(listState)
       expect(canvasState.selectedFieldIds).toEqual(['c'])
-      expect(canvasState.showRightPanel).toBe(true)
+      expect(canvasState.showLeftPanel).toBe(true)
     })
 
     it('shift+click builds multi-selection uniformly — any element can join', () => {

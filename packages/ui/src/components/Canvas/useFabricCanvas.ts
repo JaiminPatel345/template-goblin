@@ -6,7 +6,7 @@
  *
  * Returns `{ fabricRef, setCanvasEl }` to be consumed by CanvasArea.
  */
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useState } from 'react'
 import {
   Canvas as FabricCanvas,
   Rect as FabricRect,
@@ -30,6 +30,14 @@ import {
 export interface FabricCanvasHandle {
   /** Ref to the live Fabric canvas instance (null before mount). */
   fabricRef: React.RefObject<FabricCanvas | null>
+  /**
+   * State mirror of `fabricRef.current`. Effects that react to the canvas
+   * being created or disposed MUST depend on this (refs have stable identity
+   * and don't re-fire deps). Introduced to fix GH #17 — the ResizeObserver
+   * and auto-fit effects were attached to the onboarding picker on first
+   * render and never re-ran after the canvas subtree mounted.
+   */
+  fabricInstance: FabricCanvas | null
   /** Ref-callback for the <canvas> element. */
   setCanvasEl: (el: HTMLCanvasElement | null) => void
   /** Ref for pan-mode state (read/written by keyboard handler). */
@@ -43,6 +51,9 @@ export function useFabricCanvas(
   setPendingDraft: React.Dispatch<React.SetStateAction<FieldCreationDraft | null>>,
 ): FabricCanvasHandle {
   const fabricRef = useRef<FabricCanvas | null>(null)
+  // State mirror of fabricRef — used by effects as a dep so they re-run when
+  // the Fabric instance is created or disposed (fixes GH #17).
+  const [fabricInstance, setFabricInstance] = useState<FabricCanvas | null>(null)
 
   // Draw-to-create state (refs for perf — no re-render during gestures)
   const drawStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -59,6 +70,7 @@ export function useFabricCanvas(
       if (fabricRef.current) {
         fabricRef.current.dispose()
         fabricRef.current = null
+        setFabricInstance(null)
       }
       if (!el) return
 
@@ -82,6 +94,7 @@ export function useFabricCanvas(
         fireRightClick: true,
       })
       fabricRef.current = fc
+      setFabricInstance(fc)
 
       // Expose for Playwright / dev-mode inspection
       if (import.meta.env.DEV) {
@@ -123,7 +136,7 @@ export function useFabricCanvas(
     [setPendingDraft, containerRef],
   )
 
-  return { fabricRef, setCanvasEl, spacePanModeRef }
+  return { fabricRef, fabricInstance, setCanvasEl, spacePanModeRef }
 }
 
 // ─── Event wiring helpers (pure functions, no hooks) ─────────────────────────
@@ -153,7 +166,10 @@ function wireSelectionEvents(fc: FabricCanvas) {
         if (onlyId) useUiStore.getState().selectAndFocus(onlyId)
       } else {
         useUiStore.getState().selectFields(ids)
-        useUiStore.getState().setShowRightPanel(true)
+        // Multi-select still wants the properties panel visible so the user
+        // can see "Multiple fields selected" context. Under GH #19 that
+        // panel lives on the left.
+        useUiStore.getState().setShowLeftPanel(true)
       }
     }
     // Visual emphasis reflects the canvas active-object set regardless of

@@ -9,7 +9,7 @@
  *   - OnboardingPicker → empty-state onboarding
  *   - AddPageDialog    → add-page dialog
  */
-import React, { useRef, useCallback } from 'react'
+import React, { useRef, useCallback, useState } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { FieldCreationPopup } from './FieldCreationPopup.js'
@@ -103,11 +103,16 @@ export function CanvasArea() {
 
   // ── Refs ───────────────────────────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement | null>(null)
+  // State mirror of containerRef.current — effects that must react to the
+  // container element changing (e.g. the ResizeObserver setup) depend on
+  // this. Without it, the observer stays attached to the onboarding picker
+  // after the canvas subtree mounts (GH #17).
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
 
   // ── Custom hooks ───────────────────────────────────────────────────────
   const pageHandlers = usePageHandlers()
 
-  const { fabricRef, setCanvasEl, spacePanModeRef } = useFabricCanvas(
+  const { fabricRef, fabricInstance, setCanvasEl, spacePanModeRef } = useFabricCanvas(
     containerRef,
     pageHandlers.setPendingDraft,
   )
@@ -131,7 +136,9 @@ export function CanvasArea() {
   // ── Sync effects ───────────────────────────────────────────────────────
   useFabricSync({
     fabricRef,
+    fabricInstance,
     containerRef,
+    containerEl,
     pageFields,
     bgImage,
     currentBgColor,
@@ -147,6 +154,7 @@ export function CanvasArea() {
   // ── Container ref callback (for OnboardingPicker compatibility) ────────
   const setContainerRef = useCallback((el: HTMLDivElement | null) => {
     containerRef.current = el
+    setContainerEl(el)
   }, [])
 
   // ═══════════════════════════════════════════════════════════════════════

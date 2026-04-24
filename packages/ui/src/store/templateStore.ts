@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { generateSecureId } from '../utils/id.js'
+import { idbGet, idbSet, idbDelete, migrateFromLocalStorage } from './idbStorage.js'
 import type {
   FieldDefinition,
   TemplateMeta,
@@ -208,7 +209,15 @@ function b642ab(b64: string): ArrayBuffer {
   return bytes.buffer as ArrayBuffer
 }
 
-/** Serialized form of state for localStorage */
+/** Serialized form of state for localStorage.
+ *
+ * Image buffers (`backgroundBuffer`, `pageBackgroundBuffers`,
+ * `staticImageBuffers`) are INTENTIONALLY NOT persisted — they're a
+ * duplicate encoding of bytes already stored in the matching `*DataUrl(s)`
+ * fields as base64 `data:` strings, and doubling them up used to blow
+ * localStorage's ~5 MB quota on the first real photo (GH #11). On
+ * rehydration we reconstruct the ArrayBuffers from the data URLs so the
+ * save-to-.tgbl path still works. */
 interface PersistedState {
   meta: TemplateMeta
   fields: FieldDefinition[]
@@ -216,13 +225,31 @@ interface PersistedState {
   groups: GroupDefinition[]
   pages: PageDefinition[]
   backgroundDataUrl: string | null
-  backgroundBuffer: string | null
   pageBackgroundDataUrls: [string, string][]
-  pageBackgroundBuffers: [string, string][]
   fontBuffers: [string, string][]
   placeholderBuffers: [string, string][]
-  staticImageBuffers?: [string, string][]
   staticImageDataUrls?: [string, string][]
+  // Legacy — still read on rehydration for backwards-compatibility with
+  // entries written before #11 landed, but NOT written any more.
+  backgroundBuffer?: string | null
+  pageBackgroundBuffers?: [string, string][]
+  staticImageBuffers?: [string, string][]
+}
+
+/**
+ * Pull the base64 payload out of a `data:<mime>;base64,<payload>` URL and
+ * decode it to an ArrayBuffer. Returns `null` if the URL is malformed or
+ * not a data URL.
+ */
+function dataUrlToArrayBuffer(dataUrl: string | null | undefined): ArrayBuffer | null {
+  if (!dataUrl || typeof dataUrl !== 'string') return null
+  const comma = dataUrl.indexOf(',')
+  if (!dataUrl.startsWith('data:') || comma < 0) return null
+  try {
+    return b642ab(dataUrl.slice(comma + 1))
+  } catch {
+    return null
+  }
 }
 
 /** Persist schema version. Bumped to 2 in Phase 1 when `source: FieldSource<V>` replaced
@@ -729,8 +756,15 @@ export const useTemplateStore = create<TemplateState>()(
       migrate: (persistedState, fromVersion) =>
         migratePersistedState(persistedState, fromVersion) as unknown as TemplateState,
       storage: {
-        getItem: (name) => {
-          const raw = localStorage.getItem(name)
+        getItem: async (name) => {
+          // IndexedDB-backed persistence (GH #11). localStorage's ~5 MB
+          // quota is blown by a single real-world photo's data URL, so
+          // we've moved to IDB which has gigabyte-scale quotas. On first
+          // load after the #11 upgrade we also migrate whatever is sitting
+          // in localStorage across to IDB so existing users don't lose
+          // their template.
+          await migrateFromLocalStorage(name)
+          const raw = await idbGet<string>(name)
           if (!raw) return null
           try {
             const parsed = JSON.parse(raw) as { state: PersistedState; version?: number }
@@ -738,25 +772,62 @@ export const useTemplateStore = create<TemplateState>()(
             // Version read — pre-Phase-1 writers used implicit `1`, so
             // default missing/unknown versions to 1 so `migrate` runs.
             const version = typeof parsed.version === 'number' ? parsed.version : 1
+
+            // Reconstruct the image ArrayBuffers from the data URLs we DO
+            // persist, so the in-memory store still exposes them for
+            // save-to-.tgbl. Pre-#11 entries may also carry the explicit
+            // buffer strings; those are preferred when present, otherwise
+            // we fall back to decoding the data URL.
+            const backgroundBuffer =
+              (s.backgroundBuffer ? b642ab(s.backgroundBuffer) : null) ??
+              dataUrlToArrayBuffer(s.backgroundDataUrl)
+
+            const pageBgEntries = (s.pageBackgroundDataUrls ?? []).map(([k, url]) => [k, url]) as [
+              string,
+              string,
+            ][]
+            const pageBgBufferLegacy = new Map(
+              (s.pageBackgroundBuffers ?? []).map(([k, v]) => [k, b642ab(v)] as const),
+            )
+            const pageBackgroundBuffers = new Map<string, ArrayBuffer>()
+            for (const [k, url] of pageBgEntries) {
+              const legacy = pageBgBufferLegacy.get(k)
+              if (legacy) {
+                pageBackgroundBuffers.set(k, legacy)
+                continue
+              }
+              const ab = dataUrlToArrayBuffer(url)
+              if (ab) pageBackgroundBuffers.set(k, ab)
+            }
+
+            const staticImgDataUrls = new Map(s.staticImageDataUrls ?? [])
+            const staticImgBufferLegacy = new Map(
+              (s.staticImageBuffers ?? []).map(([k, v]) => [k, b642ab(v)] as const),
+            )
+            const staticImageBuffers = new Map<string, ArrayBuffer>()
+            for (const [k, url] of staticImgDataUrls) {
+              const legacy = staticImgBufferLegacy.get(k)
+              if (legacy) {
+                staticImageBuffers.set(k, legacy)
+                continue
+              }
+              const ab = dataUrlToArrayBuffer(url)
+              if (ab) staticImageBuffers.set(k, ab)
+            }
+
             return {
               state: {
                 ...s,
                 pages: s.pages ?? [],
-                backgroundBuffer: s.backgroundBuffer ? b642ab(s.backgroundBuffer) : null,
-                pageBackgroundDataUrls: new Map(
-                  (s.pageBackgroundDataUrls ?? []).map(([k, v]) => [k, v]),
-                ),
-                pageBackgroundBuffers: new Map(
-                  (s.pageBackgroundBuffers ?? []).map(([k, v]) => [k, b642ab(v)]),
-                ),
+                backgroundBuffer,
+                pageBackgroundDataUrls: new Map(pageBgEntries),
+                pageBackgroundBuffers,
                 fontBuffers: new Map((s.fontBuffers ?? []).map(([k, v]) => [k, b642ab(v)])),
                 placeholderBuffers: new Map(
                   (s.placeholderBuffers ?? []).map(([k, v]) => [k, b642ab(v)]),
                 ),
-                staticImageBuffers: new Map(
-                  (s.staticImageBuffers ?? []).map(([k, v]) => [k, b642ab(v)]),
-                ),
-                staticImageDataUrls: new Map(s.staticImageDataUrls ?? []),
+                staticImageBuffers,
+                staticImageDataUrls: staticImgDataUrls,
               },
               version,
             }
@@ -769,8 +840,11 @@ export const useTemplateStore = create<TemplateState>()(
             return null
           }
         },
-        setItem: (name, value) => {
+        setItem: async (name, value) => {
           const state = (value as { state: TemplateState }).state
+          // Image buffers are NOT persisted — the data URLs carry the same
+          // bytes and we rebuild buffers from them on rehydration. See the
+          // `PersistedState` docstring and GH #11 for context.
           const serialized: PersistedState = {
             meta: state.meta,
             fields: state.fields,
@@ -778,31 +852,37 @@ export const useTemplateStore = create<TemplateState>()(
             groups: state.groups,
             pages: state.pages,
             backgroundDataUrl: state.backgroundDataUrl,
-            backgroundBuffer: state.backgroundBuffer ? ab2b64(state.backgroundBuffer) : null,
             pageBackgroundDataUrls: Array.from(state.pageBackgroundDataUrls.entries()),
-            pageBackgroundBuffers: Array.from(state.pageBackgroundBuffers.entries()).map(
-              ([k, v]) => [k, ab2b64(v)],
-            ),
             fontBuffers: Array.from(state.fontBuffers.entries()).map(([k, v]) => [k, ab2b64(v)]),
             placeholderBuffers: Array.from(state.placeholderBuffers.entries()).map(([k, v]) => [
               k,
               ab2b64(v),
             ]),
-            staticImageBuffers: Array.from(state.staticImageBuffers.entries()).map(([k, v]) => [
-              k,
-              ab2b64(v),
-            ]),
             staticImageDataUrls: Array.from(state.staticImageDataUrls.entries()),
           }
-          localStorage.setItem(
-            name,
-            JSON.stringify({
-              state: serialized,
-              version: (value as { version?: number }).version ?? PERSIST_VERSION,
-            }),
-          )
+          const payload = JSON.stringify({
+            state: serialized,
+            version: (value as { version?: number }).version ?? PERSIST_VERSION,
+          })
+          try {
+            await idbSet(name, payload)
+          } catch (err) {
+            // IDB quotas are gigabyte-scale so failure here should be rare,
+            // but we still log instead of throwing through Zustand into
+            // React — a template with a borderline-absurd asset budget can
+            // still hit the quota or fail mid-transaction.
+            console.warn(
+              '[templateStore] persist failed — local template state may not survive a reload:',
+              err,
+            )
+          }
         },
-        removeItem: (name) => localStorage.removeItem(name),
+        removeItem: async (name) => {
+          await idbDelete(name)
+          // Also clear any stale localStorage entry from pre-#11 installs so
+          // we don't re-migrate it on the next load.
+          if (typeof localStorage !== 'undefined') localStorage.removeItem(name)
+        },
       },
     },
   ),

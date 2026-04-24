@@ -38,6 +38,12 @@ jobs:
       - name: Build types
         run: pnpm --filter @template-goblin/types build
 
+      - name: Build core (template-goblin)
+        # The UI imports `template-goblin/validateManifest` (subpath export)
+        # whose `.d.ts` lives under `packages/core/dist/`. Without this step
+        # the UI's `tsc` fails with TS2307 in CI — see GH issue #16.
+        run: pnpm --filter template-goblin build
+
       - name: Build UI for GitHub Pages
         run: pnpm --filter template-goblin-ui build
         env:
