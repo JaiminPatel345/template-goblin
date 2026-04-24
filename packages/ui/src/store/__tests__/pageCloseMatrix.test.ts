@@ -153,3 +153,63 @@ describe('GH #23 — closing the middle of three pages', () => {
     })
   }
 })
+
+/**
+ * Regression for the real GH #23 repro: onboarding via image puts the
+ * image in `backgroundDataUrl` with `pages = []`. Before the fix, adding
+ * the next page gave it `index = 0`, shadowing the legacy page in PageBar.
+ * The store didn't blow up on its own — the damage happened in
+ * `handleAddPage`, which now shifts the new page to `index = 1` when a
+ * legacy bg exists. We mirror that logic here and assert the survivor
+ * behaviour in both directions.
+ */
+describe('GH #23 — legacy-image onboarding + added page does not shadow', () => {
+  it('adding a page after legacy image keeps the legacy page reachable', () => {
+    // Seed a legacy image background (what PageSizeDialog sets up).
+    state().setBackground('data:image/png;base64,LEGACY', makeBuffer(0x55))
+    expect(state().backgroundDataUrl).not.toBeNull()
+    expect(state().pages).toHaveLength(0)
+
+    // Add a page with the index-1 shift that handleAddPage now applies.
+    const legacyBg = state().backgroundDataUrl
+    const hasLegacyPage0 = legacyBg !== null && !state().pages.some((p) => p.index === 0)
+    const computedIndex = state().pages.length + (hasLegacyPage0 ? 1 : 0)
+    expect(computedIndex).toBe(1)
+
+    addPageWithBg('added', computedIndex, 'image', 0x44)
+    expect(state().pages).toHaveLength(1)
+    expect(state().pages[0]!.index).toBe(1)
+    // The legacy bg is still in place — its tab survives PageBar's
+    // `explicitFirst` check because no explicit index-0 page exists.
+    expect(state().backgroundDataUrl).not.toBeNull()
+  })
+
+  it('closing the legacy page after an added index-1 page leaves the added page intact', () => {
+    state().setBackground('data:image/png;base64,LEGACY', makeBuffer(0x55))
+    addPageWithBg('added', 1, 'image', 0x44)
+
+    // Legacy-page close mirrors handleRemovePage's pageId === null path:
+    // clear the legacy bg, reindex the remaining pages.
+    useTemplateStore.setState({ backgroundDataUrl: null, backgroundBuffer: null })
+    const sortedPages = [...state().pages].sort((a, b) => a.index - b.index)
+    useTemplateStore.setState({
+      pages: sortedPages.map((p, i) => ({ ...p, index: i })),
+    })
+
+    expect(state().pages).toHaveLength(1)
+    expect(state().pages[0]!.id).toBe('added')
+    expect(state().pages[0]!.index).toBe(0)
+    expect(state().pageBackgroundDataUrls.has('added')).toBe(true)
+  })
+
+  it('closing the added page (index 1) after legacy image leaves the legacy reachable', () => {
+    state().setBackground('data:image/png;base64,LEGACY', makeBuffer(0x55))
+    addPageWithBg('added', 1, 'image', 0x44)
+
+    state().removePage('added')
+    expect(state().pages).toHaveLength(0)
+    // Legacy bg still there — implicit page 1 covers it.
+    expect(state().backgroundDataUrl).not.toBeNull()
+    expect(state().backgroundBuffer).not.toBeNull()
+  })
+})
