@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // ---------------------------------------------------------------------------
-// localStorage shim — needed by `persist` at module-load time. Each test
-// reimports the store (via `vi.resetModules`) after pre-populating this shim
-// with a legacy v1 blob, so the persist rehydration + migrate pipeline runs
-// against known inputs.
+// Storage shim — the persist adapter now uses IndexedDB (GH #11) but for
+// unit tests we redirect IDB calls through an in-memory Map, and keep the
+// legacy localStorage stub too because `migrateFromLocalStorage` reads
+// from it.  Each test reimports the store (via `vi.resetModules`) after
+// pre-populating this shim with a legacy v1 blob, so the rehydrate +
+// migrate pipeline runs against known inputs.
 // ---------------------------------------------------------------------------
 const storage = new Map<string, string>()
 vi.stubGlobal('localStorage', {
@@ -13,6 +15,17 @@ vi.stubGlobal('localStorage', {
   removeItem: (key: string) => storage.delete(key),
   clear: () => storage.clear(),
 })
+
+vi.mock('../idbStorage', () => ({
+  idbGet: async (key: string) => storage.get(key),
+  idbSet: async (key: string, value: string) => {
+    storage.set(key, value)
+  },
+  idbDelete: async (key: string) => {
+    storage.delete(key)
+  },
+  migrateFromLocalStorage: async () => {},
+}))
 
 const PERSIST_KEY = 'template-goblin-template'
 
@@ -166,6 +179,7 @@ describe('templateStore persist migration (v1 -> v2)', () => {
     storage.set(PERSIST_KEY, JSON.stringify(legacyV1Blob()))
 
     const mod = await import('../templateStore')
+    await mod.useTemplateStore.persist.rehydrate()
     const state = mod.useTemplateStore.getState()
 
     expect(state.fields).toHaveLength(3)
@@ -188,6 +202,7 @@ describe('templateStore persist migration (v1 -> v2)', () => {
     storage.set(PERSIST_KEY, JSON.stringify(legacyV1Blob()))
 
     const mod = await import('../templateStore')
+    await mod.useTemplateStore.persist.rehydrate()
     const state = mod.useTemplateStore.getState()
 
     const img = state.fields.find((f) => f.id === 'f-2')!
@@ -205,6 +220,7 @@ describe('templateStore persist migration (v1 -> v2)', () => {
     storage.set(PERSIST_KEY, JSON.stringify(legacyV1Blob()))
 
     const mod = await import('../templateStore')
+    await mod.useTemplateStore.persist.rehydrate()
     const state = mod.useTemplateStore.getState()
 
     const loopField = state.fields.find((f) => f.id === 'f-3')!
@@ -253,6 +269,7 @@ describe('templateStore persist migration (v1 -> v2)', () => {
 
     // Store hydrates without throwing.
     const mod = await import('../templateStore')
+    await mod.useTemplateStore.persist.rehydrate()
     const state = mod.useTemplateStore.getState()
 
     // The three legacy fields migrated; `null`-source is **not** corrupt (it
@@ -301,6 +318,7 @@ describe('templateStore persist migration (v1 -> v2)', () => {
     storage.set(PERSIST_KEY, JSON.stringify(blob))
 
     const mod = await import('../templateStore')
+    await mod.useTemplateStore.persist.rehydrate()
     const state = mod.useTemplateStore.getState()
 
     // The corrupt-source field is dropped; only the 3 legacy fields survive.
@@ -313,6 +331,7 @@ describe('templateStore persist migration (v1 -> v2)', () => {
     storage.set(PERSIST_KEY, 'not-json-at-all{')
 
     const mod = await import('../templateStore')
+    await mod.useTemplateStore.persist.rehydrate()
     const state = mod.useTemplateStore.getState()
 
     // Falls back to empty defaults.

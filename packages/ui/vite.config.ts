@@ -21,5 +21,9 @@ export default defineConfig({
   },
   test: {
     include: ['src/**/__tests__/**/*.test.ts'],
+    // `fake-indexeddb/auto` polyfills `indexedDB` and `IDBKeyRange` on
+    // globalThis.  Required by the templateStore persist adapter (GH #11)
+    // which is now backed by IndexedDB instead of localStorage.
+    setupFiles: ['fake-indexeddb/auto'],
   },
 })

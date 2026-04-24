@@ -9,7 +9,10 @@ import type {
 } from '@template-goblin/types'
 
 // ---------------------------------------------------------------------------
-// Stub localStorage BEFORE importing the store (persist middleware needs it)
+// Stub storage BEFORE importing the store.  The persist adapter uses
+// IndexedDB in production (GH #11) but for unit tests we redirect IDB
+// calls through an in-memory Map — tests keep inspecting `storage` as a
+// plain Map, and any pending async write flushed via `flushPersist()`.
 // ---------------------------------------------------------------------------
 
 const storage = new Map<string, string>()
@@ -19,6 +22,23 @@ vi.stubGlobal('localStorage', {
   removeItem: (key: string) => storage.delete(key),
   clear: () => storage.clear(),
 })
+
+vi.mock('../idbStorage', () => ({
+  idbGet: async (key: string) => storage.get(key),
+  idbSet: async (key: string, value: string) => {
+    storage.set(key, value)
+  },
+  idbDelete: async (key: string) => {
+    storage.delete(key)
+  },
+  migrateFromLocalStorage: async () => {},
+}))
+
+/** Yield the event loop so zustand's async persist setItem call completes
+ *  before the assertion reads the backing Map. */
+async function flushPersist(): Promise<void> {
+  await new Promise((r) => setTimeout(r, 0))
+}
 
 import { useTemplateStore } from '../templateStore'
 
@@ -424,47 +444,35 @@ describe('Persist / restore', () => {
     expect(parsed.state.pages[1]?.backgroundType).toBe('inherit')
   })
 
-  it('pageBackgroundBuffers serialize/deserialize correctly (base64)', async () => {
+  it('pageBackgroundBuffers are omitted from the persisted blob but rebuilt from data URL on rehydration (GH #11)', async () => {
     const buf = makeBuffer(0xdd)
+    // A real data URL whose base64 payload matches `buf` — the rehydrator
+    // reconstructs the ArrayBuffer from this.
+    const dataUrl = 'data:image/png;base64,' + btoa('\xdd\xdd\xdd\xdd')
     state().addPage(makePage({ id: 'ser-buf', index: 0, backgroundType: 'image' }))
-    state().setPageBackground('ser-buf', 'data:image/png;base64,DDD', buf)
+    state().setPageBackground('ser-buf', dataUrl, buf)
 
-    // Read from localStorage
+    // Read from localStorage — the buffer must NOT be in the serialised blob
+    // (persisting it used to blow the quota with real photos — see #11).
     const raw = storage.get('template-goblin-template')
     expect(raw).toBeDefined()
 
     const parsed = JSON.parse(raw!) as {
-      state: { pageBackgroundBuffers: [string, string][] }
+      state: {
+        pageBackgroundBuffers?: [string, string][]
+        pageBackgroundDataUrls: [string, string][]
+      }
     }
+    expect(parsed.state.pageBackgroundBuffers).toBeUndefined()
+    expect(parsed.state.pageBackgroundDataUrls).toHaveLength(1)
+    expect(parsed.state.pageBackgroundDataUrls[0]![0]).toBe('ser-buf')
+    expect(parsed.state.pageBackgroundDataUrls[0]![1]).toBe(dataUrl)
 
-    // The buffer should be serialized as base64 tuple entries
-    expect(parsed.state.pageBackgroundBuffers).toHaveLength(1)
-    const [key, b64] = parsed.state.pageBackgroundBuffers[0]!
-    expect(key).toBe('ser-buf')
-    // base64 of [0xDD, 0xDD, 0xDD, 0xDD] = "3d3d3d3d" => atob gives us 4 bytes
-    expect(typeof b64).toBe('string')
-    expect(b64.length).toBeGreaterThan(0)
-
-    // Now re-import the store to simulate rehydration.
-    // Clear the zustand state and force rehydration.
-    useTemplateStore.setState({
-      pages: [],
-      pageBackgroundBuffers: new Map(),
-      pageBackgroundDataUrls: new Map(),
-    })
-
-    // Manually invoke the storage getItem to simulate what persist does
-    const rehydrated = JSON.parse(raw!) as { state: { pageBackgroundBuffers: [string, string][] } }
-    const entries = rehydrated.state.pageBackgroundBuffers
-    expect(entries).toHaveLength(1)
-
-    // Verify the base64 decodes back to the original bytes
-    const binary = atob(entries[0]![1])
-    expect(binary.length).toBe(4)
-    expect(binary.charCodeAt(0)).toBe(0xdd)
-    expect(binary.charCodeAt(1)).toBe(0xdd)
-    expect(binary.charCodeAt(2)).toBe(0xdd)
-    expect(binary.charCodeAt(3)).toBe(0xdd)
+    // The in-memory store still exposes the ArrayBuffer — save-to-.tgbl
+    // and canvas rendering paths both rely on it. Reconstruction from the
+    // data URL happens inside the persist `storage.getItem` adapter on a
+    // real page reload.
+    expect(state().pageBackgroundBuffers.get('ser-buf')).toBeDefined()
   })
 
   it('pageBackgroundDataUrls serialize/deserialize correctly', () => {
@@ -576,5 +584,56 @@ describe('reset clears multi-page state', () => {
     expect(state().pageBackgroundDataUrls.size).toBe(0)
     expect(state().pageBackgroundBuffers.size).toBe(0)
     expect(state().fields).toHaveLength(0)
+  })
+})
+
+// ===================== GH #11 — QuotaExceededError handling ===================
+
+describe('GH #11 — persist under storage pressure', () => {
+  it('catches storage errors during persist without throwing through Zustand', async () => {
+    // Set up a page background first so there is real data to persist.
+    state().addPage(makePage({ id: 'q-p', index: 0, backgroundType: 'image' }))
+    state().setPageBackground('q-p', 'data:image/png;base64,AAA=', makeBuffer(0x11))
+    await flushPersist()
+
+    // Force subsequent idbSet calls to throw — simulating a storage
+    // failure (IDB quotas are huge but mid-transaction errors can still
+    // happen). The persist setItem must catch and warn, never propagate.
+    const idb = await import('../idbStorage')
+    const realSet = idb.idbSet
+    let throws = 2
+    vi.spyOn(idb, 'idbSet').mockImplementation(async (key: string, value: unknown) => {
+      if (throws > 0 && key === 'template-goblin-template') {
+        throws--
+        throw new DOMException('QuotaExceededError', 'QuotaExceededError')
+      }
+      await realSet(key, value)
+    })
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    expect(() =>
+      state().addField(makeTextField({ id: 'after-quota', pageId: 'q-p' })),
+    ).not.toThrow()
+    await flushPersist()
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('skips buffer fields in the persisted blob', async () => {
+    state().addPage(makePage({ id: 'slim-p', index: 0, backgroundType: 'image' }))
+    state().setPageBackground('slim-p', 'data:image/png;base64,AAA=', makeBuffer(0x22))
+    await flushPersist()
+
+    const raw = storage.get('template-goblin-template')
+    expect(raw).toBeDefined()
+    const parsed = JSON.parse(raw!) as {
+      state: Record<string, unknown>
+    }
+    // The three image-buffer keys are the quota-hungry ones (each duplicates
+    // bytes already stored in the matching `*DataUrl(s)` field). None of
+    // them should land in localStorage under the #11 fix.
+    expect(parsed.state.backgroundBuffer).toBeUndefined()
+    expect(parsed.state.pageBackgroundBuffers).toBeUndefined()
+    expect(parsed.state.staticImageBuffers).toBeUndefined()
   })
 })
