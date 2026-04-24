@@ -166,7 +166,10 @@ function wireSelectionEvents(fc: FabricCanvas) {
         if (onlyId) useUiStore.getState().selectAndFocus(onlyId)
       } else {
         useUiStore.getState().selectFields(ids)
-        useUiStore.getState().setShowRightPanel(true)
+        // Multi-select still wants the properties panel visible so the user
+        // can see "Multiple fields selected" context. Under GH #19 that
+        // panel lives on the left.
+        useUiStore.getState().setShowLeftPanel(true)
       }
     }
     // Visual emphasis reflects the canvas active-object set regardless of

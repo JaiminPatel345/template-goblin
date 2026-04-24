@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Toolbar } from './components/Toolbar/Toolbar.js'
-import { LeftPanel } from './components/LeftPanel/FieldList.js'
+import { PropertiesPanel } from './components/LeftPanel/PropertiesPanel.js'
 import { CanvasArea } from './components/Canvas/CanvasArea.js'
-import { RightPanel } from './components/RightPanel/RightPanel.js'
+import { StructurePanel } from './components/RightPanel/StructurePanel.js'
 import { PageSizeDialog } from './components/Toolbar/PageSizeDialog.js'
 import { ContextMenu } from './components/Canvas/ContextMenu.js'
 import { FontManager } from './components/Toolbar/FontManager.js'
@@ -46,7 +46,10 @@ export function App() {
       <div className="tg-workspace">
         {hasBackground && showLeftPanel && (
           <div className="tg-left-panel" style={{ width: leftWidth }}>
-            <LeftPanel />
+            {/* Left panel now renders the styling/properties editor for the
+                active selection (GH #19 — content swapped with the right
+                panel). */}
+            <PropertiesPanel />
             <ResizeHandle
               side="right"
               width={leftWidth}
@@ -86,7 +89,9 @@ export function App() {
               min={220}
               max={500}
             />
-            <RightPanel />
+            {/* Right panel now renders the structural tree — field list +
+                JSON preview + PDF size estimate (GH #19). */}
+            <StructurePanel />
           </div>
         )}
       </div>
