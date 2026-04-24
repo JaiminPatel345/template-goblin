@@ -18,10 +18,13 @@
  *  non-evented) so they pan and zoom with the Fabric viewport transform. A CSS
  *  background-image alternative would not move with the viewport.
  *
- *  ITEXT_CHOICE: we use `FabricText` (read-only) rather than `IText` for field
- *  labels because IText fires keyboard events and enters edit mode on double-
- *  click, interfering with the right-panel workflow. Full inline editing via
- *  IText could be added per-field in a future iteration.
+ *  ITEXT_CHOICE: we use `Textbox` (read-only, auto-wrap) rather than `IText`
+ *  for field labels because IText fires keyboard events and enters edit mode
+ *  on double-click, interfering with the right-panel workflow. Textbox is
+ *  preferred over plain `FabricText` because it wraps to its `width`, which
+ *  lets us fit the largest possible font size for the bounding rect (GH #12).
+ *  Full inline editing via IText could be added per-field in a future
+ *  iteration.
  *
  *  ORIGIN: every Group uses `originX: 'left', originY: 'top'` so `group.left`
  *  and `group.top` directly equal the field's `x` and `y` in page pt.
@@ -32,7 +35,7 @@
  *  box math stays in sync.
  */
 
-import { Rect, Group, FabricText, FabricImage, Point, Line } from 'fabric'
+import { Rect, Group, Textbox, FabricImage, Point, Line } from 'fabric'
 import type { FabricObject } from 'fabric'
 import type { FieldDefinition } from '@template-goblin/types'
 import { FIELD_COLORS, SELECTED_STROKE_WIDTH } from '../../theme/fieldColors.js'
@@ -74,9 +77,13 @@ function getMeasureCtx(): CanvasRenderingContext2D | null {
   return _measureCtx
 }
 
+/** Maximum font size the label auto-fit will return. */
+const LABEL_MAX_FONT_SIZE = 160
+
 /**
  * Fit font size to a bounding rect using greedy word-wrap and binary search.
- * Returns a size in the range [8, min(48, rectHeight * 0.8)].
+ * Returns the largest integer size in `[8, min(LABEL_MAX_FONT_SIZE, rectHeight * 0.8)]`
+ * such that the wrapped text fits within `rectWidth × rectHeight`.
  */
 function fitFontSize(
   text: string,
@@ -86,9 +93,9 @@ function fitFontSize(
 ): number {
   if (!text || rectWidth <= 0 || rectHeight <= 0) return 8
   const ctx = getMeasureCtx()
-  if (!ctx) return Math.max(8, Math.min(48, Math.floor(rectHeight * 0.4)))
+  if (!ctx) return Math.max(8, Math.min(LABEL_MAX_FONT_SIZE, Math.floor(rectHeight * 0.6)))
 
-  const upper = Math.max(8, Math.min(48, Math.floor(rectHeight * 0.8)))
+  const upper = Math.max(8, Math.min(LABEL_MAX_FONT_SIZE, Math.floor(rectHeight * 0.8)))
   let lo = 8
   let hi = upper
   let best = 8
@@ -587,37 +594,38 @@ export function buildGroupChildren(
     })
   }
 
-  // 3. Auto-fit label (REQ-044, REQ-045) — skipped when an image is rendered.
+  // 3. Auto-fit label (GH #12) — skipped when an image is rendered.
+  //    Uses a centred `Textbox` (wraps to `labelW`) rather than a plain
+  //    `FabricText` with a clipPath.  The previous clipPath approach was
+  //    fragile: Fabric positions clipPath relative to the clipped object's
+  //    centre, so a clipPath at (0, 0) with origin top-left could sit
+  //    entirely below the text and effectively hide it.  Textbox + centre
+  //    origin + a sensible fontSize upper bound gives a reliable
+  //    "max-fit" label that rerenders correctly when the field is
+  //    resized (`applyFieldToGroup` rebuilds children on every field
+  //    update, so fontSize is recomputed against the new bounds).
   if (!placeholderResolved) {
     const label = fieldCanvasLabel(field)
     if (label) {
       const innerPad = 6
-      const labelW = Math.max(0, w - innerPad * 2)
-      const labelH = Math.max(0, h - innerPad * 2)
+      const labelW = Math.max(1, w - innerPad * 2)
+      const labelH = Math.max(1, h - innerPad * 2)
       const fontSize = fitFontSize(label, labelW, labelH, 'sans-serif')
       if (fontSize >= 8) {
-        const textObj = new FabricText(label, {
-          left: innerPad,
-          top: innerPad,
+        const textObj = new Textbox(label, {
+          left: w / 2,
+          top: h / 2,
+          width: labelW,
           fontSize,
           fontFamily: 'sans-serif',
           fill: colors.text,
-          width: labelW,
-          textAlign: 'left',
+          textAlign: 'center',
           selectable: false,
           evented: false,
-          originX: 'left',
-          originY: 'top',
-          // Prevent the text from overflowing the bounding rect.
-          clipPath: new Rect({
-            left: 0,
-            top: 0,
-            width: labelW,
-            height: labelH,
-            absolutePositioned: false,
-            originX: 'left',
-            originY: 'top',
-          }),
+          originX: 'center',
+          originY: 'center',
+          splitByGrapheme: false,
+          lineHeight: 1.2,
         })
         children.push(textObj)
       }
