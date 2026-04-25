@@ -274,23 +274,39 @@ test.describe('Image field — drag and resize', () => {
       fc.fire?.('object:modified', { target: g })
     })
 
-    // Wait for reconciliation to rebuild the image at the new size — poll
-    // the image's scale rather than the Fabric Group's `width`, which can
-    // include child bounds in its computed value.
+    // Wait for reconciliation to rebuild the image at the new size, then
+    // snapshot a STABLE info reading. The `object:modified` handler fires
+    // TWO store actions (moveField + resizeField), each triggering a
+    // reconciliation that momentarily swaps the image child back to a
+    // placeholder Rect while the async FabricImage reload settles. Polling
+    // a single value and then reading again can race the second rebuild,
+    // so we keep retrying until a single read produces the expected scale
+    // and use THAT snapshot for the rest of the assertions.
+    let after: ImgInfo | null = null
     await expect
       .poll(async () => {
         const info = await readImageInfo(page)
-        return info?.scaleX ?? 0
+        if (
+          info &&
+          Math.abs(info.scaleX - 20) < 0.5 &&
+          Math.abs(info.scaleY - 20) < 0.5 &&
+          info.natW > 0 &&
+          info.natH > 0
+        ) {
+          after = info
+          return true
+        }
+        return false
       })
-      .toBeCloseTo(20, 1)
-
-    const after = (await readImageInfo(page))!
+      .toBe(true)
+    const stable = after as ImgInfo | null
+    if (!stable) throw new Error('image info never stabilised')
     // 4×4 image, 80×80 rect: contain scale = min(20, 20) = 20.
-    expect(after.scaleX).toBeCloseTo(20, 1)
-    expect(after.scaleY).toBeCloseTo(20, 1)
+    expect(stable.scaleX).toBeCloseTo(20, 1)
+    expect(stable.scaleY).toBeCloseTo(20, 1)
     // Rendered footprint must still fit inside the new 80×80 rect.
-    expect(after.natW * after.scaleX).toBeLessThanOrEqual(80)
-    expect(after.natH * after.scaleY).toBeLessThanOrEqual(80)
+    expect(stable.natW * stable.scaleX).toBeLessThanOrEqual(80)
+    expect(stable.natH * stable.scaleY).toBeLessThanOrEqual(80)
   })
 
   test('moving the field keeps the image scale unchanged', async ({ page }) => {
@@ -319,16 +335,33 @@ test.describe('Image field — drag and resize', () => {
       fc.fire?.('object:modified', { target: g })
     })
 
-    // Wait long enough for the async image reload to settle.
-    await page.waitForTimeout(500)
-    const after = (await readImageInfo(page))!
+    // Wait for the async image reload to settle. Reconciliation rebuilds
+    // children which momentarily replaces the image with a placeholder
+    // Rect; poll until a real image child re-exists (natW > 0) and use
+    // THAT snapshot for the scale comparison. We can't gate on the
+    // group's left/top — Fabric Group recomputes its bounding box from
+    // child centers post-add, so `Group#left` doesn't reflect the
+    // field's stored x.
+    let after: ImgInfo | null = null
+    await expect
+      .poll(async () => {
+        const info = await readImageInfo(page)
+        if (info && info.natW > 0) {
+          after = info
+          return true
+        }
+        return false
+      })
+      .toBe(true)
+    const stable = after as ImgInfo | null
+    if (!stable) throw new Error('image info never stabilised after move')
     // The rect moved but the image's scale must match the previous value —
     // moving must NOT grow the image (regression for the user-reported
     // "moving auto-resizes the image" bug).
-    expect(after.scaleX).toBeCloseTo(before.scaleX, 2)
-    expect(after.scaleY).toBeCloseTo(before.scaleY, 2)
+    expect(stable.scaleX).toBeCloseTo(before.scaleX, 2)
+    expect(stable.scaleY).toBeCloseTo(before.scaleY, 2)
     // The image's natural width / height (bitmap pixels) is constant.
-    expect(after.natW).toBe(before.natW)
-    expect(after.natH).toBe(before.natH)
+    expect(stable.natW).toBe(before.natW)
+    expect(stable.natH).toBe(before.natH)
   })
 })
