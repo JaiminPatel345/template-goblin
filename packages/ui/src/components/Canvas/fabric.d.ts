@@ -25,5 +25,11 @@ declare module 'fabric' {
     __defaultStroke?: string
     /** Default (un-selected) strokeWidth saved on the field's background Rect. */
     __defaultStrokeWidth?: number
+    /** Source-of-truth width of the field rect, written by `applyFieldToGroup`.
+     *  Fabric's Group#width getter includes child bounding-box overhang, so it
+     *  cannot be trusted as the intended rect width during drag/resize commit. */
+    __fieldWidth?: number
+    /** Source-of-truth height of the field rect — see `__fieldWidth`. */
+    __fieldHeight?: number
   }
 }

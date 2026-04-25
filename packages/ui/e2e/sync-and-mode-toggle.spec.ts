@@ -242,7 +242,9 @@ test.describe('GH #26 — Static / Dynamic mode toggle migrates content', () => 
       if (!fc) throw new Error('no fabric canvas')
       const g = fc.getObjects().find((o) => o.__fieldId === 'f1')
       if (!g) throw new Error('group missing')
-      g.set?.({ width: 80, height: 30, scaleX: 1, scaleY: 1 })
+      // Original rect 200×100 → 80×30 via scale-then-commit (the real
+      // user resize gesture). `groupToFieldPatch` uses width × scale.
+      g.set?.({ scaleX: 80 / 200, scaleY: 30 / 100 })
       g.setCoords?.()
       fc.fire?.('object:modified', { target: g })
     })

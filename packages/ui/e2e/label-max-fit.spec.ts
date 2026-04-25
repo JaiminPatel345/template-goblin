@@ -211,7 +211,10 @@ test.describe('Label max-fit (#12)', () => {
         if (!fc) throw new Error('no fabric canvas')
         const g = fc.getObjects().find((o) => o.__fieldId === id)
         if (!g) throw new Error(`no group ${id}`)
-        g.set?.({ width: 80, height: 40, scaleX: 1, scaleY: 1 })
+        // Mirror the real user gesture: corner drag scales the group, then
+        // `object:modified` commits via `groupToFieldPatch`.
+        // Original rect 260×160 → 80×40 means scale factors 80/260 and 40/160.
+        g.set?.({ scaleX: 80 / 260, scaleY: 40 / 160 })
         g.setCoords?.()
         fc.fire?.('object:modified', { target: g })
       }

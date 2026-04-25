@@ -232,7 +232,22 @@ export function applyFieldToGroup(
   field: FieldDefinition,
   resolveImage: ImageResolver,
 ): void {
-  // Remove existing children first (fabric v6: Group#remove)
+  // Reset the group's transform first. Fabric's `enterGroup` adjusts a
+  // newly-added child's stored coords to counter-balance the group's
+  // current transform, so adding fresh children while the group has a
+  // stale scaleX/scaleY (e.g. from a mid-drag commit) ends up with image
+  // scales multiplied by that stale factor — that's the "moving the
+  // field grows the image" symptom the user reported.
+  group.set({
+    left: field.x,
+    top: field.y,
+    width: field.width,
+    height: field.height,
+    scaleX: 1,
+    scaleY: 1,
+  })
+
+  // Remove existing children (fabric v6: Group#remove)
   const existing = group.getObjects()
   if (existing.length > 0) {
     group.remove(...existing)
@@ -248,7 +263,8 @@ export function applyFieldToGroup(
     group.add(...children)
   }
 
-  // Update geometry
+  // Re-assert geometry — `add()` triggers Fabric's bounding-box
+  // recalculation which can clobber the position we just set.
   group.set({
     left: field.x,
     top: field.y,
@@ -257,6 +273,11 @@ export function applyFieldToGroup(
     scaleX: 1,
     scaleY: 1,
   })
+  // Stash the intended rect dimensions on the group so `groupToFieldPatch`
+  // can recover them on drag-only events. `Group#width` is recalculated by
+  // Fabric to include child bounding-box overhang and can't be trusted.
+  group.__fieldWidth = field.width
+  group.__fieldHeight = field.height
   group.setCoords()
   group.__fieldType = field.type
 
@@ -367,8 +388,20 @@ export function groupToFieldPatch(
 ): Pick<FieldDefinition, 'x' | 'y' | 'width' | 'height'> {
   const rawX = group.left ?? 0
   const rawY = group.top ?? 0
-  const rawW = (group.width ?? 0) * (group.scaleX ?? 1)
-  const rawH = (group.height ?? 0) * (group.scaleY ?? 1)
+  const sx = group.scaleX ?? 1
+  const sy = group.scaleY ?? 1
+  // On a pure drag (no resize handle interaction) `scaleX/Y` stays at 1 and
+  // Fabric's `width` getter returns the child-bounding-box width, NOT the
+  // rect's intended width. Trust `__fieldWidth` — set by `applyFieldToGroup` —
+  // when scale is 1; otherwise the user actually dragged a corner and we
+  // multiply width by the scale to capture the new rect size.
+  // Always prefer the stashed `__fieldWidth` over Fabric's child-overhang-
+  // inclusive `Group#width` getter so neither drag (scale=1) nor resize
+  // (scale≠1) inflates the rect.
+  const baseW = group.__fieldWidth ?? group.width ?? 0
+  const baseH = group.__fieldHeight ?? group.height ?? 0
+  const rawW = baseW * sx
+  const rawH = baseH * sy
 
   const x = snap(rawX, gridSize, snapToGrid)
   const y = snap(rawY, gridSize, snapToGrid)
@@ -384,6 +417,8 @@ export function groupToFieldPatch(
     scaleX: 1,
     scaleY: 1,
   })
+  group.__fieldWidth = width
+  group.__fieldHeight = height
   group.setCoords()
 
   return { x, y, width, height }
@@ -586,10 +621,41 @@ export function buildGroupChildren(
     imgPlaceholder.__fieldId = `__img_placeholder_${field.id}`
     children.push(imgPlaceholder)
 
-    loadFabricImage(imageDataUrl, w, h, field.id).then((img) => {
+    // Honour the field's fit mode so 'contain' / 'cover' / 'fill' all work.
+    const imageStyle =
+      field.type === 'image' && field.style && typeof field.style === 'object'
+        ? (field.style as { fit?: 'fill' | 'contain' | 'cover' })
+        : null
+    const fit = imageStyle?.fit ?? 'contain'
+    const fieldId = field.id
+    loadFabricImage(imageDataUrl, w, h, fieldId, fit).then((img) => {
       if (!img) return
       if (onAsyncUpdate) {
-        onAsyncUpdate(img, `__img_placeholder_${field.id}`)
+        onAsyncUpdate(img, `__img_placeholder_${fieldId}`)
+        // After fabric.Group#add runs `enterGroup`, the child's stored
+        // scaleX/scaleY can drift if the group's transform is non-identity
+        // (e.g. mid-drag). Re-apply the fit-mode scale so the image stays
+        // aligned with the field rect regardless of group state. This is
+        // the user-reported "moving the field grows the image" fix.
+        const natW = img.width || w
+        const natH = img.height || h
+        let scaleX: number
+        let scaleY: number
+        if (fit === 'fill') {
+          scaleX = w / natW
+          scaleY = h / natH
+        } else if (fit === 'cover') {
+          const s = Math.max(w / natW, h / natH)
+          scaleX = s
+          scaleY = s
+        } else {
+          const s = Math.min(w / natW, h / natH)
+          scaleX = s
+          scaleY = s
+        }
+        img.set({ scaleX, scaleY, left: w / 2, top: h / 2 })
+        img.setCoords()
+        img.canvas?.requestRenderAll()
       }
     })
   }
@@ -691,19 +757,55 @@ export async function loadFabricImage(
   width: number,
   height: number,
   fieldId: string,
+  fit: 'fill' | 'contain' | 'cover' = 'contain',
 ): Promise<FabricImage> {
   const img = await FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' })
+  // Native bitmap dimensions. Fabric exposes them on the loaded image; fall
+  // back to the rect size if missing so we never divide by zero.
+  const natW = img.width || width
+  const natH = img.height || height
+  // Compute per-axis scale based on the user-chosen fit mode. The image is
+  // positioned centred on the field group's centre regardless of fit so the
+  // visible portion is always the middle of the image.
+  let scaleX: number
+  let scaleY: number
+  if (fit === 'fill') {
+    scaleX = width / natW
+    scaleY = height / natH
+  } else if (fit === 'cover') {
+    const s = Math.max(width / natW, height / natH)
+    scaleX = s
+    scaleY = s
+  } else {
+    // 'contain' (default) — preserve aspect, fit entirely inside the rect.
+    const s = Math.min(width / natW, height / natH)
+    scaleX = s
+    scaleY = s
+  }
   img.set({
-    left: 0,
-    top: 0,
-    width,
-    height,
+    left: width / 2,
+    top: height / 2,
     selectable: false,
     evented: false,
-    originX: 'left',
-    originY: 'top',
-    scaleX: 1,
-    scaleY: 1,
+    originX: 'center',
+    originY: 'center',
+    scaleX,
+    scaleY,
+  })
+  // Clip to the field rect so 'cover' (and any overflowing 'fill' edge case)
+  // doesn't bleed outside the bounding box. The clipPath uses local coords
+  // relative to the image's own centre; sizing it to the rect's
+  // un-scaled w/h and dividing by the image's scale gives a clip in image
+  // pixels that, when transformed back through the image's scale, lands
+  // exactly on the rect bounds.
+  img.clipPath = new Rect({
+    left: 0,
+    top: 0,
+    width: width / scaleX,
+    height: height / scaleY,
+    originX: 'center',
+    originY: 'center',
+    absolutePositioned: false,
   })
   img.__fieldId = `__img_${fieldId}`
   return img
