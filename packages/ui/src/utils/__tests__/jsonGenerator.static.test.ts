@@ -243,8 +243,19 @@ describe('generateExampleJson — dynamic jsonKey produces a key', () => {
     expect(Object.prototype.hasOwnProperty.call(result.images, 'photo')).toBe(true)
   })
 
-  it('dynamic image with required=false yields a null value per spec 014 AC-003/AC-004 analog', () => {
+  it('dynamic image with a placeholder filename surfaces it as the mock value (GH #25)', () => {
+    // The fixture uses placeholder: { filename: 'x.png' } — we now prefer that
+    // over the synthetic <base64-image-data>.
     const result = generateExampleJson([dynamicImage('photo', false)], 'default', 5)
-    expect(result.images.photo).toBeNull()
+    expect(result.images.photo).toBe('x.png')
+  })
+
+  it('dynamic image without a placeholder + required=false still yields null', () => {
+    const noPlaceholder: FieldDefinition = {
+      ...dynamicImage('photoB', false),
+      source: { mode: 'dynamic', jsonKey: 'photoB', required: false, placeholder: null },
+    }
+    const result = generateExampleJson([noPlaceholder], 'default', 5)
+    expect(result.images.photoB).toBeNull()
   })
 })

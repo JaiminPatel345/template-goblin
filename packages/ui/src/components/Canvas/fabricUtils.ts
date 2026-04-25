@@ -610,22 +610,55 @@ export function buildGroupChildren(
       const innerPad = 6
       const labelW = Math.max(1, w - innerPad * 2)
       const labelH = Math.max(1, h - innerPad * 2)
-      const fontSize = fitFontSize(label, labelW, labelH, 'sans-serif')
+      // Pull typography + colour from the field's own style when it is a
+      // text or table field (image fields keep the default per-type tokens
+      // — they don't expose font controls). This is the canvas half of the
+      // sidebar↔canvas sync (GH #25): editing colour or font in the
+      // properties panel must redraw the label here on the next reconcile.
+      const textStyle =
+        field.type === 'text' && field.style && typeof field.style === 'object'
+          ? (field.style as Partial<{
+              fontFamily: string
+              fontSize: number
+              fontSizeDynamic: boolean
+              color: string
+              fontWeight: 'normal' | 'bold'
+              fontStyle: 'normal' | 'italic'
+              textDecoration: 'none' | 'underline'
+              align: 'left' | 'center' | 'right'
+              lineHeight: number
+            }>)
+          : null
+      const fontFamily = textStyle?.fontFamily || 'sans-serif'
+      // For dynamic text with auto-fit on, recompute against the rect; in
+      // every other case honour the user's chosen fontSize but never let it
+      // overflow the rect.
+      const userFontSize =
+        typeof textStyle?.fontSize === 'number' && textStyle.fontSize > 0
+          ? textStyle.fontSize
+          : null
+      const autoFit = textStyle?.fontSizeDynamic === true
+      const fitted = fitFontSize(label, labelW, labelH, fontFamily)
+      const fontSize = autoFit || userFontSize === null ? fitted : Math.min(userFontSize, fitted)
       if (fontSize >= 8) {
         const textObj = new Textbox(label, {
           left: w / 2,
           top: h / 2,
           width: labelW,
           fontSize,
-          fontFamily: 'sans-serif',
-          fill: colors.text,
-          textAlign: 'center',
+          fontFamily,
+          fill: textStyle?.color || colors.text,
+          fontWeight: textStyle?.fontWeight || 'normal',
+          fontStyle: textStyle?.fontStyle || 'normal',
+          underline: textStyle?.textDecoration === 'underline',
+          textAlign: textStyle?.align || 'center',
           selectable: false,
           evented: false,
           originX: 'center',
           originY: 'center',
           splitByGrapheme: false,
-          lineHeight: 1.2,
+          lineHeight:
+            textStyle?.lineHeight && textStyle.lineHeight > 0 ? textStyle.lineHeight : 1.2,
         })
         children.push(textObj)
       }

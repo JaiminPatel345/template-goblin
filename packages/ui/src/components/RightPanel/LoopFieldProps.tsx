@@ -12,6 +12,7 @@ import { useTemplateStore } from '../../store/templateStore.js'
 import { InfoTip } from './TextFieldProps.js'
 import { NumberInput } from '../NumberInput.js'
 import { defaultCellStyle } from '../../utils/defaults.js'
+import { SourceModeToggle } from './SourceModeToggle.js'
 
 /**
  * Historical filename: `LoopFieldProps.tsx`. The field type was renamed from
@@ -135,22 +136,38 @@ export function LoopFieldProps({ field }: Props) {
 
   return (
     <>
+      {/* Source mode toggle (GH #26) — flipping migrates value↔placeholder. */}
+      <SourceModeToggle field={field} />
+
       {/* JSON Key & Basic Settings */}
       <div className="tg-panel-section">
         <div className="tg-panel-section-title">Table Properties</div>
 
-        <div className="tg-form-row">
-          <label>JSON Key</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>tables.</span>
-            <input
-              className="tg-input"
-              value={displayKey}
-              disabled={!dynamicSource}
-              onChange={(e) => onJsonKeyChange(e.target.value)}
-            />
+        {isDynamic && (
+          <div className="tg-form-row">
+            <label>JSON Key</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
+                tables.
+              </span>
+              <input
+                className="tg-input"
+                value={displayKey}
+                onChange={(e) => onJsonKeyChange(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
+        )}
+
+        {!isDynamic && (
+          <div className="tg-form-row">
+            <label>Value</label>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>
+              Static tables carry a baked-in row set. Use the column editor below to shape the
+              structure; row data editing for static tables is on the roadmap.
+            </p>
+          </div>
+        )}
 
         <div className="tg-form-row">
           <label>
