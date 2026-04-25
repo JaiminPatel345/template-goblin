@@ -35,7 +35,11 @@ const TEXT_STYLE = {
   fontId: null,
   fontFamily: 'Helvetica',
   fontSize: 12,
-  fontSizeDynamic: false,
+  // Auto-fit on so the canvas re-fits the label to the rect, which is the
+  // behaviour this spec asserts (large rect → big font, etc.). Pre-#25
+  // the canvas always auto-fit; post-#25 it honours `fontSize` unless
+  // `fontSizeDynamic` is true, so the seed has to opt in.
+  fontSizeDynamic: true,
   fontSizeMin: 8,
   lineHeight: 1.2,
   fontWeight: 'normal',

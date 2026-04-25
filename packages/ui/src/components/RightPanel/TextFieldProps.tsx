@@ -389,13 +389,31 @@ export function TextFieldProps({ field }: Props) {
           <label>Text Decoration</label>
           <select
             className="tg-select"
-            value={style.textDecoration}
-            onChange={(e) =>
-              updateFieldStyle(field.id, { textDecoration: e.target.value as 'none' | 'underline' })
-            }
+            // The displayed value collapses fontWeight=bold into the
+            // dropdown so the user has a single "format" picker. When the
+            // user changes the value, we write to fontWeight or
+            // textDecoration accordingly so each store field still stays
+            // single-purposed (no schema change).
+            value={style.fontWeight === 'bold' ? 'bold' : style.textDecoration}
+            onChange={(e) => {
+              const v = e.target.value
+              if (v === 'bold') {
+                updateFieldStyle(field.id, {
+                  fontWeight: 'bold',
+                  textDecoration: 'none',
+                })
+              } else {
+                updateFieldStyle(field.id, {
+                  fontWeight: 'normal',
+                  textDecoration: v as 'none' | 'underline' | 'line-through',
+                })
+              }
+            }}
           >
             <option value="none">None</option>
             <option value="underline">Underline</option>
+            <option value="line-through">Line Through</option>
+            <option value="bold">Bold</option>
           </select>
         </div>
 

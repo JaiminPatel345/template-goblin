@@ -220,6 +220,44 @@ test.describe('GH #26 — Static / Dynamic mode toggle migrates content', () => 
     await expect(page.locator('[data-testid="text-static-value"]')).toHaveValue('Hi there')
   })
 
+  test('resizing a static text field writes the fitted fontSize back to the store', async ({
+    page,
+  }) => {
+    await seed(page, { mode: 'static', value: 'Resize me' })
+    await page.goto('/')
+    await expect(fabricCanvas(page)).toBeVisible()
+    await page.locator('.tg-field-item').first().click()
+
+    // Trigger the same store path the canvas resize-handle uses.
+    await page.evaluate(() => {
+      interface FabricLike {
+        getObjects: () => Array<{
+          __fieldId?: string
+          set?: (props: Record<string, number>) => void
+          setCoords?: () => void
+        }>
+        fire?: (ev: string, opt: Record<string, unknown>) => void
+      }
+      const fc = (window as unknown as { __fabricCanvas?: FabricLike }).__fabricCanvas
+      if (!fc) throw new Error('no fabric canvas')
+      const g = fc.getObjects().find((o) => o.__fieldId === 'f1')
+      if (!g) throw new Error('group missing')
+      g.set?.({ width: 80, height: 30, scaleX: 1, scaleY: 1 })
+      g.setCoords?.()
+      fc.fire?.('object:modified', { target: g })
+    })
+
+    // Static text writes the fitted fontSize back into `style.fontSize` so
+    // the sidebar reflects what the user actually sees on the canvas.
+    await expect
+      .poll(async () => {
+        const blob = await readFieldStore(page)
+        const style = (blob as unknown as { style?: { fontSize?: number } } | null)?.style
+        return style?.fontSize ?? -1
+      })
+      .toBeLessThan(16)
+  })
+
   test('canvas label fontSize honours the field style (sync from sidebar)', async ({ page }) => {
     await seed(page, { mode: 'static', value: 'Hi' })
     await page.goto('/')

@@ -85,7 +85,7 @@ const LABEL_MAX_FONT_SIZE = 160
  * Returns the largest integer size in `[8, min(LABEL_MAX_FONT_SIZE, rectHeight * 0.8)]`
  * such that the wrapped text fits within `rectWidth × rectHeight`.
  */
-function fitFontSize(
+export function fitFontSize(
   text: string,
   rectWidth: number,
   rectHeight: number,
@@ -624,8 +624,9 @@ export function buildGroupChildren(
               color: string
               fontWeight: 'normal' | 'bold'
               fontStyle: 'normal' | 'italic'
-              textDecoration: 'none' | 'underline'
+              textDecoration: 'none' | 'underline' | 'line-through'
               align: 'left' | 'center' | 'right'
+              verticalAlign: 'top' | 'middle' | 'bottom'
               lineHeight: number
             }>)
           : null
@@ -641,9 +642,17 @@ export function buildGroupChildren(
       const fitted = fitFontSize(label, labelW, labelH, fontFamily)
       const fontSize = autoFit || userFontSize === null ? fitted : Math.min(userFontSize, fitted)
       if (fontSize >= 8) {
+        const verticalAlign = textStyle?.verticalAlign || 'middle'
+        // Map the per-field verticalAlign to a Textbox origin + position.
+        // The Textbox is itself centred horizontally (originX: 'center')
+        // so only the Y axis varies here.
+        const top =
+          verticalAlign === 'top' ? innerPad : verticalAlign === 'bottom' ? h - innerPad : h / 2
+        const originY =
+          verticalAlign === 'top' ? 'top' : verticalAlign === 'bottom' ? 'bottom' : 'center'
         const textObj = new Textbox(label, {
           left: w / 2,
-          top: h / 2,
+          top,
           width: labelW,
           fontSize,
           fontFamily,
@@ -651,11 +660,12 @@ export function buildGroupChildren(
           fontWeight: textStyle?.fontWeight || 'normal',
           fontStyle: textStyle?.fontStyle || 'normal',
           underline: textStyle?.textDecoration === 'underline',
+          linethrough: textStyle?.textDecoration === 'line-through',
           textAlign: textStyle?.align || 'center',
           selectable: false,
           evented: false,
           originX: 'center',
-          originY: 'center',
+          originY,
           splitByGrapheme: false,
           lineHeight:
             textStyle?.lineHeight && textStyle.lineHeight > 0 ? textStyle.lineHeight : 1.2,
