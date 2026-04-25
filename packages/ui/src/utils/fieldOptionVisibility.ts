@@ -60,6 +60,17 @@ export function showImageFitMode(field: FieldDefinition): boolean {
   return field.type === 'image'
 }
 
+/**
+ * Overflow Mode is meaningful only when the rendered string can vary —
+ * i.e. dynamic text rows. Static text has a fixed string and a fixed
+ * fontSize so there is nothing to truncate / shrink dynamically. Tables
+ * always show it (cells inherit per-row overflow handling).
+ */
+export function showOverflowMode(field: FieldDefinition): boolean {
+  if (field.type === 'table') return true
+  return field.type === 'text' && modeOf(field) === 'dynamic'
+}
+
 /** Mode toggle is shown on every field — static or dynamic, every type. */
 export function showModeToggle(field: FieldDefinition): boolean {
   return Boolean(field.source)

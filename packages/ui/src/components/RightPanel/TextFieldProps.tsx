@@ -333,24 +333,29 @@ export function TextFieldProps({ field }: Props) {
           </>
         )}
 
-        <div className="tg-form-row">
-          <label>
-            Overflow Mode
-            <InfoTip text="Dynamic Font: automatically shrinks text to fit. Truncate: cuts text with ellipsis." />
-          </label>
-          <select
-            className="tg-select"
-            value={style.overflowMode}
-            onChange={(e) =>
-              updateFieldStyle(field.id, {
-                overflowMode: e.target.value as 'dynamic_font' | 'truncate',
-              })
-            }
-          >
-            <option value="dynamic_font">Dynamic Font</option>
-            <option value="truncate">Truncate</option>
-          </select>
-        </div>
+        {/* Overflow Mode only applies to dynamic text — the rendered string
+            varies per row so we may need to shrink-or-truncate. Static text
+            has a fixed string and a fixed fontSize, so nothing to overflow. */}
+        {isDynamic && (
+          <div className="tg-form-row">
+            <label>
+              Overflow Mode
+              <InfoTip text="Dynamic Font: automatically shrinks text to fit. Truncate: cuts text with ellipsis." />
+            </label>
+            <select
+              className="tg-select"
+              value={style.overflowMode}
+              onChange={(e) =>
+                updateFieldStyle(field.id, {
+                  overflowMode: e.target.value as 'dynamic_font' | 'truncate',
+                })
+              }
+            >
+              <option value="dynamic_font">Dynamic Font</option>
+              <option value="truncate">Truncate</option>
+            </select>
+          </div>
+        )}
 
         <div className="tg-form-row">
           <label>Font Weight</label>

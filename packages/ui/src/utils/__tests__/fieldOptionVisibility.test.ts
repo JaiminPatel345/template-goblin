@@ -21,6 +21,7 @@ import {
   showMinFontSize,
   showImageFitMode,
   showModeToggle,
+  showOverflowMode,
 } from '../fieldOptionVisibility'
 
 const TEXT_STYLE: TextFieldStyle = {
@@ -167,6 +168,11 @@ describe('fieldOptionVisibility — matrix per case', () => {
       })
       it(`showImageFitMode = ${isImage}`, () => {
         expect(showImageFitMode(field)).toBe(isImage)
+      })
+      // Overflow Mode: tables always; text only when dynamic; image never.
+      const expectedOverflow = field.type === 'table' || (field.type === 'text' && isDynamic)
+      it(`showOverflowMode = ${expectedOverflow}`, () => {
+        expect(showOverflowMode(field)).toBe(expectedOverflow)
       })
     })
   }

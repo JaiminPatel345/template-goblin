@@ -150,17 +150,17 @@ test.describe('GH #25 — sidebar updates flow to canvas + JSON preview', () => 
     // Click the field to focus the properties panel.
     await page.locator('.tg-field-item').first().click()
 
-    // Type a placeholder — the JSON preview must reflect it (texts.name: "Jaimin").
+    // Type a placeholder — the JSON preview must reflect it as texts.name.
     const placeholderInput = page
       .locator('label', { hasText: /^Placeholder$/ })
       .locator('..')
       .locator('input')
-    await placeholderInput.fill('Jaimin')
+    await placeholderInput.fill('Sample Name')
 
     // The right panel renders the JSON in <pre> (or <code>); look for the
-    // serialised value as plain text.
+    // serialized value as plain text.
     await expect(page.locator('.tg-right-panel')).toContainText('"name"')
-    await expect(page.locator('.tg-right-panel')).toContainText('"Jaimin"')
+    await expect(page.locator('.tg-right-panel')).toContainText('"Sample Name"')
   })
 })
 
