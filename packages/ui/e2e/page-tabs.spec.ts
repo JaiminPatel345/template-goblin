@@ -349,6 +349,74 @@ test.describe('Page tabs — switch / add / delete', () => {
     await expect(page.locator('[data-testid="onboarding-upload-image"]')).toBeVisible()
   })
 
+  test('GH #37: orphaned (pageId=null) field renders on Page 1 alongside explicit-id fields', async ({
+    page,
+  }) => {
+    // REGRESSION: solid-color onboarding leaves currentPageId at null even
+    // though pages[0] is explicit. Fields drawn in that window get
+    // pageId=null. After "+ Add Page" the user clicks the Page 1 tab and
+    // currentPageId becomes the explicit id — the orphan disappeared until
+    // this fix made the Page 1 filter inclusive of pageId=null.
+    await seed(
+      page,
+      [
+        {
+          id: 'p0',
+          index: 0,
+          backgroundType: 'color',
+          backgroundColor: '#ffffff',
+          backgroundFilename: null,
+        },
+        {
+          id: 'p1',
+          index: 1,
+          backgroundType: 'color',
+          backgroundColor: '#eeeeee',
+          backgroundFilename: null,
+        },
+      ],
+      [
+        // The bug-shaped orphan: drawn before pages[0] was explicit.
+        { id: 'orphan', pageId: null, x: 50, y: 50, width: 100, height: 50, zIndex: 0 },
+        // A field stamped with the explicit id (the post-fix shape).
+        { id: 'on_p0', pageId: 'p0', x: 200, y: 50, width: 100, height: 50, zIndex: 1 },
+        // A field on Page 2 — must NOT bleed into Page 1.
+        { id: 'on_p1', pageId: 'p1', x: 50, y: 200, width: 100, height: 50, zIndex: 2 },
+      ],
+    )
+    await page.goto('/')
+    await expect(fabricCanvas(page)).toBeVisible()
+
+    async function fieldIdsOnCanvas(): Promise<string[]> {
+      return await page.evaluate(() => {
+        interface FabricLike {
+          getObjects(): Array<{ __fieldId?: string; __isGrid?: boolean }>
+        }
+        const fc = (window as unknown as { __fabricCanvas?: FabricLike }).__fabricCanvas
+        return (fc?.getObjects() ?? [])
+          .filter((o) => o.__fieldId && !o.__isGrid)
+          .map((o) => o.__fieldId as string)
+      })
+    }
+
+    // On first load currentPageId is null (the persisted default); the
+    // Page-1 filter must include both the orphan AND the explicit-id field.
+    await page.waitForTimeout(120)
+    expect((await fieldIdsOnCanvas()).sort()).toEqual(['on_p0', 'orphan'])
+
+    // Switch to Page 2 — only on_p1 should render. orphan must not bleed.
+    await page.locator('button', { hasText: /^Page 2$/ }).click()
+    await page.waitForTimeout(120)
+    expect(await fieldIdsOnCanvas()).toEqual(['on_p1'])
+
+    // Click back to Page 1 — currentPageId is now 'p0' (explicit id).
+    // Both the orphan AND on_p0 must still render. This is the exact
+    // navigation pattern that caused the user-visible "fields deleted" bug.
+    await page.locator('button', { hasText: /^Page 1$/ }).click()
+    await page.waitForTimeout(120)
+    expect((await fieldIdsOnCanvas()).sort()).toEqual(['on_p0', 'orphan'])
+  })
+
   test('closing the LAST page on Cancel keeps everything intact', async ({ page }) => {
     await seed(
       page,

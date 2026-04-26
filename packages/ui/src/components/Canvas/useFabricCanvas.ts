@@ -377,14 +377,22 @@ function wireMouseEvents(
         }
         const fieldType = toolToType[uiState.activeTool]
         if (fieldType) {
+          // Prefer the explicit page-0 id when `currentPageId` is null but an
+          // explicit Page 1 entry exists (i.e. solid-color onboarding leaves
+          // `currentPageId` at null even though `pages[0]` is now real). Without
+          // this, the field is stamped with `pageId: null` and disappears the
+          // moment the user clicks the Page 1 tab — see GH #37.
+          const ts = useTemplateStore.getState()
+          const explicit = ts.pages.find((p) => p.index === 0)?.id ?? null
+          const stampedPageId = useUiStore.getState().currentPageId ?? explicit
           setPendingDraft({
             type: fieldType,
             x: rx,
             y: ry,
             width: rw,
             height: rh,
-            zIndex: useTemplateStore.getState().fields.length,
-            pageId: useUiStore.getState().currentPageId,
+            zIndex: ts.fields.length,
+            pageId: stampedPageId,
             groupId: null,
           })
         }
