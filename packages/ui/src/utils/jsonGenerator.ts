@@ -38,15 +38,16 @@ export function generateExampleJson(
     if (field.source.mode !== 'dynamic') continue
     const name = field.source.jsonKey
     const required = field.source.required
+    const placeholder = field.source.placeholder
     if (!name) continue
 
     switch (field.type) {
       case 'text':
-        result.texts[name] = getTextValue(mode, required, repeatCount)
+        result.texts[name] = getTextValue(mode, required, repeatCount, placeholder)
         break
 
       case 'image':
-        result.images[name] = getImageValue(mode, required)
+        result.images[name] = getImageValue(mode, required, placeholder)
         break
 
       case 'table':
@@ -58,17 +59,34 @@ export function generateExampleJson(
   return result
 }
 
-function getTextValue(mode: JsonPreviewMode, required: boolean, repeatCount: number): string {
+function getTextValue(
+  mode: JsonPreviewMode,
+  required: boolean,
+  repeatCount: number,
+  placeholder: unknown,
+): string {
   if (mode === 'max') {
     return 'It works in my machine '.repeat(repeatCount).trim()
   }
-  // default (and any unknown mode fallback)
+  // GH #25: when the user typed a placeholder for the dynamic field, surface
+  // it as the JSON mock value so what they see in the panel matches the
+  // preview. Fall back to the legacy synthetic 'A' / '' when no placeholder.
+  if (typeof placeholder === 'string' && placeholder.length > 0) return placeholder
   return required ? 'A' : ''
 }
 
-function getImageValue(mode: JsonPreviewMode, required: boolean): string | null {
+function getImageValue(
+  mode: JsonPreviewMode,
+  required: boolean,
+  placeholder: unknown,
+): string | null {
   if (mode === 'max') {
     return '<base64-image-data>'
+  }
+  // GH #25: surface the user's placeholder filename as the JSON value when set.
+  if (placeholder && typeof placeholder === 'object' && 'filename' in placeholder) {
+    const filename = (placeholder as { filename: unknown }).filename
+    if (typeof filename === 'string' && filename.length > 0) return filename
   }
   return required ? '<base64-image-data>' : null
 }

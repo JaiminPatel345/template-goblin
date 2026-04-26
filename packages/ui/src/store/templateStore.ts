@@ -68,6 +68,15 @@ export interface TemplateState {
     id: string,
     updates: Partial<TextFieldStyle | ImageFieldStyle | TableFieldStyle>,
   ) => void
+  /**
+   * Flip a field's source mode (GH #26). Preserves user content across the
+   * flip:
+   *  - static → dynamic: existing `source.value` becomes `placeholder`,
+   *    a fresh `jsonKey` is generated, `required` defaults to false.
+   *  - dynamic → static: existing `placeholder` becomes `source.value`
+   *    when present; otherwise the type's empty default is used.
+   */
+  setFieldMode: (id: string, mode: 'static' | 'dynamic') => void
   removeField: (id: string) => void
   removeFields: (ids: string[]) => void
   duplicateField: (id: string) => FieldDefinition | null
@@ -186,6 +195,35 @@ function pushHistory(state: TemplateState): Partial<TemplateState> {
 }
 
 let fieldCounter = 0
+
+/**
+ * Pick a `jsonKey` for a newly-flipped-to-dynamic field that doesn't collide
+ * with any existing dynamic field's key (within the same type bucket — text,
+ * image, table). Used by `setFieldMode` (GH #26).
+ */
+function generateDefaultJsonKey(
+  type: FieldDefinition['type'],
+  fields: FieldDefinition[],
+  excludeId: string,
+): string {
+  const used = new Set<string>()
+  for (const f of fields) {
+    if (f.id === excludeId) continue
+    if (f.type !== type) continue
+    if (f.source?.mode === 'dynamic' && f.source.jsonKey) used.add(f.source.jsonKey)
+  }
+  const base = type === 'text' ? 'text' : type === 'image' ? 'image' : 'table'
+  let n = 1
+  while (used.has(`${base}_${n}`)) n++
+  return `${base}_${n}`
+}
+
+/** Empty fallback value for a static field when no placeholder is available. */
+function emptyStaticValue(type: FieldDefinition['type']): unknown {
+  if (type === 'text') return ''
+  if (type === 'image') return { filename: '' }
+  return [] // table
+}
 
 function generateId(): string {
   fieldCounter++
@@ -406,6 +444,38 @@ export const useTemplateStore = create<TemplateState>()(
           const fields = state.fields.map((f) =>
             f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
           )
+          return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
+        }),
+
+      setFieldMode: (id, mode) =>
+        set((state) => {
+          const fields = state.fields.map((f) => {
+            if (f.id !== id) return f
+            if (!f.source || f.source.mode === mode) return f
+            // Pre-flip content carrier (`value` from static or `placeholder`
+            // from dynamic) is migrated across in BOTH directions so the
+            // user never silently loses their current input. The unified
+            // generic shape lets us share one branch per direction across
+            // the three field types.
+            if (f.source.mode === 'static' && mode === 'dynamic') {
+              const placeholder = f.source.value as unknown
+              const jsonKey = generateDefaultJsonKey(f.type, state.fields, id)
+              return {
+                ...f,
+                source: { mode: 'dynamic', jsonKey, required: false, placeholder },
+              } as FieldDefinition
+            }
+            if (f.source.mode === 'dynamic' && mode === 'static') {
+              const carried = f.source.placeholder
+              const value =
+                carried !== null && carried !== undefined ? carried : emptyStaticValue(f.type)
+              return {
+                ...f,
+                source: { mode: 'static', value },
+              } as FieldDefinition
+            }
+            return f
+          })
           return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
         }),
 

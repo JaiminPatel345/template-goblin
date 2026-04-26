@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SourceModeToggle } from './SourceModeToggle.js'
 import { NumberInput } from '../NumberInput.js'
 import type {
   FieldDefinition,
@@ -95,10 +96,8 @@ export function TextFieldProps({ field }: Props) {
 
   const style: TextFieldStyle = field.style
 
-  // Phase 1 UI edits only dynamic fields via the right panel. Static fields
-  // will get their own UI in Phase 4 (see spec 023). For now, treat the
-  // single-dynamic case and render a read-only notice otherwise.
   const isDynamic = field.source.mode === 'dynamic'
+  const isStatic = !isDynamic
   const dynamicSource = isDynamic
     ? (field.source as {
         mode: 'dynamic'
@@ -107,7 +106,14 @@ export function TextFieldProps({ field }: Props) {
         placeholder: string | null
       })
     : null
+  const staticValue = isStatic
+    ? ((field.source as { mode: 'static'; value: string }).value ?? '')
+    : ''
   const displayKey = dynamicSource?.jsonKey ?? ''
+
+  function onStaticValueChange(value: string) {
+    updateField(field.id, { source: { mode: 'static', value } } as Partial<FieldDefinition>)
+  }
 
   function onJsonKeyChange(value: string) {
     // Strip any `texts.` the user might have typed — we only store the suffix.
@@ -158,21 +164,41 @@ export function TextFieldProps({ field }: Props) {
 
   return (
     <>
-      {/* JSON Key */}
+      {/* Source mode toggle (GH #26) — flipping migrates value↔placeholder. */}
+      <SourceModeToggle field={field} />
+
+      {/* Field properties — JSON Key / Required / Placeholder are dynamic-only;
+          Value replaces them when the field is static (matrix per #26). */}
       <div className="tg-panel-section">
         <div className="tg-panel-section-title">Field Properties</div>
 
-        <div className="tg-form-row">
-          <label>JSON Key</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>texts.</span>
+        {isStatic && (
+          <div className="tg-form-row">
+            <label>Value</label>
             <input
               className="tg-input"
-              value={displayKey}
-              onChange={(e) => onJsonKeyChange(e.target.value)}
+              value={staticValue}
+              onChange={(e) => onStaticValueChange(e.target.value)}
+              data-testid="text-static-value"
             />
           </div>
-        </div>
+        )}
+
+        {isDynamic && (
+          <div className="tg-form-row">
+            <label>JSON Key</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
+                texts.
+              </span>
+              <input
+                className="tg-input"
+                value={displayKey}
+                onChange={(e) => onJsonKeyChange(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="tg-form-row">
           <label>Group</label>
@@ -190,26 +216,28 @@ export function TextFieldProps({ field }: Props) {
           </select>
         </div>
 
-        <div className="tg-toggle-row">
-          <label>Required</label>
-          <input
-            type="checkbox"
-            className="tg-checkbox"
-            checked={dynamicSource?.required ?? false}
-            disabled={!dynamicSource}
-            onChange={(e) => onRequiredChange(e.target.checked)}
-          />
-        </div>
+        {isDynamic && (
+          <>
+            <div className="tg-toggle-row">
+              <label>Required</label>
+              <input
+                type="checkbox"
+                className="tg-checkbox"
+                checked={dynamicSource?.required ?? false}
+                onChange={(e) => onRequiredChange(e.target.checked)}
+              />
+            </div>
 
-        <div className="tg-form-row">
-          <label>Placeholder</label>
-          <input
-            className="tg-input"
-            value={dynamicSource?.placeholder ?? ''}
-            disabled={!dynamicSource}
-            onChange={(e) => onPlaceholderChange(e.target.value)}
-          />
-        </div>
+            <div className="tg-form-row">
+              <label>Placeholder</label>
+              <input
+                className="tg-input"
+                value={dynamicSource?.placeholder ?? ''}
+                onChange={(e) => onPlaceholderChange(e.target.value)}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Layout */}
@@ -270,52 +298,64 @@ export function TextFieldProps({ field }: Props) {
           />
         </div>
 
-        <div className="tg-toggle-row">
-          <label>
-            Dynamic Font Size
-            <InfoTip text="When enabled, font size shrinks automatically if text overflows." />
-          </label>
-          <input
-            type="checkbox"
-            className="tg-checkbox"
-            checked={style.fontSizeDynamic}
-            onChange={(e) => updateFieldStyle(field.id, { fontSizeDynamic: e.target.checked })}
-          />
-        </div>
+        {/* Auto-fit + min-font-size only apply to dynamic text fields — the
+            content varies per row, so we may need to shrink to fit. Static
+            text has a fixed string and the user explicitly chose its size. */}
+        {isDynamic && (
+          <>
+            <div className="tg-toggle-row">
+              <label>
+                Dynamic Font Size
+                <InfoTip text="When enabled, font size shrinks automatically if text overflows." />
+              </label>
+              <input
+                type="checkbox"
+                className="tg-checkbox"
+                checked={style.fontSizeDynamic}
+                onChange={(e) => updateFieldStyle(field.id, { fontSizeDynamic: e.target.checked })}
+              />
+            </div>
 
-        {style.fontSizeDynamic && (
-          <div className="tg-form-row">
-            <label>
-              Min Font Size
-              <InfoTip text="The smallest font size allowed when dynamic sizing is enabled." />
-            </label>
-            <NumberInput
-              value={style.fontSizeMin}
-              min={1}
-              defaultValue={11}
-              onChange={(v) => updateFieldStyle(field.id, { fontSizeMin: v })}
-            />
-          </div>
+            {style.fontSizeDynamic && (
+              <div className="tg-form-row">
+                <label>
+                  Min Font Size
+                  <InfoTip text="The smallest font size allowed when dynamic sizing is enabled." />
+                </label>
+                <NumberInput
+                  value={style.fontSizeMin}
+                  min={1}
+                  defaultValue={11}
+                  onChange={(v) => updateFieldStyle(field.id, { fontSizeMin: v })}
+                />
+              </div>
+            )}
+          </>
         )}
 
-        <div className="tg-form-row">
-          <label>
-            Overflow Mode
-            <InfoTip text="Dynamic Font: automatically shrinks text to fit. Truncate: cuts text with ellipsis." />
-          </label>
-          <select
-            className="tg-select"
-            value={style.overflowMode}
-            onChange={(e) =>
-              updateFieldStyle(field.id, {
-                overflowMode: e.target.value as 'dynamic_font' | 'truncate',
-              })
-            }
-          >
-            <option value="dynamic_font">Dynamic Font</option>
-            <option value="truncate">Truncate</option>
-          </select>
-        </div>
+        {/* Overflow Mode only applies to dynamic text — the rendered string
+            varies per row so we may need to shrink-or-truncate. Static text
+            has a fixed string and a fixed fontSize, so nothing to overflow. */}
+        {isDynamic && (
+          <div className="tg-form-row">
+            <label>
+              Overflow Mode
+              <InfoTip text="Dynamic Font: automatically shrinks text to fit. Truncate: cuts text with ellipsis." />
+            </label>
+            <select
+              className="tg-select"
+              value={style.overflowMode}
+              onChange={(e) =>
+                updateFieldStyle(field.id, {
+                  overflowMode: e.target.value as 'dynamic_font' | 'truncate',
+                })
+              }
+            >
+              <option value="dynamic_font">Dynamic Font</option>
+              <option value="truncate">Truncate</option>
+            </select>
+          </div>
+        )}
 
         <div className="tg-form-row">
           <label>Font Weight</label>
@@ -349,13 +389,31 @@ export function TextFieldProps({ field }: Props) {
           <label>Text Decoration</label>
           <select
             className="tg-select"
-            value={style.textDecoration}
-            onChange={(e) =>
-              updateFieldStyle(field.id, { textDecoration: e.target.value as 'none' | 'underline' })
-            }
+            // The displayed value collapses fontWeight=bold into the
+            // dropdown so the user has a single "format" picker. When the
+            // user changes the value, we write to fontWeight or
+            // textDecoration accordingly so each store field still stays
+            // single-purposed (no schema change).
+            value={style.fontWeight === 'bold' ? 'bold' : style.textDecoration}
+            onChange={(e) => {
+              const v = e.target.value
+              if (v === 'bold') {
+                updateFieldStyle(field.id, {
+                  fontWeight: 'bold',
+                  textDecoration: 'none',
+                })
+              } else {
+                updateFieldStyle(field.id, {
+                  fontWeight: 'normal',
+                  textDecoration: v as 'none' | 'underline' | 'line-through',
+                })
+              }
+            }}
           >
             <option value="none">None</option>
             <option value="underline">Underline</option>
+            <option value="line-through">Line Through</option>
+            <option value="bold">Bold</option>
           </select>
         </div>
 

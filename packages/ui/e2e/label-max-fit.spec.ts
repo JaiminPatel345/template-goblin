@@ -35,7 +35,11 @@ const TEXT_STYLE = {
   fontId: null,
   fontFamily: 'Helvetica',
   fontSize: 12,
-  fontSizeDynamic: false,
+  // Auto-fit on so the canvas re-fits the label to the rect, which is the
+  // behaviour this spec asserts (large rect → big font, etc.). Pre-#25
+  // the canvas always auto-fit; post-#25 it honours `fontSize` unless
+  // `fontSizeDynamic` is true, so the seed has to opt in.
+  fontSizeDynamic: true,
   fontSizeMin: 8,
   lineHeight: 1.2,
   fontWeight: 'normal',
@@ -207,7 +211,10 @@ test.describe('Label max-fit (#12)', () => {
         if (!fc) throw new Error('no fabric canvas')
         const g = fc.getObjects().find((o) => o.__fieldId === id)
         if (!g) throw new Error(`no group ${id}`)
-        g.set?.({ width: 80, height: 40, scaleX: 1, scaleY: 1 })
+        // Mirror the real user gesture: corner drag scales the group, then
+        // `object:modified` commits via `groupToFieldPatch`.
+        // Original rect 260×160 → 80×40 means scale factors 80/260 and 40/160.
+        g.set?.({ scaleX: 80 / 260, scaleY: 40 / 160 })
         g.setCoords?.()
         fc.fire?.('object:modified', { target: g })
       }

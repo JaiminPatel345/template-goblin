@@ -23,7 +23,10 @@ import {
   centreViewport,
   snap,
   syncSelectionEmphasis,
+  fitFontSize,
 } from './fabricUtils.js'
+import { fieldCanvasLabel } from './fieldLabel.js'
+import type { TextField } from '@template-goblin/types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -198,6 +201,26 @@ function wireDragResizeEvents(fc: FabricCanvas) {
     const store = useTemplateStore.getState()
     store.moveField(g.__fieldId, patch.x, patch.y)
     store.resizeField(g.__fieldId, patch.width, patch.height)
+
+    // Sync fitted fontSize back to the store so the sidebar reflects what
+    // the user actually sees on the canvas. Applies to text fields where
+    // the rendered fontSize is auto-fitted: every static text field
+    // (fixed string, fitted to rect) and dynamic text with auto-fit on.
+    const field = store.fields.find((f) => f.id === g.__fieldId)
+    if (!field || field.type !== 'text') return
+    const tf = field as TextField
+    const isStatic = tf.source?.mode === 'static'
+    const autoFit = tf.style.fontSizeDynamic === true
+    if (!isStatic && !autoFit) return
+    const label = fieldCanvasLabel(tf)
+    if (!label) return
+    const innerPad = 6
+    const labelW = Math.max(1, patch.width - innerPad * 2)
+    const labelH = Math.max(1, patch.height - innerPad * 2)
+    const fitted = fitFontSize(label, labelW, labelH, tf.style.fontFamily || 'sans-serif')
+    if (fitted >= 8 && fitted !== tf.style.fontSize) {
+      store.updateFieldStyle(g.__fieldId, { fontSize: fitted })
+    }
   })
 
   fc.on('object:moving', (opt) => {

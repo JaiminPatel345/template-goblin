@@ -85,7 +85,7 @@ const LABEL_MAX_FONT_SIZE = 160
  * Returns the largest integer size in `[8, min(LABEL_MAX_FONT_SIZE, rectHeight * 0.8)]`
  * such that the wrapped text fits within `rectWidth × rectHeight`.
  */
-function fitFontSize(
+export function fitFontSize(
   text: string,
   rectWidth: number,
   rectHeight: number,
@@ -227,28 +227,107 @@ export function createFieldGroup(field: FieldDefinition, resolveImage: ImageReso
  * This is simpler than diffing individual children and keeps the logic
  * consistent with `createFieldGroup`.
  */
+/**
+ * Render-relevant fingerprint for a field — everything that affects how the
+ * Group's CHILDREN look (size, type, style, source). Excludes `x` / `y`
+ * because pure-position changes only translate the Group and never require a
+ * child rebuild. Stashed on the group as `__fieldHash`; if the next call's
+ * hash matches we short-circuit the expensive rebuild and just move the
+ * group, which avoids the white-flash users saw on every drag/release where
+ * the image placeholder briefly replaced the loaded bitmap.
+ */
+function fieldRenderHash(field: FieldDefinition): string {
+  return JSON.stringify({
+    t: field.type,
+    w: field.width,
+    h: field.height,
+    s: field.style,
+    src: field.source,
+  })
+}
+
 export function applyFieldToGroup(
   group: Group,
   field: FieldDefinition,
   resolveImage: ImageResolver,
 ): void {
-  // Remove existing children first (fabric v6: Group#remove)
+  // Pure-position fast path — the visual content didn't change, only x/y.
+  // Skip the children rebuild (which on image fields would briefly drop
+  // back to the alpha-0.05 placeholder rect while the bitmap re-decodes,
+  // visible as a "white flash" on mouseup of every drag).
+  const newHash = fieldRenderHash(field)
+  if (group.__fieldHash === newHash && group.getObjects().length > 0) {
+    group.set({
+      left: field.x,
+      top: field.y,
+      scaleX: 1,
+      scaleY: 1,
+    })
+    group.__fieldWidth = field.width
+    group.__fieldHeight = field.height
+    group.setCoords()
+    return
+  }
+
+  // (A geometry-only in-place fast path was tried here but Fabric Group's
+  // child positioning under a partially-applied set() left the bgRect
+  // off-anchor — so resize falls through to the full rebuild below.)
+
+  // Critical: Fabric's Group#add path runs `enterGroup(obj, true)` which
+  // translates the new child's coords from world → group-local using the
+  // group's current transform. The Group CONSTRUCTOR uses
+  // `enterGroup(obj, false)` — children pass through with their declared
+  // group-local coords. To keep `buildGroupChildren`'s coordinates valid
+  // for both code paths, we move the group to the origin (transform =
+  // identity) BEFORE re-adding children — the auto-translate becomes a
+  // no-op and children land where their (left, top) say they should.
+  // After the rebuild we restore the group to its real position.
+  group.set({
+    left: 0,
+    top: 0,
+    width: field.width,
+    height: field.height,
+    scaleX: 1,
+    scaleY: 1,
+  })
+
+  // Remove existing children (fabric v6: Group#remove)
   const existing = group.getObjects()
   if (existing.length > 0) {
     group.remove(...existing)
   }
 
   const children = buildGroupChildren(field, resolveImage, (img, phId) => {
-    const ph = group.getObjects().find((c) => c.__fieldId === phId)
-    if (ph) group.remove(ph)
+    // Strip the placeholder rect AND any prior image child for this field
+    // before adding the freshly-loaded one. Without the prior-image strip,
+    // a reconciliation that re-fires `loadFabricImage` (after a resize or
+    // resync) would stack a second / third FabricImage onto the group —
+    // user reported "zoom shows 2-3 images" caused by exactly this.
+    const stale = group
+      .getObjects()
+      .filter(
+        (c) =>
+          c.__fieldId === phId ||
+          (typeof c.__fieldId === 'string' && c.__fieldId === `__img_${field.id}`),
+      )
+    if (stale.length > 0) group.remove(...stale)
+
+    // Reset-add-restore: the group's add path translates child coords
+    // against the group's CURRENT transform. Moving to origin first makes
+    // the translate identity; the image's declared (left, top) survive.
+    const restoreLeft = group.left ?? 0
+    const restoreTop = group.top ?? 0
+    group.set({ left: 0, top: 0 })
     group.add(img)
+    group.set({ left: restoreLeft, top: restoreTop })
+    group.setCoords()
     group.canvas?.requestRenderAll()
   })
   if (children.length > 0) {
     group.add(...children)
   }
 
-  // Update geometry
+  // Restore the group to its real position now that children are in place.
   group.set({
     left: field.x,
     top: field.y,
@@ -257,6 +336,12 @@ export function applyFieldToGroup(
     scaleX: 1,
     scaleY: 1,
   })
+  // Stash the intended rect dimensions on the group so `groupToFieldPatch`
+  // can recover them on drag-only events. `Group#width` is recalculated by
+  // Fabric to include child bounding-box overhang and can't be trusted.
+  group.__fieldWidth = field.width
+  group.__fieldHeight = field.height
+  group.__fieldHash = newHash
   group.setCoords()
   group.__fieldType = field.type
 
@@ -367,23 +452,37 @@ export function groupToFieldPatch(
 ): Pick<FieldDefinition, 'x' | 'y' | 'width' | 'height'> {
   const rawX = group.left ?? 0
   const rawY = group.top ?? 0
-  const rawW = (group.width ?? 0) * (group.scaleX ?? 1)
-  const rawH = (group.height ?? 0) * (group.scaleY ?? 1)
+  const sx = group.scaleX ?? 1
+  const sy = group.scaleY ?? 1
+  // On a pure drag (no resize handle interaction) `scaleX/Y` stays at 1 and
+  // Fabric's `width` getter returns the child-bounding-box width, NOT the
+  // rect's intended width. Trust `__fieldWidth` — set by `applyFieldToGroup` —
+  // when scale is 1; otherwise the user actually dragged a corner and we
+  // multiply width by the scale to capture the new rect size.
+  // Always prefer the stashed `__fieldWidth` over Fabric's child-overhang-
+  // inclusive `Group#width` getter so neither drag (scale=1) nor resize
+  // (scale≠1) inflates the rect.
+  const baseW = group.__fieldWidth ?? group.width ?? 0
+  const baseH = group.__fieldHeight ?? group.height ?? 0
+  const rawW = baseW * sx
+  const rawH = baseH * sy
 
   const x = snap(rawX, gridSize, snapToGrid)
   const y = snap(rawY, gridSize, snapToGrid)
   const width = Math.max(20, snap(rawW, gridSize, snapToGrid))
   const height = Math.max(20, snap(rawH, gridSize, snapToGrid))
 
-  // Reset scale so Fabric's internal hit-detection and rendering are correct.
-  group.set({
-    left: x,
-    top: y,
-    width,
-    height,
-    scaleX: 1,
-    scaleY: 1,
-  })
+  // Update the group's logical position only. Deliberately DO NOT reset
+  // scaleX/Y here even on a resize — the children were rendered stretched
+  // by the group scale during the drag, and resetting scale before
+  // `applyFieldToGroup` rebuilds them at the new size leaves a one-frame
+  // gap where children are smaller than the group (visible as a "white
+  // flash" on mouseup). Letting the scale linger means the in-between
+  // frame keeps showing the stretched children that filled the group;
+  // `applyFieldToGroup` will reset scale + rebuild atomically next tick.
+  group.set({ left: x, top: y })
+  group.__fieldWidth = width
+  group.__fieldHeight = height
   group.setCoords()
 
   return { x, y, width, height }
@@ -586,11 +685,21 @@ export function buildGroupChildren(
     imgPlaceholder.__fieldId = `__img_placeholder_${field.id}`
     children.push(imgPlaceholder)
 
-    loadFabricImage(imageDataUrl, w, h, field.id).then((img) => {
-      if (!img) return
-      if (onAsyncUpdate) {
-        onAsyncUpdate(img, `__img_placeholder_${field.id}`)
-      }
+    // Honour the field's fit mode so 'contain' / 'cover' / 'fill' all work.
+    const imageStyle =
+      field.type === 'image' && field.style && typeof field.style === 'object'
+        ? (field.style as { fit?: 'fill' | 'contain' | 'cover' })
+        : null
+    const fit = imageStyle?.fit ?? 'contain'
+    const fieldId = field.id
+    loadFabricImage(imageDataUrl, w, h, fieldId, fit).then((img) => {
+      if (!img || !onAsyncUpdate) return
+      // The async swap is the single place that mutates the group after
+      // the synchronous rebuild — it removes the placeholder + any prior
+      // image and adds the freshly-loaded one. Position/scale are baked
+      // into `img` by `loadFabricImage` and the reset-add-restore dance in
+      // `applyFieldToGroup` keeps them intact through the add.
+      onAsyncUpdate(img, `__img_placeholder_${fieldId}`)
     })
   }
 
@@ -610,22 +719,65 @@ export function buildGroupChildren(
       const innerPad = 6
       const labelW = Math.max(1, w - innerPad * 2)
       const labelH = Math.max(1, h - innerPad * 2)
-      const fontSize = fitFontSize(label, labelW, labelH, 'sans-serif')
+      // Pull typography + colour from the field's own style when it is a
+      // text or table field (image fields keep the default per-type tokens
+      // — they don't expose font controls). This is the canvas half of the
+      // sidebar↔canvas sync (GH #25): editing colour or font in the
+      // properties panel must redraw the label here on the next reconcile.
+      const textStyle =
+        field.type === 'text' && field.style && typeof field.style === 'object'
+          ? (field.style as Partial<{
+              fontFamily: string
+              fontSize: number
+              fontSizeDynamic: boolean
+              color: string
+              fontWeight: 'normal' | 'bold'
+              fontStyle: 'normal' | 'italic'
+              textDecoration: 'none' | 'underline' | 'line-through'
+              align: 'left' | 'center' | 'right'
+              verticalAlign: 'top' | 'middle' | 'bottom'
+              lineHeight: number
+            }>)
+          : null
+      const fontFamily = textStyle?.fontFamily || 'sans-serif'
+      // For dynamic text with auto-fit on, recompute against the rect; in
+      // every other case honour the user's chosen fontSize but never let it
+      // overflow the rect.
+      const userFontSize =
+        typeof textStyle?.fontSize === 'number' && textStyle.fontSize > 0
+          ? textStyle.fontSize
+          : null
+      const autoFit = textStyle?.fontSizeDynamic === true
+      const fitted = fitFontSize(label, labelW, labelH, fontFamily)
+      const fontSize = autoFit || userFontSize === null ? fitted : Math.min(userFontSize, fitted)
       if (fontSize >= 8) {
+        const verticalAlign = textStyle?.verticalAlign || 'middle'
+        // Map the per-field verticalAlign to a Textbox origin + position.
+        // The Textbox is itself centred horizontally (originX: 'center')
+        // so only the Y axis varies here.
+        const top =
+          verticalAlign === 'top' ? innerPad : verticalAlign === 'bottom' ? h - innerPad : h / 2
+        const originY =
+          verticalAlign === 'top' ? 'top' : verticalAlign === 'bottom' ? 'bottom' : 'center'
         const textObj = new Textbox(label, {
           left: w / 2,
-          top: h / 2,
+          top,
           width: labelW,
           fontSize,
-          fontFamily: 'sans-serif',
-          fill: colors.text,
-          textAlign: 'center',
+          fontFamily,
+          fill: textStyle?.color || colors.text,
+          fontWeight: textStyle?.fontWeight || 'normal',
+          fontStyle: textStyle?.fontStyle || 'normal',
+          underline: textStyle?.textDecoration === 'underline',
+          linethrough: textStyle?.textDecoration === 'line-through',
+          textAlign: textStyle?.align || 'center',
           selectable: false,
           evented: false,
           originX: 'center',
-          originY: 'center',
+          originY,
           splitByGrapheme: false,
-          lineHeight: 1.2,
+          lineHeight:
+            textStyle?.lineHeight && textStyle.lineHeight > 0 ? textStyle.lineHeight : 1.2,
         })
         children.push(textObj)
       }
@@ -648,19 +800,60 @@ export async function loadFabricImage(
   width: number,
   height: number,
   fieldId: string,
+  fit: 'fill' | 'contain' | 'cover' = 'contain',
 ): Promise<FabricImage> {
   const img = await FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' })
+  // Native bitmap dimensions. Fabric exposes them on the loaded image; fall
+  // back to the rect size if missing so we never divide by zero.
+  const natW = img.width || width
+  const natH = img.height || height
+  // Compute per-axis scale based on the user-chosen fit mode. The image is
+  // positioned centred on the field group's centre regardless of fit so the
+  // visible portion is always the middle of the image.
+  let scaleX: number
+  let scaleY: number
+  if (fit === 'fill') {
+    scaleX = width / natW
+    scaleY = height / natH
+  } else if (fit === 'cover') {
+    const s = Math.max(width / natW, height / natH)
+    scaleX = s
+    scaleY = s
+  } else {
+    // 'contain' (default) — preserve aspect, fit entirely inside the rect.
+    const s = Math.min(width / natW, height / natH)
+    scaleX = s
+    scaleY = s
+  }
+  // Children inside this group use the same coordinate convention as the
+  // bgRect: local (0, 0) is the group's top-left (NOT centre), so the
+  // group's geometric centre is at (width/2, height/2). Placing the image
+  // there with origin:center lands its centre on the rect's centre — this
+  // is what makes contain leave equal padding on both sides and cover
+  // crop equally from both edges.
   img.set({
-    left: 0,
-    top: 0,
-    width,
-    height,
+    left: width / 2,
+    top: height / 2,
     selectable: false,
     evented: false,
-    originX: 'left',
-    originY: 'top',
-    scaleX: 1,
-    scaleY: 1,
+    originX: 'center',
+    originY: 'center',
+    scaleX,
+    scaleY,
+  })
+  // Clip the rendered image to the field rect. With `absolutePositioned: false`
+  // the clipPath uses the IMAGE'S local coords; for origin:center at (0, 0)
+  // that means a rect centred on the image's own centre. Dividing by scale
+  // converts the rect's pt size into image-bitmap pixels — exactly the
+  // central portion that lines up with the field rect after scaling.
+  img.clipPath = new Rect({
+    left: 0,
+    top: 0,
+    width: width / scaleX,
+    height: height / scaleY,
+    originX: 'center',
+    originY: 'center',
+    absolutePositioned: false,
   })
   img.__fieldId = `__img_${fieldId}`
   return img

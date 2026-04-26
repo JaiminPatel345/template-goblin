@@ -54,7 +54,9 @@ export function defaultTextStyle(): TextFieldStyle {
     textDecoration: 'none',
     color: '#000000',
     align: 'left',
-    verticalAlign: 'top',
+    // Canvas centres text vertically by default; surface that as the
+    // panel's default selection so the picker matches what's rendered.
+    verticalAlign: 'middle',
     maxRows: 3,
     overflowMode: 'dynamic_font',
     snapToGrid: true,
