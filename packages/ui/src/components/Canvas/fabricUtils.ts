@@ -232,15 +232,18 @@ export function applyFieldToGroup(
   field: FieldDefinition,
   resolveImage: ImageResolver,
 ): void {
-  // Reset the group's transform first. Fabric's `enterGroup` adjusts a
-  // newly-added child's stored coords to counter-balance the group's
-  // current transform, so adding fresh children while the group has a
-  // stale scaleX/scaleY (e.g. from a mid-drag commit) ends up with image
-  // scales multiplied by that stale factor — that's the "moving the
-  // field grows the image" symptom the user reported.
+  // Critical: Fabric's Group#add path runs `enterGroup(obj, true)` which
+  // translates the new child's coords from world → group-local using the
+  // group's current transform. The Group CONSTRUCTOR uses
+  // `enterGroup(obj, false)` — children pass through with their declared
+  // group-local coords. To keep `buildGroupChildren`'s coordinates valid
+  // for both code paths, we move the group to the origin (transform =
+  // identity) BEFORE re-adding children — the auto-translate becomes a
+  // no-op and children land where their (left, top) say they should.
+  // After the rebuild we restore the group to its real position.
   group.set({
-    left: field.x,
-    top: field.y,
+    left: 0,
+    top: 0,
     width: field.width,
     height: field.height,
     scaleX: 1,
@@ -254,17 +257,24 @@ export function applyFieldToGroup(
   }
 
   const children = buildGroupChildren(field, resolveImage, (img, phId) => {
+    // Same reset-add-restore trick as the bulk rebuild below — without it
+    // the world→local translation in `enterGroup` shoves the image away
+    // from the rect by half the group's offset.
+    const restoreLeft = group.left ?? 0
+    const restoreTop = group.top ?? 0
+    group.set({ left: 0, top: 0 })
     const ph = group.getObjects().find((c) => c.__fieldId === phId)
     if (ph) group.remove(ph)
     group.add(img)
+    group.set({ left: restoreLeft, top: restoreTop })
+    group.setCoords()
     group.canvas?.requestRenderAll()
   })
   if (children.length > 0) {
     group.add(...children)
   }
 
-  // Re-assert geometry — `add()` triggers Fabric's bounding-box
-  // recalculation which can clobber the position we just set.
+  // Restore the group to its real position now that children are in place.
   group.set({
     left: field.x,
     top: field.y,
@@ -653,7 +663,10 @@ export function buildGroupChildren(
           scaleX = s
           scaleY = s
         }
-        img.set({ scaleX, scaleY, left: w / 2, top: h / 2 })
+        // Children's local coords are measured from the group's centre, so
+        // (left, top) = (0, 0) with `originX/Y: 'center'` centres the
+        // image on the rect.
+        img.set({ scaleX, scaleY, left: 0, top: 0 })
         img.setCoords()
         img.canvas?.requestRenderAll()
       }
@@ -782,9 +795,13 @@ export async function loadFabricImage(
     scaleX = s
     scaleY = s
   }
+  // Group children's local coordinate origin is the GROUP'S CENTRE (not its
+  // top-left), even when the group has `originX: 'left'`. With
+  // `originX/Y: 'center'`, setting (left, top) = (0, 0) puts the image's
+  // centre exactly on the group's centre — i.e. centred inside the rect.
   img.set({
-    left: width / 2,
-    top: height / 2,
+    left: 0,
+    top: 0,
     selectable: false,
     evented: false,
     originX: 'center',
