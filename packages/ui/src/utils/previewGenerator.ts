@@ -1,12 +1,23 @@
 import type { FieldDefinition, TextField, TableField } from '@template-goblin/types'
 
 /**
- * Options for the preview's page-1 background. Callers pass either a
- * `backgroundDataUrl` (image) OR a `backgroundColor` (hex, e.g. `#ffffff`).
- * If both are supplied the image wins. If neither, the page renders white.
+ * Per-page resolved background. Callers pre-resolve `inherit` and the legacy
+ * `backgroundDataUrl` into either an image data URL or a solid colour, so the
+ * preview generator doesn't need to know about the resolution rules.
+ */
+export interface PagePreviewInput {
+  /** Stable page id, or `null` for the implicit (legacy) page 0. */
+  id: string | null
+  /** Solid background colour (hex). Ignored when `imageDataUrl` is set. */
+  backgroundColor?: string | null
+  /** Background image data URL. Wins over `backgroundColor` when present. */
+  backgroundDataUrl?: string | null
+}
+
+/**
+ * Options for the preview's page rendering.
  */
 export interface PreviewBackgroundOptions {
-  backgroundColor?: string | null
   /**
    * Map of `filename → dataUrl` for image fields. Used to render real
    * bitmaps for static images and dynamic-image placeholders. Caller
@@ -17,12 +28,13 @@ export interface PreviewBackgroundOptions {
 }
 
 /**
- * Generate a PDF-accurate preview as an HTML page.
+ * Generate a PDF-accurate multi-page preview as an HTML document.
  *
- * Renders text at exact positions with correct fonts/sizes/colors,
- * tables with headers/rows/borders, and images (when supplied) — all
- * positioned absolutely over the background. The user can print this
- * page (Ctrl+P) to get an actual PDF.
+ * Each page is its own `<section class="page">` block sized to
+ * `meta.width × meta.height` and separated by `page-break-after: always` so
+ * Print → Save as PDF produces one PDF page per template page. Fields are
+ * grouped by `pageId`; orphans (`pageId === null` or undefined) land on the
+ * page with `index === 0` to match the canvas filter (#37).
  *
  * GH #44 fixes vs the previous implementation:
  * - Static text with `style.fontSizeDynamic` auto-fits to its rect using
@@ -35,11 +47,14 @@ export interface PreviewBackgroundOptions {
  * - Images render as actual bitmaps when `options.imageDataUrls` resolves
  *   the filename. Falls back to a labelled placeholder rect when no
  *   bitmap is available (mirrors the on-canvas placeholder appearance).
+ *
+ * GH #49: multi-page templates print one sheet per page instead of stacking
+ * every field on a single sheet.
  */
 export async function generatePreviewHtml(
   fields: FieldDefinition[],
   meta: { name: string; width: number; height: number },
-  backgroundDataUrl: string | null,
+  pages: PagePreviewInput[],
   data: {
     texts: Record<string, string>
     tables: Record<string, Record<string, string>[]>
@@ -47,21 +62,104 @@ export async function generatePreviewHtml(
   },
   options: PreviewBackgroundOptions = {},
 ): Promise<Blob> {
-  const sorted = [...fields].sort((a, b) => a.zIndex - b.zIndex)
   const imageDataUrls = options.imageDataUrls ?? new Map<string, string>()
-  let fieldsHtml = ''
+  // Always have at least one page — a template that hasn't been onboarded
+  // yet has no `pages[]` entry, but we still want to render its fields on
+  // an implicit white page rather than emitting empty HTML.
+  const pageList: PagePreviewInput[] =
+    pages.length > 0 ? pages : [{ id: null, backgroundColor: '#ffffff' }]
 
-  for (const field of sorted) {
-    // Defence in depth: skip fields that are missing `source` (corrupt
-    // rehydrated state). These can't be rendered because they have no
-    // addressable value.
+  // GH #37 orphan rule: fields with no `pageId` land on the page that
+  // claims the index-0 slot. The first entry of `pageList` is page 1 by
+  // construction (caller is responsible for ordering).
+  const firstPageId = pageList[0]?.id ?? null
+
+  const pagesHtml = pageList
+    .map((page, idx) => renderPageHtml(page, idx, fields, data, imageDataUrls, firstPageId))
+    .join('')
+
+  const html = `<!DOCTYPE html>
+<html><head>
+<title>${esc(meta.name)} — Preview</title>
+<style>
+  @page { size: ${meta.width}pt ${meta.height}pt; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { font-family: Helvetica, Arial, sans-serif; background: #555; }
+  body { padding-top: 48px; }
+  .page {
+    position: relative;
+    width: ${meta.width}pt;
+    height: ${meta.height}pt;
+    margin: 0 auto 16px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    page-break-after: always;
+  }
+  .page:last-child { page-break-after: auto; margin-bottom: 0; }
+  .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
+  .f { position: absolute; overflow: hidden; }
+  .f-img { position: absolute; overflow: hidden; }
+  .f-img img { width: 100%; height: 100%; }
+  .f-truncate { white-space: nowrap; text-overflow: ellipsis; }
+  .f-truncate > span { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  td, th { word-wrap: break-word; overflow: hidden; }
+  @media print {
+    html, body { background: #fff; padding: 0; }
+    .page { margin: 0; box-shadow: none; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  .toolbar { position: fixed; top: 0; left: 0; right: 0; background: #1c1c27; color: #fff; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; font-family: sans-serif; font-size: 13px; z-index: 1000; }
+  .toolbar button { background: #e94560; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .toolbar button:hover { background: #ff6b81; }
+  @media print { .toolbar { display: none; } }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <span><strong>${esc(meta.name)}</strong> &mdash; ${meta.width} x ${meta.height} pt &mdash; ${pageList.length} page${pageList.length === 1 ? '' : 's'}</span>
+    <button onclick="window.print()">Print / Save as PDF</button>
+  </div>
+  ${pagesHtml}
+</body></html>`
+
+  return new Blob([html], { type: 'text/html' })
+}
+
+function renderPageHtml(
+  page: PagePreviewInput,
+  pageIndex: number,
+  fields: FieldDefinition[],
+  data: {
+    texts: Record<string, string>
+    tables: Record<string, Record<string, string>[]>
+    images: Record<string, string | null>
+  },
+  imageDataUrls: Map<string, string>,
+  firstPageId: string | null,
+): string {
+  // Page-relative field selection. The first page also picks up orphan
+  // fields (pageId == null/undefined) — same rule as the canvas filter
+  // post-#37 — so legacy single-page templates keep working.
+  const isFirstPage = pageIndex === 0
+  const pageFields = fields
+    .filter((f) => {
+      if (f.pageId === page.id) return true
+      if (isFirstPage && (f.pageId === null || f.pageId === undefined)) return true
+      // First-page may also use the explicit page-0 id when caller passes
+      // both (orphan from one shape, explicit from the other).
+      if (isFirstPage && firstPageId !== null && f.pageId === firstPageId) return true
+      return false
+    })
+    .sort((a, b) => a.zIndex - b.zIndex)
+
+  let fieldsHtml = ''
+  for (const field of pageFields) {
     if (!field.source) {
       console.warn('[previewGenerator] skipping field with missing source:', field.id)
       continue
     }
-    // Static fields render the baked-in `source.value`; dynamic fields render
-    // the supplied preview input data, falling back to `source.placeholder`
-    // when no input is provided. Matches design §8.3 canvas/preview semantics.
     if (field.source.mode === 'static') {
       switch (field.type) {
         case 'text': {
@@ -84,7 +182,6 @@ export async function generatePreviewHtml(
       continue
     }
 
-    // Dynamic field
     const name = field.source.jsonKey
     if (!name) continue
 
@@ -114,44 +211,9 @@ export async function generatePreviewHtml(
     }
   }
 
-  // Body background: solid hex (if supplied) falls through when no image is
-  // present so the printed page shows the right color. When an image IS
-  // supplied, it still overlays via the `.bg` <img>.
-  const bodyBg = sc(options.backgroundColor ?? '#ffffff')
-
-  const html = `<!DOCTYPE html>
-<html><head>
-<title>${esc(meta.name)} — Preview</title>
-<style>
-  @page { size: ${meta.width}pt ${meta.height}pt; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: ${meta.width}pt; height: ${meta.height}pt; }
-  body { position: relative; overflow: hidden; font-family: Helvetica, Arial, sans-serif; background: ${bodyBg}; }
-  .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
-  .f { position: absolute; overflow: hidden; }
-  .f-img { position: absolute; overflow: hidden; }
-  .f-img img { width: 100%; height: 100%; }
-  .f-truncate { white-space: nowrap; text-overflow: ellipsis; }
-  .f-truncate > span { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-  table { border-collapse: collapse; width: 100%; table-layout: fixed; }
-  td, th { word-wrap: break-word; overflow: hidden; }
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-  .toolbar { position: fixed; top: 0; left: 0; right: 0; background: #1c1c27; color: #fff; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; font-family: sans-serif; font-size: 13px; z-index: 1000; }
-  .toolbar button { background: #e94560; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-  .toolbar button:hover { background: #ff6b81; }
-  @media print { .toolbar { display: none; } }
-</style>
-</head>
-<body>
-  <div class="toolbar">
-    <span><strong>${esc(meta.name)}</strong> &mdash; ${meta.width} x ${meta.height} pt</span>
-    <button onclick="window.print()">Print / Save as PDF</button>
-  </div>
-  ${backgroundDataUrl ? `<img class="bg" src="${backgroundDataUrl}" />` : ''}
-  ${fieldsHtml}
-</body></html>`
-
-  return new Blob([html], { type: 'text/html' })
+  const bodyBg = sc(page.backgroundColor ?? '#ffffff')
+  const bgImg = page.backgroundDataUrl ? `<img class="bg" src="${page.backgroundDataUrl}" />` : ''
+  return `<section class="page" style="background:${bodyBg}">${bgImg}${fieldsHtml}</section>`
 }
 
 // ─── Text rendering ─────────────────────────────────────────────────────────

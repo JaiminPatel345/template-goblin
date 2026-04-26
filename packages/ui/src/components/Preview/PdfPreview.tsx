@@ -1,7 +1,8 @@
 import { useEffect, useRef, useMemo } from 'react'
+import type { PageDefinition } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
-import { generatePreviewHtml } from '../../utils/previewGenerator.js'
+import { generatePreviewHtml, type PagePreviewInput } from '../../utils/previewGenerator.js'
 import { generateExampleJson } from '../../utils/jsonGenerator.js'
 
 /**
@@ -18,19 +19,24 @@ export function PdfPreview() {
   const meta = useTemplateStore((s) => s.meta)
   const backgroundDataUrl = useTemplateStore((s) => s.backgroundDataUrl)
   const pages = useTemplateStore((s) => s.pages)
+  const pageBackgroundDataUrls = useTemplateStore((s) => s.pageBackgroundDataUrls)
   const placeholderBuffers = useTemplateStore((s) => s.placeholderBuffers)
   const staticImageDataUrls = useTemplateStore((s) => s.staticImageDataUrls)
   const prevUrl = useRef<string | null>(null)
-
-  // Resolve page-0 solid color (if chosen during onboarding) so the preview
-  // honours it instead of falling back to white.
-  const page0 = pages.find((p) => p.index === 0)
-  const page0Color = page0?.backgroundType === 'color' ? (page0.backgroundColor ?? '#ffffff') : null
 
   // Generate the JSON data based on current mode
   const previewData = useMemo(
     () => generateExampleJson(fields, jsonMode, repeatCount),
     [fields, jsonMode, repeatCount],
+  )
+
+  // Resolve every page's background into a concrete (color | imageDataUrl)
+  // pair the preview generator can render directly. Mirrors the canvas's
+  // `useCurrentBackground` resolution so the printed sheet looks like the
+  // canvas (#49 — multi-page preview).
+  const pagePreviewInputs = useMemo<PagePreviewInput[]>(
+    () => resolvePagePreviewInputs(pages, pageBackgroundDataUrls, backgroundDataUrl),
+    [pages, pageBackgroundDataUrls, backgroundDataUrl],
   )
 
   // Build a `filename → dataUrl` map covering both static images (already
@@ -69,9 +75,9 @@ export function PdfPreview() {
         const blob = await generatePreviewHtml(
           fields,
           { name: meta.name, width: meta.width, height: meta.height },
-          backgroundDataUrl,
+          pagePreviewInputs,
           previewData,
-          { backgroundColor: page0Color, imageDataUrls },
+          { imageDataUrls },
         )
 
         if (cancelled) return
@@ -102,6 +108,82 @@ export function PdfPreview() {
   }, [])
 
   return null
+}
+
+/**
+ * Resolve every page's background into the (id, color, dataUrl) triple
+ * the preview generator consumes. Honours:
+ *   - solid-color pages → `backgroundColor`
+ *   - image pages → `pageBackgroundDataUrls.get(page.id)`
+ *   - `inherit` → walk back through earlier pages until a concrete bg
+ *   - legacy single-page templates with no `pages[]` entry → use
+ *     `backgroundDataUrl` directly under a synthetic `id: null` page so
+ *     orphaned fields still print on a sheet that has the right bg.
+ *
+ * Mirrors the resolution rules in `Canvas/CanvasArea.tsx::useCurrentBackground`.
+ */
+function resolvePagePreviewInputs(
+  pages: PageDefinition[],
+  pageBackgroundDataUrls: Map<string, string>,
+  legacyBackgroundDataUrl: string | null,
+): PagePreviewInput[] {
+  const sorted = [...pages].sort((a, b) => a.index - b.index)
+
+  // Legacy single-page templates that pre-date the explicit `pages[]`
+  // schema only have `backgroundDataUrl`. Render that as a single-page
+  // implicit sheet so orphaned fields still land somewhere.
+  if (sorted.length === 0) {
+    return [{ id: null, backgroundDataUrl: legacyBackgroundDataUrl, backgroundColor: '#ffffff' }]
+  }
+
+  // GH #23 image-onboarding compat: a template can have no entry at
+  // index 0 but a non-null `legacyBackgroundDataUrl`. Treat that legacy
+  // background as Page 1 and shift the explicit pages after it.
+  const hasIndex0 = sorted.some((p) => p.index === 0)
+  if (!hasIndex0 && legacyBackgroundDataUrl) {
+    return [
+      { id: null, backgroundDataUrl: legacyBackgroundDataUrl, backgroundColor: '#ffffff' },
+      ...sorted.map((p) => resolveOnePage(p, sorted, pageBackgroundDataUrls)),
+    ]
+  }
+
+  return sorted.map((p) => resolveOnePage(p, sorted, pageBackgroundDataUrls))
+}
+
+function resolveOnePage(
+  page: PageDefinition,
+  sorted: PageDefinition[],
+  pageBackgroundDataUrls: Map<string, string>,
+): PagePreviewInput {
+  if (page.backgroundType === 'image') {
+    return {
+      id: page.id,
+      backgroundDataUrl: pageBackgroundDataUrls.get(page.id) ?? null,
+      backgroundColor: '#ffffff',
+    }
+  }
+  if (page.backgroundType === 'color') {
+    return {
+      id: page.id,
+      backgroundColor: page.backgroundColor ?? '#ffffff',
+    }
+  }
+  // 'inherit': walk back through earlier pages until we find a concrete bg.
+  for (let i = page.index - 1; i >= 0; i--) {
+    const prev = sorted.find((p) => p.index === i)
+    if (!prev) continue
+    if (prev.backgroundType === 'image') {
+      return {
+        id: page.id,
+        backgroundDataUrl: pageBackgroundDataUrls.get(prev.id) ?? null,
+        backgroundColor: '#ffffff',
+      }
+    }
+    if (prev.backgroundType === 'color') {
+      return { id: page.id, backgroundColor: prev.backgroundColor ?? '#ffffff' }
+    }
+  }
+  return { id: page.id, backgroundColor: '#ffffff' }
 }
 
 /**

@@ -163,14 +163,14 @@ function dynamicImage(jsonKey: string): FieldDefinition {
 describe('generatePreviewHtml — static text rendering', () => {
   // Per design §8.3: "Static text: rendered with the literal `source.value`."
   it('static text renders its literal value', async () => {
-    const blob = await generatePreviewHtml([staticText('Hello World')], meta, null, empty)
+    const blob = await generatePreviewHtml([staticText('Hello World')], meta, [], empty)
     const html = await blob.text()
     expect(html).toContain('Hello World')
   })
 
   it('static text value comes from source.value, not from data', async () => {
     const data = { texts: { some_dynamic_key: 'dynamic-data' }, tables: {}, images: {} }
-    const blob = await generatePreviewHtml([staticText('Baked Content')], meta, null, data)
+    const blob = await generatePreviewHtml([staticText('Baked Content')], meta, [], data)
     const html = await blob.text()
     expect(html).toContain('Baked Content')
   })
@@ -178,7 +178,7 @@ describe('generatePreviewHtml — static text rendering', () => {
 
 describe('generatePreviewHtml — dynamic text preview semantics', () => {
   it('renders the supplied preview value when data has the key', async () => {
-    const blob = await generatePreviewHtml([dynamicTextWithPlaceholder('name', null)], meta, null, {
+    const blob = await generatePreviewHtml([dynamicTextWithPlaceholder('name', null)], meta, [], {
       texts: { name: 'John' },
       tables: {},
       images: {},
@@ -193,7 +193,7 @@ describe('generatePreviewHtml — dynamic text preview semantics', () => {
     const blob = await generatePreviewHtml(
       [dynamicTextWithPlaceholder('name', 'Your Name Here')],
       meta,
-      null,
+      [],
       empty,
     )
     const html = await blob.text()
@@ -204,7 +204,7 @@ describe('generatePreviewHtml — dynamic text preview semantics', () => {
 describe('generatePreviewHtml — static table rendering', () => {
   // Per design §8.3: "Static table: rendered with the baked-in rows."
   it('static table renders baked-in rows', async () => {
-    const blob = await generatePreviewHtml([staticTable([{ c1: 'baked-row' }])], meta, null, empty)
+    const blob = await generatePreviewHtml([staticTable([{ c1: 'baked-row' }])], meta, [], empty)
     const html = await blob.text()
     expect(html).toContain('baked-row')
   })
@@ -212,7 +212,7 @@ describe('generatePreviewHtml — static table rendering', () => {
 
 describe('generatePreviewHtml — dynamic image placeholder', () => {
   it('dynamic image with no preview data and no placeholder image still renders a field box', async () => {
-    const blob = await generatePreviewHtml([dynamicImage('photo')], meta, null, empty)
+    const blob = await generatePreviewHtml([dynamicImage('photo')], meta, [], empty)
     const html = await blob.text()
     // The field should appear with its id as reference, since renderImageHtml
     // is invoked for dynamic images regardless of data presence.

@@ -105,7 +105,7 @@ function emptyData() {
 describe('generatePreviewHtml', () => {
   describe('return type', () => {
     it('returns a Blob with type text/html', async () => {
-      const blob = await generatePreviewHtml([], defaultMeta, null, emptyData())
+      const blob = await generatePreviewHtml([], defaultMeta, [], emptyData())
       expect(blob).toBeInstanceOf(Blob)
       expect(blob.type).toBe('text/html')
     })
@@ -113,20 +113,20 @@ describe('generatePreviewHtml', () => {
 
   describe('HTML structure', () => {
     it('contains the template name in the title', async () => {
-      const blob = await generatePreviewHtml([], defaultMeta, null, emptyData())
+      const blob = await generatePreviewHtml([], defaultMeta, [], emptyData())
       const html = await blob.text()
       expect(html).toContain('<title>Test Template')
     })
 
     it('contains @page rule with correct dimensions', async () => {
       const meta = { name: 'Custom', width: 612, height: 792 }
-      const blob = await generatePreviewHtml([], meta, null, emptyData())
+      const blob = await generatePreviewHtml([], meta, [], emptyData())
       const html = await blob.text()
       expect(html).toContain('@page { size: 612pt 792pt; margin: 0; }')
     })
 
     it('contains print button', async () => {
-      const blob = await generatePreviewHtml([], defaultMeta, null, emptyData())
+      const blob = await generatePreviewHtml([], defaultMeta, [], emptyData())
       const html = await blob.text()
       expect(html).toContain('window.print()')
       expect(html).toContain('Print / Save as PDF')
@@ -137,7 +137,7 @@ describe('generatePreviewHtml', () => {
     it('renders text field values in output HTML', async () => {
       const fields = [textField('name')]
       const data = { texts: { name: 'John Doe' }, tables: {}, images: {} }
-      const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
+      const blob = await generatePreviewHtml(fields, defaultMeta, [], data)
       const html = await blob.text()
       expect(html).toContain('John Doe')
     })
@@ -145,7 +145,7 @@ describe('generatePreviewHtml', () => {
     it('does not render text field when value is empty', async () => {
       const fields = [textField('name')]
       const data = { texts: { name: '' }, tables: {}, images: {} }
-      const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
+      const blob = await generatePreviewHtml(fields, defaultMeta, [], data)
       const html = await blob.text()
       // The text div should not appear when value is empty
       expect(html).not.toContain('class="f"')
@@ -153,7 +153,7 @@ describe('generatePreviewHtml', () => {
 
     it('does not render text field when key is missing from data', async () => {
       const fields = [textField('name')]
-      const blob = await generatePreviewHtml(fields, defaultMeta, null, emptyData())
+      const blob = await generatePreviewHtml(fields, defaultMeta, [], emptyData())
       const html = await blob.text()
       expect(html).not.toContain('class="f"')
     })
@@ -167,7 +167,7 @@ describe('generatePreviewHtml', () => {
         tables: { marks: [{ name: 'Alice', grade: 'A' }] },
         images: {},
       }
-      const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
+      const blob = await generatePreviewHtml(fields, defaultMeta, [], data)
       const html = await blob.text()
       expect(html).toContain('Name')
       expect(html).toContain('Grade')
@@ -180,7 +180,7 @@ describe('generatePreviewHtml', () => {
         tables: { marks: [{ name: 'Alice', grade: 'A+' }] },
         images: {},
       }
-      const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
+      const blob = await generatePreviewHtml(fields, defaultMeta, [], data)
       const html = await blob.text()
       expect(html).toContain('Alice')
       expect(html).toContain('A+')
@@ -189,7 +189,7 @@ describe('generatePreviewHtml', () => {
     it('does not render table when rows are empty', async () => {
       const fields = [tableField('marks')]
       const data = { texts: {}, tables: { marks: [] }, images: {} }
-      const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
+      const blob = await generatePreviewHtml(fields, defaultMeta, [], data)
       const html = await blob.text()
       expect(html).not.toContain('<table>')
     })
@@ -197,7 +197,7 @@ describe('generatePreviewHtml', () => {
 
   describe('empty fields', () => {
     it('produces valid HTML with no fields', async () => {
-      const blob = await generatePreviewHtml([], defaultMeta, null, emptyData())
+      const blob = await generatePreviewHtml([], defaultMeta, [], emptyData())
       const html = await blob.text()
       expect(html).toContain('<!DOCTYPE html>')
       expect(html).toContain('</html>')
@@ -207,32 +207,40 @@ describe('generatePreviewHtml', () => {
   })
 
   describe('background', () => {
-    it('includes background dataUrl as img src', async () => {
+    it('includes background dataUrl as img src on the page section', async () => {
       const bgUrl = 'data:image/png;base64,iVBORw0KGgoAAAANS...'
-      const blob = await generatePreviewHtml([], defaultMeta, bgUrl, emptyData())
+      const blob = await generatePreviewHtml(
+        [],
+        defaultMeta,
+        [{ id: 'p0', backgroundDataUrl: bgUrl }],
+        emptyData(),
+      )
       const html = await blob.text()
       expect(html).toContain(`<img class="bg" src="${bgUrl}"`)
     })
 
     it('does not include img tag when no background', async () => {
-      const blob = await generatePreviewHtml([], defaultMeta, null, emptyData())
+      const blob = await generatePreviewHtml([], defaultMeta, [], emptyData())
       const html = await blob.text()
       expect(html).not.toContain('<img class="bg"')
     })
 
-    it('uses supplied solid backgroundColor on the body when no image is present', async () => {
-      const blob = await generatePreviewHtml([], defaultMeta, null, emptyData(), {
-        backgroundColor: '#ff0000',
-      })
+    it('uses per-page solid backgroundColor on the section when no image is present', async () => {
+      const blob = await generatePreviewHtml(
+        [],
+        defaultMeta,
+        [{ id: 'p0', backgroundColor: '#ff0000' }],
+        emptyData(),
+      )
       const html = await blob.text()
-      expect(html).toContain('background: #ff0000')
+      expect(html).toContain('background:#ff0000')
       expect(html).not.toContain('<img class="bg"')
     })
 
-    it('defaults body background to #ffffff when no image and no color supplied', async () => {
-      const blob = await generatePreviewHtml([], defaultMeta, null, emptyData())
+    it('defaults section background to #ffffff when no page bg supplied', async () => {
+      const blob = await generatePreviewHtml([], defaultMeta, [], emptyData())
       const html = await blob.text()
-      expect(html).toContain('background: #ffffff')
+      expect(html).toContain('background:#ffffff')
     })
   })
 
@@ -244,7 +252,7 @@ describe('generatePreviewHtml', () => {
         tables: {},
         images: {},
       }
-      const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
+      const blob = await generatePreviewHtml(fields, defaultMeta, [], data)
       const html = await blob.text()
       expect(html).not.toContain('<script>alert')
       expect(html).toContain('&lt;script&gt;')
@@ -253,7 +261,7 @@ describe('generatePreviewHtml', () => {
     it('escapes ampersands in text values', async () => {
       const fields = [textField('name')]
       const data = { texts: { name: 'Tom & Jerry' }, tables: {}, images: {} }
-      const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
+      const blob = await generatePreviewHtml(fields, defaultMeta, [], data)
       const html = await blob.text()
       expect(html).toContain('Tom &amp; Jerry')
     })
@@ -261,7 +269,7 @@ describe('generatePreviewHtml', () => {
     it('escapes quotes in text values', async () => {
       const fields = [textField('name')]
       const data = { texts: { name: 'He said "hello"' }, tables: {}, images: {} }
-      const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
+      const blob = await generatePreviewHtml(fields, defaultMeta, [], data)
       const html = await blob.text()
       expect(html).toContain('&quot;hello&quot;')
     })
@@ -269,14 +277,14 @@ describe('generatePreviewHtml', () => {
     it('escapes single quotes in text values', async () => {
       const fields = [textField('name')]
       const data = { texts: { name: "it's fine" }, tables: {}, images: {} }
-      const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
+      const blob = await generatePreviewHtml(fields, defaultMeta, [], data)
       const html = await blob.text()
       expect(html).toContain('it&#x27;s fine')
     })
 
     it('escapes template name in title', async () => {
       const meta = { name: '<b>Evil</b>', width: 595, height: 842 }
-      const blob = await generatePreviewHtml([], meta, null, emptyData())
+      const blob = await generatePreviewHtml([], meta, [], emptyData())
       const html = await blob.text()
       expect(html).not.toContain('<b>Evil</b>')
       expect(html).toContain('&lt;b&gt;Evil&lt;/b&gt;')
@@ -291,7 +299,7 @@ describe('generatePreviewHtml', () => {
         tables: { marks: [{ name: 'test', grade: 'A' }] },
         images: {},
       }
-      const blob = await generatePreviewHtml([field], defaultMeta, null, data)
+      const blob = await generatePreviewHtml([field], defaultMeta, [], data)
       const html = await blob.text()
       expect(html).not.toContain('<img src=x')
       expect(html).toContain('&lt;img src=x')
@@ -304,7 +312,7 @@ describe('generatePreviewHtml', () => {
         tables: { marks: [{ name: '<b>bold</b>', grade: 'A' }] },
         images: {},
       }
-      const blob = await generatePreviewHtml(fields, defaultMeta, null, data)
+      const blob = await generatePreviewHtml(fields, defaultMeta, [], data)
       const html = await blob.text()
       expect(html).not.toContain('<b>bold</b>')
       expect(html).toContain('&lt;b&gt;bold&lt;/b&gt;')
@@ -315,7 +323,7 @@ describe('generatePreviewHtml', () => {
     it('skips fields with empty jsonKey', async () => {
       const field = textField('')
       const data = { texts: { '': 'value' }, tables: {}, images: {} }
-      const blob = await generatePreviewHtml([field], defaultMeta, null, data)
+      const blob = await generatePreviewHtml([field], defaultMeta, [], data)
       const html = await blob.text()
       // Field with empty key should be skipped
       expect(html).not.toContain('class="f"')
@@ -336,7 +344,7 @@ describe('generatePreviewHtml', () => {
         tables: {},
         images: {},
       }
-      const blob = await generatePreviewHtml([f], defaultMeta, null, data)
+      const blob = await generatePreviewHtml([f], defaultMeta, [], data)
       const html = await blob.text()
       // The emitted font-size must be smaller than the declared 71pt.
       const m = html.match(/font-size:(\d+(?:\.\d+)?)pt/)
@@ -352,7 +360,7 @@ describe('generatePreviewHtml', () => {
         name: `Student ${i}`,
         grade: 'A',
       }))
-      const blob = await generatePreviewHtml([f], defaultMeta, null, {
+      const blob = await generatePreviewHtml([f], defaultMeta, [], {
         texts: {},
         tables: { marks: rows },
         images: {},
@@ -381,7 +389,7 @@ describe('generatePreviewHtml', () => {
         style: { fit: 'contain' },
       }
       const dataUrl = 'data:image/png;base64,AAAA'
-      const blob = await generatePreviewHtml([f], defaultMeta, null, emptyData(), {
+      const blob = await generatePreviewHtml([f], defaultMeta, [], emptyData(), {
         imageDataUrls: new Map([['logo.png', dataUrl]]),
       })
       const html = await blob.text()
@@ -406,7 +414,7 @@ describe('generatePreviewHtml', () => {
         zIndex: 0,
         style: { fit: 'contain' },
       }
-      const blob = await generatePreviewHtml([f], defaultMeta, null, emptyData())
+      const blob = await generatePreviewHtml([f], defaultMeta, [], emptyData())
       const html = await blob.text()
       expect(html).toContain('[missing.png]')
       expect(html).not.toContain('<img src=')
@@ -415,13 +423,107 @@ describe('generatePreviewHtml', () => {
     it('emits f-truncate class when overflowMode is "truncate"', async () => {
       const f = textField('label')
       ;(f.style as TextFieldStyle).overflowMode = 'truncate'
-      const blob = await generatePreviewHtml([f], defaultMeta, null, {
+      const blob = await generatePreviewHtml([f], defaultMeta, [], {
         texts: { label: 'hi' },
         tables: {},
         images: {},
       })
       const html = await blob.text()
       expect(html).toContain('class="f f-truncate"')
+    })
+  })
+
+  // GH #49 — multi-page preview: one <section> per page, fields routed by pageId.
+  describe('GH #49 — multi-page rendering', () => {
+    it('emits one <section class="page"> per supplied page', async () => {
+      const blob = await generatePreviewHtml(
+        [],
+        defaultMeta,
+        [
+          { id: 'p1', backgroundColor: '#ffffff' },
+          { id: 'p2', backgroundColor: '#f0f0f0' },
+          { id: 'p3', backgroundColor: '#dddddd' },
+        ],
+        emptyData(),
+      )
+      const html = await blob.text()
+      const sections = html.match(/<section class="page"/g) ?? []
+      expect(sections.length).toBe(3)
+    })
+
+    it('routes fields to their page by pageId', async () => {
+      const f1 = textField('on_p1')
+      f1.pageId = 'p1'
+      const f2 = textField('on_p2')
+      f2.pageId = 'p2'
+      const blob = await generatePreviewHtml(
+        [f1, f2],
+        defaultMeta,
+        [
+          { id: 'p1', backgroundColor: '#fff' },
+          { id: 'p2', backgroundColor: '#fff' },
+        ],
+        { texts: { on_p1: 'first', on_p2: 'second' }, tables: {}, images: {} },
+      )
+      const html = await blob.text()
+      // Each section contains only its own field.
+      const m = html.split(/<section class="page"/)
+      expect(m[1]).toContain('first')
+      expect(m[1]).not.toContain('second')
+      expect(m[2]).toContain('second')
+      expect(m[2]).not.toContain('first')
+    })
+
+    it('orphan fields (pageId=null) land on the first page', async () => {
+      const orphan = textField('orphan')
+      orphan.pageId = null
+      const onP2 = textField('on_p2')
+      onP2.pageId = 'p2'
+      const blob = await generatePreviewHtml(
+        [orphan, onP2],
+        defaultMeta,
+        [
+          { id: 'p1', backgroundColor: '#fff' },
+          { id: 'p2', backgroundColor: '#fff' },
+        ],
+        { texts: { orphan: 'orphan!', on_p2: 'p2 only' }, tables: {}, images: {} },
+      )
+      const html = await blob.text()
+      const m = html.split(/<section class="page"/)
+      expect(m[1]).toContain('orphan!')
+      expect(m[1]).not.toContain('p2 only')
+      expect(m[2]).toContain('p2 only')
+      expect(m[2]).not.toContain('orphan!')
+    })
+
+    it('first page also picks up fields explicitly tagged with the first page id alongside orphans', async () => {
+      const explicit = textField('on_p1')
+      explicit.pageId = 'p1'
+      const orphan = textField('orphan')
+      orphan.pageId = null
+      const blob = await generatePreviewHtml(
+        [explicit, orphan],
+        defaultMeta,
+        [{ id: 'p1', backgroundColor: '#fff' }],
+        { texts: { on_p1: 'explicit-1', orphan: 'orphan-1' }, tables: {}, images: {} },
+      )
+      const html = await blob.text()
+      expect(html).toContain('explicit-1')
+      expect(html).toContain('orphan-1')
+    })
+
+    it('emits page-break CSS so each section prints to its own sheet', async () => {
+      const blob = await generatePreviewHtml([], defaultMeta, [], emptyData())
+      const html = await blob.text()
+      expect(html).toContain('page-break-after: always')
+      expect(html).toContain('.page:last-child { page-break-after: auto')
+    })
+
+    it('emits a single implicit page when no pages are supplied', async () => {
+      const blob = await generatePreviewHtml([], defaultMeta, [], emptyData())
+      const html = await blob.text()
+      const sections = html.match(/<section class="page"/g) ?? []
+      expect(sections.length).toBe(1)
     })
   })
 })
