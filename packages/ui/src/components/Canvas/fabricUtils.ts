@@ -227,11 +227,149 @@ export function createFieldGroup(field: FieldDefinition, resolveImage: ImageReso
  * This is simpler than diffing individual children and keeps the logic
  * consistent with `createFieldGroup`.
  */
+/**
+ * Render-relevant fingerprint for a field — everything that affects how the
+ * Group's CHILDREN look (size, type, style, source). Excludes `x` / `y`
+ * because pure-position changes only translate the Group and never require a
+ * child rebuild. Stashed on the group as `__fieldHash`; if the next call's
+ * hash matches we short-circuit the expensive rebuild and just move the
+ * group, which avoids the white-flash users saw on every drag/release where
+ * the image placeholder briefly replaced the loaded bitmap.
+ */
+function fieldRenderHash(field: FieldDefinition): string {
+  return JSON.stringify({
+    t: field.type,
+    w: field.width,
+    h: field.height,
+    s: field.style,
+    src: field.source,
+  })
+}
+
+/**
+ * Style-only fingerprint — excludes width/height. When this matches but the
+ * full render hash doesn't, only the rect's size changed and we can resize
+ * existing children in place instead of rebuilding (which would briefly hide
+ * the loaded image behind a placeholder while it re-decodes — the resize
+ * "white flash" users saw on mouseup).
+ */
+function fieldStyleHash(field: FieldDefinition): string {
+  return JSON.stringify({
+    t: field.type,
+    s: field.style,
+    src: field.source,
+  })
+}
+
+/**
+ * Resize the existing image child to match `field.width/height` for its
+ * current fit mode, without rebuilding the FabricImage (which would force
+ * an async data-URL re-decode and flash the placeholder rect). Returns
+ * true when an image child was found and patched.
+ */
+function rescaleImageChild(group: Group, field: FieldDefinition): boolean {
+  if (field.type !== 'image') return false
+  const imgChild = group
+    .getObjects()
+    .find((c) => typeof c.__fieldId === 'string' && c.__fieldId === `__img_${field.id}`) as
+    | FabricImage
+    | undefined
+  if (!imgChild) return false
+  const natW = imgChild.width || field.width
+  const natH = imgChild.height || field.height
+  const styleObj =
+    field.style && typeof field.style === 'object'
+      ? (field.style as { fit?: 'fill' | 'contain' | 'cover' })
+      : null
+  const fit = styleObj?.fit ?? 'contain'
+  let scaleX: number
+  let scaleY: number
+  if (fit === 'fill') {
+    scaleX = field.width / natW
+    scaleY = field.height / natH
+  } else if (fit === 'cover') {
+    const s = Math.max(field.width / natW, field.height / natH)
+    scaleX = s
+    scaleY = s
+  } else {
+    const s = Math.min(field.width / natW, field.height / natH)
+    scaleX = s
+    scaleY = s
+  }
+  imgChild.set({
+    left: field.width / 2,
+    top: field.height / 2,
+    scaleX,
+    scaleY,
+  })
+  if (imgChild.clipPath) {
+    imgChild.clipPath.set({
+      width: field.width / scaleX,
+      height: field.height / scaleY,
+    })
+  }
+  imgChild.setCoords()
+  return true
+}
+
 export function applyFieldToGroup(
   group: Group,
   field: FieldDefinition,
   resolveImage: ImageResolver,
 ): void {
+  // Pure-position fast path — the visual content didn't change, only x/y.
+  // Skip the children rebuild (which on image fields would briefly drop
+  // back to the alpha-0.05 placeholder rect while the bitmap re-decodes,
+  // visible as a "white flash" on mouseup of every drag).
+  const newHash = fieldRenderHash(field)
+  if (group.__fieldHash === newHash && group.getObjects().length > 0) {
+    group.set({
+      left: field.x,
+      top: field.y,
+      scaleX: 1,
+      scaleY: 1,
+    })
+    group.__fieldWidth = field.width
+    group.__fieldHeight = field.height
+    group.setCoords()
+    return
+  }
+
+  // Geometry-only fast path — width/height changed but style/source/type
+  // didn't. For image fields we rescale the loaded FabricImage in place
+  // (no async re-decode, no placeholder flash). Other field types still
+  // need the rebuild because text fontSize/wrap depends on rect size.
+  const newStyleHash = fieldStyleHash(field)
+  if (
+    group.__styleHash === newStyleHash &&
+    field.type === 'image' &&
+    group.getObjects().length > 0 &&
+    rescaleImageChild(group, field)
+  ) {
+    // Resize the bgRect (always child 0) so the field rect's hit-area
+    // matches the new dimensions.
+    const bgRect = group.getObjects()[0] as Rect | undefined
+    if (bgRect) bgRect.set({ width: field.width, height: field.height })
+    group.set({
+      left: field.x,
+      top: field.y,
+      width: field.width,
+      height: field.height,
+      scaleX: 1,
+      scaleY: 1,
+    })
+    group.__fieldWidth = field.width
+    group.__fieldHeight = field.height
+    group.__fieldHash = newHash
+    group.setCoords()
+    const canvas = group.canvas
+    if (canvas) {
+      const active = canvas.getActiveObjects().some((o) => o.__fieldId === field.id)
+      applySelectionVisuals(group, active)
+    }
+    return
+  }
+
   // Critical: Fabric's Group#add path runs `enterGroup(obj, true)` which
   // translates the new child's coords from world → group-local using the
   // group's current transform. The Group CONSTRUCTOR uses
@@ -300,6 +438,8 @@ export function applyFieldToGroup(
   // Fabric to include child bounding-box overhang and can't be trusted.
   group.__fieldWidth = field.width
   group.__fieldHeight = field.height
+  group.__fieldHash = newHash
+  group.__styleHash = newStyleHash
   group.setCoords()
   group.__fieldType = field.type
 
@@ -430,15 +570,15 @@ export function groupToFieldPatch(
   const width = Math.max(20, snap(rawW, gridSize, snapToGrid))
   const height = Math.max(20, snap(rawH, gridSize, snapToGrid))
 
-  // Reset scale so Fabric's internal hit-detection and rendering are correct.
-  group.set({
-    left: x,
-    top: y,
-    width,
-    height,
-    scaleX: 1,
-    scaleY: 1,
-  })
+  // Update the group's logical position only. Deliberately DO NOT reset
+  // scaleX/Y here even on a resize — the children were rendered stretched
+  // by the group scale during the drag, and resetting scale before
+  // `applyFieldToGroup` rebuilds them at the new size leaves a one-frame
+  // gap where children are smaller than the group (visible as a "white
+  // flash" on mouseup). Letting the scale linger means the in-between
+  // frame keeps showing the stretched children that filled the group;
+  // `applyFieldToGroup` will reset scale + rebuild atomically next tick.
+  group.set({ left: x, top: y })
   group.__fieldWidth = width
   group.__fieldHeight = height
   group.setCoords()

@@ -31,5 +31,13 @@ declare module 'fabric' {
     __fieldWidth?: number
     /** Source-of-truth height of the field rect — see `__fieldWidth`. */
     __fieldHeight?: number
+    /** Render-relevant fingerprint of the FieldDefinition used to build this
+     *  group's children; lets `applyFieldToGroup` skip the rebuild on
+     *  pure-position updates so users don't see a placeholder-flash on drag. */
+    __fieldHash?: string
+    /** Style fingerprint excluding width/height — when this matches but
+     *  `__fieldHash` doesn't, only the rect size changed and image fields
+     *  can rescale in place instead of triggering an async bitmap re-decode. */
+    __styleHash?: string
   }
 }
