@@ -124,6 +124,20 @@ describe('loadTemplate', () => {
     })
   })
 
+  it('should throw INVALID_FORMAT when file starts with magic bytes but is corrupted', async () => {
+    // PK magic bytes + garbage
+    const p = writeTmp(
+      'corrupted.tgbl',
+      Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00, 0x00, 0x00]),
+    )
+
+    await expect(loadTemplate(p)).rejects.toThrow(TemplateGoblinError)
+    await expect(loadTemplate(p)).rejects.toMatchObject({
+      code: 'INVALID_FORMAT',
+      message: /corrupted ZIP archive/,
+    })
+  })
+
   // ---- Error: MISSING_MANIFEST ----------------------------------
 
   it('should throw MISSING_MANIFEST when ZIP has no manifest.json', async () => {

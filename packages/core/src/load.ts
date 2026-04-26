@@ -25,7 +25,15 @@ import {
 export async function loadTemplate(path: string): Promise<LoadedTemplate> {
   // REQ: Read and verify ZIP file
   const buffer = readTgblBuffer(path)
-  const zip = new AdmZip(buffer)
+  let zip: AdmZip
+  try {
+    zip = new AdmZip(buffer)
+  } catch (error) {
+    throw new TemplateGoblinError(
+      'INVALID_FORMAT',
+      `Invalid .tgbl file: corrupted ZIP archive (${error instanceof Error ? error.message : 'unknown error'})`,
+    )
+  }
 
   // REQ: Parse and validate manifest
   const manifest = parseManifestFromZip(zip)
