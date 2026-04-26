@@ -795,32 +795,6 @@ export function buildGroupChildren(
  * This is exported so `applyFieldToGroup` can await it when updating an
  * existing group's image child.
  */
-/**
- * Module-level cache of decoded HTMLImageElements keyed by data URL. The
- * first time a field's image is rendered the bitmap takes time to decode
- * (visible as a brief placeholder flash); subsequent loads (e.g. on every
- * resize-triggered group rebuild) hit this cache and resolve in a single
- * microtask so the placeholder rect never makes it onto the screen.
- */
-const htmlImageCache = new Map<string, HTMLImageElement>()
-
-function loadHtmlImage(src: string): Promise<HTMLImageElement> {
-  const cached = htmlImageCache.get(src)
-  if (cached && cached.complete && cached.naturalWidth > 0) {
-    return Promise.resolve(cached)
-  }
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      htmlImageCache.set(src, img)
-      resolve(img)
-    }
-    img.onerror = reject
-    img.src = src
-  })
-}
-
 export async function loadFabricImage(
   dataUrl: string,
   width: number,
@@ -828,12 +802,7 @@ export async function loadFabricImage(
   fieldId: string,
   fit: 'fill' | 'contain' | 'cover' = 'contain',
 ): Promise<FabricImage> {
-  // Synchronous-when-cached path. `FabricImage.fromURL` always creates a
-  // fresh HTMLImageElement and waits for decode, so even on a re-render the
-  // user saw an empty placeholder for ~1 frame. Going via our cache + the
-  // FabricImage(htmlImg) constructor short-circuits that on every reuse.
-  const htmlImg = await loadHtmlImage(dataUrl)
-  const img = new FabricImage(htmlImg)
+  const img = await FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' })
   // Native bitmap dimensions. Fabric exposes them on the loaded image; fall
   // back to the rect size if missing so we never divide by zero.
   const natW = img.width || width
