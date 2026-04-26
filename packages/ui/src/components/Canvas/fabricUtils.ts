@@ -235,14 +235,39 @@ export function createFieldGroup(field: FieldDefinition, resolveImage: ImageReso
  * hash matches we short-circuit the expensive rebuild and just move the
  * group, which avoids the white-flash users saw on every drag/release where
  * the image placeholder briefly replaced the loaded bitmap.
+ *
+ * For image fields we also fold in whether the placeholder bitmap has
+ * resolved yet — `usePlaceholderImages` loads bitmaps async, so the very
+ * first reconcile sees `resolveImage(filename) === null` and renders the
+ * filename as a text label. Without this bit, the next reconcile (after
+ * the bitmap finishes loading) would short-circuit and keep showing text.
  */
-function fieldRenderHash(field: FieldDefinition): string {
+function fieldRenderHash(field: FieldDefinition, resolveImage: ImageResolver): string {
+  let imageResolved = false
+  if (field.type === 'image' && field.source) {
+    let filename: string | null = null
+    if (field.source.mode === 'dynamic') {
+      const ph = field.source.placeholder as unknown
+      if (ph && typeof ph === 'object' && 'filename' in ph) {
+        const name = (ph as { filename: unknown }).filename
+        if (typeof name === 'string' && name.length > 0) filename = name
+      }
+    } else {
+      const v = field.source.value as unknown
+      if (v && typeof v === 'object' && 'filename' in v) {
+        const name = (v as { filename: unknown }).filename
+        if (typeof name === 'string' && name.length > 0) filename = name
+      }
+    }
+    if (filename) imageResolved = resolveImage(filename) !== null
+  }
   return JSON.stringify({
     t: field.type,
     w: field.width,
     h: field.height,
     s: field.style,
     src: field.source,
+    imgR: imageResolved,
   })
 }
 
@@ -255,7 +280,7 @@ export function applyFieldToGroup(
   // Skip the children rebuild (which on image fields would briefly drop
   // back to the alpha-0.05 placeholder rect while the bitmap re-decodes,
   // visible as a "white flash" on mouseup of every drag).
-  const newHash = fieldRenderHash(field)
+  const newHash = fieldRenderHash(field, resolveImage)
   if (group.__fieldHash === newHash && group.getObjects().length > 0) {
     group.set({
       left: field.x,
