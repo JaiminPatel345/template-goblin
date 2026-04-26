@@ -1,2 +1,11 @@
+# Mirror .github/workflows/ci.yml so a green local pre-push means a green CI.
+# Order matters: types must build before downstream packages can type-check.
+
+set -e
+
+pnpm --filter @template-goblin/types build
 pnpm type-check
-pnpm test
+pnpm lint
+pnpm --filter template-goblin test
+pnpm --filter template-goblin-ui test
+pnpm build

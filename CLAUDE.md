@@ -27,17 +27,18 @@ developers use the npm library to generate PDFs at scale.
 
 ## Tech Stack
 
-| Part             | Choice            |
-| ---------------- | ----------------- |
-| UI Framework     | React 18 + Vite   |
-| Canvas           | react-konva       |
-| PDF Engine       | PDFKit            |
-| State Management | Zustand           |
-| Shared Types     | packages/types    |
-| Testing (core)   | Jest              |
-| Testing (UI e2e) | Playwright        |
-| Monorepo         | Turborepo + pnpm  |
-| Linting          | ESLint + Prettier |
+| Part              | Choice                           |
+| ----------------- | -------------------------------- |
+| UI Framework      | React 18 + Vite                  |
+| Canvas            | Fabric.js v6                     |
+| PDF Engine        | PDFKit                           |
+| State Management  | Zustand (persisted to IndexedDB) |
+| Shared Types      | packages/types                   |
+| Testing (core)    | Jest                             |
+| Testing (UI unit) | Vitest                           |
+| Testing (UI e2e)  | Playwright                       |
+| Monorepo          | Turborepo + pnpm                 |
+| Linting           | ESLint + Prettier                |
 
 ## File Format
 
@@ -86,10 +87,11 @@ Spec written → Dev implements → Reviewer reviews
 
 ## Git Conventions
 
-- **Branch naming**: `feature/<spec-number>-<short-name>` (e.g., `feature/001-tgbl-file-format`)
+- **Branch naming**: `feature/<issue-or-spec>-<short-name>` (e.g., `feature/25-26-sidebar-sync-and-properties-matrix`)
 - **Commit format**: Conventional commits — `feat:`, `fix:`, `spec:`, `docs:`, `chore:`, `test:`
-- **Pre-commit hook**: ESLint + Prettier + type-check on staged files
-- **Pre-push hook**: Run test suite
+- **Pre-commit hook**: ESLint + Prettier on staged files (via `lint-staged`)
+- **Pre-push hook**: Mirrors CI — types build, type-check, lint, core + UI unit tests, full build
+- **Merge style**: `--merge` (no squash); one branch per GitHub issue
 - **Never force push to main**
 
 ## Commands
@@ -97,12 +99,18 @@ Spec written → Dev implements → Reviewer reviews
 - `pnpm install` — install all dependencies
 - `pnpm build` — build all packages (types → core → ui)
 - `pnpm type-check` — TypeScript type checking across all packages
-- `pnpm lint` — ESLint + Prettier check
-- `pnpm test` — run Jest tests (core)
+- `pnpm lint` — ESLint check
+- `pnpm test` — run unit tests (Jest in core, Vitest in ui)
 - `pnpm test:e2e` — run Playwright tests (ui)
-- `pnpm dev` — start UI dev server
+- `pnpm dev` — start UI dev server (port 4242)
 
 ## Spec Status Tracking
 
 Specs live in `specs/` — each follows the template in prompt.md Part 8.
 Journeys live in `journeys/` — each follows the template in prompt.md Part 9.
+
+## Open work
+
+Bug reports, planned features, and follow-up cleanups are tracked as
+[GitHub issues](https://github.com/JaiminPatel345/template-goblin/issues).
+Keep that the source of truth — don't list bug status in this file.
