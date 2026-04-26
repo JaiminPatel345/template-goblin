@@ -135,8 +135,26 @@ export function CanvasArea() {
   const placeholderImages = usePlaceholderImages(fields, placeholderBuffers, staticImageBuffers)
   const resolveImage = useImageResolver(placeholderImages, staticImageDataUrls)
 
+  // Page 1 (index 0) is special: orphaned fields (pageId === null) and fields
+  // tagged with the explicit pages[0] id both belong here. Fields can be
+  // orphaned two ways:
+  //   1. They were drawn while Page 1 was implicit — `currentPageId` was null
+  //      at stamp time so `pageId` is null too. After `+ Add Page` makes
+  //      `pages[0]` explicit, clicking the Page 1 tab moves `currentPageId`
+  //      to the explicit id but the fields keep `pageId: null` — they
+  //      vanish without this inclusive filter (GH #37).
+  //   2. `removePage` deliberately reassigns the deleted page's fields to
+  //      `pageId: null` so they fall back to Page 1.
+  // The `currentPageId === null` case ALSO has to match fields that already
+  // carry the explicit id (the post-fix shape) since onboarding leaves
+  // `currentPageId` at null even after `pages[0]` becomes explicit.
+  // Other pages match strictly on id.
+  const page1Id = pages.find((p) => p.index === 0)?.id ?? null
+  const isOnPage1 = currentPageId === null || currentPageId === page1Id
   const pageFields = fields.filter((f) => {
-    if (currentPageId === null) return f.pageId === null || f.pageId === undefined
+    if (isOnPage1) {
+      return f.pageId === null || f.pageId === undefined || f.pageId === page1Id
+    }
     return f.pageId === currentPageId
   })
 
