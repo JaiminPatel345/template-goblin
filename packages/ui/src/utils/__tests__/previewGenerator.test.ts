@@ -321,4 +321,107 @@ describe('generatePreviewHtml', () => {
       expect(html).not.toContain('class="f"')
     })
   })
+
+  // GH #44 — auto-fit, overflow, table maxRows, real images.
+  describe('GH #44 — fit-to-rect and overflow handling', () => {
+    it('shrinks fontSize to fit when fontSizeDynamic is true (no overflow)', async () => {
+      const f = textField('title')
+      const style = f.style as TextFieldStyle
+      style.fontSize = 71
+      style.fontSizeDynamic = true
+      f.width = 100
+      f.height = 20
+      const data = {
+        texts: { title: 'A very long title that wouldnt fit at 71pt' },
+        tables: {},
+        images: {},
+      }
+      const blob = await generatePreviewHtml([f], defaultMeta, null, data)
+      const html = await blob.text()
+      // The emitted font-size must be smaller than the declared 71pt.
+      const m = html.match(/font-size:(\d+(?:\.\d+)?)pt/)
+      expect(m).not.toBeNull()
+      const px = m ? parseFloat(m[1]!) : 71
+      expect(px).toBeLessThan(71)
+    })
+
+    it('clips table rows to style.maxRows', async () => {
+      const f = tableField('marks')
+      ;(f.style as TableFieldStyle).maxRows = 3
+      const rows = Array.from({ length: 10 }, (_, i) => ({
+        name: `Student ${i}`,
+        grade: 'A',
+      }))
+      const blob = await generatePreviewHtml([f], defaultMeta, null, {
+        texts: {},
+        tables: { marks: rows },
+        images: {},
+      })
+      const html = await blob.text()
+      // Only the first 3 rows render — ones beyond maxRows are dropped.
+      expect(html).toContain('Student 0')
+      expect(html).toContain('Student 2')
+      expect(html).not.toContain('Student 3')
+      expect(html).not.toContain('Student 9')
+    })
+
+    it('renders an <img> when imageDataUrls resolves the filename', async () => {
+      const f: FieldDefinition = {
+        id: 'img-1',
+        type: 'image',
+        groupId: null,
+        pageId: null,
+        label: '',
+        source: { mode: 'static', value: { filename: 'logo.png' } },
+        x: 10,
+        y: 10,
+        width: 100,
+        height: 100,
+        zIndex: 0,
+        style: { fit: 'contain' },
+      }
+      const dataUrl = 'data:image/png;base64,AAAA'
+      const blob = await generatePreviewHtml([f], defaultMeta, null, emptyData(), {
+        imageDataUrls: new Map([['logo.png', dataUrl]]),
+      })
+      const html = await blob.text()
+      expect(html).toContain(`src="${dataUrl}"`)
+      expect(html).toContain('object-fit:contain')
+      // Falls back to the placeholder rect ONLY when the resolver misses.
+      expect(html).not.toContain('[logo.png]')
+    })
+
+    it('falls back to placeholder rect when imageDataUrls has no entry', async () => {
+      const f: FieldDefinition = {
+        id: 'img-2',
+        type: 'image',
+        groupId: null,
+        pageId: null,
+        label: '',
+        source: { mode: 'static', value: { filename: 'missing.png' } },
+        x: 10,
+        y: 10,
+        width: 100,
+        height: 100,
+        zIndex: 0,
+        style: { fit: 'contain' },
+      }
+      const blob = await generatePreviewHtml([f], defaultMeta, null, emptyData())
+      const html = await blob.text()
+      expect(html).toContain('[missing.png]')
+      expect(html).not.toContain('<img src=')
+    })
+
+    it('emits f-truncate class when overflowMode is "truncate"', async () => {
+      const f = textField('label')
+      ;(f.style as TextFieldStyle).overflowMode = 'truncate'
+      const blob = await generatePreviewHtml([f], defaultMeta, null, {
+        texts: { label: 'hi' },
+        tables: {},
+        images: {},
+      })
+      const html = await blob.text()
+      expect(html).toContain('class="f f-truncate"')
+    })
+  })
 })
