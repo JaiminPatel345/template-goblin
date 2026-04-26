@@ -141,14 +141,15 @@ function renderPageHtml(
 ): string {
   // Page-relative field selection. The first page also picks up orphan
   // fields (pageId == null/undefined) — same rule as the canvas filter
-  // post-#37 — so legacy single-page templates keep working.
+  // post-#37 — so legacy single-page templates keep working. Strict
+  // equality on `page.id` is guarded so that a non-first synthetic page
+  // with `id: null` (currently unreachable, but defensible) doesn't
+  // silently claim orphans that belong to the first page.
   const isFirstPage = pageIndex === 0
   const pageFields = fields
     .filter((f) => {
-      if (f.pageId === page.id) return true
+      if (page.id !== null && f.pageId === page.id) return true
       if (isFirstPage && (f.pageId === null || f.pageId === undefined)) return true
-      // First-page may also use the explicit page-0 id when caller passes
-      // both (orphan from one shape, explicit from the other).
       if (isFirstPage && firstPageId !== null && f.pageId === firstPageId) return true
       return false
     })

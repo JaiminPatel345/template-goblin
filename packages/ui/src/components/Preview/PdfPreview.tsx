@@ -169,6 +169,12 @@ function resolveOnePage(
     }
   }
   // 'inherit': walk back through earlier pages until we find a concrete bg.
+  // INTENTIONALLY DIFFERS from `useCurrentBackground` in CanvasArea: the
+  // canvas returns `null` when the inherit chain ends at a colour page
+  // (the previous page's paint is already underneath in the same canvas).
+  // The preview emits each page as an independent <section>, so the colour
+  // MUST be carried forward — otherwise a Page-2 set to "inherit" from a
+  // red Page-1 would print white. Don't "fix the drift".
   for (let i = page.index - 1; i >= 0; i--) {
     const prev = sorted.find((p) => p.index === i)
     if (!prev) continue
