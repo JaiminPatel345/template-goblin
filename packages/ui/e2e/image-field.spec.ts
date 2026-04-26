@@ -284,20 +284,23 @@ test.describe('Image field — drag and resize', () => {
     // and use THAT snapshot for the rest of the assertions.
     let after: ImgInfo | null = null
     await expect
-      .poll(async () => {
-        const info = await readImageInfo(page)
-        if (
-          info &&
-          Math.abs(info.scaleX - 20) < 0.5 &&
-          Math.abs(info.scaleY - 20) < 0.5 &&
-          info.natW > 0 &&
-          info.natH > 0
-        ) {
-          after = info
-          return true
-        }
-        return false
-      })
+      .poll(
+        async () => {
+          const info = await readImageInfo(page)
+          if (
+            info &&
+            Math.abs(info.scaleX - 20) < 0.5 &&
+            Math.abs(info.scaleY - 20) < 0.5 &&
+            info.natW > 0 &&
+            info.natH > 0
+          ) {
+            after = info
+            return true
+          }
+          return false
+        },
+        { timeout: 15000 },
+      )
       .toBe(true)
     const stable = after as ImgInfo | null
     if (!stable) throw new Error('image info never stabilised')

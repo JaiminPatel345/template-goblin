@@ -257,14 +257,26 @@ export function applyFieldToGroup(
   }
 
   const children = buildGroupChildren(field, resolveImage, (img, phId) => {
-    // Same reset-add-restore trick as the bulk rebuild below — without it
-    // the world→local translation in `enterGroup` shoves the image away
-    // from the rect by half the group's offset.
+    // Strip the placeholder rect AND any prior image child for this field
+    // before adding the freshly-loaded one. Without the prior-image strip,
+    // a reconciliation that re-fires `loadFabricImage` (after a resize or
+    // resync) would stack a second / third FabricImage onto the group —
+    // user reported "zoom shows 2-3 images" caused by exactly this.
+    const stale = group
+      .getObjects()
+      .filter(
+        (c) =>
+          c.__fieldId === phId ||
+          (typeof c.__fieldId === 'string' && c.__fieldId === `__img_${field.id}`),
+      )
+    if (stale.length > 0) group.remove(...stale)
+
+    // Reset-add-restore: the group's add path translates child coords
+    // against the group's CURRENT transform. Moving to origin first makes
+    // the translate identity; the image's declared (left, top) survive.
     const restoreLeft = group.left ?? 0
     const restoreTop = group.top ?? 0
     group.set({ left: 0, top: 0 })
-    const ph = group.getObjects().find((c) => c.__fieldId === phId)
-    if (ph) group.remove(ph)
     group.add(img)
     group.set({ left: restoreLeft, top: restoreTop })
     group.setCoords()
@@ -639,46 +651,13 @@ export function buildGroupChildren(
     const fit = imageStyle?.fit ?? 'contain'
     const fieldId = field.id
     loadFabricImage(imageDataUrl, w, h, fieldId, fit).then((img) => {
-      if (!img) return
-      if (onAsyncUpdate) {
-        onAsyncUpdate(img, `__img_placeholder_${fieldId}`)
-        // After fabric.Group#add runs `enterGroup`, the child's stored
-        // scaleX/scaleY can drift if the group's transform is non-identity
-        // (e.g. mid-drag). Re-apply the fit-mode scale so the image stays
-        // aligned with the field rect regardless of group state. This is
-        // the user-reported "moving the field grows the image" fix.
-        const natW = img.width || w
-        const natH = img.height || h
-        let scaleX: number
-        let scaleY: number
-        if (fit === 'fill') {
-          scaleX = w / natW
-          scaleY = h / natH
-        } else if (fit === 'cover') {
-          const s = Math.max(w / natW, h / natH)
-          scaleX = s
-          scaleY = s
-        } else {
-          const s = Math.min(w / natW, h / natH)
-          scaleX = s
-          scaleY = s
-        }
-        // Re-apply the same origin:left/top + offset that loadFabricImage
-        // used so the image stays inside the rect after the add-time
-        // translation may have shifted things.
-        const renderW = natW * scaleX
-        const renderH = natH * scaleY
-        img.set({
-          scaleX,
-          scaleY,
-          originX: 'left',
-          originY: 'top',
-          left: (w - renderW) / 2,
-          top: (h - renderH) / 2,
-        })
-        img.setCoords()
-        img.canvas?.requestRenderAll()
-      }
+      if (!img || !onAsyncUpdate) return
+      // The async swap is the single place that mutates the group after
+      // the synchronous rebuild — it removes the placeholder + any prior
+      // image and adds the freshly-loaded one. Position/scale are baked
+      // into `img` by `loadFabricImage` and the reset-add-restore dance in
+      // `applyFieldToGroup` keeps them intact through the add.
+      onAsyncUpdate(img, `__img_placeholder_${fieldId}`)
     })
   }
 
@@ -804,41 +783,34 @@ export async function loadFabricImage(
     scaleX = s
     scaleY = s
   }
-  // Use the same `left/top` origin as the bgRect so both children share
-  // the group's coordinate system. With originX:'left', originY:'top' at
-  // (0, 0), the image's top-left coincides with the group's top-left and
-  // it extends down-right to (renderW, renderH) — fitting inside the
-  // rect when scale was computed via the 'contain' / 'cover' / 'fill'
-  // formulas above.
-  const renderW = natW * scaleX
-  const renderH = natH * scaleY
-  // For 'contain' on a non-square rect, centre the image inside the rect by
-  // offsetting half of the leftover space; 'cover' / 'fill' fully cover so
-  // the offset is zero.
-  const offsetX = (width - renderW) / 2
-  const offsetY = (height - renderH) / 2
+  // Children inside this group use the same coordinate convention as the
+  // bgRect: local (0, 0) is the group's top-left (NOT centre), so the
+  // group's geometric centre is at (width/2, height/2). Placing the image
+  // there with origin:center lands its centre on the rect's centre — this
+  // is what makes contain leave equal padding on both sides and cover
+  // crop equally from both edges.
   img.set({
-    left: offsetX,
-    top: offsetY,
+    left: width / 2,
+    top: height / 2,
     selectable: false,
     evented: false,
-    originX: 'left',
-    originY: 'top',
+    originX: 'center',
+    originY: 'center',
     scaleX,
     scaleY,
   })
-  // Clip to the field rect so 'cover' (and any overflowing 'fill' edge case)
-  // doesn't bleed outside the bounding box. The clipPath uses local coords
-  // relative to the image's own top-left (origin:left/top); sizing it to
-  // the rect's un-scaled w/h divided by the image's scale gives a clip in
-  // image pixels that lands exactly on the rect bounds when rendered.
+  // Clip the rendered image to the field rect. With `absolutePositioned: false`
+  // the clipPath uses the IMAGE'S local coords; for origin:center at (0, 0)
+  // that means a rect centred on the image's own centre. Dividing by scale
+  // converts the rect's pt size into image-bitmap pixels — exactly the
+  // central portion that lines up with the field rect after scaling.
   img.clipPath = new Rect({
     left: 0,
     top: 0,
     width: width / scaleX,
     height: height / scaleY,
-    originX: 'left',
-    originY: 'top',
+    originX: 'center',
+    originY: 'center',
     absolutePositioned: false,
   })
   img.__fieldId = `__img_${fieldId}`

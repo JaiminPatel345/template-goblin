@@ -88,7 +88,7 @@ export function useFabricSync(deps: SyncDeps) {
 
     const sorted = [...pageFields].sort((a, b) => a.zIndex - b.zIndex)
 
-    // Add / patch
+    // Add / patch.
     sorted.forEach((field) => {
       const g = existing.get(field.id)
       if (g) {
