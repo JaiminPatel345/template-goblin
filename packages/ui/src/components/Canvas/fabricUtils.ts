@@ -246,72 +246,6 @@ function fieldRenderHash(field: FieldDefinition): string {
   })
 }
 
-/**
- * Style-only fingerprint — excludes width/height. When this matches but the
- * full render hash doesn't, only the rect's size changed and we can resize
- * existing children in place instead of rebuilding (which would briefly hide
- * the loaded image behind a placeholder while it re-decodes — the resize
- * "white flash" users saw on mouseup).
- */
-function fieldStyleHash(field: FieldDefinition): string {
-  return JSON.stringify({
-    t: field.type,
-    s: field.style,
-    src: field.source,
-  })
-}
-
-/**
- * Resize the existing image child to match `field.width/height` for its
- * current fit mode, without rebuilding the FabricImage (which would force
- * an async data-URL re-decode and flash the placeholder rect). Returns
- * true when an image child was found and patched.
- */
-function rescaleImageChild(group: Group, field: FieldDefinition): boolean {
-  if (field.type !== 'image') return false
-  const imgChild = group
-    .getObjects()
-    .find((c) => typeof c.__fieldId === 'string' && c.__fieldId === `__img_${field.id}`) as
-    | FabricImage
-    | undefined
-  if (!imgChild) return false
-  const natW = imgChild.width || field.width
-  const natH = imgChild.height || field.height
-  const styleObj =
-    field.style && typeof field.style === 'object'
-      ? (field.style as { fit?: 'fill' | 'contain' | 'cover' })
-      : null
-  const fit = styleObj?.fit ?? 'contain'
-  let scaleX: number
-  let scaleY: number
-  if (fit === 'fill') {
-    scaleX = field.width / natW
-    scaleY = field.height / natH
-  } else if (fit === 'cover') {
-    const s = Math.max(field.width / natW, field.height / natH)
-    scaleX = s
-    scaleY = s
-  } else {
-    const s = Math.min(field.width / natW, field.height / natH)
-    scaleX = s
-    scaleY = s
-  }
-  imgChild.set({
-    left: field.width / 2,
-    top: field.height / 2,
-    scaleX,
-    scaleY,
-  })
-  if (imgChild.clipPath) {
-    imgChild.clipPath.set({
-      width: field.width / scaleX,
-      height: field.height / scaleY,
-    })
-  }
-  imgChild.setCoords()
-  return true
-}
-
 export function applyFieldToGroup(
   group: Group,
   field: FieldDefinition,
@@ -335,40 +269,9 @@ export function applyFieldToGroup(
     return
   }
 
-  // Geometry-only fast path — width/height changed but style/source/type
-  // didn't. For image fields we rescale the loaded FabricImage in place
-  // (no async re-decode, no placeholder flash). Other field types still
-  // need the rebuild because text fontSize/wrap depends on rect size.
-  const newStyleHash = fieldStyleHash(field)
-  if (
-    group.__styleHash === newStyleHash &&
-    field.type === 'image' &&
-    group.getObjects().length > 0 &&
-    rescaleImageChild(group, field)
-  ) {
-    // Resize the bgRect (always child 0) so the field rect's hit-area
-    // matches the new dimensions.
-    const bgRect = group.getObjects()[0] as Rect | undefined
-    if (bgRect) bgRect.set({ width: field.width, height: field.height })
-    group.set({
-      left: field.x,
-      top: field.y,
-      width: field.width,
-      height: field.height,
-      scaleX: 1,
-      scaleY: 1,
-    })
-    group.__fieldWidth = field.width
-    group.__fieldHeight = field.height
-    group.__fieldHash = newHash
-    group.setCoords()
-    const canvas = group.canvas
-    if (canvas) {
-      const active = canvas.getActiveObjects().some((o) => o.__fieldId === field.id)
-      applySelectionVisuals(group, active)
-    }
-    return
-  }
+  // (A geometry-only in-place fast path was tried here but Fabric Group's
+  // child positioning under a partially-applied set() left the bgRect
+  // off-anchor — so resize falls through to the full rebuild below.)
 
   // Critical: Fabric's Group#add path runs `enterGroup(obj, true)` which
   // translates the new child's coords from world → group-local using the
@@ -439,7 +342,6 @@ export function applyFieldToGroup(
   group.__fieldWidth = field.width
   group.__fieldHeight = field.height
   group.__fieldHash = newHash
-  group.__styleHash = newStyleHash
   group.setCoords()
   group.__fieldType = field.type
 
@@ -893,6 +795,32 @@ export function buildGroupChildren(
  * This is exported so `applyFieldToGroup` can await it when updating an
  * existing group's image child.
  */
+/**
+ * Module-level cache of decoded HTMLImageElements keyed by data URL. The
+ * first time a field's image is rendered the bitmap takes time to decode
+ * (visible as a brief placeholder flash); subsequent loads (e.g. on every
+ * resize-triggered group rebuild) hit this cache and resolve in a single
+ * microtask so the placeholder rect never makes it onto the screen.
+ */
+const htmlImageCache = new Map<string, HTMLImageElement>()
+
+function loadHtmlImage(src: string): Promise<HTMLImageElement> {
+  const cached = htmlImageCache.get(src)
+  if (cached && cached.complete && cached.naturalWidth > 0) {
+    return Promise.resolve(cached)
+  }
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      htmlImageCache.set(src, img)
+      resolve(img)
+    }
+    img.onerror = reject
+    img.src = src
+  })
+}
+
 export async function loadFabricImage(
   dataUrl: string,
   width: number,
@@ -900,7 +828,12 @@ export async function loadFabricImage(
   fieldId: string,
   fit: 'fill' | 'contain' | 'cover' = 'contain',
 ): Promise<FabricImage> {
-  const img = await FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' })
+  // Synchronous-when-cached path. `FabricImage.fromURL` always creates a
+  // fresh HTMLImageElement and waits for decode, so even on a re-render the
+  // user saw an empty placeholder for ~1 frame. Going via our cache + the
+  // FabricImage(htmlImg) constructor short-circuits that on every reuse.
+  const htmlImg = await loadHtmlImage(dataUrl)
+  const img = new FabricImage(htmlImg)
   // Native bitmap dimensions. Fabric exposes them on the loaded image; fall
   // back to the rect size if missing so we never divide by zero.
   const natW = img.width || width
