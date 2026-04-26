@@ -663,10 +663,19 @@ export function buildGroupChildren(
           scaleX = s
           scaleY = s
         }
-        // Children's local coords are measured from the group's centre, so
-        // (left, top) = (0, 0) with `originX/Y: 'center'` centres the
-        // image on the rect.
-        img.set({ scaleX, scaleY, left: 0, top: 0 })
+        // Re-apply the same origin:left/top + offset that loadFabricImage
+        // used so the image stays inside the rect after the add-time
+        // translation may have shifted things.
+        const renderW = natW * scaleX
+        const renderH = natH * scaleY
+        img.set({
+          scaleX,
+          scaleY,
+          originX: 'left',
+          originY: 'top',
+          left: (w - renderW) / 2,
+          top: (h - renderH) / 2,
+        })
         img.setCoords()
         img.canvas?.requestRenderAll()
       }
@@ -795,33 +804,41 @@ export async function loadFabricImage(
     scaleX = s
     scaleY = s
   }
-  // Group children's local coordinate origin is the GROUP'S CENTRE (not its
-  // top-left), even when the group has `originX: 'left'`. With
-  // `originX/Y: 'center'`, setting (left, top) = (0, 0) puts the image's
-  // centre exactly on the group's centre — i.e. centred inside the rect.
+  // Use the same `left/top` origin as the bgRect so both children share
+  // the group's coordinate system. With originX:'left', originY:'top' at
+  // (0, 0), the image's top-left coincides with the group's top-left and
+  // it extends down-right to (renderW, renderH) — fitting inside the
+  // rect when scale was computed via the 'contain' / 'cover' / 'fill'
+  // formulas above.
+  const renderW = natW * scaleX
+  const renderH = natH * scaleY
+  // For 'contain' on a non-square rect, centre the image inside the rect by
+  // offsetting half of the leftover space; 'cover' / 'fill' fully cover so
+  // the offset is zero.
+  const offsetX = (width - renderW) / 2
+  const offsetY = (height - renderH) / 2
   img.set({
-    left: 0,
-    top: 0,
+    left: offsetX,
+    top: offsetY,
     selectable: false,
     evented: false,
-    originX: 'center',
-    originY: 'center',
+    originX: 'left',
+    originY: 'top',
     scaleX,
     scaleY,
   })
   // Clip to the field rect so 'cover' (and any overflowing 'fill' edge case)
   // doesn't bleed outside the bounding box. The clipPath uses local coords
-  // relative to the image's own centre; sizing it to the rect's
-  // un-scaled w/h and dividing by the image's scale gives a clip in image
-  // pixels that, when transformed back through the image's scale, lands
-  // exactly on the rect bounds.
+  // relative to the image's own top-left (origin:left/top); sizing it to
+  // the rect's un-scaled w/h divided by the image's scale gives a clip in
+  // image pixels that lands exactly on the rect bounds when rendered.
   img.clipPath = new Rect({
     left: 0,
     top: 0,
     width: width / scaleX,
     height: height / scaleY,
-    originX: 'center',
-    originY: 'center',
+    originX: 'left',
+    originY: 'top',
     absolutePositioned: false,
   })
   img.__fieldId = `__img_${fieldId}`
