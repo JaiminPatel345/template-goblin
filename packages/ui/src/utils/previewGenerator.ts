@@ -7,16 +7,34 @@ import type { FieldDefinition, TextField, TableField } from '@template-goblin/ty
  */
 export interface PreviewBackgroundOptions {
   backgroundColor?: string | null
+  /**
+   * Map of `filename → dataUrl` for image fields. Used to render real
+   * bitmaps for static images and dynamic-image placeholders. Caller
+   * builds this from the store's `staticImageDataUrls` plus a derived
+   * `placeholderBuffers → dataUrl` mapping.
+   */
+  imageDataUrls?: Map<string, string>
 }
 
 /**
  * Generate a PDF-accurate preview as an HTML page.
  *
  * Renders text at exact positions with correct fonts/sizes/colors,
- * tables with headers/rows/borders, and image placeholders —
- * all positioned absolutely over the background image or solid color.
+ * tables with headers/rows/borders, and images (when supplied) — all
+ * positioned absolutely over the background. The user can print this
+ * page (Ctrl+P) to get an actual PDF.
  *
- * The user can print this page (Ctrl+P) to get an actual PDF.
+ * GH #44 fixes vs the previous implementation:
+ * - Static text with `style.fontSizeDynamic` auto-fits to its rect using
+ *   the same `fitFontSize` algorithm the canvas uses, so a title set at
+ *   71pt no longer overflows the rect when the rect is smaller than the
+ *   text would naturally need.
+ * - Text fields with `overflowMode: 'truncate'` get `text-overflow: ellipsis`
+ *   so single-line cut-off doesn't leak content past the rect.
+ * - Table rows are clipped to `style.maxRows`, matching the SDK's behaviour.
+ * - Images render as actual bitmaps when `options.imageDataUrls` resolves
+ *   the filename. Falls back to a labelled placeholder rect when no
+ *   bitmap is available (mirrors the on-canvas placeholder appearance).
  */
 export async function generatePreviewHtml(
   fields: FieldDefinition[],
@@ -30,6 +48,7 @@ export async function generatePreviewHtml(
   options: PreviewBackgroundOptions = {},
 ): Promise<Blob> {
   const sorted = [...fields].sort((a, b) => a.zIndex - b.zIndex)
+  const imageDataUrls = options.imageDataUrls ?? new Map<string, string>()
   let fieldsHtml = ''
 
   for (const field of sorted) {
@@ -58,7 +77,7 @@ export async function generatePreviewHtml(
         case 'image': {
           const filename = (field.source as { mode: 'static'; value: { filename: string } }).value
             ?.filename
-          fieldsHtml += renderImageHtml(field, filename || field.id)
+          fieldsHtml += renderImageHtml(field, filename || field.id, imageDataUrls)
           break
         }
       }
@@ -88,8 +107,8 @@ export async function generatePreviewHtml(
       case 'image': {
         const placeholder = (field.source as { placeholder: { filename: string } | null })
           .placeholder
-        const label = data.images[name] ? name : placeholder?.filename || name
-        fieldsHtml += renderImageHtml(field, label)
+        const filename = placeholder?.filename ?? name
+        fieldsHtml += renderImageHtml(field, filename, imageDataUrls)
         break
       }
     }
@@ -110,7 +129,12 @@ export async function generatePreviewHtml(
   body { position: relative; overflow: hidden; font-family: Helvetica, Arial, sans-serif; background: ${bodyBg}; }
   .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
   .f { position: absolute; overflow: hidden; }
-  table { border-collapse: collapse; width: 100%; }
+  .f-img { position: absolute; overflow: hidden; }
+  .f-img img { width: 100%; height: 100%; }
+  .f-truncate { white-space: nowrap; text-overflow: ellipsis; }
+  .f-truncate > span { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  td, th { word-wrap: break-word; overflow: hidden; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   .toolbar { position: fixed; top: 0; left: 0; right: 0; background: #1c1c27; color: #fff; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; font-family: sans-serif; font-size: 13px; z-index: 1000; }
   .toolbar button { background: #e94560; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
@@ -130,38 +154,92 @@ export async function generatePreviewHtml(
   return new Blob([html], { type: 'text/html' })
 }
 
+// ─── Text rendering ─────────────────────────────────────────────────────────
+
 function renderTextHtml(field: TextField, value: string): string {
   const s = field.style
-  const css = `left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;font-family:${sc(s.fontFamily || 'Helvetica')},sans-serif;font-size:${s.fontSize}pt;font-weight:${s.fontWeight || 'normal'};font-style:${s.fontStyle || 'normal'};color:${sc(s.color || '#000')};text-align:${s.align || 'left'};line-height:${s.lineHeight || 1.2};text-decoration:${s.textDecoration === 'underline' ? 'underline' : 'none'};display:flex;align-items:${s.verticalAlign === 'middle' ? 'center' : s.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start'}`
-  return `<div class="f" style="${css}"><span style="width:100%">${esc(value)}</span></div>`
+  const fontFamily = s.fontFamily || 'Helvetica'
+  // Effective font size: when `fontSizeDynamic` is set OR the declared size
+  // would overflow the rect at single-line/wrapped layout, shrink to the
+  // largest size that fits. This is the canvas's `fitFontSize` ported into
+  // the preview path (#44) so the printed PDF looks like what the user
+  // sees on the canvas.
+  const declared = typeof s.fontSize === 'number' && s.fontSize > 0 ? s.fontSize : 12
+  const innerPad = 2
+  const labelW = Math.max(1, field.width - innerPad * 2)
+  const labelH = Math.max(1, field.height - innerPad * 2)
+  const fitted = fitFontSize(value, labelW, labelH, fontFamily, s.lineHeight || 1.2)
+  // Honour the declared size only when it actually fits; otherwise clamp.
+  // `fontSizeDynamic` is a hint that the canvas was already auto-fitting,
+  // so the right size to print is the fitted one regardless.
+  const fontSize = s.fontSizeDynamic ? fitted : Math.min(declared, fitted)
+
+  const truncate = s.overflowMode === 'truncate'
+  const cls = `f${truncate ? ' f-truncate' : ''}`
+  const css =
+    `left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;` +
+    `padding:${innerPad}pt;` +
+    `font-family:${sc(fontFamily)},sans-serif;font-size:${fontSize}pt;` +
+    `font-weight:${s.fontWeight || 'normal'};font-style:${s.fontStyle || 'normal'};` +
+    `color:${sc(s.color || '#000')};text-align:${s.align || 'left'};` +
+    `line-height:${s.lineHeight || 1.2};` +
+    `text-decoration:${
+      s.textDecoration === 'underline'
+        ? 'underline'
+        : s.textDecoration === 'line-through'
+          ? 'line-through'
+          : 'none'
+    };` +
+    `display:flex;align-items:${
+      s.verticalAlign === 'middle'
+        ? 'center'
+        : s.verticalAlign === 'bottom'
+          ? 'flex-end'
+          : 'flex-start'
+    };justify-content:${
+      s.align === 'center' ? 'center' : s.align === 'right' ? 'flex-end' : 'flex-start'
+    }`
+  return `<div class="${cls}" style="${css}"><span style="width:100%">${esc(value)}</span></div>`
 }
+
+// ─── Table rendering ────────────────────────────────────────────────────────
 
 function renderTableHtml(field: TableField, rows: Record<string, string>[]): string {
   const s = field.style
   const cols = s.columns || []
   if (cols.length === 0) return ''
 
+  // Clip rows to maxRows the same way the SDK does (#44). Without this,
+  // a 50-row payload renders in a 10-row rect and silently overflows the
+  // page rect — the bug visible in temp/preview.pdf as the table bleeding
+  // off the bottom edge.
+  const maxRows = s.maxRows && s.maxRows > 0 ? s.maxRows : rows.length
+  const limited = rows.slice(0, maxRows)
+
   const hs = s.headerStyle
   const rs = s.rowStyle
 
-  const hdr = cols
-    .map((c) => {
-      const headerPt = c.headerStyle?.paddingTop ?? hs.paddingTop ?? 4
-      const headerPr = c.headerStyle?.paddingRight ?? hs.paddingRight ?? 6
-      const headerPb = c.headerStyle?.paddingBottom ?? hs.paddingBottom ?? 4
-      const headerPl = c.headerStyle?.paddingLeft ?? hs.paddingLeft ?? 6
-      const bw = c.headerStyle?.borderWidth ?? hs.borderWidth ?? 1
-      const bc = sc(c.headerStyle?.borderColor ?? hs.borderColor ?? '#000')
-      const bg = sc(c.headerStyle?.backgroundColor ?? hs.backgroundColor ?? '#f0f0f0')
-      const color = sc(c.headerStyle?.color ?? hs.color ?? '#000')
-      const fontSize = c.headerStyle?.fontSize ?? hs.fontSize ?? 10
-      const fontWeight = c.headerStyle?.fontWeight ?? hs.fontWeight ?? 'bold'
-      const align = sc(c.headerStyle?.align ?? hs.align ?? 'center')
-      return `<th style="padding:${headerPt}pt ${headerPr}pt ${headerPb}pt ${headerPl}pt;background:${bg};color:${color};font-size:${fontSize}pt;font-weight:${fontWeight};text-align:${align};border:${bw}pt solid ${bc};width:${c.width}pt">${esc(c.label || c.key)}</th>`
-    })
-    .join('')
+  const showHeader = s.showHeader !== false
+  const hdr = showHeader
+    ? cols
+        .map((c) => {
+          const headerPt = c.headerStyle?.paddingTop ?? hs.paddingTop ?? 4
+          const headerPr = c.headerStyle?.paddingRight ?? hs.paddingRight ?? 6
+          const headerPb = c.headerStyle?.paddingBottom ?? hs.paddingBottom ?? 4
+          const headerPl = c.headerStyle?.paddingLeft ?? hs.paddingLeft ?? 6
+          const bw = c.headerStyle?.borderWidth ?? hs.borderWidth ?? 1
+          const bc = sc(c.headerStyle?.borderColor ?? hs.borderColor ?? '#000')
+          const bg = sc(c.headerStyle?.backgroundColor ?? hs.backgroundColor ?? '#f0f0f0')
+          const color = sc(c.headerStyle?.color ?? hs.color ?? '#000')
+          const fontSize = c.headerStyle?.fontSize ?? hs.fontSize ?? 10
+          const fontWeight = c.headerStyle?.fontWeight ?? hs.fontWeight ?? 'bold'
+          const align = sc(c.headerStyle?.align ?? hs.align ?? 'center')
+          return `<th style="padding:${headerPt}pt ${headerPr}pt ${headerPb}pt ${headerPl}pt;background:${bg};color:${color};font-size:${fontSize}pt;font-weight:${fontWeight};text-align:${align};border:${bw}pt solid ${bc};width:${c.width}pt">${esc(c.label || c.key)}</th>`
+        })
+        .join('')
+    : ''
 
-  const body = rows
+  const body = limited
     .map(
       (row) =>
         '<tr>' +
@@ -177,19 +255,120 @@ function renderTableHtml(field: TableField, rows: Record<string, string>[]): str
             const color = sc(c.style?.color ?? rs.color ?? '#000')
             const fontWeight = c.style?.fontWeight ?? rs.fontWeight ?? 'normal'
             const align = sc(c.style?.align ?? rs.align ?? 'left')
-            return `<td style="padding:${rowPt}pt ${rowPr}pt ${rowPb}pt ${rowPl}pt;font-size:${fontSize}pt;color:${color};font-weight:${fontWeight};text-align:${align};border:${bw}pt solid ${bc}">${esc(row[c.key] ?? '')}</td>`
+            return `<td style="padding:${rowPt}pt ${rowPr}pt ${rowPb}pt ${rowPl}pt;font-size:${fontSize}pt;color:${color};font-weight:${fontWeight};text-align:${align};border:${bw}pt solid ${bc};width:${c.width}pt">${esc(row[c.key] ?? '')}</td>`
           })
           .join('') +
         '</tr>',
     )
     .join('')
 
-  return `<div class="f" style="left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt"><table><thead><tr>${hdr}</tr></thead><tbody>${body}</tbody></table></div>`
+  const headHtml = showHeader ? `<thead><tr>${hdr}</tr></thead>` : ''
+  return `<div class="f" style="left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt"><table>${headHtml}<tbody>${body}</tbody></table></div>`
 }
 
-function renderImageHtml(field: FieldDefinition, label: string): string {
-  return `<div class="f" style="left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;color:#999;font-size:9pt;background:rgba(0,0,0,0.03)">[${esc(label)}]</div>`
+// ─── Image rendering ────────────────────────────────────────────────────────
+
+function renderImageHtml(
+  field: FieldDefinition,
+  filenameOrLabel: string,
+  imageDataUrls: Map<string, string>,
+): string {
+  // Look up the bitmap by filename (#44). When the resolver doesn't have
+  // an entry — e.g. dynamic image with no upload supplied yet — fall back
+  // to a labelled placeholder so the user can still see where the image
+  // belongs.
+  const dataUrl = imageDataUrls.get(filenameOrLabel)
+  const fit =
+    field.type === 'image' && field.style && typeof field.style === 'object'
+      ? ((field.style as { fit?: 'fill' | 'contain' | 'cover' }).fit ?? 'contain')
+      : 'contain'
+  const objectFit = fit === 'fill' ? 'fill' : fit === 'cover' ? 'cover' : 'contain'
+  if (dataUrl) {
+    const css = `left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt`
+    return `<div class="f-img" style="${css}"><img src="${dataUrl}" style="object-fit:${objectFit};display:block" /></div>`
+  }
+  const css = `left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;border:1pt dashed #ccc;display:flex;align-items:center;justify-content:center;color:#999;font-size:9pt;background:rgba(0,0,0,0.03)`
+  return `<div class="f" style="${css}">[${esc(filenameOrLabel)}]</div>`
 }
+
+// ─── Auto-fit text helper ───────────────────────────────────────────────────
+
+/**
+ * Cached 2D context for measuring text. Reused across all `fitFontSize` calls
+ * because creating a fresh canvas per call would dominate preview generation
+ * time on templates with many text fields.
+ */
+let _measureCtx: CanvasRenderingContext2D | null = null
+function getMeasureCtx(): CanvasRenderingContext2D | null {
+  if (typeof document === 'undefined') return null
+  if (_measureCtx) return _measureCtx
+  const cv = document.createElement('canvas')
+  _measureCtx = cv.getContext('2d')
+  return _measureCtx
+}
+
+/**
+ * Fit font size to a bounding rect using greedy word-wrap and binary search.
+ * Returns the largest integer size in `[6, min(rectHeight*0.9, 200)]` such
+ * that the wrapped text fits within `rectWidth × rectHeight`.
+ *
+ * Mirrors `fitFontSize` in `Canvas/fabricUtils.ts` so the preview matches
+ * the canvas. Pulling the canvas helper directly would force the preview
+ * module to import Fabric.js, which is undesirable.
+ */
+function fitFontSize(
+  text: string,
+  rectWidth: number,
+  rectHeight: number,
+  fontFamily: string,
+  lineHeightFactor: number,
+): number {
+  if (!text || rectWidth <= 0 || rectHeight <= 0) return 6
+  const ctx = getMeasureCtx()
+  if (!ctx) return Math.max(6, Math.min(200, Math.floor(rectHeight * 0.7)))
+
+  const upper = Math.max(6, Math.min(200, Math.floor(rectHeight * 0.9)))
+  let lo = 6
+  let hi = upper
+  let best = 6
+  const lh = lineHeightFactor > 0 ? lineHeightFactor : 1.2
+
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2)
+    ctx.font = `${mid}px ${fontFamily}`
+    const lines = wrapToLines(ctx, text, rectWidth)
+    const totalH = lines.length * mid * lh
+    const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0)
+    if (maxW <= rectWidth && totalH <= rectHeight) {
+      best = mid
+      lo = mid + 1
+    } else {
+      hi = mid - 1
+    }
+  }
+  return best
+}
+
+function wrapToLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  if (maxWidth <= 0) return [text]
+  const words = text.split(/\s+/).filter(Boolean)
+  if (words.length === 0) return ['']
+  const lines: string[] = []
+  let current = ''
+  for (const w of words) {
+    const test = current ? `${current} ${w}` : w
+    if (ctx.measureText(test).width <= maxWidth || current === '') {
+      current = test
+    } else {
+      lines.push(current)
+      current = w
+    }
+  }
+  if (current) lines.push(current)
+  return lines
+}
+
+// ─── Escape helpers ─────────────────────────────────────────────────────────
 
 function esc(t: string): string {
   return t
