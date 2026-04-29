@@ -131,7 +131,8 @@ function resolvePagePreviewInputs(
 
   // Legacy single-page templates that pre-date the explicit `pages[]`
   // schema only have `backgroundDataUrl`. Render that as a single-page
-  // implicit sheet so orphaned fields still land somewhere.
+  // implicit sheet so orphaned fields still land somewhere. No per-page
+  // size — preview generator falls back to `meta.width`/`meta.height`.
   if (sorted.length === 0) {
     return [{ id: null, backgroundDataUrl: legacyBackgroundDataUrl, backgroundColor: '#ffffff' }]
   }
@@ -150,23 +151,33 @@ function resolvePagePreviewInputs(
   return sorted.map((p) => resolveOnePage(p, sorted, pageBackgroundDataUrls))
 }
 
+function withSize(input: PagePreviewInput, page: PageDefinition): PagePreviewInput {
+  // Per-page width/height (#46/#47). `getPageSize` resolves `undefined` →
+  // template meta, but the preview generator does the same fallback when
+  // these stay undefined, so we pass through whatever the page declares.
+  if (typeof page.width === 'number' && typeof page.height === 'number') {
+    return { ...input, width: page.width, height: page.height }
+  }
+  return input
+}
+
 function resolveOnePage(
   page: PageDefinition,
   sorted: PageDefinition[],
   pageBackgroundDataUrls: Map<string, string>,
 ): PagePreviewInput {
   if (page.backgroundType === 'image') {
-    return {
-      id: page.id,
-      backgroundDataUrl: pageBackgroundDataUrls.get(page.id) ?? null,
-      backgroundColor: '#ffffff',
-    }
+    return withSize(
+      {
+        id: page.id,
+        backgroundDataUrl: pageBackgroundDataUrls.get(page.id) ?? null,
+        backgroundColor: '#ffffff',
+      },
+      page,
+    )
   }
   if (page.backgroundType === 'color') {
-    return {
-      id: page.id,
-      backgroundColor: page.backgroundColor ?? '#ffffff',
-    }
+    return withSize({ id: page.id, backgroundColor: page.backgroundColor ?? '#ffffff' }, page)
   }
   // 'inherit': walk back through earlier pages until we find a concrete bg.
   // INTENTIONALLY DIFFERS from `useCurrentBackground` in CanvasArea: the
@@ -179,17 +190,20 @@ function resolveOnePage(
     const prev = sorted.find((p) => p.index === i)
     if (!prev) continue
     if (prev.backgroundType === 'image') {
-      return {
-        id: page.id,
-        backgroundDataUrl: pageBackgroundDataUrls.get(prev.id) ?? null,
-        backgroundColor: '#ffffff',
-      }
+      return withSize(
+        {
+          id: page.id,
+          backgroundDataUrl: pageBackgroundDataUrls.get(prev.id) ?? null,
+          backgroundColor: '#ffffff',
+        },
+        page,
+      )
     }
     if (prev.backgroundType === 'color') {
-      return { id: page.id, backgroundColor: prev.backgroundColor ?? '#ffffff' }
+      return withSize({ id: page.id, backgroundColor: prev.backgroundColor ?? '#ffffff' }, page)
     }
   }
-  return { id: page.id, backgroundColor: '#ffffff' }
+  return withSize({ id: page.id, backgroundColor: '#ffffff' }, page)
 }
 
 /**

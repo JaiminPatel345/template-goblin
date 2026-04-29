@@ -24,6 +24,12 @@ developers use the npm library to generate PDFs at scale.
 8. Code implements specs — not the other way around. If spec is ambiguous, clarify.
 9. Tests are written from specs, not from code.
 10. All text/images/tables render inside their bounding rectangle — NEVER overflow.
+11. **No source file (.ts/.tsx) may exceed 300 lines.** When a file approaches
+    the cap, split by responsibility: extract sub-components, hooks, or pure
+    helpers into their own files. Reuse aggressively — duplicated code across
+    files is a smell. Test files are exempt; generated code is exempt. When
+    you touch an existing oversized file, split it as part of the same change
+    rather than adding more lines on top.
 
 ## Tech Stack
 

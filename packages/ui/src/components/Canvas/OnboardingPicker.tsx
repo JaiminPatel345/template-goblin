@@ -1,12 +1,13 @@
 import React, { useState } from 'react'
+import { type PageSize } from '@template-goblin/types'
+import { PageSizePicker, resolveChoice, type PageSizeChoice } from './PageSizePicker.js'
 
 /**
  * Empty-state onboarding picker. Shown on page 0 when no background has been
  * chosen yet. Offers two options:
  *   - Upload image: reuses the existing upload flow (PageSizeDialog follows).
- *   - Solid color: HTML `<input type="color">` + hex input, applied to page 0
- *     as `backgroundType: 'color'` with the chosen `#RRGGBB`.
- * Defaults to `#FFFFFF` if the user hits Apply without touching the picker.
+ *   - Solid color: HTML `<input type="color">` + hex input, then a page-size
+ *     step (A4 / Letter / Legal / A3 / A5 / Custom) before stamping page 0.
  */
 export function OnboardingPicker({
   isDragOver,
@@ -24,13 +25,17 @@ export function OnboardingPicker({
   onDragOver: (e: React.DragEvent) => void
   onDragLeave: () => void
   onChooseImage: () => void
-  onChooseColor: (hex: string) => void
+  onChooseColor: (hex: string, size: { pageSize: PageSize; width: number; height: number }) => void
   fileInputRef: React.RefObject<HTMLInputElement | null>
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   setContainerRef: (el: HTMLDivElement | null) => void
 }) {
-  const [mode, setMode] = useState<'choose' | 'color'>('choose')
+  const [mode, setMode] = useState<'choose' | 'color' | 'size'>('choose')
   const [color, setColor] = useState('#ffffff')
+  // Default to A4 since onboarding's first page has no "previous" to inherit.
+  const [sizeChoice, setSizeChoice] = useState<PageSizeChoice>('A4')
+  const [customWidth, setCustomWidth] = useState(595)
+  const [customHeight, setCustomHeight] = useState(842)
 
   return (
     <div
@@ -140,11 +145,38 @@ export function OnboardingPicker({
               </button>
               <button
                 className="tg-btn tg-btn--primary"
+                onClick={() => setMode('size')}
+                data-testid="onboarding-color-next"
+              >
+                Next: page size
+              </button>
+            </div>
+          </>
+        )}
+
+        {mode === 'size' && (
+          <>
+            <h2 className="tg-upload-title">Choose page size</h2>
+            <div style={{ maxWidth: 360, margin: '12px auto 0' }}>
+              <PageSizePicker
+                value={sizeChoice}
+                onChange={setSizeChoice}
+                customWidth={customWidth}
+                customHeight={customHeight}
+                setCustomWidth={setCustomWidth}
+                setCustomHeight={setCustomHeight}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
+              <button className="tg-btn" onClick={() => setMode('color')}>
+                Back
+              </button>
+              <button
+                className="tg-btn tg-btn--primary"
                 onClick={() => {
-                  // Normalise: default to white if the user cleared the input,
-                  // and lowercase the hex for consistency.
                   const hex = /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : '#ffffff'
-                  onChooseColor(hex)
+                  const size = resolveChoice(sizeChoice, customWidth, customHeight)
+                  onChooseColor(hex, size)
                 }}
                 data-testid="onboarding-color-apply"
               >

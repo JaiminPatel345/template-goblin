@@ -118,11 +118,15 @@ describe('generatePreviewHtml', () => {
       expect(html).toContain('<title>Test Template')
     })
 
-    it('contains @page rule with correct dimensions', async () => {
+    it('contains a named @page rule with correct dimensions', async () => {
+      // Per-page sized templates (#46/#47) emit one named @page rule per
+      // page (`@page page0 { size: ... }`) so Print → Save as PDF can pick
+      // a different sheet size for each section. The first page's rule is
+      // always present and uses the page's resolved size.
       const meta = { name: 'Custom', width: 612, height: 792 }
       const blob = await generatePreviewHtml([], meta, [], emptyData())
       const html = await blob.text()
-      expect(html).toContain('@page { size: 612pt 792pt; margin: 0; }')
+      expect(html).toMatch(/@page page0\s*\{\s*size:\s*612pt 792pt;\s*margin:\s*0;?\s*\}/)
     })
 
     it('contains print button', async () => {
@@ -447,7 +451,7 @@ describe('generatePreviewHtml', () => {
         emptyData(),
       )
       const html = await blob.text()
-      const sections = html.match(/<section class="page"/g) ?? []
+      const sections = html.match(/<section class="page page-\d+"/g) ?? []
       expect(sections.length).toBe(3)
     })
 
@@ -467,7 +471,7 @@ describe('generatePreviewHtml', () => {
       )
       const html = await blob.text()
       // Each section contains only its own field.
-      const m = html.split(/<section class="page"/)
+      const m = html.split(/<section class="page page-\d+"/)
       expect(m[1]).toContain('first')
       expect(m[1]).not.toContain('second')
       expect(m[2]).toContain('second')
@@ -489,7 +493,7 @@ describe('generatePreviewHtml', () => {
         { texts: { orphan: 'orphan!', on_p2: 'p2 only' }, tables: {}, images: {} },
       )
       const html = await blob.text()
-      const m = html.split(/<section class="page"/)
+      const m = html.split(/<section class="page page-\d+"/)
       expect(m[1]).toContain('orphan!')
       expect(m[1]).not.toContain('p2 only')
       expect(m[2]).toContain('p2 only')
@@ -522,8 +526,57 @@ describe('generatePreviewHtml', () => {
     it('emits a single implicit page when no pages are supplied', async () => {
       const blob = await generatePreviewHtml([], defaultMeta, [], emptyData())
       const html = await blob.text()
-      const sections = html.match(/<section class="page"/g) ?? []
+      const sections = html.match(/<section class="page page-\d+"/g) ?? []
       expect(sections.length).toBe(1)
+    })
+  })
+
+  describe('per-page sizing (#46/#47)', () => {
+    // Mixed-size templates need every page to print at its own dimensions,
+    // not the template-level meta. Three behaviours under test:
+    //   1. each page emits a named @page rule with the page's size
+    //   2. each <section> carries inline width/height for that size
+    //   3. pages without explicit width/height fall back to meta
+    it("emits a named @page rule per page using each page's declared size", async () => {
+      const blob = await generatePreviewHtml(
+        [],
+        { name: 'mixed', width: 595, height: 842 },
+        [
+          { id: 'p1', backgroundColor: '#fff', width: 595, height: 842 },
+          { id: 'p2', backgroundColor: '#fff', width: 612, height: 792 },
+        ],
+        emptyData(),
+      )
+      const html = await blob.text()
+      expect(html).toMatch(/@page page0\s*\{\s*size:\s*595pt 842pt/)
+      expect(html).toMatch(/@page page1\s*\{\s*size:\s*612pt 792pt/)
+    })
+
+    it("inlines each section's width/height in points", async () => {
+      const blob = await generatePreviewHtml(
+        [],
+        { name: 'mixed', width: 595, height: 842 },
+        [
+          { id: 'p1', backgroundColor: '#fff', width: 595, height: 842 },
+          { id: 'p2', backgroundColor: '#fff', width: 420, height: 595 },
+        ],
+        emptyData(),
+      )
+      const html = await blob.text()
+      expect(html).toMatch(/<section class="page page-0"[^>]*width:595pt;height:842pt/)
+      expect(html).toMatch(/<section class="page page-1"[^>]*width:420pt;height:595pt/)
+    })
+
+    it('falls back to meta when a page omits width/height', async () => {
+      const blob = await generatePreviewHtml(
+        [],
+        { name: 'legacy', width: 595, height: 842 },
+        [{ id: 'p1', backgroundColor: '#fff' }],
+        emptyData(),
+      )
+      const html = await blob.text()
+      expect(html).toMatch(/@page page0\s*\{\s*size:\s*595pt 842pt/)
+      expect(html).toMatch(/<section class="page page-0"[^>]*width:595pt;height:842pt/)
     })
   })
 })

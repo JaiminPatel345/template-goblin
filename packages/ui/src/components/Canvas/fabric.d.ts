@@ -19,6 +19,8 @@ declare module 'fabric' {
     __fieldType?: string
     /** Internal flag: marks Fabric objects that are part of the grid overlay. */
     __isGrid?: boolean
+    /** Internal flag: marks the non-interactive page-bounds outline rect. */
+    __isPageBounds?: boolean
     /** Default (un-selected) fill saved on the field's background Rect. */
     __defaultFill?: string
     /** Default (un-selected) stroke saved on the field's background Rect. */

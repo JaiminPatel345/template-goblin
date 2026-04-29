@@ -1,9 +1,16 @@
-import type { FieldDefinition, TextField, TableField } from '@template-goblin/types'
+import type { FieldDefinition } from '@template-goblin/types'
+import { esc, sc } from './previewEscape.js'
+import { renderTextHtml, renderTableHtml, renderImageHtml } from './previewFieldRenderers.js'
 
 /**
- * Per-page resolved background. Callers pre-resolve `inherit` and the legacy
- * `backgroundDataUrl` into either an image data URL or a solid colour, so the
- * preview generator doesn't need to know about the resolution rules.
+ * Per-page resolved background and size. Callers pre-resolve `inherit` and
+ * the legacy `backgroundDataUrl` into either an image data URL or a solid
+ * colour, and resolve per-page width/height (via `getPageSize`) so the
+ * preview generator doesn't need to know about resolution rules.
+ *
+ * `width`/`height` are optional — when omitted the renderer falls back to
+ * `meta.width`/`meta.height`. New per-page-sized templates (#46/#47) always
+ * include them so each PDF page prints at its own dimensions.
  */
 export interface PagePreviewInput {
   /** Stable page id, or `null` for the implicit (legacy) page 0. */
@@ -12,6 +19,10 @@ export interface PagePreviewInput {
   backgroundColor?: string | null
   /** Background image data URL. Wins over `backgroundColor` when present. */
   backgroundDataUrl?: string | null
+  /** Page width in points; falls back to `meta.width` when undefined. */
+  width?: number
+  /** Page height in points; falls back to `meta.height` when undefined. */
+  height?: number
 }
 
 /**
@@ -74,22 +85,43 @@ export async function generatePreviewHtml(
   // construction (caller is responsible for ordering).
   const firstPageId = pageList[0]?.id ?? null
 
+  // Resolve per-page dimensions up front so both the named-@page CSS rules
+  // and the per-section inline sizes use the same source of truth. Pages
+  // without explicit dimensions inherit `meta` (legacy single-size templates).
+  const resolvedSizes = pageList.map((p) => ({
+    width: p.width && p.width > 0 ? p.width : meta.width,
+    height: p.height && p.height > 0 ? p.height : meta.height,
+  }))
+  // Each page gets its own named @page rule so Print → Save as PDF emits
+  // sheets at the right size when pages mix dimensions (#46/#47). Chrome
+  // honours `@page name { size: ... }`; the `.page-N` class points the
+  // matching `<section>` at it via the `page` CSS property.
+  const pageRules = resolvedSizes
+    .map(
+      (sz, i) =>
+        `@page page${i} { size: ${sz.width}pt ${sz.height}pt; margin: 0; }\n  .page-${i} { page: page${i}; }`,
+    )
+    .join('\n  ')
+
   const pagesHtml = pageList
-    .map((page, idx) => renderPageHtml(page, idx, fields, data, imageDataUrls, firstPageId))
+    .map((page, idx) => {
+      // `resolvedSizes` is built from `pageList` so the index is always
+      // valid; the fallback to `meta` is defensive only.
+      const size = resolvedSizes[idx] ?? { width: meta.width, height: meta.height }
+      return renderPageHtml(page, idx, size, fields, data, imageDataUrls, firstPageId)
+    })
     .join('')
 
   const html = `<!DOCTYPE html>
 <html><head>
 <title>${esc(meta.name)} — Preview</title>
 <style>
-  @page { size: ${meta.width}pt ${meta.height}pt; margin: 0; }
+  ${pageRules}
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { font-family: Helvetica, Arial, sans-serif; background: #555; }
   body { padding-top: 48px; }
   .page {
     position: relative;
-    width: ${meta.width}pt;
-    height: ${meta.height}pt;
     margin: 0 auto 16px;
     overflow: hidden;
     background: #ffffff;
@@ -130,6 +162,7 @@ export async function generatePreviewHtml(
 function renderPageHtml(
   page: PagePreviewInput,
   pageIndex: number,
+  size: { width: number; height: number },
   fields: FieldDefinition[],
   data: {
     texts: Record<string, string>
@@ -214,236 +247,6 @@ function renderPageHtml(
 
   const bodyBg = sc(page.backgroundColor ?? '#ffffff')
   const bgImg = page.backgroundDataUrl ? `<img class="bg" src="${page.backgroundDataUrl}" />` : ''
-  return `<section class="page" style="background:${bodyBg}">${bgImg}${fieldsHtml}</section>`
-}
-
-// ─── Text rendering ─────────────────────────────────────────────────────────
-
-function renderTextHtml(field: TextField, value: string): string {
-  const s = field.style
-  const fontFamily = s.fontFamily || 'Helvetica'
-  // Effective font size: when `fontSizeDynamic` is set OR the declared size
-  // would overflow the rect at single-line/wrapped layout, shrink to the
-  // largest size that fits. This is the canvas's `fitFontSize` ported into
-  // the preview path (#44) so the printed PDF looks like what the user
-  // sees on the canvas.
-  const declared = typeof s.fontSize === 'number' && s.fontSize > 0 ? s.fontSize : 12
-  const innerPad = 2
-  const labelW = Math.max(1, field.width - innerPad * 2)
-  const labelH = Math.max(1, field.height - innerPad * 2)
-  const fitted = fitFontSize(value, labelW, labelH, fontFamily, s.lineHeight || 1.2)
-  // Honour the declared size only when it actually fits; otherwise clamp.
-  // `fontSizeDynamic` is a hint that the canvas was already auto-fitting,
-  // so the right size to print is the fitted one regardless.
-  const fontSize = s.fontSizeDynamic ? fitted : Math.min(declared, fitted)
-
-  const truncate = s.overflowMode === 'truncate'
-  const cls = `f${truncate ? ' f-truncate' : ''}`
-  const css =
-    `left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;` +
-    `padding:${innerPad}pt;` +
-    `font-family:${sc(fontFamily)},sans-serif;font-size:${fontSize}pt;` +
-    `font-weight:${s.fontWeight || 'normal'};font-style:${s.fontStyle || 'normal'};` +
-    `color:${sc(s.color || '#000')};text-align:${s.align || 'left'};` +
-    `line-height:${s.lineHeight || 1.2};` +
-    `text-decoration:${
-      s.textDecoration === 'underline'
-        ? 'underline'
-        : s.textDecoration === 'line-through'
-          ? 'line-through'
-          : 'none'
-    };` +
-    `display:flex;align-items:${
-      s.verticalAlign === 'middle'
-        ? 'center'
-        : s.verticalAlign === 'bottom'
-          ? 'flex-end'
-          : 'flex-start'
-    };justify-content:${
-      s.align === 'center' ? 'center' : s.align === 'right' ? 'flex-end' : 'flex-start'
-    }`
-  return `<div class="${cls}" style="${css}"><span style="width:100%">${esc(value)}</span></div>`
-}
-
-// ─── Table rendering ────────────────────────────────────────────────────────
-
-function renderTableHtml(field: TableField, rows: Record<string, string>[]): string {
-  const s = field.style
-  const cols = s.columns || []
-  if (cols.length === 0) return ''
-
-  // Clip rows to maxRows the same way the SDK does (#44). Without this,
-  // a 50-row payload renders in a 10-row rect and silently overflows the
-  // page rect — the bug visible in temp/preview.pdf as the table bleeding
-  // off the bottom edge.
-  const maxRows = s.maxRows && s.maxRows > 0 ? s.maxRows : rows.length
-  const limited = rows.slice(0, maxRows)
-
-  const hs = s.headerStyle
-  const rs = s.rowStyle
-
-  const showHeader = s.showHeader !== false
-  const hdr = showHeader
-    ? cols
-        .map((c) => {
-          const headerPt = c.headerStyle?.paddingTop ?? hs.paddingTop ?? 4
-          const headerPr = c.headerStyle?.paddingRight ?? hs.paddingRight ?? 6
-          const headerPb = c.headerStyle?.paddingBottom ?? hs.paddingBottom ?? 4
-          const headerPl = c.headerStyle?.paddingLeft ?? hs.paddingLeft ?? 6
-          const bw = c.headerStyle?.borderWidth ?? hs.borderWidth ?? 1
-          const bc = sc(c.headerStyle?.borderColor ?? hs.borderColor ?? '#000')
-          const bg = sc(c.headerStyle?.backgroundColor ?? hs.backgroundColor ?? '#f0f0f0')
-          const color = sc(c.headerStyle?.color ?? hs.color ?? '#000')
-          const fontSize = c.headerStyle?.fontSize ?? hs.fontSize ?? 10
-          const fontWeight = c.headerStyle?.fontWeight ?? hs.fontWeight ?? 'bold'
-          const align = sc(c.headerStyle?.align ?? hs.align ?? 'center')
-          return `<th style="padding:${headerPt}pt ${headerPr}pt ${headerPb}pt ${headerPl}pt;background:${bg};color:${color};font-size:${fontSize}pt;font-weight:${fontWeight};text-align:${align};border:${bw}pt solid ${bc};width:${c.width}pt">${esc(c.label || c.key)}</th>`
-        })
-        .join('')
-    : ''
-
-  const body = limited
-    .map(
-      (row) =>
-        '<tr>' +
-        cols
-          .map((c) => {
-            const rowPt = c.style?.paddingTop ?? rs.paddingTop ?? 4
-            const rowPr = c.style?.paddingRight ?? rs.paddingRight ?? 6
-            const rowPb = c.style?.paddingBottom ?? rs.paddingBottom ?? 4
-            const rowPl = c.style?.paddingLeft ?? rs.paddingLeft ?? 6
-            const bw = c.style?.borderWidth ?? rs.borderWidth ?? 1
-            const bc = sc(c.style?.borderColor ?? rs.borderColor ?? '#000')
-            const fontSize = c.style?.fontSize ?? rs.fontSize ?? 10
-            const color = sc(c.style?.color ?? rs.color ?? '#000')
-            const fontWeight = c.style?.fontWeight ?? rs.fontWeight ?? 'normal'
-            const align = sc(c.style?.align ?? rs.align ?? 'left')
-            return `<td style="padding:${rowPt}pt ${rowPr}pt ${rowPb}pt ${rowPl}pt;font-size:${fontSize}pt;color:${color};font-weight:${fontWeight};text-align:${align};border:${bw}pt solid ${bc};width:${c.width}pt">${esc(row[c.key] ?? '')}</td>`
-          })
-          .join('') +
-        '</tr>',
-    )
-    .join('')
-
-  const headHtml = showHeader ? `<thead><tr>${hdr}</tr></thead>` : ''
-  return `<div class="f" style="left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt"><table>${headHtml}<tbody>${body}</tbody></table></div>`
-}
-
-// ─── Image rendering ────────────────────────────────────────────────────────
-
-function renderImageHtml(
-  field: FieldDefinition,
-  filenameOrLabel: string,
-  imageDataUrls: Map<string, string>,
-): string {
-  // Look up the bitmap by filename (#44). When the resolver doesn't have
-  // an entry — e.g. dynamic image with no upload supplied yet — fall back
-  // to a labelled placeholder so the user can still see where the image
-  // belongs.
-  const dataUrl = imageDataUrls.get(filenameOrLabel)
-  const fit =
-    field.type === 'image' && field.style && typeof field.style === 'object'
-      ? ((field.style as { fit?: 'fill' | 'contain' | 'cover' }).fit ?? 'contain')
-      : 'contain'
-  const objectFit = fit === 'fill' ? 'fill' : fit === 'cover' ? 'cover' : 'contain'
-  if (dataUrl) {
-    const css = `left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt`
-    return `<div class="f-img" style="${css}"><img src="${dataUrl}" style="object-fit:${objectFit};display:block" /></div>`
-  }
-  const css = `left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;border:1pt dashed #ccc;display:flex;align-items:center;justify-content:center;color:#999;font-size:9pt;background:rgba(0,0,0,0.03)`
-  return `<div class="f" style="${css}">[${esc(filenameOrLabel)}]</div>`
-}
-
-// ─── Auto-fit text helper ───────────────────────────────────────────────────
-
-/**
- * Cached 2D context for measuring text. Reused across all `fitFontSize` calls
- * because creating a fresh canvas per call would dominate preview generation
- * time on templates with many text fields.
- */
-let _measureCtx: CanvasRenderingContext2D | null = null
-function getMeasureCtx(): CanvasRenderingContext2D | null {
-  if (typeof document === 'undefined') return null
-  if (_measureCtx) return _measureCtx
-  const cv = document.createElement('canvas')
-  _measureCtx = cv.getContext('2d')
-  return _measureCtx
-}
-
-/**
- * Fit font size to a bounding rect using greedy word-wrap and binary search.
- * Returns the largest integer size in `[6, min(rectHeight*0.9, 200)]` such
- * that the wrapped text fits within `rectWidth × rectHeight`.
- *
- * Mirrors `fitFontSize` in `Canvas/fabricUtils.ts` so the preview matches
- * the canvas. Pulling the canvas helper directly would force the preview
- * module to import Fabric.js, which is undesirable.
- */
-function fitFontSize(
-  text: string,
-  rectWidth: number,
-  rectHeight: number,
-  fontFamily: string,
-  lineHeightFactor: number,
-): number {
-  if (!text || rectWidth <= 0 || rectHeight <= 0) return 6
-  const ctx = getMeasureCtx()
-  if (!ctx) return Math.max(6, Math.min(200, Math.floor(rectHeight * 0.7)))
-
-  const upper = Math.max(6, Math.min(200, Math.floor(rectHeight * 0.9)))
-  let lo = 6
-  let hi = upper
-  let best = 6
-  const lh = lineHeightFactor > 0 ? lineHeightFactor : 1.2
-
-  while (lo <= hi) {
-    const mid = Math.floor((lo + hi) / 2)
-    ctx.font = `${mid}px ${fontFamily}`
-    const lines = wrapToLines(ctx, text, rectWidth)
-    const totalH = lines.length * mid * lh
-    const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0)
-    if (maxW <= rectWidth && totalH <= rectHeight) {
-      best = mid
-      lo = mid + 1
-    } else {
-      hi = mid - 1
-    }
-  }
-  return best
-}
-
-function wrapToLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  if (maxWidth <= 0) return [text]
-  const words = text.split(/\s+/).filter(Boolean)
-  if (words.length === 0) return ['']
-  const lines: string[] = []
-  let current = ''
-  for (const w of words) {
-    const test = current ? `${current} ${w}` : w
-    if (ctx.measureText(test).width <= maxWidth || current === '') {
-      current = test
-    } else {
-      lines.push(current)
-      current = w
-    }
-  }
-  if (current) lines.push(current)
-  return lines
-}
-
-// ─── Escape helpers ─────────────────────────────────────────────────────────
-
-function esc(t: string): string {
-  return t
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-}
-
-function sc(v: unknown): string {
-  if (typeof v === 'number') return String(v)
-  if (typeof v !== 'string') return '0'
-  return /^[a-zA-Z0-9#.,\s%-]+$/.test(v) ? v : '0'
+  const inlineSize = `width:${size.width}pt;height:${size.height}pt;`
+  return `<section class="page page-${pageIndex}" style="${inlineSize}background:${bodyBg}">${bgImg}${fieldsHtml}</section>`
 }
