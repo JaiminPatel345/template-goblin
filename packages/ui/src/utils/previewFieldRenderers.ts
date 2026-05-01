@@ -46,7 +46,10 @@ export function renderTextHtml(field: TextField, value: string): string {
           : 'none'
     };` +
     `display:flex;align-items:${
-      s.verticalAlign === 'middle'
+      // Mirror the horizontal-align default — undefined verticalAlign
+      // defaults to 'middle' (GH #39), so the flexbox cross-axis
+      // alignment matches.
+      !s.verticalAlign || s.verticalAlign === 'middle'
         ? 'center'
         : s.verticalAlign === 'bottom'
           ? 'flex-end'
