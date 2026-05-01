@@ -28,10 +28,19 @@ export interface PageBoundsDeps {
   fabricInstance: FabricCanvas | null
   /** Current page's bounds in points. Same shape as `useFabricSync`'s `meta`. */
   meta: { width: number; height: number }
+  /**
+   * Solid background colour for the current page, or `null` when the page
+   * has no colour fill (image bg, inherited image, or no bg at all). The
+   * page-bounds rect carries this as its `fill` so the colour stays inside
+   * the page rect — using Fabric's `canvas.backgroundColor` instead would
+   * paint the entire framebuffer, bleeding past the page edges
+   * (originally surfaced after save→reopen on a coloured A4 template).
+   */
+  pageFillColor: string | null
 }
 
 export function usePageBoundsEnforcement(deps: PageBoundsDeps) {
-  const { fabricRef, fabricInstance, meta } = deps
+  const { fabricRef, fabricInstance, meta, pageFillColor } = deps
 
   useEffect(() => {
     const fc = fabricRef.current
@@ -47,11 +56,11 @@ export function usePageBoundsEnforcement(deps: PageBoundsDeps) {
     })
 
     // Refresh the outline rect — remove any stale one first so a page
-    // resize doesn't leave the previous border behind.
+    // resize / colour change doesn't leave the previous one behind.
     const stale = fc.getObjects().filter((o) => o.__isPageBounds)
     if (stale.length > 0) fc.remove(...stale)
 
-    const outline = buildPageBoundsRect(meta.width, meta.height)
+    const outline = buildPageBoundsRect(meta.width, meta.height, pageFillColor)
     fc.add(outline)
     fc.sendObjectToBack(outline)
 
@@ -71,20 +80,27 @@ export function usePageBoundsEnforcement(deps: PageBoundsDeps) {
       fc.off('object:moving', onMoving)
       fc.off('object:scaling', onScaling)
     }
-  }, [fabricRef, fabricInstance, meta.width, meta.height])
+  }, [fabricRef, fabricInstance, meta.width, meta.height, pageFillColor])
 }
 
 /**
- * Build the non-interactive page-bounds outline rect. Exported so tests can
- * assert its shape without mounting the canvas hook.
+ * Build the non-interactive page-bounds rect. Carries the visible page
+ * edge as `stroke`, and the page colour (if any) as `fill` so the colour
+ * stays clipped to the page rect rather than spilling across the whole
+ * canvas framebuffer. Exported so tests can assert its shape without
+ * mounting the hook.
  */
-export function buildPageBoundsRect(width: number, height: number): FabricRect {
+export function buildPageBoundsRect(
+  width: number,
+  height: number,
+  fillColor: string | null = null,
+): FabricRect {
   const r = new FabricRect({
     left: 0,
     top: 0,
     width,
     height,
-    fill: 'transparent',
+    fill: fillColor ?? 'transparent',
     stroke: 'rgba(120, 120, 140, 0.6)',
     strokeWidth: 1,
     strokeUniform: true,

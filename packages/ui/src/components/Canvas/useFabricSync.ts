@@ -177,16 +177,15 @@ export function useFabricSync(deps: SyncDeps) {
         scaleY: meta.height / imgH,
       })
       fc.backgroundImage = fabricImg
-      fc.backgroundColor = ''
-    } else if (currentBgColor) {
-      // Solid-colour background — Fabric's native canvas.backgroundColor
-      // ensures the page colour is always visible regardless of zoom/pan.
-      fc.backgroundImage = undefined
-      fc.backgroundColor = currentBgColor
     } else {
       fc.backgroundImage = undefined
-      fc.backgroundColor = ''
     }
+    // The page colour is painted by the page-bounds rect (managed in
+    // `usePageBoundsEnforcement`), NOT by `canvas.backgroundColor` — the
+    // latter would fill the whole framebuffer and spill outside the page
+    // rect. Keep `canvas.backgroundColor` empty so only the rect's `fill`
+    // shows.
+    fc.backgroundColor = ''
     fc.requestRenderAll()
   }, [fabricRef, fabricInstance, bgImage, currentBgColor, meta.width, meta.height])
 
@@ -271,5 +270,5 @@ export function useFabricSync(deps: SyncDeps) {
   }, [fabricRef, fabricInstance, isPlacing])
 
   // ═══════════════ Page bounds: clip + outline + clamp (#46/#47) ═════════
-  usePageBoundsEnforcement({ fabricRef, fabricInstance, meta })
+  usePageBoundsEnforcement({ fabricRef, fabricInstance, meta, pageFillColor: currentBgColor })
 }

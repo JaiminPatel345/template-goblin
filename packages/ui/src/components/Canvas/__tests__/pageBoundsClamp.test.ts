@@ -9,7 +9,7 @@
  * the page rect in the first place.
  */
 import { describe, it, expect } from 'vitest'
-import { clampToPage } from '../usePageBoundsEnforcement.js'
+import { clampToPage, buildPageBoundsRect } from '../usePageBoundsEnforcement.js'
 
 interface FakeRect {
   left: number
@@ -93,5 +93,28 @@ describe('clampToPage', () => {
     expect(moved).toBe(true)
     expect(obj._state().left).toBe(595 - 100)
     expect(obj._state().top).toBe(842 - 100)
+  })
+})
+
+describe('buildPageBoundsRect — page colour fill', () => {
+  // Regression guard for the save→reopen colour-spill bug: the page
+  // colour MUST be carried as the page-bounds rect's `fill`, not as
+  // `canvas.backgroundColor` (which would paint the whole framebuffer).
+  it('carries the supplied page colour as `fill`', () => {
+    const r = buildPageBoundsRect(595, 842, '#aa3939')
+    expect(r.fill).toBe('#aa3939')
+  })
+
+  it('falls back to transparent fill when no colour is supplied', () => {
+    const r = buildPageBoundsRect(595, 842, null)
+    expect(r.fill).toBe('transparent')
+  })
+
+  it('marks the rect as page-bounds and excludes it from export', () => {
+    const r = buildPageBoundsRect(595, 842, '#fff')
+    expect(r.__isPageBounds).toBe(true)
+    expect(r.excludeFromExport).toBe(true)
+    expect(r.selectable).toBe(false)
+    expect(r.evented).toBe(false)
   })
 })
