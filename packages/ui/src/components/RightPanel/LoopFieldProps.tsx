@@ -125,7 +125,7 @@ export function LoopFieldProps({ field }: Props) {
   // Column-level align: lives on the per-column `style` override. We treat a
   // missing override as "inherit row align".
   function columnAlign(col: TableColumn): TextAlign {
-    return (col.style?.align as TextAlign | undefined) ?? rowStyle.align ?? 'left'
+    return (col.style?.align as TextAlign | undefined) ?? rowStyle.align ?? 'center'
   }
   function setColumnAlign(index: number, align: TextAlign) {
     const existing = columns[index]?.style ?? {}
