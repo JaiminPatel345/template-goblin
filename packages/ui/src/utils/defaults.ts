@@ -32,8 +32,11 @@ export function defaultCellStyle(overrides: Partial<CellStyle> = {}): CellStyle 
     paddingBottom: 2,
     paddingLeft: 4,
     paddingRight: 4,
-    align: 'left',
-    verticalAlign: 'top',
+    // GH #39: new fields default to centred horizontally + vertically.
+    // Most templates centre title-style content; left+top forced users to
+    // change two settings on every new field.
+    align: 'center',
+    verticalAlign: 'middle',
     ...overrides,
   }
 }
@@ -53,9 +56,8 @@ export function defaultTextStyle(): TextFieldStyle {
     fontStyle: 'normal',
     textDecoration: 'none',
     color: '#000000',
-    align: 'left',
-    // Canvas centres text vertically by default; surface that as the
-    // panel's default selection so the picker matches what's rendered.
+    // GH #39: new text fields default to centred horizontally + vertically.
+    align: 'center',
     verticalAlign: 'middle',
     maxRows: 3,
     overflowMode: 'dynamic_font',
@@ -82,9 +84,8 @@ export function defaultTableStyle(): TableFieldStyle {
     headerStyle: defaultCellStyle({
       fontWeight: 'bold',
       backgroundColor: '#f0f0f0',
-      align: 'left',
     }),
-    rowStyle: defaultCellStyle({ backgroundColor: '#ffffff', align: 'left' }),
+    rowStyle: defaultCellStyle({ backgroundColor: '#ffffff' }),
     oddRowStyle: null,
     evenRowStyle: null,
     cellStyle: { overflowMode: 'dynamic_font' },
