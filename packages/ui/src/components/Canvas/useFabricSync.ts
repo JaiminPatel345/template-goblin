@@ -2,9 +2,13 @@
  * useFabricSync — reconciliation effects that keep the Fabric canvas in sync
  * with the store (fields, selection, background, grid, zoom, resize).
  *
- * Each concern is a separate useEffect so React can skip unchanged deps.
+ * Each concern is a separate `useEffect` so React can skip unchanged deps.
+ *
+ * Sister hooks (split out per CLAUDE.md Hard Rule #11):
+ *   - `useFabricImages` — bg / placeholder / static image loading.
+ *   - `usePageBoundsEnforcement` — clipPath + outline rect + clamp handlers.
  */
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect } from 'react'
 import {
   type Canvas as FabricCanvas,
   FabricImage,
@@ -12,7 +16,6 @@ import {
   type Group as FabricGroup,
 } from 'fabric'
 import type { FabricObject } from 'fabric'
-import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import type { FieldDefinition } from '@template-goblin/types'
 import {
@@ -23,6 +26,11 @@ import {
   fitZoomLevel,
   type ImageResolver,
 } from './fabricUtils.js'
+import { usePageBoundsEnforcement } from './usePageBoundsEnforcement.js'
+
+// Re-export image hooks so existing `import { useBackgroundImage, ... } from './useFabricSync'`
+// callers don't have to update their imports immediately.
+export { useBackgroundImage, usePlaceholderImages, useImageResolver } from './useFabricImages.js'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -46,6 +54,13 @@ export interface SyncDeps {
   bgImage: HTMLImageElement | null
   currentBgColor: string | null
   resolveImage: ImageResolver
+  /**
+   * Bounds of the *current* page, in points. Drives canvas clipping,
+   * page-rect outline, grid extents, zoom-fit, and move/scale clamping.
+   * For multi-page templates with mixed sizes, callers pass the page the
+   * user is currently viewing (`getPageSize(currentPage, meta)`), not the
+   * template-level meta.
+   */
   meta: { width: number; height: number }
   selectedFieldIds: string[]
   showGrid: boolean
@@ -81,14 +96,13 @@ export function useFabricSync(deps: SyncDeps) {
 
     const existing = new Map<string, FabricGroup>()
     fc.getObjects().forEach((o) => {
-      if (o.__fieldId && !o.__isGrid) {
+      if (o.__fieldId && !o.__isGrid && !o.__isPageBounds) {
         existing.set(o.__fieldId, o as FabricGroup)
       }
     })
 
     const sorted = [...pageFields].sort((a, b) => a.zIndex - b.zIndex)
 
-    // Add / patch.
     sorted.forEach((field) => {
       const g = existing.get(field.id)
       if (g) {
@@ -100,14 +114,15 @@ export function useFabricSync(deps: SyncDeps) {
       }
     })
 
-    // Remove stale groups
     existing.forEach((g) => fc.remove(g))
 
-    // Enforce z-index ordering (REQ-049)
-    const gridCount = fc.getObjects().filter((o) => o.__isGrid).length
+    // Enforce z-index ordering (REQ-049). Background-only Fabric objects
+    // (grid lines, page-bounds outline) sit at the bottom of the stack;
+    // field groups slot in above them, preserving their declared zIndex.
+    const ambientCount = fc.getObjects().filter((o) => o.__isGrid || o.__isPageBounds).length
     sorted.forEach((field, idx) => {
       const g = fc.getObjects().find((o) => o.__fieldId === field.id)
-      if (g) fc.moveObjectTo(g, gridCount + idx)
+      if (g) fc.moveObjectTo(g, ambientCount + idx)
     })
 
     fc.requestRenderAll()
@@ -162,19 +177,15 @@ export function useFabricSync(deps: SyncDeps) {
         scaleY: meta.height / imgH,
       })
       fc.backgroundImage = fabricImg
-      fc.backgroundColor = ''
-    } else if (currentBgColor) {
-      // Solid-colour background: use Fabric's native canvas.backgroundColor so
-      // that the page colour is always visible regardless of zoom/pan.  The
-      // previous implementation set backgroundImage to a Rect which is a type
-      // mismatch (Fabric v6 types backgroundImage as FabricImage) and can cause
-      // the Rect to silently fail to render when it has no canvas reference.
-      fc.backgroundImage = undefined
-      fc.backgroundColor = currentBgColor
     } else {
       fc.backgroundImage = undefined
-      fc.backgroundColor = ''
     }
+    // The page colour is painted by the page-bounds rect (managed in
+    // `usePageBoundsEnforcement`), NOT by `canvas.backgroundColor` — the
+    // latter would fill the whole framebuffer and spill outside the page
+    // rect. Keep `canvas.backgroundColor` empty so only the rect's `fill`
+    // shows.
+    fc.backgroundColor = ''
     fc.requestRenderAll()
   }, [fabricRef, fabricInstance, bgImage, currentBgColor, meta.width, meta.height])
 
@@ -211,7 +222,6 @@ export function useFabricSync(deps: SyncDeps) {
   useEffect(() => {
     const fc = fabricRef.current
     if (!fc || meta.width <= 0 || meta.height <= 0) return
-    // Wait for container to have dimensions
     const canW = containerRef.current?.clientWidth ?? fc.width ?? 800
     const canH = containerRef.current?.clientHeight ?? fc.height ?? 600
     const z = fitZoomLevel(meta.width, meta.height, canW, canH, 40)
@@ -222,7 +232,9 @@ export function useFabricSync(deps: SyncDeps) {
   // Depend on `containerEl` (state mirror) and `fabricInstance` rather than
   // the ref objects — refs have stable identity so the old implementation
   // stayed bound to the onboarding picker's <div> after the canvas subtree
-  // mounted on the first visit (GH #17).
+  // mounted on the first visit (GH #17). Viewport recentre uses the
+  // *current page's* bounds (deps.meta) so multi-page templates with mixed
+  // sizes recentre correctly after a window resize (#46/#47).
   useEffect(() => {
     if (!containerEl || !fabricInstance) return
 
@@ -234,16 +246,15 @@ export function useFabricSync(deps: SyncDeps) {
       fc.setDimensions({ width: w, height: h })
 
       const z = fc.getZoom()
-      const { width: pw, height: ph } = useTemplateStore.getState().meta
-      if (pw > 0 && ph > 0) {
-        const vpt = centreViewport(z, pw, ph, w, h)
+      if (meta.width > 0 && meta.height > 0) {
+        const vpt = centreViewport(z, meta.width, meta.height, w, h)
         fc.setViewportTransform(vpt)
         fc.requestRenderAll()
       }
     })
     observer.observe(containerEl)
     return () => observer.disconnect()
-  }, [fabricRef, fabricInstance, containerEl])
+  }, [fabricRef, fabricInstance, containerEl, meta.width, meta.height])
 
   // ═══════════════ Cursor sync (REQ-043) ═════════════════════════════════
   useEffect(() => {
@@ -257,95 +268,7 @@ export function useFabricSync(deps: SyncDeps) {
       fc.hoverCursor = 'move'
     }
   }, [fabricRef, fabricInstance, isPlacing])
-}
 
-// ─── Standalone hooks for background & placeholder image loading ─────────────
-
-/** Loads the current page's background as an HTMLImageElement. */
-export function useBackgroundImage(currentBgDataUrl: string | null) {
-  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null)
-
-  useEffect(() => {
-    if (!currentBgDataUrl) {
-      setBgImage(null)
-      return
-    }
-    const img = new window.Image()
-    img.src = currentBgDataUrl
-    img.onload = () => setBgImage(img)
-  }, [currentBgDataUrl])
-
-  return bgImage
-}
-
-/** Builds a Map<filename, HTMLImageElement> from placeholder/static buffers. */
-export function usePlaceholderImages(
-  fields: FieldDefinition[],
-  placeholderBuffers: Map<string, ArrayBuffer>,
-  staticImageBuffers: Map<string, ArrayBuffer>,
-): Map<string, HTMLImageElement> {
-  const [images, setImages] = useState<Map<string, HTMLImageElement>>(new Map())
-
-  useEffect(() => {
-    const filenames = new Set<string>()
-    for (const f of fields) {
-      if (f.type !== 'image' || !f.source) continue
-      if (f.source.mode === 'dynamic') {
-        const ph = f.source.placeholder as unknown
-        if (ph && typeof ph === 'object' && 'filename' in ph) {
-          const name = (ph as { filename: unknown }).filename
-          if (typeof name === 'string' && name.length > 0) filenames.add(name)
-        }
-      } else if (f.source.mode === 'static') {
-        const v = f.source.value as unknown
-        if (v && typeof v === 'object' && 'filename' in v) {
-          const name = (v as { filename: unknown }).filename
-          if (typeof name === 'string' && name.length > 0) filenames.add(name)
-        }
-      }
-    }
-
-    const next = new Map<string, HTMLImageElement>()
-    let pending = 0
-    let resolved = 0
-    filenames.forEach((filename) => {
-      const buf = placeholderBuffers.get(filename) ?? staticImageBuffers.get(filename)
-      if (!buf) return
-      pending++
-      const blob = new Blob([buf])
-      const url = URL.createObjectURL(blob)
-      const img = new window.Image()
-      img.onload = () => {
-        next.set(filename, img)
-        resolved++
-        if (resolved === pending) setImages(new Map(next))
-      }
-      img.onerror = () => {
-        resolved++
-        if (resolved === pending) setImages(new Map(next))
-      }
-      img.src = url
-    })
-
-    if (pending === 0) setImages(new Map())
-  }, [fields, placeholderBuffers, staticImageBuffers])
-
-  return images
-}
-
-/** Creates an ImageResolver function from loaded images + static data URLs. */
-export function useImageResolver(
-  placeholderImages: Map<string, HTMLImageElement>,
-  staticImageDataUrls: Map<string, string>,
-): ImageResolver {
-  return useCallback(
-    (filename: string): string | null => {
-      const img = placeholderImages.get(filename)
-      if (img) return img.src
-      const url = staticImageDataUrls.get(filename)
-      if (url) return url
-      return null
-    },
-    [placeholderImages, staticImageDataUrls],
-  )
+  // ═══════════════ Page bounds: clip + outline + clamp (#46/#47) ═════════
+  usePageBoundsEnforcement({ fabricRef, fabricInstance, meta, pageFillColor: currentBgColor })
 }

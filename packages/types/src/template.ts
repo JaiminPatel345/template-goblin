@@ -1,7 +1,7 @@
 import type { FieldSource } from './source.js'
 
 /** Page size presets supported by the template */
-export type PageSize = 'custom' | 'A4' | 'A3' | 'Letter' | 'Legal'
+export type PageSize = 'custom' | 'A3' | 'A4' | 'A5' | 'Letter' | 'Legal'
 
 /** Field types available in a template */
 export type FieldType = 'text' | 'image' | 'table'
@@ -159,6 +159,16 @@ export interface PageDefinition {
   backgroundColor: string | null
   /** Background image filename in ZIP — used when backgroundType is 'image' */
   backgroundFilename: string | null
+  /**
+   * Per-page width in points. When omitted, callers must fall back to
+   * `meta.width`. Older templates saved before per-page sizing don't carry
+   * this field — `getPageSize(page, meta)` is the canonical resolver.
+   */
+  width?: number
+  /** Per-page height in points (see `width`). */
+  height?: number
+  /** Page size preset. `'custom'` indicates `width`/`height` are user-chosen. */
+  pageSize?: PageSize
 }
 
 /** Common geometric and organizational properties shared by every field type. */

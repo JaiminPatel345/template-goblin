@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { getPageSize } from '@template-goblin/types'
 import { useTemplateStore } from '../store/templateStore.js'
 import { useUiStore } from '../store/uiStore.js'
 import { saveTemplate, openTemplate } from '../utils/saveOpen.js'
@@ -52,22 +53,33 @@ export function useKeyboard(): void {
       // Both are wired into `uiStore`. We query the live canvas container by
       // data-testid so we can pass its real pixel size to `fitZoom`; if not
       // found (onboarding state), we fall back to the window size.
+      // Resolve the *current page*'s size — the zoom-to-fit and recentre
+      // ops below should track whichever page the user is looking at, not
+      // the template-level meta (mixed-size multi-page templates, #46/#47).
+      function currentPageBounds() {
+        const t = useTemplateStore.getState()
+        const u = useUiStore.getState()
+        const cur = t.pages.find((p) => p.id === u.currentPageId) ?? null
+        const page0 = t.pages.find((p) => p.index === 0) ?? null
+        return getPageSize(cur ?? page0, t.meta)
+      }
+
       if (isMod && e.key === '0') {
         e.preventDefault()
-        const tmpl = useTemplateStore.getState()
         const ui = useUiStore.getState()
         const container = document.querySelector<HTMLDivElement>(
           '[data-testid="canvas-stage-wrapper"]',
         )?.parentElement as HTMLDivElement | null
         const cw = container?.clientWidth ?? window.innerWidth
         const ch = container?.clientHeight ?? window.innerHeight
-        ui.fitZoom(cw, ch, tmpl.meta.width, tmpl.meta.height, 16)
+        const bounds = currentPageBounds()
+        ui.fitZoom(cw, ch, bounds.width, bounds.height, 16)
         // Recentre the page inside the viewport.
         if (container) {
           requestAnimationFrame(() => {
             const newZoom = useUiStore.getState().zoom
-            const stageW = tmpl.meta.width * newZoom
-            const stageH = tmpl.meta.height * newZoom
+            const stageW = bounds.width * newZoom
+            const stageH = bounds.height * newZoom
             container.scrollLeft = Math.max(0, (stageW - container.clientWidth) / 2)
             container.scrollTop = Math.max(0, (stageH - container.clientHeight) / 2)
           })
@@ -77,17 +89,17 @@ export function useKeyboard(): void {
 
       if (isMod && e.key === '1') {
         e.preventDefault()
-        const tmpl = useTemplateStore.getState()
         const ui = useUiStore.getState()
         const oldZoom = ui.zoom
         const container = document.querySelector<HTMLDivElement>(
           '[data-testid="canvas-stage-wrapper"]',
         )?.parentElement as HTMLDivElement | null
+        const bounds = currentPageBounds()
         // Remember the canvas point at the viewport centre so we can restore
         // it after the zoom change (AC-043 "viewport centre remains at the
         // same canvas point").
-        let canvasCx = tmpl.meta.width / 2
-        let canvasCy = tmpl.meta.height / 2
+        let canvasCx = bounds.width / 2
+        let canvasCy = bounds.height / 2
         if (container && oldZoom > 0) {
           canvasCx = (container.scrollLeft + container.clientWidth / 2) / oldZoom
           canvasCy = (container.scrollTop + container.clientHeight / 2) / oldZoom

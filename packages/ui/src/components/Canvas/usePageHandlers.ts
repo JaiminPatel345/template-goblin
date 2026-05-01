@@ -1,14 +1,15 @@
 /**
- * usePageHandlers — page management, file upload, and element-creation popup
- * logic extracted from CanvasArea for separation of concerns.
+ * usePageHandlers — page management + onboarding file upload, extracted from
+ * CanvasArea for separation of concerns. The element-creation popup lives in
+ * its own hook (`useFieldCreationPopup`) so this file stays under the
+ * 300-line cap (CLAUDE.md Hard Rule #11).
  */
 import { useState, useCallback, useRef } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
-import { createDefaultField } from '../../utils/defaults.js'
 import { snapshotSameAsPrevious } from '../../utils/pageSnapshot.js'
-import type { FieldDefinition, PageDefinition, PageBackgroundType } from '@template-goblin/types'
-import type { FieldCreationDraft, SourceInputs } from './FieldCreationPopup.js'
+import { type PageDefinition, type PageBackgroundType, type PageSize } from '@template-goblin/types'
+import { useFieldCreationPopup } from './useFieldCreationPopup.js'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -21,7 +22,6 @@ function generatePageId(): string {
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function usePageHandlers() {
-  const addField = useTemplateStore((s) => s.addField)
   const addPage = useTemplateStore((s) => s.addPage)
   const removePage = useTemplateStore((s) => s.removePage)
   const reset = useTemplateStore((s) => s.reset)
@@ -29,7 +29,6 @@ export function usePageHandlers() {
   const pageBackgroundDataUrls = useTemplateStore((s) => s.pageBackgroundDataUrls)
   const pageBackgroundBuffers = useTemplateStore((s) => s.pageBackgroundBuffers)
 
-  const selectField = useUiStore((s) => s.selectField)
   const clearSelection = useUiStore((s) => s.clearSelection)
   const setCurrentPage = useUiStore((s) => s.setCurrentPage)
   const setPendingBackground = useUiStore((s) => s.setPendingBackground)
@@ -37,67 +36,9 @@ export function usePageHandlers() {
 
   const [showAddPageDialog, setShowAddPageDialog] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
-  const [pendingDraft, setPendingDraft] = useState<FieldCreationDraft | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // ── Element-creation popup ─────────────────────────────────────────────
-
-  const handlePopupConfirm = useCallback(
-    (label: string, source: SourceInputs) => {
-      if (!pendingDraft) return
-      const base = createDefaultField(pendingDraft.type, {
-        id: '',
-        groupId: pendingDraft.groupId,
-        pageId: pendingDraft.pageId,
-        x: pendingDraft.x,
-        y: pendingDraft.y,
-        width: pendingDraft.width,
-        height: pendingDraft.height,
-        zIndex: pendingDraft.zIndex,
-      })
-
-      if (source.mode === 'static' && source.image) {
-        useTemplateStore
-          .getState()
-          .addStaticImage(source.image.filename, source.image.dataUrl, source.image.buffer)
-      }
-
-      const withUserInput: FieldDefinition = (() => {
-        if (source.mode === 'static') {
-          if (base.type === 'text') {
-            return { ...base, label, source: { mode: 'static', value: source.value } }
-          }
-          if (base.type === 'image') {
-            const filename = source.image?.filename ?? ''
-            return { ...base, label, source: { mode: 'static', value: { filename } } }
-          }
-          return { ...base, label, source: { mode: 'static', value: [] } }
-        }
-        const ph = base.type === 'text' ? source.placeholder || null : null
-        return {
-          ...base,
-          label,
-          source: {
-            mode: 'dynamic',
-            jsonKey: source.jsonKey,
-            required: source.required,
-            placeholder: ph as never,
-          },
-        } as FieldDefinition
-      })()
-
-      addField(withUserInput)
-      setTimeout(() => {
-        const currentFields = useTemplateStore.getState().fields
-        const newField = currentFields[currentFields.length - 1]
-        if (newField) selectField(newField.id)
-      }, 0)
-      setPendingDraft(null)
-    },
-    [pendingDraft, addField, selectField],
-  )
-
-  const handlePopupCancel = useCallback(() => setPendingDraft(null), [])
+  const { pendingDraft, setPendingDraft, handlePopupConfirm, handlePopupCancel } =
+    useFieldCreationPopup()
 
   // ── File upload ────────────────────────────────────────────────────────
 
@@ -156,7 +97,12 @@ export function usePageHandlers() {
   // ── Add page ───────────────────────────────────────────────────────────
 
   const handleAddPage = useCallback(
-    (bgType: PageBackgroundType, bgColor?: string, bgFile?: File) => {
+    (
+      bgType: PageBackgroundType,
+      size: { pageSize: PageSize; width: number; height: number },
+      bgColor?: string,
+      bgFile?: File,
+    ) => {
       setShowAddPageDialog(false)
       const pageId = generatePageId()
       // If the user onboarded via image there's a legacy background stored in
@@ -169,18 +115,21 @@ export function usePageHandlers() {
       const hasLegacyPage0 = legacyBg !== null && !pages.some((p) => p.index === 0)
       const index = pages.length + (hasLegacyPage0 ? 1 : 0)
 
+      const sized = { width: size.width, height: size.height, pageSize: size.pageSize }
+
       if (bgType === 'inherit') {
         const { page: snap, sourceId } = snapshotSameAsPrevious(pages, pageId, index)
+        const snapWithSize: PageDefinition = { ...snap, ...sized }
         if (snap.backgroundType === 'image' && sourceId) {
           const prevDataUrl = pageBackgroundDataUrls.get(sourceId) ?? null
           const prevBuffer = pageBackgroundBuffers.get(sourceId) ?? null
           if (prevDataUrl && prevBuffer) {
-            addPage(snap, prevDataUrl, prevBuffer.slice(0))
+            addPage(snapWithSize, prevDataUrl, prevBuffer.slice(0))
           } else {
-            addPage(snap)
+            addPage(snapWithSize)
           }
         } else {
-          addPage(snap)
+          addPage(snapWithSize)
         }
         setCurrentPage(pageId)
         return
@@ -192,6 +141,7 @@ export function usePageHandlers() {
         backgroundType: bgType,
         backgroundColor: bgType === 'color' ? (bgColor ?? '#ffffff') : null,
         backgroundFilename: bgType === 'image' ? `backgrounds/${pageId}.png` : null,
+        ...sized,
       }
 
       if (bgType === 'image' && bgFile) {

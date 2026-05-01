@@ -10,6 +10,7 @@
  *   - AddPageDialog    → add-page dialog
  */
 import React, { useRef, useCallback, useState } from 'react'
+import { getPageSize } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { FieldCreationPopup } from './FieldCreationPopup.js'
@@ -161,6 +162,15 @@ export function CanvasArea() {
   const isPlacing =
     activeTool === 'addText' || activeTool === 'addImage' || activeTool === 'addLoop'
 
+  // Resolve the *current page*'s size — drives canvas clipping, page-bounds
+  // outline, grid extents, zoom-fit, and move/scale clamping. For legacy
+  // single-page templates with no `pages[]` entry we fall through to
+  // `meta`. For multi-page templates with mixed sizes the canvas resizes
+  // when the user switches tabs (#46/#47).
+  const currentPage = pages.find((p) => p.id === currentPageId) ?? null
+  const fallbackPage = pages.find((p) => p.index === 0) ?? null
+  const pageBounds = getPageSize(currentPage ?? fallbackPage, meta)
+
   // ── Sync effects ───────────────────────────────────────────────────────
   useFabricSync({
     fabricRef,
@@ -171,7 +181,7 @@ export function CanvasArea() {
     bgImage,
     currentBgColor,
     resolveImage,
-    meta,
+    meta: pageBounds,
     selectedFieldIds,
     showGrid,
     gridSize,
@@ -205,11 +215,11 @@ export function CanvasArea() {
         onDragOver={pageHandlers.handleDragOver}
         onDragLeave={pageHandlers.handleDragLeave}
         onChooseImage={() => pageHandlers.fileInputRef.current?.click()}
-        onChooseColor={(hex) => {
+        onChooseColor={(hex, size) => {
           // Reset currentPageId to null so stale persisted ids don't prevent
           // useCurrentBackground from resolving the newly created page 0.
           setCurrentPage(null)
-          setPage0BackgroundColor(hex)
+          setPage0BackgroundColor(hex, size)
         }}
         fileInputRef={pageHandlers.fileInputRef}
         onFileChange={pageHandlers.handleInputChange}
@@ -246,6 +256,14 @@ export function CanvasArea() {
         <AddPageDialog
           onClose={() => pageHandlers.setShowAddPageDialog(false)}
           onAdd={pageHandlers.handleAddPage}
+          previousSize={(() => {
+            // The "previous" page is whichever sheet the user is currently
+            // looking at. Falls back to the highest-indexed page, then to
+            // template meta if no explicit pages exist (legacy onboarding).
+            const cur = pages.find((p) => p.id === currentPageId)
+            const last = [...pages].sort((a, b) => b.index - a.index)[0]
+            return getPageSize(cur ?? last ?? null, meta)
+          })()}
         />
       )}
 

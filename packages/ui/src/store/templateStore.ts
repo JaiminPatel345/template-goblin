@@ -129,7 +129,10 @@ export interface TemplateState {
    *  - Creates a default-sized page (A4 595x842 pt) if no meta dimensions were
    *    previously set from an image upload.
    */
-  setPage0BackgroundColor: (hex: string) => void
+  setPage0BackgroundColor: (
+    hex: string,
+    size?: { pageSize: PageSize; width: number; height: number },
+  ) => void
 
   undo: () => void
   redo: () => void
@@ -675,10 +678,13 @@ export const useTemplateStore = create<TemplateState>()(
           return { pageBackgroundDataUrls, pageBackgroundBuffers }
         }),
 
-      setPage0BackgroundColor: (hex) =>
+      setPage0BackgroundColor: (hex, size) =>
         set((state) => {
           // Find (or create) the page 0 definition.
           const existing = state.pages.find((p) => p.index === 0)
+          const pageSize = size?.pageSize ?? state.meta.pageSize
+          const width = size?.width ?? state.meta.width
+          const height = size?.height ?? state.meta.height
           let pages: PageDefinition[]
           if (existing) {
             pages = state.pages.map((p) =>
@@ -688,6 +694,9 @@ export const useTemplateStore = create<TemplateState>()(
                     backgroundType: 'color',
                     backgroundColor: hex,
                     backgroundFilename: null,
+                    width,
+                    height,
+                    pageSize,
                   }
                 : p,
             )
@@ -698,6 +707,9 @@ export const useTemplateStore = create<TemplateState>()(
               backgroundType: 'color',
               backgroundColor: hex,
               backgroundFilename: null,
+              width,
+              height,
+              pageSize,
             }
             pages = [page0, ...state.pages]
           }
@@ -706,7 +718,17 @@ export const useTemplateStore = create<TemplateState>()(
             // Color-only page 0 has no image background.
             backgroundDataUrl: null,
             backgroundBuffer: null,
-            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            // Mirror page-0 size onto template meta so legacy code paths that
+            // still read `meta.width`/`meta.height` (PDF size when `pages[0]`
+            // doesn't override, save dialog, JSON preview heuristics) stay
+            // consistent. Per-page sizes still win at render time.
+            meta: {
+              ...state.meta,
+              pageSize,
+              width,
+              height,
+              updatedAt: new Date().toISOString(),
+            },
           }
         }),
 

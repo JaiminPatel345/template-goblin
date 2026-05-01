@@ -1,27 +1,71 @@
-import type { FieldDefinition, TextField, TableField } from '@template-goblin/types'
+import type { FieldDefinition } from '@template-goblin/types'
+import { esc, sc } from './previewEscape.js'
+import { renderTextHtml, renderTableHtml, renderImageHtml } from './previewFieldRenderers.js'
 
 /**
- * Options for the preview's page-1 background. Callers pass either a
- * `backgroundDataUrl` (image) OR a `backgroundColor` (hex, e.g. `#ffffff`).
- * If both are supplied the image wins. If neither, the page renders white.
+ * Per-page resolved background and size. Callers pre-resolve `inherit` and
+ * the legacy `backgroundDataUrl` into either an image data URL or a solid
+ * colour, and resolve per-page width/height (via `getPageSize`) so the
+ * preview generator doesn't need to know about resolution rules.
+ *
+ * `width`/`height` are optional — when omitted the renderer falls back to
+ * `meta.width`/`meta.height`. New per-page-sized templates (#46/#47) always
+ * include them so each PDF page prints at its own dimensions.
  */
-export interface PreviewBackgroundOptions {
+export interface PagePreviewInput {
+  /** Stable page id, or `null` for the implicit (legacy) page 0. */
+  id: string | null
+  /** Solid background colour (hex). Ignored when `imageDataUrl` is set. */
   backgroundColor?: string | null
+  /** Background image data URL. Wins over `backgroundColor` when present. */
+  backgroundDataUrl?: string | null
+  /** Page width in points; falls back to `meta.width` when undefined. */
+  width?: number
+  /** Page height in points; falls back to `meta.height` when undefined. */
+  height?: number
 }
 
 /**
- * Generate a PDF-accurate preview as an HTML page.
+ * Options for the preview's page rendering.
+ */
+export interface PreviewBackgroundOptions {
+  /**
+   * Map of `filename → dataUrl` for image fields. Used to render real
+   * bitmaps for static images and dynamic-image placeholders. Caller
+   * builds this from the store's `staticImageDataUrls` plus a derived
+   * `placeholderBuffers → dataUrl` mapping.
+   */
+  imageDataUrls?: Map<string, string>
+}
+
+/**
+ * Generate a PDF-accurate multi-page preview as an HTML document.
  *
- * Renders text at exact positions with correct fonts/sizes/colors,
- * tables with headers/rows/borders, and image placeholders —
- * all positioned absolutely over the background image or solid color.
+ * Each page is its own `<section class="page">` block sized to
+ * `meta.width × meta.height` and separated by `page-break-after: always` so
+ * Print → Save as PDF produces one PDF page per template page. Fields are
+ * grouped by `pageId`; orphans (`pageId === null` or undefined) land on the
+ * page with `index === 0` to match the canvas filter (#37).
  *
- * The user can print this page (Ctrl+P) to get an actual PDF.
+ * GH #44 fixes vs the previous implementation:
+ * - Static text with `style.fontSizeDynamic` auto-fits to its rect using
+ *   the same `fitFontSize` algorithm the canvas uses, so a title set at
+ *   71pt no longer overflows the rect when the rect is smaller than the
+ *   text would naturally need.
+ * - Text fields with `overflowMode: 'truncate'` get `text-overflow: ellipsis`
+ *   so single-line cut-off doesn't leak content past the rect.
+ * - Table rows are clipped to `style.maxRows`, matching the SDK's behaviour.
+ * - Images render as actual bitmaps when `options.imageDataUrls` resolves
+ *   the filename. Falls back to a labelled placeholder rect when no
+ *   bitmap is available (mirrors the on-canvas placeholder appearance).
+ *
+ * GH #49: multi-page templates print one sheet per page instead of stacking
+ * every field on a single sheet.
  */
 export async function generatePreviewHtml(
   fields: FieldDefinition[],
   meta: { name: string; width: number; height: number },
-  backgroundDataUrl: string | null,
+  pages: PagePreviewInput[],
   data: {
     texts: Record<string, string>
     tables: Record<string, Record<string, string>[]>
@@ -29,20 +73,127 @@ export async function generatePreviewHtml(
   },
   options: PreviewBackgroundOptions = {},
 ): Promise<Blob> {
-  const sorted = [...fields].sort((a, b) => a.zIndex - b.zIndex)
-  let fieldsHtml = ''
+  const imageDataUrls = options.imageDataUrls ?? new Map<string, string>()
+  // Always have at least one page — a template that hasn't been onboarded
+  // yet has no `pages[]` entry, but we still want to render its fields on
+  // an implicit white page rather than emitting empty HTML.
+  const pageList: PagePreviewInput[] =
+    pages.length > 0 ? pages : [{ id: null, backgroundColor: '#ffffff' }]
 
-  for (const field of sorted) {
-    // Defence in depth: skip fields that are missing `source` (corrupt
-    // rehydrated state). These can't be rendered because they have no
-    // addressable value.
+  // GH #37 orphan rule: fields with no `pageId` land on the page that
+  // claims the index-0 slot. The first entry of `pageList` is page 1 by
+  // construction (caller is responsible for ordering).
+  const firstPageId = pageList[0]?.id ?? null
+
+  // Resolve per-page dimensions up front so both the named-@page CSS rules
+  // and the per-section inline sizes use the same source of truth. Pages
+  // without explicit dimensions inherit `meta` (legacy single-size templates).
+  const resolvedSizes = pageList.map((p) => ({
+    width: p.width && p.width > 0 ? p.width : meta.width,
+    height: p.height && p.height > 0 ? p.height : meta.height,
+  }))
+  // Each page gets its own named @page rule so Print → Save as PDF emits
+  // sheets at the right size when pages mix dimensions (#46/#47). Chrome
+  // honours `@page name { size: ... }`; the `.page-N` class points the
+  // matching `<section>` at it via the `page` CSS property.
+  const pageRules = resolvedSizes
+    .map(
+      (sz, i) =>
+        `@page page${i} { size: ${sz.width}pt ${sz.height}pt; margin: 0; }\n  .page-${i} { page: page${i}; }`,
+    )
+    .join('\n  ')
+
+  const pagesHtml = pageList
+    .map((page, idx) => {
+      // `resolvedSizes` is built from `pageList` so the index is always
+      // valid; the fallback to `meta` is defensive only.
+      const size = resolvedSizes[idx] ?? { width: meta.width, height: meta.height }
+      return renderPageHtml(page, idx, size, fields, data, imageDataUrls, firstPageId)
+    })
+    .join('')
+
+  const html = `<!DOCTYPE html>
+<html><head>
+<title>${esc(meta.name)} — Preview</title>
+<style>
+  ${pageRules}
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { font-family: Helvetica, Arial, sans-serif; background: #555; }
+  body { padding-top: 48px; }
+  .page {
+    position: relative;
+    margin: 0 auto 16px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    page-break-after: always;
+  }
+  .page:last-child { page-break-after: auto; margin-bottom: 0; }
+  .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
+  .f { position: absolute; overflow: hidden; }
+  .f-img { position: absolute; overflow: hidden; }
+  .f-img img { width: 100%; height: 100%; }
+  .f-truncate { white-space: nowrap; text-overflow: ellipsis; }
+  .f-truncate > span { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  td, th { word-wrap: break-word; overflow: hidden; }
+  @media print {
+    html, body { background: #fff; padding: 0; }
+    .page { margin: 0; box-shadow: none; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  .toolbar { position: fixed; top: 0; left: 0; right: 0; background: #1c1c27; color: #fff; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; font-family: sans-serif; font-size: 13px; z-index: 1000; }
+  .toolbar button { background: #e94560; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .toolbar button:hover { background: #ff6b81; }
+  @media print { .toolbar { display: none; } }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <span><strong>${esc(meta.name)}</strong> &mdash; ${meta.width} x ${meta.height} pt &mdash; ${pageList.length} page${pageList.length === 1 ? '' : 's'}</span>
+    <button onclick="window.print()">Print / Save as PDF</button>
+  </div>
+  ${pagesHtml}
+</body></html>`
+
+  return new Blob([html], { type: 'text/html' })
+}
+
+function renderPageHtml(
+  page: PagePreviewInput,
+  pageIndex: number,
+  size: { width: number; height: number },
+  fields: FieldDefinition[],
+  data: {
+    texts: Record<string, string>
+    tables: Record<string, Record<string, string>[]>
+    images: Record<string, string | null>
+  },
+  imageDataUrls: Map<string, string>,
+  firstPageId: string | null,
+): string {
+  // Page-relative field selection. The first page also picks up orphan
+  // fields (pageId == null/undefined) — same rule as the canvas filter
+  // post-#37 — so legacy single-page templates keep working. Strict
+  // equality on `page.id` is guarded so that a non-first synthetic page
+  // with `id: null` (currently unreachable, but defensible) doesn't
+  // silently claim orphans that belong to the first page.
+  const isFirstPage = pageIndex === 0
+  const pageFields = fields
+    .filter((f) => {
+      if (page.id !== null && f.pageId === page.id) return true
+      if (isFirstPage && (f.pageId === null || f.pageId === undefined)) return true
+      if (isFirstPage && firstPageId !== null && f.pageId === firstPageId) return true
+      return false
+    })
+    .sort((a, b) => a.zIndex - b.zIndex)
+
+  let fieldsHtml = ''
+  for (const field of pageFields) {
     if (!field.source) {
       console.warn('[previewGenerator] skipping field with missing source:', field.id)
       continue
     }
-    // Static fields render the baked-in `source.value`; dynamic fields render
-    // the supplied preview input data, falling back to `source.placeholder`
-    // when no input is provided. Matches design §8.3 canvas/preview semantics.
     if (field.source.mode === 'static') {
       switch (field.type) {
         case 'text': {
@@ -58,14 +209,13 @@ export async function generatePreviewHtml(
         case 'image': {
           const filename = (field.source as { mode: 'static'; value: { filename: string } }).value
             ?.filename
-          fieldsHtml += renderImageHtml(field, filename || field.id)
+          fieldsHtml += renderImageHtml(field, filename || field.id, imageDataUrls)
           break
         }
       }
       continue
     }
 
-    // Dynamic field
     const name = field.source.jsonKey
     if (!name) continue
 
@@ -88,120 +238,15 @@ export async function generatePreviewHtml(
       case 'image': {
         const placeholder = (field.source as { placeholder: { filename: string } | null })
           .placeholder
-        const label = data.images[name] ? name : placeholder?.filename || name
-        fieldsHtml += renderImageHtml(field, label)
+        const filename = placeholder?.filename ?? name
+        fieldsHtml += renderImageHtml(field, filename, imageDataUrls)
         break
       }
     }
   }
 
-  // Body background: solid hex (if supplied) falls through when no image is
-  // present so the printed page shows the right color. When an image IS
-  // supplied, it still overlays via the `.bg` <img>.
-  const bodyBg = sc(options.backgroundColor ?? '#ffffff')
-
-  const html = `<!DOCTYPE html>
-<html><head>
-<title>${esc(meta.name)} — Preview</title>
-<style>
-  @page { size: ${meta.width}pt ${meta.height}pt; margin: 0; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: ${meta.width}pt; height: ${meta.height}pt; }
-  body { position: relative; overflow: hidden; font-family: Helvetica, Arial, sans-serif; background: ${bodyBg}; }
-  .bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
-  .f { position: absolute; overflow: hidden; }
-  table { border-collapse: collapse; width: 100%; }
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-  .toolbar { position: fixed; top: 0; left: 0; right: 0; background: #1c1c27; color: #fff; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; font-family: sans-serif; font-size: 13px; z-index: 1000; }
-  .toolbar button { background: #e94560; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-  .toolbar button:hover { background: #ff6b81; }
-  @media print { .toolbar { display: none; } }
-</style>
-</head>
-<body>
-  <div class="toolbar">
-    <span><strong>${esc(meta.name)}</strong> &mdash; ${meta.width} x ${meta.height} pt</span>
-    <button onclick="window.print()">Print / Save as PDF</button>
-  </div>
-  ${backgroundDataUrl ? `<img class="bg" src="${backgroundDataUrl}" />` : ''}
-  ${fieldsHtml}
-</body></html>`
-
-  return new Blob([html], { type: 'text/html' })
-}
-
-function renderTextHtml(field: TextField, value: string): string {
-  const s = field.style
-  const css = `left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;font-family:${sc(s.fontFamily || 'Helvetica')},sans-serif;font-size:${s.fontSize}pt;font-weight:${s.fontWeight || 'normal'};font-style:${s.fontStyle || 'normal'};color:${sc(s.color || '#000')};text-align:${s.align || 'left'};line-height:${s.lineHeight || 1.2};text-decoration:${s.textDecoration === 'underline' ? 'underline' : 'none'};display:flex;align-items:${s.verticalAlign === 'middle' ? 'center' : s.verticalAlign === 'bottom' ? 'flex-end' : 'flex-start'}`
-  return `<div class="f" style="${css}"><span style="width:100%">${esc(value)}</span></div>`
-}
-
-function renderTableHtml(field: TableField, rows: Record<string, string>[]): string {
-  const s = field.style
-  const cols = s.columns || []
-  if (cols.length === 0) return ''
-
-  const hs = s.headerStyle
-  const rs = s.rowStyle
-
-  const hdr = cols
-    .map((c) => {
-      const headerPt = c.headerStyle?.paddingTop ?? hs.paddingTop ?? 4
-      const headerPr = c.headerStyle?.paddingRight ?? hs.paddingRight ?? 6
-      const headerPb = c.headerStyle?.paddingBottom ?? hs.paddingBottom ?? 4
-      const headerPl = c.headerStyle?.paddingLeft ?? hs.paddingLeft ?? 6
-      const bw = c.headerStyle?.borderWidth ?? hs.borderWidth ?? 1
-      const bc = sc(c.headerStyle?.borderColor ?? hs.borderColor ?? '#000')
-      const bg = sc(c.headerStyle?.backgroundColor ?? hs.backgroundColor ?? '#f0f0f0')
-      const color = sc(c.headerStyle?.color ?? hs.color ?? '#000')
-      const fontSize = c.headerStyle?.fontSize ?? hs.fontSize ?? 10
-      const fontWeight = c.headerStyle?.fontWeight ?? hs.fontWeight ?? 'bold'
-      const align = sc(c.headerStyle?.align ?? hs.align ?? 'center')
-      return `<th style="padding:${headerPt}pt ${headerPr}pt ${headerPb}pt ${headerPl}pt;background:${bg};color:${color};font-size:${fontSize}pt;font-weight:${fontWeight};text-align:${align};border:${bw}pt solid ${bc};width:${c.width}pt">${esc(c.label || c.key)}</th>`
-    })
-    .join('')
-
-  const body = rows
-    .map(
-      (row) =>
-        '<tr>' +
-        cols
-          .map((c) => {
-            const rowPt = c.style?.paddingTop ?? rs.paddingTop ?? 4
-            const rowPr = c.style?.paddingRight ?? rs.paddingRight ?? 6
-            const rowPb = c.style?.paddingBottom ?? rs.paddingBottom ?? 4
-            const rowPl = c.style?.paddingLeft ?? rs.paddingLeft ?? 6
-            const bw = c.style?.borderWidth ?? rs.borderWidth ?? 1
-            const bc = sc(c.style?.borderColor ?? rs.borderColor ?? '#000')
-            const fontSize = c.style?.fontSize ?? rs.fontSize ?? 10
-            const color = sc(c.style?.color ?? rs.color ?? '#000')
-            const fontWeight = c.style?.fontWeight ?? rs.fontWeight ?? 'normal'
-            const align = sc(c.style?.align ?? rs.align ?? 'left')
-            return `<td style="padding:${rowPt}pt ${rowPr}pt ${rowPb}pt ${rowPl}pt;font-size:${fontSize}pt;color:${color};font-weight:${fontWeight};text-align:${align};border:${bw}pt solid ${bc}">${esc(row[c.key] ?? '')}</td>`
-          })
-          .join('') +
-        '</tr>',
-    )
-    .join('')
-
-  return `<div class="f" style="left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt"><table><thead><tr>${hdr}</tr></thead><tbody>${body}</tbody></table></div>`
-}
-
-function renderImageHtml(field: FieldDefinition, label: string): string {
-  return `<div class="f" style="left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;border:1px dashed #ccc;display:flex;align-items:center;justify-content:center;color:#999;font-size:9pt;background:rgba(0,0,0,0.03)">[${esc(label)}]</div>`
-}
-
-function esc(t: string): string {
-  return t
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-}
-
-function sc(v: unknown): string {
-  if (typeof v === 'number') return String(v)
-  if (typeof v !== 'string') return '0'
-  return /^[a-zA-Z0-9#.,\s%-]+$/.test(v) ? v : '0'
+  const bodyBg = sc(page.backgroundColor ?? '#ffffff')
+  const bgImg = page.backgroundDataUrl ? `<img class="bg" src="${page.backgroundDataUrl}" />` : ''
+  const inlineSize = `width:${size.width}pt;height:${size.height}pt;`
+  return `<section class="page page-${pageIndex}" style="${inlineSize}background:${bodyBg}">${bgImg}${fieldsHtml}</section>`
 }
