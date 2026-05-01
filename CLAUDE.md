@@ -30,6 +30,14 @@ developers use the npm library to generate PDFs at scale.
     files is a smell. Test files are exempt; generated code is exempt. When
     you touch an existing oversized file, split it as part of the same change
     rather than adding more lines on top.
+12. **Every push must include a Changeset.** Before `git push`, run
+    `pnpm changeset` and select the affected packages + bump type
+    (patch / minor / major). Commit the generated `.changeset/*.md` file
+    alongside the source change. This is non-negotiable — version bumps
+    and changelog entries are how downstream consumers know what changed.
+    The only exceptions: pure documentation edits to non-published files
+    (e.g. `CLAUDE.md`, repo `README.md`) and changes to private packages
+    (root `package.json`, `examples/`). When in doubt, add the changeset.
 
 ## Tech Stack
 
