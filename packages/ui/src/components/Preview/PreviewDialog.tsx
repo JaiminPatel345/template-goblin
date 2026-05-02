@@ -25,17 +25,11 @@ import {
   validateUpload,
 } from './previewDialogHelpers.js'
 import { PreviewImageUploadRow } from './PreviewImageUploadRow.js'
+import { PreviewDialogHeader } from './PreviewDialogHeader.js'
 
+/** A single user-uploaded image, kept in memory until Render or Reset. */
 interface UploadedImage {
   dataUrl: string
-  /**
-   * Filename to override in the renderer's `imageDataUrls` map. Defaults
-   * to the field's placeholder filename so the renderer's existing
-   * `data.images[jsonKey] = filename` lookup keeps working without a
-   * second indirection. When the field has no placeholder we synthesise
-   * `__upload_<jsonKey>` so different fields' uploads never collide.
-   */
-  filename: string
 }
 
 export function PreviewDialog({ onClose }: { onClose: () => void }) {
@@ -85,13 +79,14 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  // Cleanup blob URL on unmount.
-  useEffect(
-    () => () => {
-      if (prevUrlRef.current) URL.revokeObjectURL(prevUrlRef.current)
-    },
-    [],
-  )
+  // Deliberately NO unmount cleanup that revokes `prevUrlRef.current`.
+  // After `window.open(url)`, calling `URL.revokeObjectURL(url)` while the
+  // newly-opened tab is still loading the blob raced with Chrome (the
+  // dialog unmounts as part of `onClose()` on the same tick the navigation
+  // begins). We rely on the browser's automatic blob cleanup at editor-tab
+  // unload instead — bounded leak, far smaller than the renderer output
+  // itself. The previous-URL is still revoked at line 154 below before
+  // a new render replaces it, so the in-session leak is at most one URL.
 
   function handleReset() {
     setJsonText(defaultJsonText)
@@ -114,14 +109,9 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
       setUploadError('Failed to read the file.')
       return
     }
-    const field = dynamicImageFields.find(
-      (f) => f.source.mode === 'dynamic' && f.source.jsonKey === jsonKey,
-    )
-    const placeholder = field ? getPlaceholderFilename(field.source) : null
-    const filename = placeholder ?? `__upload_${jsonKey}`
     setImageOverrides((prev) => {
       const next = new Map(prev)
-      next.set(jsonKey, { dataUrl, filename })
+      next.set(jsonKey, { dataUrl })
       return next
     })
   }
@@ -137,10 +127,20 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
         tables: (parsed.tables ?? {}) as Record<string, Record<string, string>[]>,
         images: { ...((parsed.images ?? {}) as Record<string, string | null>) },
       }
+      // The renderer resolves an image field's bitmap with
+      //   filename = source.placeholder?.filename ?? jsonKey
+      // (see `previewGenerator.ts` — image branch in `renderPageHtml`).
+      // Mirror that same key derivation here so the override lands on the
+      // exact key the renderer asks for, regardless of whether the field
+      // has a placeholder or not.
       const merged = new Map(baseImageDataUrls)
       for (const [jsonKey, upload] of imageOverrides) {
-        merged.set(upload.filename, upload.dataUrl)
-        data.images[jsonKey] = upload.filename
+        const field = dynamicImageFields.find(
+          (f) => f.source.mode === 'dynamic' && f.source.jsonKey === jsonKey,
+        )
+        const placeholder = field ? getPlaceholderFilename(field.source) : null
+        const lookupKey = placeholder ?? jsonKey
+        merged.set(lookupKey, upload.dataUrl)
       }
       const pagePreviewInputs = resolvePagePreviewInputs(
         pages,
@@ -174,7 +174,7 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
         style={{ maxWidth: 720, width: '90vw', maxHeight: '90vh', overflowY: 'auto' }}
         data-testid="preview-dialog"
       >
-        <h3 className="tg-dialog-title">Preview</h3>
+        <PreviewDialogHeader onClose={onClose} />
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
           Edit the JSON below and (optionally) upload images, then click Render.
         </p>

@@ -250,7 +250,7 @@ test.describe('Preview dialog (#45)', () => {
     const buffer = Buffer.from(base64, 'base64')
 
     await page
-      .locator('[data-testid="preview-upload-photo"] + input[type=file]')
+      .locator('[data-testid="preview-upload-input-photo"]')
       .setInputFiles({ name: 'blue.png', mimeType: 'image/png', buffer })
 
     // Confirm the row now reads "Uploaded" (visual sanity that state moved).
@@ -261,13 +261,133 @@ test.describe('Preview dialog (#45)', () => {
     const previewPage = await popupPromise
     await previewPage.waitForLoadState('domcontentloaded')
 
-    // The renderer emits `<img src="data:image/...;base64,...">` for resolved
-    // bitmaps. Assert the uploaded blue PNG's base64 prefix appears in the
-    // page HTML — that proves the override flowed through, not the original
-    // placeholder.
+    // The renderer emits `<img src="data:image/...;base64,...">` for
+    // resolved bitmaps. Assert a substring TAKEN FROM THE MIDDLE of the
+    // uploaded PNG's base64 (where it actually diverges from the placeholder
+    // — the leading `iVBORw0KGgo…` PNG signature is identical between any
+    // two PNGs and would false-positive). Confirms the override flowed
+    // through, not the placeholder.
     const html = await previewPage.content()
-    const uploadedPrefix = base64.slice(0, 24)
-    expect(html).toContain(uploadedPrefix)
+    const uploadedMid = base64.slice(40, 70)
+    expect(uploadedMid.length).toBeGreaterThan(20)
+    expect(html).toContain(uploadedMid)
+    // And the placeholder's distinctive middle bytes should NOT appear.
+    const placeholderBase64 = TINY_PNG.split(',')[1] ?? ''
+    const placeholderMid = placeholderBase64.slice(40, 70)
+    expect(html).not.toContain(placeholderMid)
+  })
+
+  test('uploading to an image field WITHOUT a placeholder still overrides the rendered bitmap', async ({
+    page,
+    context,
+  }) => {
+    // Seed manually — the helper above always wires a placeholder. The
+    // renderer falls back to `jsonKey` as the lookup key when there's no
+    // placeholder filename, so the override path needs to mirror that.
+    const fields: Record<string, unknown>[] = [
+      {
+        id: 'free-img',
+        type: 'image',
+        label: 'free-img',
+        groupId: null,
+        pageId: 'p0',
+        x: 50,
+        y: 50,
+        width: 200,
+        height: 150,
+        zIndex: 0,
+        // Dynamic image with NO placeholder — the failure mode the master
+        // QA flagged before this change shipped.
+        source: { mode: 'dynamic', jsonKey: 'free_img', required: false, placeholder: null },
+        style: { fit: 'contain' },
+      },
+    ]
+    const payload = {
+      state: {
+        meta: {
+          schemaVersion: 1,
+          name: 'preview-dialog-test',
+          version: '0.0.0',
+          width: 600,
+          height: 500,
+          locked: false,
+        },
+        fields,
+        fonts: [],
+        groups: [],
+        pages: [
+          {
+            id: 'p0',
+            index: 0,
+            backgroundType: 'color',
+            backgroundColor: '#ffffff',
+            backgroundFilename: null,
+          },
+        ],
+        backgroundDataUrl: null,
+        backgroundBuffer: null,
+        pageBackgroundDataUrls: [],
+        pageBackgroundBuffers: [],
+        fontBuffers: [],
+        placeholderBuffers: [],
+        staticImageBuffers: [],
+        staticImageDataUrls: [],
+      },
+      version: 2,
+    }
+    await page.addInitScript((s: string) => {
+      return new Promise<void>((resolve, reject) => {
+        const req = indexedDB.open('template-goblin', 1)
+        req.onupgradeneeded = () => {
+          const db = req.result
+          if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv')
+        }
+        req.onsuccess = () => {
+          const db = req.result
+          const tx = db.transaction('kv', 'readwrite')
+          tx.objectStore('kv').put(s, 'template-goblin-template')
+          tx.oncomplete = () => {
+            localStorage.removeItem('template-goblin-ui')
+            resolve()
+          }
+          tx.onerror = () => reject(tx.error)
+        }
+        req.onerror = () => reject(req.error)
+      })
+    }, JSON.stringify(payload))
+    await page.goto('/')
+    await expect(fabricCanvas(page)).toBeVisible()
+    await openDialog(page)
+
+    const base64 = BLUE_PNG.split(',')[1] ?? ''
+    const buffer = Buffer.from(base64, 'base64')
+    await page
+      .locator('[data-testid="preview-upload-input-free_img"]')
+      .setInputFiles({ name: 'blue.png', mimeType: 'image/png', buffer })
+
+    const popupPromise = context.waitForEvent('page')
+    await page.locator('[data-testid="preview-render"]').click()
+    const previewPage = await popupPromise
+    await previewPage.waitForLoadState('domcontentloaded')
+
+    const html = await previewPage.content()
+    const uploadedMid = base64.slice(40, 70)
+    expect(html).toContain(uploadedMid)
+  })
+
+  test('clicking the ✕ close button dismisses the dialog without rendering', async ({
+    page,
+    context,
+  }) => {
+    await seed(page, { withImageField: false })
+    await page.goto('/')
+    await expect(fabricCanvas(page)).toBeVisible()
+    await openDialog(page)
+
+    const beforeCount = context.pages().length
+    await page.locator('[data-testid="preview-close"]').click()
+    await expect(page.locator('[data-testid="preview-dialog"]')).toBeHidden()
+    expect(context.pages().length).toBe(beforeCount)
   })
 
   test('Reset to defaults restores the auto-generated JSON', async ({ page }) => {
