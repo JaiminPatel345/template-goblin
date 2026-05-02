@@ -279,16 +279,25 @@ export async function openTemplate(file: File): Promise<void> {
 
   // Load placeholder images (validate paths). Placeholder filename moved from
   // `style.placeholderFilename` to `source.placeholder.filename` per spec 023.
+  //
+  // Save writes placeholders under the `placeholders/` directory (see
+  // `saveTemplate` + `core/file/constants.PLACEHOLDERS_DIR`), so we look there
+  // first. Falling back to the bare filename keeps legacy/hand-patched
+  // archives working — the manifest stores only the bare name, never the
+  // directory prefix. GH #50: without the `placeholders/<name>` lookup,
+  // a save→reopen round-trip in a clean browser session showed the
+  // filename text instead of the bitmap and (worse) re-saved an
+  // archive missing every placeholder under `placeholders/`.
   const placeholderBuffers = new Map<string, ArrayBuffer>()
   for (const field of manifest.fields) {
     if (field.type !== 'image') continue
     if (field.source.mode !== 'dynamic') continue
     const filename = field.source.placeholder?.filename
-    if (filename && isSafeZipPath(filename)) {
-      const phFile = zip.file(filename)
-      if (phFile) {
-        placeholderBuffers.set(filename, await phFile.async('arraybuffer'))
-      }
+    if (!filename || !isSafeZipPath(filename)) continue
+    const archivePath = filename.startsWith('placeholders/') ? filename : `placeholders/${filename}`
+    const phFile = zip.file(archivePath) ?? zip.file(filename)
+    if (phFile) {
+      placeholderBuffers.set(filename, await phFile.async('arraybuffer'))
     }
   }
 
