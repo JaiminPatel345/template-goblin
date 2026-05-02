@@ -41,6 +41,7 @@ import type { FieldDefinition } from '@template-goblin/types'
 import { FIELD_COLORS, SELECTED_STROKE_WIDTH } from '../../theme/fieldColors.js'
 import { fieldCanvasLabel } from './fieldLabel.js'
 import { shouldRenderFillRect } from './rectFill.js'
+import { buildTableCanvasParts } from './tableCanvasParts.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Coordinate helpers (REQ-036, AC-036)
@@ -735,7 +736,17 @@ export function buildGroupChildren(
     })
   }
 
-  // 3. Auto-fit label (GH #12) — skipped when an image is rendered.
+  // 2.5 Table column dividers + header labels (GH #38). Done before the
+  //     centred body label so a non-empty `style.columns` short-circuits
+  //     it — the column-header labels in the band already convey the
+  //     field's purpose, and a centred field-name label would clash with
+  //     the grid.
+  if (field.type === 'table' && field.style?.columns?.length) {
+    children.push(...buildTableCanvasParts(field, w, h))
+  }
+
+  // 3. Auto-fit label (GH #12) — skipped when an image is rendered, and
+  //    skipped for tables that already drew their column headers above.
   //    Uses a centred `Textbox` (wraps to `labelW`) rather than a plain
   //    `FabricText` with a clipPath.  The previous clipPath approach was
   //    fragile: Fabric positions clipPath relative to the clipped object's
@@ -745,7 +756,9 @@ export function buildGroupChildren(
   //    "max-fit" label that rerenders correctly when the field is
   //    resized (`applyFieldToGroup` rebuilds children on every field
   //    update, so fontSize is recomputed against the new bounds).
-  if (!placeholderResolved) {
+  const skipBodyLabel =
+    placeholderResolved || (field.type === 'table' && (field.style?.columns?.length ?? 0) > 0)
+  if (!skipBodyLabel) {
     const label = fieldCanvasLabel(field)
     if (label) {
       const innerPad = 6
