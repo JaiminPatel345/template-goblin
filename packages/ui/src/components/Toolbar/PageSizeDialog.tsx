@@ -31,8 +31,8 @@ export function PageSizeDialog() {
   const presetOptions: PageSizeOption[] = [
     { label: 'A4 (595 x 842 pt)', pageSize: 'A4', width: 595, height: 842 },
     { label: 'A3 (842 x 1191 pt)', pageSize: 'A3', width: 842, height: 1191 },
-    { label: 'US Letter (612 x 792 pt)', pageSize: 'Letter', width: 612, height: 792 },
-    { label: 'US Legal (612 x 1008 pt)', pageSize: 'Legal', width: 612, height: 1008 },
+    { label: 'Letter (612 x 792 pt)', pageSize: 'Letter', width: 612, height: 792 },
+    { label: 'Legal (612 x 1008 pt)', pageSize: 'Legal', width: 612, height: 1008 },
   ]
 
   function handleApply() {

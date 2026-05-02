@@ -35,8 +35,8 @@ export function PageSizePicker({
     { key: 'A4', label: 'A4 (595 × 842 pt)' },
     { key: 'A3', label: 'A3 (842 × 1191 pt)' },
     { key: 'A5', label: 'A5 (420 × 595 pt)' },
-    { key: 'Letter', label: 'US Letter (612 × 792 pt)' },
-    { key: 'Legal', label: 'US Legal (612 × 1008 pt)' },
+    { key: 'Letter', label: 'Letter (612 × 792 pt)' },
+    { key: 'Legal', label: 'Legal (612 × 1008 pt)' },
   ]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -56,8 +56,23 @@ export function PageSizePicker({
         />
       ))}
       <Radio checked={value === 'custom'} onChange={() => onChange('custom')} label="Custom" />
-      {value === 'custom' && (
-        <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+      {/*
+        Reserve the slot for the custom width/height inputs even when the
+        user has a preset selected, so switching to "Custom" doesn't grow
+        the picker (and therefore the parent dialog) — siblings below stay
+        in place. `visibility: hidden` keeps the bounding box; the inputs
+        skip tab order and pointer events when hidden.
+      */}
+      <div style={{ minHeight: 60, marginTop: 8 }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            visibility: value === 'custom' ? 'visible' : 'hidden',
+            pointerEvents: value === 'custom' ? 'auto' : 'none',
+          }}
+          aria-hidden={value !== 'custom'}
+        >
           <div style={{ flex: 1 }}>
             <label
               style={{
@@ -75,6 +90,7 @@ export function PageSizePicker({
               min={1}
               value={customWidth}
               onChange={(e) => setCustomWidth(Number(e.target.value))}
+              tabIndex={value === 'custom' ? 0 : -1}
             />
           </div>
           <div style={{ flex: 1 }}>
@@ -94,10 +110,11 @@ export function PageSizePicker({
               min={1}
               value={customHeight}
               onChange={(e) => setCustomHeight(Number(e.target.value))}
+              tabIndex={value === 'custom' ? 0 : -1}
             />
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

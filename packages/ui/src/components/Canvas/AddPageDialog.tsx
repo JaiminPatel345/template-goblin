@@ -59,7 +59,15 @@ export function AddPageDialog({
 
   return (
     <div className="tg-dialog-overlay" onClick={onClose}>
-      <div className="tg-dialog" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="tg-dialog"
+        onClick={(e) => e.stopPropagation()}
+        // Lock the dialog width so picking "Custom" inside the size picker
+        // (which adds a two-input row) doesn't widen the modal and shift
+        // every other label sideways. Min-height absorbs the height delta
+        // between the choose / color / size steps for the same reason.
+        style={{ minWidth: 360, minHeight: 320 }}
+      >
         <h3 className="tg-dialog-title">Add New Page</h3>
 
         {step === 'choose' && (
@@ -100,7 +108,16 @@ export function AddPageDialog({
               <button
                 className="tg-btn"
                 style={{ justifyContent: 'flex-start', padding: '10px 14px' }}
-                onClick={() => gotoSize({ kind: 'inherit' })}
+                onClick={() =>
+                  // Inherit means "same as previous page" — including
+                  // dimensions. Skip the size dialog entirely (#47).
+                  onAdd('inherit', {
+                    pageSize: 'custom',
+                    width: previousSize.width,
+                    height: previousSize.height,
+                  })
+                }
+                data-testid="add-page-inherit"
               >
                 <svg
                   width="16"
