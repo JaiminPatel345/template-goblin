@@ -240,4 +240,91 @@ test.describe('Table column sync (#38)', () => {
       })
       .toMatch(/col3/)
   })
+
+  test('Header style colour change reflects on the canvas', async ({ page }) => {
+    await seed(page)
+    await page.goto('/')
+    await expect(fabricCanvas(page)).toBeVisible()
+    await selectField(page, 'tbl1')
+    await expect(page.locator('[data-testid="loop-add-column"]')).toBeVisible()
+
+    // Read the colour of the first header-label Textbox before the edit.
+    // The header labels are the children with a `.text` value matching one
+    // of the column labels — A or B from the seed.
+    const readHeaderFill = async (): Promise<string | null> => {
+      return await page.evaluate((id: string) => {
+        interface ChildLike {
+          fill?: string | null
+          text?: string | null
+        }
+        interface FabricLike {
+          getObjects(): Array<{
+            __fieldId?: string
+            getObjects?: () => ChildLike[]
+          }>
+        }
+        const fc = (window as unknown as { __fabricCanvas?: FabricLike }).__fabricCanvas
+        if (!fc) return null
+        const g = fc.getObjects().find((o) => o.__fieldId === id)
+        if (!g?.getObjects) return null
+        const headerLabel = g.getObjects().find((c) => c.text === 'A')
+        return headerLabel?.fill ?? null
+      }, 'tbl1')
+    }
+
+    const before = await readHeaderFill()
+    expect(before).not.toBeNull()
+
+    // Drive the colour change directly through the templateStore so the
+    // test doesn't depend on the visual layout of the right-panel
+    // properties (the colour picker is a native `<input type="color">`,
+    // tricky to operate from Playwright). The store update is exactly
+    // what the user-facing handler does (`updateHeader({ color: '#ff0000' })`).
+    await page.evaluate(() => {
+      interface StoreLike {
+        getState(): {
+          fields: Array<{ id: string; type: string; style: { headerStyle: object } }>
+          updateFieldStyle: (id: string, updates: object) => void
+        }
+      }
+      const w = window as unknown as { __templateStore?: StoreLike }
+      const store = w.__templateStore
+      if (!store) throw new Error('templateStore not exposed; cannot drive headerStyle change')
+      const f = store.getState().fields.find((x) => x.id === 'tbl1')
+      if (!f) throw new Error('tbl1 not found')
+      store.getState().updateFieldStyle('tbl1', {
+        headerStyle: { ...f.style.headerStyle, color: '#ff0000' },
+      })
+    })
+
+    await expect.poll(readHeaderFill, { timeout: 3000 }).toBe('#ff0000')
+  })
+
+  test('focusing a right-panel input auto-selects its full text', async ({ page }) => {
+    await seed(page)
+    await page.goto('/')
+    await expect(fabricCanvas(page)).toBeVisible()
+    await selectField(page, 'tbl1')
+    await expect(page.locator('[data-testid="loop-add-column"]')).toBeVisible()
+
+    // The seeded jsonKey is "rows" (4 chars). After focus + the deferred
+    // select() inside `selectAllOnFocus`, the input's selectionStart
+    // should be 0 and selectionEnd should match the value length.
+    const keyInput = page.locator('[data-testid="loop-jsonkey-input"]')
+    await expect(keyInput).toHaveValue('rows')
+    await keyInput.focus()
+
+    // Wait for the setTimeout(0) in selectAllOnFocus to run.
+    await expect
+      .poll(
+        async () =>
+          await keyInput.evaluate((el: HTMLInputElement) => ({
+            start: el.selectionStart ?? -1,
+            end: el.selectionEnd ?? -1,
+            len: el.value.length,
+          })),
+        { timeout: 2000 },
+      )
+      .toMatchObject({ start: 0, end: 4, len: 4 })
+  })
 })

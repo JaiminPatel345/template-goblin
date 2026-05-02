@@ -3,23 +3,29 @@
  *
  * The base `buildGroupChildren` in `fabricUtils.ts` handles the bgRect and
  * (for non-table fields) a centred body label. Tables need column dividers,
- * a header divider, and per-column header labels so that adding / editing /
- * removing columns in the right panel produces visible feedback on the
- * canvas. Without these, the rect rebuild on every field update is a no-op
- * and the canvas falsely says "nothing changed".
+ * a header band, and per-column header labels so that adding / editing /
+ * removing columns — or tweaking the header style — produces visible
+ * feedback on the canvas. Without these, the rect rebuild on every field
+ * update is a no-op and the canvas falsely says "nothing changed".
+ *
+ * Header typography, fill colour, divider colour, alignment, and
+ * horizontal padding are read from `style.headerStyle` so that user edits
+ * in the right panel reflect on canvas (#38, second pass).
  *
  * Pure layout maths live in `computeColumnBoundaries` / `computeHeaderHeight`
  * so they can be unit-tested without instantiating Fabric.
  */
-import { Line, Textbox } from 'fabric'
+import { Rect, Line, Textbox } from 'fabric'
 import type { FabricObject } from 'fabric'
-import type { FieldDefinition, TableColumn } from '@template-goblin/types'
+import type { CellStyle, FieldDefinition, TableColumn } from '@template-goblin/types'
 
 const HEADER_FRACTION = 0.22
 const HEADER_MIN_PT = 14
-const HEADER_MAX_FONT_PT = 12
-const DIVIDER_STROKE = '#0a0a0a'
-const DIVIDER_WIDTH = 0.5
+const HEADER_MAX_FONT_PT = 16
+const DEFAULT_DIVIDER_STROKE = '#0a0a0a'
+const DEFAULT_DIVIDER_WIDTH = 0.5
+const DEFAULT_HEADER_COLOR = '#0a0a0a'
+const DEFAULT_HEADER_FONT_FAMILY = 'Helvetica'
 
 /**
  * Compute the **scaled** width of each column in points so the cumulative
@@ -68,10 +74,10 @@ export function computeHeaderHeight(totalHeight: number, showHeader: boolean): n
 }
 
 /**
- * Build the table-specific Fabric children: column dividers, header
- * divider, and per-column header labels. Returns `[]` for non-table fields
- * or when the field has no columns (fall through to the centred body label
- * `buildGroupChildren` already produces).
+ * Build the table-specific Fabric children: header background, column
+ * dividers, header divider, and per-column header labels. Returns `[]`
+ * for non-table fields or when the field has no columns (fall through to
+ * the centred body label `buildGroupChildren` already produces).
  */
 export function buildTableCanvasParts(
   field: FieldDefinition,
@@ -82,17 +88,45 @@ export function buildTableCanvasParts(
   const columns = field.style.columns ?? []
   if (columns.length === 0) return []
   const showHeader = !!field.style.showHeader
+  const headerStyle = field.style.headerStyle as CellStyle | undefined
 
   const boundaries = computeColumnBoundaries(columns, width)
   const headerH = computeHeaderHeight(height, showHeader)
   const widths = scaledColumnWidths(columns, width)
   const parts: FabricObject[] = []
 
+  // Header background fill — paints a band behind the labels so the
+  // user's chosen `headerStyle.backgroundColor` is visible. Skipped when
+  // the colour is empty/transparent or the header is hidden.
+  const headerBg = headerStyle?.backgroundColor
+  if (showHeader && headerH > 0 && isVisibleColor(headerBg)) {
+    parts.push(
+      new Rect({
+        left: 0,
+        top: 0,
+        width,
+        height: headerH,
+        fill: headerBg,
+        selectable: false,
+        evented: false,
+        originX: 'left',
+        originY: 'top',
+      }),
+    )
+  }
+
+  const headerBorder = headerStyle?.borderColor
+  const dividerStroke = isVisibleColor(headerBorder) ? headerBorder : DEFAULT_DIVIDER_STROKE
+  const dividerWidth =
+    typeof headerStyle?.borderWidth === 'number' && headerStyle.borderWidth > 0
+      ? headerStyle.borderWidth
+      : DEFAULT_DIVIDER_WIDTH
+
   for (const x of boundaries) {
     parts.push(
       new Line([x, 0, x, height], {
-        stroke: DIVIDER_STROKE,
-        strokeWidth: DIVIDER_WIDTH,
+        stroke: dividerStroke,
+        strokeWidth: dividerWidth,
         strokeUniform: true,
         selectable: false,
         evented: false,
@@ -103,8 +137,8 @@ export function buildTableCanvasParts(
   if (showHeader && headerH > 0 && headerH < height) {
     parts.push(
       new Line([0, headerH, width, headerH], {
-        stroke: DIVIDER_STROKE,
-        strokeWidth: DIVIDER_WIDTH,
+        stroke: dividerStroke,
+        strokeWidth: dividerWidth,
         strokeUniform: true,
         selectable: false,
         evented: false,
@@ -113,23 +147,34 @@ export function buildTableCanvasParts(
   }
 
   if (showHeader && headerH > 0) {
+    const padL = Math.max(0, headerStyle?.paddingLeft ?? 0)
+    const padR = Math.max(0, headerStyle?.paddingRight ?? 0)
+    const userFontSize =
+      typeof headerStyle?.fontSize === 'number' && headerStyle.fontSize > 0
+        ? headerStyle.fontSize
+        : null
+    const fontCap = Math.max(8, Math.min(HEADER_MAX_FONT_PT, headerH * 0.6))
+    const fontSize = userFontSize !== null ? Math.min(userFontSize, fontCap) : fontCap
+
     let leftCum = 0
-    const padding = 4
     for (let i = 0; i < columns.length; i++) {
       const colWidth = widths[i] ?? 0
       const labelText = columns[i]?.label || columns[i]?.key || ''
-      if (labelText && colWidth > padding * 2) {
-        const fontSize = Math.max(8, Math.min(HEADER_MAX_FONT_PT, headerH * 0.6))
+      const innerW = Math.max(1, colWidth - padL - padR)
+      if (labelText && colWidth > padL + padR + 2) {
         parts.push(
           new Textbox(labelText, {
-            left: leftCum + colWidth / 2,
+            left: leftCum + padL + innerW / 2,
             top: headerH / 2,
-            width: Math.max(1, colWidth - padding),
+            width: innerW,
             fontSize,
-            fontFamily: 'Helvetica',
-            fontWeight: 'bold',
-            fill: '#0a0a0a',
-            textAlign: 'center',
+            fontFamily: headerStyle?.fontFamily || DEFAULT_HEADER_FONT_FAMILY,
+            fontWeight: headerStyle?.fontWeight || 'bold',
+            fontStyle: headerStyle?.fontStyle || 'normal',
+            underline: headerStyle?.textDecoration === 'underline',
+            linethrough: headerStyle?.textDecoration === 'line-through',
+            fill: headerStyle?.color || DEFAULT_HEADER_COLOR,
+            textAlign: headerStyle?.align || 'center',
             originX: 'center',
             originY: 'center',
             selectable: false,
@@ -143,4 +188,14 @@ export function buildTableCanvasParts(
   }
 
   return parts
+}
+
+/**
+ * Whether a colour value is meaningful to render. Empty / null / `none` /
+ * `transparent` all map to "skip"; everything else is forwarded to Fabric.
+ */
+function isVisibleColor(c: string | null | undefined): c is string {
+  if (!c) return false
+  const s = c.trim().toLowerCase()
+  return s.length > 0 && s !== 'transparent' && s !== 'none'
 }

@@ -158,6 +158,7 @@ export function LoopFieldProps({ field }: Props) {
               </span>
               <input
                 className="tg-input"
+                data-testid="loop-jsonkey-input"
                 value={displayKey}
                 onChange={(e) => onJsonKeyChange(e.target.value)}
               />

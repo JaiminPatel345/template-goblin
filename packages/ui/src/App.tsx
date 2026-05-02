@@ -12,10 +12,22 @@ import { ResizeHandle } from './components/ResizeHandle.js'
 import { useKeyboard } from './hooks/useKeyboard.js'
 import { useUiStore } from './store/uiStore.js'
 import { useTemplateStore } from './store/templateStore.js'
+import { useSelectAllOnFocus } from './utils/selectAllOnFocus.js'
 import './App.css'
 
 export function App() {
   useKeyboard()
+  // Auto-select-all on input focus inside the side panels (#38 — UX
+  // follow-up). The properties editor (jsonKey + per-column inputs +
+  // header style controls) lives in `.tg-left-panel`; the structural
+  // tree + JSON preview live in `.tg-right-panel`. Both panels mount
+  // conditionally after onboarding, so we use callback refs (state-
+  // backed) — `useRef` has stable identity and the focus listener would
+  // never re-bind when the panel mounts.
+  const [leftPanelScrollEl, setLeftPanelScrollEl] = useState<HTMLDivElement | null>(null)
+  const [rightPanelScrollEl, setRightPanelScrollEl] = useState<HTMLDivElement | null>(null)
+  useSelectAllOnFocus(leftPanelScrollEl)
+  useSelectAllOnFocus(rightPanelScrollEl)
 
   const theme = useUiStore((s) => s.theme)
   // Onboarding is complete once page 0 has ANY concrete background — either
@@ -50,7 +62,7 @@ export function App() {
                 active selection (GH #19 — content swapped with the right
                 panel). The scrollable content is wrapped so the outer
                 panel's right edge stays free for the resize handle. */}
-            <div className="tg-panel-scroll">
+            <div className="tg-panel-scroll" ref={setLeftPanelScrollEl}>
               <PropertiesPanel />
             </div>
             <ResizeHandle
@@ -96,7 +108,7 @@ export function App() {
                 JSON preview + PDF size estimate (GH #19). Scrollable
                 content wrapped so the outer panel edge stays free for the
                 resize handle. */}
-            <div className="tg-panel-scroll">
+            <div className="tg-panel-scroll" ref={setRightPanelScrollEl}>
               <StructurePanel />
             </div>
           </div>
