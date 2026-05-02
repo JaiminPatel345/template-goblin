@@ -267,6 +267,21 @@ export function CanvasArea() {
         />
       )}
 
+      {pageHandlers.showChangeBgDialog && (
+        <AddPageDialog
+          mode="edit"
+          onClose={() => pageHandlers.setShowChangeBgDialog(false)}
+          onAdd={pageHandlers.handleChangeBackground}
+          previousSize={(() => {
+            // In edit mode the "previous size" pre-fill is the size of the
+            // page being edited — same logic as add mode.
+            const cur = pages.find((p) => p.id === currentPageId)
+            const last = [...pages].sort((a, b) => b.index - a.index)[0]
+            return getPageSize(cur ?? last ?? null, meta)
+          })()}
+        />
+      )}
+
       {pageHandlers.pendingDraft && (
         <FieldCreationPopup
           draft={pageHandlers.pendingDraft}

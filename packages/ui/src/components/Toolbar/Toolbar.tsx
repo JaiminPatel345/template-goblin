@@ -248,7 +248,12 @@ export function Toolbar() {
           Open
         </button>
         <input ref={fileInputRef} type="file" accept=".tgbl" hidden onChange={handleOpenFile} />
-        <button className="tg-btn" onClick={() => bgInputRef.current?.click()}>
+        <button
+          className="tg-btn"
+          onClick={() => useUiStore.getState().setShowChangeBgDialog(true)}
+          title="Change the current page's background"
+          data-testid="toolbar-change-background"
+        >
           <svg
             width="14"
             height="14"
@@ -261,7 +266,7 @@ export function Toolbar() {
             <circle cx="8.5" cy="8.5" r="1.5" />
             <polyline points="21 15 16 10 5 21" />
           </svg>
-          BG
+          Change Background
         </button>
         <input ref={bgInputRef} type="file" accept="image/*" hidden onChange={handleBgUpload} />
       </div>

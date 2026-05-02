@@ -33,6 +33,11 @@ export interface UiState {
   showLeftPanel: boolean
   /** Whether the page size dialog is open */
   showPageSizeDialog: boolean
+  /**
+   * Whether the Change Background dialog is open. Reuses `AddPageDialog`
+   * in `mode="edit"` to update the current page's background (#58).
+   */
+  showChangeBgDialog: boolean
   /** Whether the font manager dialog is open */
   showFontManager: boolean
   /** Pending background image for page size dialog */
@@ -85,6 +90,7 @@ export interface UiState {
   setShowRightPanel: (show: boolean) => void
   setShowLeftPanel: (show: boolean) => void
   setShowPageSizeDialog: (show: boolean) => void
+  setShowChangeBgDialog: (show: boolean) => void
   setShowFontManager: (show: boolean) => void
   setPendingBackground: (bg: UiState['pendingBackground']) => void
   setContextMenu: (menu: UiState['contextMenu']) => void
@@ -116,6 +122,7 @@ export const useUiStore = create<UiState>()(
       showRightPanel: true,
       showLeftPanel: true,
       showPageSizeDialog: false,
+      showChangeBgDialog: false,
       showFontManager: false,
       pendingBackground: null,
       contextMenu: null,
@@ -161,6 +168,7 @@ export const useUiStore = create<UiState>()(
       setShowRightPanel: (show) => set({ showRightPanel: show }),
       setShowLeftPanel: (show) => set({ showLeftPanel: show }),
       setShowPageSizeDialog: (show) => set({ showPageSizeDialog: show }),
+      setShowChangeBgDialog: (show) => set({ showChangeBgDialog: show }),
       setShowFontManager: (show) => set({ showFontManager: show }),
       setPendingBackground: (bg) => set({ pendingBackground: bg }),
       setContextMenu: (menu) => set({ contextMenu: menu }),
