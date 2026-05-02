@@ -45,6 +45,15 @@ developers use the npm library to generate PDFs at scale.
     footer in commit messages or PR bodies, no `Authored-By: claude…`.
     Commit messages stay tool-free and read as if a human wrote them.
     Same rule for PR descriptions.
+14. **Every major version bump must be reflected in git.** When
+    `pnpm changeset version` produces a `MAJOR` bump on any published
+    package (e.g. `template-goblin` 1.x → 2.0.0), the version-bump
+    commit MUST be followed by an annotated git tag matching the new
+    version (`git tag -a v2.0.0 -m "v2.0.0"`) AND a GitHub Release
+    (`gh release create v<n>.0.0 --generate-notes`) so the new major is
+    discoverable from the GitHub UI and from `git tag --list`. Tag
+    AFTER pushing the version commit; never tag a local-only commit.
+    Minor and patch bumps don't require this — tag only on majors.
 
 ## Tech Stack
 

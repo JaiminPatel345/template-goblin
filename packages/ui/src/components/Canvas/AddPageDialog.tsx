@@ -37,10 +37,14 @@ export function AddPageDialog({
   const [bgPick, setBgPick] = useState<Step1 | null>(null)
 
   // Step-2 state — default to "match previous" since most sheets in a
-  // multi-page doc keep the same paper size.
+  // multi-page doc keep the same paper size. Image uploads override this
+  // to "match" (the uploaded image's natural dimensions) below.
   const [sizeChoice, setSizeChoice] = useState<PageSizeChoice>('previous')
   const [customWidth, setCustomWidth] = useState(previousSize.width)
   const [customHeight, setCustomHeight] = useState(previousSize.height)
+  // Decoded natural dimensions of the user's uploaded image — drives the
+  // "Match image" radio in the size picker.
+  const [imageNatural, setImageNatural] = useState<{ width: number; height: number } | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -49,9 +53,47 @@ export function AddPageDialog({
     setStep('size')
   }
 
+  /**
+   * Decode the uploaded image's natural dimensions in a hidden HTMLImageElement
+   * before transitioning to the size step. We default `sizeChoice` to
+   * 'match' AND pre-fill the custom width/height with those numbers so the
+   * picker opens with the natural size selected and a sensible fallback if
+   * the user switches to Custom.
+   */
+  function pickImage(file: File) {
+    const url = URL.createObjectURL(file)
+    const img = new window.Image()
+    img.onload = () => {
+      const natural = { width: img.naturalWidth, height: img.naturalHeight }
+      setImageNatural(natural)
+      setCustomWidth(natural.width)
+      setCustomHeight(natural.height)
+      setSizeChoice('match')
+      setBgPick({ kind: 'image', bgFile: file })
+      setStep('size')
+      URL.revokeObjectURL(url)
+    }
+    img.onerror = () => {
+      // Fallback: skip the natural-size pre-fill and let the user pick a
+      // preset like every other flow.
+      URL.revokeObjectURL(url)
+      setImageNatural(null)
+      setSizeChoice('previous')
+      setBgPick({ kind: 'image', bgFile: file })
+      setStep('size')
+    }
+    img.src = url
+  }
+
   function commit() {
     if (!bgPick) return
-    const size = resolveChoice(sizeChoice, customWidth, customHeight, previousSize)
+    const size = resolveChoice(
+      sizeChoice,
+      customWidth,
+      customHeight,
+      previousSize,
+      imageNatural ?? undefined,
+    )
     if (bgPick.kind === 'image') onAdd('image', size, undefined, bgPick.bgFile)
     else if (bgPick.kind === 'inherit') onAdd('inherit', size)
     else onAdd('color', size, bgPick.color)
@@ -59,7 +101,15 @@ export function AddPageDialog({
 
   return (
     <div className="tg-dialog-overlay" onClick={onClose}>
-      <div className="tg-dialog" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="tg-dialog"
+        onClick={(e) => e.stopPropagation()}
+        // Lock the dialog width so picking "Custom" inside the size picker
+        // (which adds a two-input row) doesn't widen the modal and shift
+        // every other label sideways. Min-height absorbs the height delta
+        // between the choose / color / size steps for the same reason.
+        style={{ minWidth: 360, minHeight: 320 }}
+      >
         <h3 className="tg-dialog-title">Add New Page</h3>
 
         {step === 'choose' && (
@@ -92,7 +142,7 @@ export function AddPageDialog({
                 hidden
                 onChange={(e) => {
                   const file = e.target.files?.[0]
-                  if (file) gotoSize({ kind: 'image', bgFile: file })
+                  if (file) pickImage(file)
                   e.target.value = ''
                 }}
               />
@@ -100,7 +150,16 @@ export function AddPageDialog({
               <button
                 className="tg-btn"
                 style={{ justifyContent: 'flex-start', padding: '10px 14px' }}
-                onClick={() => gotoSize({ kind: 'inherit' })}
+                onClick={() =>
+                  // Inherit means "same as previous page" — including
+                  // dimensions. Skip the size dialog entirely (#47).
+                  onAdd('inherit', {
+                    pageSize: 'custom',
+                    width: previousSize.width,
+                    height: previousSize.height,
+                  })
+                }
+                data-testid="add-page-inherit"
               >
                 <svg
                   width="16"
@@ -180,6 +239,7 @@ export function AddPageDialog({
               value={sizeChoice}
               onChange={setSizeChoice}
               previousSize={previousSize}
+              matchImage={imageNatural ?? undefined}
               customWidth={customWidth}
               customHeight={customHeight}
               setCustomWidth={setCustomWidth}
