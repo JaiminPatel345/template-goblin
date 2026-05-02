@@ -114,7 +114,11 @@ export function ImageFieldProps({ field }: Props) {
               <button
                 className="tg-btn"
                 onClick={() => staticFileInputRef.current?.click()}
-                style={{ fontSize: 11 }}
+                style={{
+                  fontSize: 11,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-tertiary)',
+                }}
                 data-testid="image-static-upload"
               >
                 Upload
@@ -213,7 +217,12 @@ export function ImageFieldProps({ field }: Props) {
               <button
                 className="tg-btn"
                 onClick={() => dynamicFileInputRef.current?.click()}
-                style={{ fontSize: 11 }}
+                style={{
+                  fontSize: 11,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-tertiary)',
+                }}
+                data-testid="image-placeholder-upload"
               >
                 Upload
               </button>
