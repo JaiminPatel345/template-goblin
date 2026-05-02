@@ -981,3 +981,12 @@ export const useTemplateStore = create<TemplateState>()(
     },
   ),
 )
+
+// Expose for Playwright / dev-mode inspection (mirrors `__fabricCanvas` in
+// `useFabricCanvas.ts`). Lets e2e tests drive store updates without
+// reaching into private React internals — used by the table-column-sync
+// spec to flip headerStyle.color and assert the canvas re-renders.
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  ;(window as unknown as { __templateStore?: typeof useTemplateStore }).__templateStore =
+    useTemplateStore
+}

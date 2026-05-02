@@ -158,6 +158,7 @@ export function LoopFieldProps({ field }: Props) {
               </span>
               <input
                 className="tg-input"
+                data-testid="loop-jsonkey-input"
                 value={displayKey}
                 onChange={(e) => onJsonKeyChange(e.target.value)}
               />
@@ -273,6 +274,7 @@ export function LoopFieldProps({ field }: Props) {
                   className="tg-btn tg-btn--danger"
                   style={{ fontSize: 10, padding: '2px 6px' }}
                   onClick={() => removeColumn(i)}
+                  data-testid={`loop-remove-column-${i}`}
                 >
                   Remove
                 </button>
@@ -326,6 +328,7 @@ export function LoopFieldProps({ field }: Props) {
           className="tg-btn"
           style={{ width: '100%', justifyContent: 'center', fontSize: 11 }}
           onClick={addColumn}
+          data-testid="loop-add-column"
         >
           + Add Column
         </button>
