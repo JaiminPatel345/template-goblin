@@ -478,6 +478,7 @@ export function Toolbar() {
         onClick={() => setShowPreview(!showPreview)}
         disabled={!hasBackground}
         title="Preview template"
+        data-testid="toolbar-preview"
       >
         <svg
           width="14"
