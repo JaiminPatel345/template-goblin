@@ -159,6 +159,39 @@ export function snap(value: number, gridSize: number, enabled: boolean): number 
 export type ImageResolver = (filename: string) => string | null
 
 /**
+ * Swap a field group's placeholder rect (and any stale prior image) for the
+ * freshly-loaded `FabricImage`. Shared between `createFieldGroup` and
+ * `applyFieldToGroup` async-load callbacks (GH #54 — without the reset-add-
+ * restore dance below, `Group#add` translates the image's declared local
+ * coords by `(-group.left, -group.top)` and images snap to the page's upper-
+ * left after switching pages and returning). The stale strip prevents a
+ * reconcile re-fire from stacking duplicate FabricImages on the group.
+ */
+function swapPlaceholderForImage(
+  group: Group,
+  img: FabricImage,
+  placeholderId: string,
+  fieldId: string,
+): void {
+  const stale = group
+    .getObjects()
+    .filter(
+      (c) =>
+        c.__fieldId === placeholderId ||
+        (typeof c.__fieldId === 'string' && c.__fieldId === `__img_${fieldId}`),
+    )
+  if (stale.length > 0) group.remove(...stale)
+
+  const restoreLeft = group.left ?? 0
+  const restoreTop = group.top ?? 0
+  group.set({ left: 0, top: 0 })
+  group.add(img)
+  group.set({ left: restoreLeft, top: restoreTop })
+  group.setCoords()
+  group.canvas?.requestRenderAll()
+}
+
+/**
  * Build a `fabric.Group` representing a single `FieldDefinition`.
  *
  * Children:
@@ -186,10 +219,7 @@ export function createFieldGroup(field: FieldDefinition, resolveImage: ImageReso
   let createdGroup: Group | null = null
   const children = buildGroupChildren(field, resolveImage, (img, phId) => {
     if (!createdGroup) return
-    const ph = createdGroup.getObjects().find((c) => c.__fieldId === phId)
-    if (ph) createdGroup.remove(ph)
-    createdGroup.add(img)
-    createdGroup.canvas?.requestRenderAll()
+    swapPlaceholderForImage(createdGroup, img, phId, field.id)
   })
 
   createdGroup = new Group(children, {
@@ -323,30 +353,7 @@ export function applyFieldToGroup(
   }
 
   const children = buildGroupChildren(field, resolveImage, (img, phId) => {
-    // Strip the placeholder rect AND any prior image child for this field
-    // before adding the freshly-loaded one. Without the prior-image strip,
-    // a reconciliation that re-fires `loadFabricImage` (after a resize or
-    // resync) would stack a second / third FabricImage onto the group —
-    // user reported "zoom shows 2-3 images" caused by exactly this.
-    const stale = group
-      .getObjects()
-      .filter(
-        (c) =>
-          c.__fieldId === phId ||
-          (typeof c.__fieldId === 'string' && c.__fieldId === `__img_${field.id}`),
-      )
-    if (stale.length > 0) group.remove(...stale)
-
-    // Reset-add-restore: the group's add path translates child coords
-    // against the group's CURRENT transform. Moving to origin first makes
-    // the translate identity; the image's declared (left, top) survive.
-    const restoreLeft = group.left ?? 0
-    const restoreTop = group.top ?? 0
-    group.set({ left: 0, top: 0 })
-    group.add(img)
-    group.set({ left: restoreLeft, top: restoreTop })
-    group.setCoords()
-    group.canvas?.requestRenderAll()
+    swapPlaceholderForImage(group, img, phId, field.id)
   })
   if (children.length > 0) {
     group.add(...children)
