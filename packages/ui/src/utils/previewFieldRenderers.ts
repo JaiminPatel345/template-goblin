@@ -36,7 +36,7 @@ export function renderTextHtml(field: TextField, value: string): string {
     `padding:${innerPad}pt;` +
     `font-family:${sc(fontFamily)},sans-serif;font-size:${fontSize}pt;` +
     `font-weight:${s.fontWeight || 'normal'};font-style:${s.fontStyle || 'normal'};` +
-    `color:${sc(s.color || '#000')};text-align:${s.align || 'left'};` +
+    `color:${sc(s.color || '#000')};text-align:${s.align || 'center'};` +
     `line-height:${s.lineHeight || 1.2};` +
     `text-decoration:${
       s.textDecoration === 'underline'
@@ -46,13 +46,18 @@ export function renderTextHtml(field: TextField, value: string): string {
           : 'none'
     };` +
     `display:flex;align-items:${
-      s.verticalAlign === 'middle'
+      // Mirror the horizontal-align default — undefined verticalAlign
+      // defaults to 'middle' (GH #39), so the flexbox cross-axis
+      // alignment matches.
+      !s.verticalAlign || s.verticalAlign === 'middle'
         ? 'center'
         : s.verticalAlign === 'bottom'
           ? 'flex-end'
           : 'flex-start'
     };justify-content:${
-      s.align === 'center' ? 'center' : s.align === 'right' ? 'flex-end' : 'flex-start'
+      // Mirror the `text-align` default — undefined `align` defaults to
+      // 'center' (GH #39), so the flexbox justification matches.
+      !s.align || s.align === 'center' ? 'center' : s.align === 'right' ? 'flex-end' : 'flex-start'
     }`
   return `<div class="${cls}" style="${css}"><span style="width:100%">${esc(value)}</span></div>`
 }
@@ -112,7 +117,7 @@ export function renderTableHtml(field: TableField, rows: Record<string, string>[
             const fontSize = c.style?.fontSize ?? rs.fontSize ?? 10
             const color = sc(c.style?.color ?? rs.color ?? '#000')
             const fontWeight = c.style?.fontWeight ?? rs.fontWeight ?? 'normal'
-            const align = sc(c.style?.align ?? rs.align ?? 'left')
+            const align = sc(c.style?.align ?? rs.align ?? 'center')
             return `<td style="padding:${rowPt}pt ${rowPr}pt ${rowPb}pt ${rowPl}pt;font-size:${fontSize}pt;color:${color};font-weight:${fontWeight};text-align:${align};border:${bw}pt solid ${bc};width:${c.width}pt">${esc(row[c.key] ?? '')}</td>`
           })
           .join('') +

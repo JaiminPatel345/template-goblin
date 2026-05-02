@@ -89,8 +89,14 @@ export function LoopFieldProps({ field }: Props) {
       key: `col${columns.length + 1}`,
       label: `Column ${columns.length + 1}`,
       width: 100,
-      style: null,
-      headerStyle: null,
+      // GH #39: stamp the centred align explicitly on every new column so
+      // the sidebar dropdown and the rendered cell agree on day one,
+      // regardless of what the parent table's `rowStyle.align` says (it
+      // could legitimately be 'left' if the user changed it, or could be
+      // 'left' on a legacy template loaded from disk). Without this the
+      // sidebar would still inherit-display the parent's left value.
+      style: { align: 'center', verticalAlign: 'middle' },
+      headerStyle: { align: 'center', verticalAlign: 'middle' },
     }
     updateFieldStyle(field.id, { columns: [...columns, newCol] })
   }
@@ -125,7 +131,7 @@ export function LoopFieldProps({ field }: Props) {
   // Column-level align: lives on the per-column `style` override. We treat a
   // missing override as "inherit row align".
   function columnAlign(col: TableColumn): TextAlign {
-    return (col.style?.align as TextAlign | undefined) ?? rowStyle.align ?? 'left'
+    return (col.style?.align as TextAlign | undefined) ?? rowStyle.align ?? 'center'
   }
   function setColumnAlign(index: number, align: TextAlign) {
     const existing = columns[index]?.style ?? {}
