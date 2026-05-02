@@ -215,6 +215,63 @@ test.describe('Add Page dialog (#47)', () => {
     expect(Math.abs((after!.height ?? 0) - (before!.height ?? 0))).toBeLessThanOrEqual(1)
   })
 
+  test('Image upload shows "Match image" as the first option, pre-selected with natural dimensions', async ({
+    page,
+  }) => {
+    await seed(page)
+    await page.goto('/')
+    await expect(fabricCanvas(page)).toBeVisible()
+    await openAddPage(page)
+
+    // 4×4 red PNG — distinct natural dimensions from the seeded page
+    // (595×842 A4) so the "Match image" radio's label is unambiguous.
+    const TINY_PNG_BYTES = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVR4XmP8z8AARBgAcwBQEgEDA' +
+        'XAGRgwAAAAASUVORK5CYII=',
+      'base64',
+    )
+
+    // Drive the hidden file input scoped inside the dialog (other file
+    // inputs exist on the page — toolbar Open .tgbl, FontManager, etc.).
+    await page
+      .locator('.tg-dialog input[type="file"][accept="image/*"]')
+      .setInputFiles({ name: 'tiny.png', mimeType: 'image/png', buffer: TINY_PNG_BYTES })
+
+    // Size step renders. Match image must be the FIRST radio (above
+    // Same as previous), labelled with the decoded natural size (4×4).
+    await expect(page.locator('text=Page size:')).toBeVisible()
+    const matchLabel = page.locator('label', { hasText: /^Match image \(4 × 4 pt\)/ })
+    await expect(matchLabel).toBeVisible()
+
+    // First radio in the picker = match image. Verify by reading every
+    // visible label's text content in DOM order and checking index 0
+    // mentions "Match image".
+    const labels = await page
+      .locator('.tg-dialog label')
+      .filter({ hasText: /(Match image|Same as previous|A4|A3|A5|Letter|Legal|Custom)/ })
+      .allTextContents()
+    expect(labels[0]).toMatch(/Match image/)
+
+    // Default selection should be Match image.
+    const matchRadio = matchLabel.locator('input[type="radio"]')
+    await expect(matchRadio).toBeChecked()
+
+    // Confirm Add Page → the new page's stored dimensions equal the
+    // image's natural size (4×4 pt), proving the match path resolved
+    // correctly even though preset radios for A4/Letter/etc. are
+    // available alongside.
+    await page.getByRole('button', { name: 'Add Page', exact: true }).click()
+
+    // Image-bg pages persist async (FileReader → addPage). Poll until
+    // the new page lands.
+    await expect.poll(async () => (await readPages(page))?.length ?? 0, { timeout: 5000 }).toBe(2)
+    const pages = await readPages(page)
+    const newPage = pages?.find((p) => p.index === 1)
+    expect(newPage?.width).toBe(4)
+    expect(newPage?.height).toBe(4)
+    expect(newPage?.backgroundType).toBe('image')
+  })
+
   test('custom width/height inputs are tab-skipped while a preset is selected', async ({
     page,
   }) => {

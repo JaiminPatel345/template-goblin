@@ -10,7 +10,7 @@ import { PAGE_SIZE_PRESETS, type PageSize } from '@template-goblin/types'
  * The component is fully controlled — callers own the `value` and the
  * custom-width/height inputs so the picker has no internal state.
  */
-export type PageSizeChoice = 'previous' | PageSize
+export type PageSizeChoice = 'previous' | 'match' | PageSize
 
 export interface PageSizePickerProps {
   value: PageSizeChoice
@@ -20,6 +20,13 @@ export interface PageSizePickerProps {
   setCustomWidth: (v: number) => void
   setCustomHeight: (v: number) => void
   previousSize?: { width: number; height: number }
+  /**
+   * Natural dimensions of an image the user just uploaded. When supplied,
+   * a "Match image" radio renders FIRST in the list — that's the most
+   * sensible default for an image-bg page (preserves the image's native
+   * aspect ratio, no scaling artefacts on the canvas or in the PDF).
+   */
+  matchImage?: { width: number; height: number }
 }
 
 export function PageSizePicker({
@@ -30,6 +37,7 @@ export function PageSizePicker({
   setCustomWidth,
   setCustomHeight,
   previousSize,
+  matchImage,
 }: PageSizePickerProps) {
   const presets: { key: PageSize; label: string }[] = [
     { key: 'A4', label: 'A4 (595 × 842 pt)' },
@@ -40,6 +48,13 @@ export function PageSizePicker({
   ]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {matchImage && (
+        <Radio
+          checked={value === 'match'}
+          onChange={() => onChange('match')}
+          label={`Match image (${matchImage.width} × ${matchImage.height} pt)`}
+        />
+      )}
       {previousSize && (
         <Radio
           checked={value === 'previous'}
@@ -122,21 +137,26 @@ export function PageSizePicker({
 /**
  * Resolve a PageSizeChoice into concrete (pageSize, width, height). Mirrors
  * `getPageSize` semantics — preset keys consult `PAGE_SIZE_PRESETS`,
- * `'previous'` echoes the supplied previousSize, `'custom'` uses the inputs.
+ * `'previous'` echoes the supplied previousSize, `'match'` echoes the
+ * supplied uploaded-image natural size, `'custom'` uses the inputs.
  */
 export function resolveChoice(
   choice: PageSizeChoice,
   customWidth: number,
   customHeight: number,
   previousSize?: { width: number; height: number },
+  matchImage?: { width: number; height: number },
 ): { pageSize: PageSize; width: number; height: number } {
+  if (choice === 'match' && matchImage) {
+    return { pageSize: 'custom', width: matchImage.width, height: matchImage.height }
+  }
   if (choice === 'previous' && previousSize) {
     return { pageSize: 'custom', width: previousSize.width, height: previousSize.height }
   }
   if (choice === 'custom') {
     return { pageSize: 'custom', width: customWidth, height: customHeight }
   }
-  if (choice === 'previous') {
+  if (choice === 'match' || choice === 'previous') {
     // Fallback: no previous size supplied. Treat as A4.
     return { pageSize: 'A4', ...PAGE_SIZE_PRESETS.A4 }
   }
