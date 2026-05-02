@@ -40,6 +40,11 @@ developers use the npm library to generate PDFs at scale.
     edits to non-published files (e.g. `CLAUDE.md`, repo `README.md`) and
     changes to private packages (root `package.json`, `examples/`). When
     in doubt, add the changeset.
+13. **Never add Claude (or any AI) attribution to commits.** No
+    `Co-Authored-By: Claude…` trailer, no `🤖 Generated with Claude Code`
+    footer in commit messages or PR bodies, no `Authored-By: claude…`.
+    Commit messages stay tool-free and read as if a human wrote them.
+    Same rule for PR descriptions.
 
 ## Tech Stack
 
