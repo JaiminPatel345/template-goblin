@@ -252,6 +252,7 @@ export function AddPageDialog({
               value={sizeChoice}
               onChange={setSizeChoice}
               previousSize={previousSize}
+              previousSizeLabel={mode === 'edit' ? 'Same as Current' : 'Same as previous'}
               matchImage={imageNatural ?? undefined}
               customWidth={customWidth}
               customHeight={customHeight}

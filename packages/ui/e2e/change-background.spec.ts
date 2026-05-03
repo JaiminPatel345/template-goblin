@@ -162,6 +162,25 @@ async function openChangeBgDialog(page: Page): Promise<void> {
 }
 
 test.describe('Change Background dialog (#58)', () => {
+  test('size picker shows "Same as Current" in edit mode (not "Same as previous")', async ({
+    page,
+  }) => {
+    await seed(page, { multiPage: false })
+    await page.goto('/')
+    await expect(fabricCanvas(page)).toBeVisible()
+    await openChangeBgDialog(page)
+
+    // Solid color routes through the size step where the radio renders.
+    await page.locator('button', { hasText: /Solid color/ }).click()
+    await page.locator('button', { hasText: /Next: page size/ }).click()
+    await expect(page.locator('text=Page size:')).toBeVisible()
+
+    const dialog = page.locator('.tg-dialog')
+    const text = (await dialog.textContent()) ?? ''
+    expect(text).toMatch(/Same as Current \(595 × 842 pt\)/)
+    expect(text).not.toMatch(/Same as previous \(/)
+  })
+
   test('toolbar button is labelled "Change Background"', async ({ page }) => {
     await seed(page, { multiPage: false })
     await page.goto('/')
@@ -229,7 +248,7 @@ test.describe('Change Background dialog (#58)', () => {
     expect(updated?.backgroundColor?.toLowerCase()).toBe('#ff8800')
   })
 
-  test('changing to "Same as previous" sets backgroundType to inherit (multi-page)', async ({
+  test('changing the bg to inherit (Same as previous page) flips backgroundType (multi-page)', async ({
     page,
   }) => {
     await seed(page, { multiPage: true })
@@ -239,7 +258,6 @@ test.describe('Change Background dialog (#58)', () => {
     // previous page to inherit from.
     await page.locator('button', { hasText: /^Page 2$/ }).click()
     await openChangeBgDialog(page)
-
     await page.locator('[data-testid="add-page-inherit"]').click()
 
     await expect
