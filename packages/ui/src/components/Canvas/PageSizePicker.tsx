@@ -21,6 +21,14 @@ export interface PageSizePickerProps {
   setCustomHeight: (v: number) => void
   previousSize?: { width: number; height: number }
   /**
+   * Wording for the `previousSize` radio. Defaults to "Same as previous"
+   * (right for add-page flows where the user is creating a NEW page after
+   * the current one). The Change Background dialog passes "Same as
+   * Current" because, in edit mode, the radio's `previousSize` IS the
+   * current page's size — "previous" reads wrong there.
+   */
+  previousSizeLabel?: string
+  /**
    * Natural dimensions of an image the user just uploaded. When supplied,
    * a "Match image" radio renders FIRST in the list — that's the most
    * sensible default for an image-bg page (preserves the image's native
@@ -37,6 +45,7 @@ export function PageSizePicker({
   setCustomWidth,
   setCustomHeight,
   previousSize,
+  previousSizeLabel = 'Same as previous',
   matchImage,
 }: PageSizePickerProps) {
   const presets: { key: PageSize; label: string }[] = [
@@ -59,7 +68,7 @@ export function PageSizePicker({
         <Radio
           checked={value === 'previous'}
           onChange={() => onChange('previous')}
-          label={`Same as previous (${previousSize.width} × ${previousSize.height} pt)`}
+          label={`${previousSizeLabel} (${previousSize.width} × ${previousSize.height} pt)`}
         />
       )}
       {presets.map((p) => (

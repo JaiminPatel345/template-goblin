@@ -22,10 +22,21 @@ export function AddPageDialog({
   onClose,
   onAdd,
   previousSize,
+  mode = 'add',
 }: {
   onClose: () => void
   onAdd: (bgType: PageBackgroundType, size: AddPageSize, bgColor?: string, bgFile?: File) => void
   previousSize: { width: number; height: number }
+  /**
+   * `'add'` (default) — the dialog adds a brand-new page after the current
+   * sheet; the title reads "Add New Page" and the action button reads
+   * "Add Page".
+   * `'edit'` — the dialog changes the *current* page's background; the
+   * title reads "Change Background" and the action button reads "Apply".
+   * `inherit` in this mode means "match the previous page's background"
+   * — the same semantics it has in add mode.
+   */
+  mode?: 'add' | 'edit'
 }) {
   type Step1 =
     | { kind: 'image'; bgFile: File }
@@ -110,7 +121,9 @@ export function AddPageDialog({
         // between the choose / color / size steps for the same reason.
         style={{ minWidth: 360, minHeight: 320 }}
       >
-        <h3 className="tg-dialog-title">Add New Page</h3>
+        <h3 className="tg-dialog-title">
+          {mode === 'edit' ? 'Change Background' : 'Add New Page'}
+        </h3>
 
         {step === 'choose' && (
           <>
@@ -239,6 +252,7 @@ export function AddPageDialog({
               value={sizeChoice}
               onChange={setSizeChoice}
               previousSize={previousSize}
+              previousSizeLabel={mode === 'edit' ? 'Same as Current' : 'Same as previous'}
               matchImage={imageNatural ?? undefined}
               customWidth={customWidth}
               customHeight={customHeight}
@@ -258,8 +272,12 @@ export function AddPageDialog({
               >
                 Back
               </button>
-              <button className="tg-btn tg-btn--primary" onClick={commit}>
-                Add Page
+              <button
+                className="tg-btn tg-btn--primary"
+                onClick={commit}
+                data-testid="add-page-confirm"
+              >
+                {mode === 'edit' ? 'Apply' : 'Add Page'}
               </button>
             </div>
           </div>

@@ -24,6 +24,9 @@ function generatePageId(): string {
 export function usePageHandlers() {
   const addPage = useTemplateStore((s) => s.addPage)
   const removePage = useTemplateStore((s) => s.removePage)
+  const updatePage = useTemplateStore((s) => s.updatePage)
+  const setPageBackground = useTemplateStore((s) => s.setPageBackground)
+  const setBackground = useTemplateStore((s) => s.setBackground)
   const reset = useTemplateStore((s) => s.reset)
   const pages = useTemplateStore((s) => s.pages)
   const pageBackgroundDataUrls = useTemplateStore((s) => s.pageBackgroundDataUrls)
@@ -33,8 +36,14 @@ export function usePageHandlers() {
   const setCurrentPage = useUiStore((s) => s.setCurrentPage)
   const setPendingBackground = useUiStore((s) => s.setPendingBackground)
   const setShowPageSizeDialog = useUiStore((s) => s.setShowPageSizeDialog)
+  const currentPageId = useUiStore((s) => s.currentPageId)
 
   const [showAddPageDialog, setShowAddPageDialog] = useState(false)
+  // The Change Background dialog is global (uiStore) so the Toolbar
+  // button — which lives outside CanvasArea — can open it without prop
+  // drilling through the layout tree.
+  const showChangeBgDialog = useUiStore((s) => s.showChangeBgDialog)
+  const setShowChangeBgDialog = useUiStore((s) => s.setShowChangeBgDialog)
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { pendingDraft, setPendingDraft, handlePopupConfirm, handlePopupCancel } =
@@ -164,6 +173,82 @@ export function usePageHandlers() {
     [pages, pageBackgroundDataUrls, pageBackgroundBuffers, addPage, setCurrentPage],
   )
 
+  // ── Change background of the current page (#58) ────────────────────────
+
+  /**
+   * Replace the *current page's* background. Mirrors `handleAddPage`'s
+   * branching on `bgType` but updates the existing page entry instead of
+   * appending a new one. Also updates the legacy `backgroundDataUrl`
+   * fields as a backstop for code paths that still consult them.
+   *
+   * Pre-#58 the BG button hit `setBackground` which writes only the legacy
+   * fields, so multi-page templates (where the canvas reads from
+   * `pageBackgroundDataUrls`) saw no change at all.
+   */
+  const handleChangeBackground = useCallback(
+    (
+      bgType: PageBackgroundType,
+      size: { pageSize: PageSize; width: number; height: number },
+      bgColor?: string,
+      bgFile?: File,
+    ) => {
+      setShowChangeBgDialog(false)
+
+      const allPages = useTemplateStore.getState().pages
+      const targetId =
+        currentPageId !== null && allPages.some((p) => p.id === currentPageId)
+          ? currentPageId
+          : (allPages.find((p) => p.index === 0)?.id ?? null)
+      if (!targetId) return
+
+      const sized = { width: size.width, height: size.height, pageSize: size.pageSize }
+
+      if (bgType === 'inherit') {
+        updatePage(targetId, {
+          backgroundType: 'inherit',
+          backgroundColor: null,
+          backgroundFilename: null,
+          ...sized,
+        })
+        return
+      }
+
+      if (bgType === 'color') {
+        updatePage(targetId, {
+          backgroundType: 'color',
+          backgroundColor: bgColor ?? '#ffffff',
+          backgroundFilename: null,
+          ...sized,
+        })
+        return
+      }
+
+      if (bgType === 'image' && bgFile) {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const dataUrl = reader.result as string
+          const bufReader = new FileReader()
+          bufReader.onload = () => {
+            updatePage(targetId, {
+              backgroundType: 'image',
+              backgroundColor: null,
+              backgroundFilename: `backgrounds/${targetId}.png`,
+              ...sized,
+            })
+            setPageBackground(targetId, dataUrl, bufReader.result as ArrayBuffer)
+            // Backstop: pre-pages-schema saved templates (and the single-page
+            // legacy preview path) still consult `backgroundDataUrl`. Keep
+            // it in sync so neither path renders a stale image.
+            setBackground(dataUrl, bufReader.result as ArrayBuffer)
+          }
+          bufReader.readAsArrayBuffer(bgFile)
+        }
+        reader.readAsDataURL(bgFile)
+      }
+    },
+    [currentPageId, updatePage, setPageBackground, setBackground],
+  )
+
   // ── Remove page ────────────────────────────────────────────────────────
 
   const handleRemovePage = useCallback(
@@ -225,6 +310,8 @@ export function usePageHandlers() {
     // State
     showAddPageDialog,
     setShowAddPageDialog,
+    showChangeBgDialog,
+    setShowChangeBgDialog,
     isDragOver,
     fileInputRef,
     pendingDraft,
@@ -237,6 +324,7 @@ export function usePageHandlers() {
     handleDragLeave,
     handleInputChange,
     handleAddPage,
+    handleChangeBackground,
     handleRemovePage,
   }
 }
