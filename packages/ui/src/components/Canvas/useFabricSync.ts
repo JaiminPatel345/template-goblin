@@ -22,7 +22,6 @@ import {
   createFieldGroup,
   applyFieldToGroup,
   buildGridLines,
-  centreViewport,
   fitZoomLevel,
   type ImageResolver,
 } from './fabricUtils.js'
@@ -205,16 +204,19 @@ export function useFabricSync(deps: SyncDeps) {
     fc.requestRenderAll()
   }, [fabricRef, fabricInstance, showGrid, gridSize, meta.width, meta.height])
 
-  // ═══════════════ Zoom sync: store → canvas (REQ-037..042) ══════════════
+  // ═══════════════ Zoom sync: store → canvas (REQ-037..042 + GH #66) ════
+  // The canvas is sized to `page * zoom` so the container's `overflow:
+  // auto` produces native scrollbars when the user zooms past the fit
+  // level. The viewportTransform is identity-with-zoom (no centring
+  // translate) — the container's flex centring places smaller-than-
+  // viewport canvases instead.
   useEffect(() => {
     const fc = fabricRef.current
-    if (!fc) return
+    if (!fc || meta.width <= 0 || meta.height <= 0) return
     if (Math.abs(fc.getZoom() - zoom) < 0.001) return
 
-    const canW = fc.width ?? 0
-    const canH = fc.height ?? 0
-    const vpt = centreViewport(zoom, meta.width, meta.height, canW, canH)
-    fc.setViewportTransform(vpt)
+    fc.setDimensions({ width: meta.width * zoom, height: meta.height * zoom })
+    fc.setViewportTransform([zoom, 0, 0, zoom, 0, 0])
     fc.requestRenderAll()
   }, [fabricRef, fabricInstance, zoom, meta.width, meta.height])
 
@@ -228,29 +230,37 @@ export function useFabricSync(deps: SyncDeps) {
     useUiStore.getState().setZoom(z)
   }, [fabricRef, fabricInstance, containerRef, containerEl, meta.width, meta.height])
 
-  // ═══════════════ Resize observer ═══════════════════════════════════════
-  // Depend on `containerEl` (state mirror) and `fabricInstance` rather than
-  // the ref objects — refs have stable identity so the old implementation
-  // stayed bound to the onboarding picker's <div> after the canvas subtree
-  // mounted on the first visit (GH #17). Viewport recentre uses the
-  // *current page's* bounds (deps.meta) so multi-page templates with mixed
-  // sizes recentre correctly after a window resize (#46/#47).
+  // ═══════════════ Resize observer (GH #17, #66) ═════════════════════════
+  // Pre-#66 the observer resized the Fabric canvas to match the container
+  // and recentred the page via `viewportTransform`. Now the canvas is
+  // sized to `page * zoom` (independent of the container) and centring is
+  // CSS flex; on a container-size change the only thing that needs to
+  // update is the auto-fit zoom — useFabricSync's auto-fit-zoom-on-meta
+  // effect already handles meta changes, but a window resize doesn't
+  // touch meta so we recompute zoom here when the user is at (or below)
+  // the previous fit level. Above fit-zoom we leave the user's zoom
+  // alone — they're explicitly zoomed in and a window resize shouldn't
+  // throw away their context.
+  //
+  // Depend on `containerEl` (state mirror) — refs have stable identity
+  // so the old implementation stayed bound to the onboarding picker's
+  // <div> after the canvas subtree mounted on the first visit.
   useEffect(() => {
     if (!containerEl || !fabricInstance) return
 
     const observer = new ResizeObserver(() => {
       const fc = fabricRef.current
       if (!fc) return
+      if (meta.width <= 0 || meta.height <= 0) return
       const w = containerEl.clientWidth
       const h = containerEl.clientHeight
-      fc.setDimensions({ width: w, height: h })
-
-      const z = fc.getZoom()
-      if (meta.width > 0 && meta.height > 0) {
-        const vpt = centreViewport(z, meta.width, meta.height, w, h)
-        fc.setViewportTransform(vpt)
-        fc.requestRenderAll()
+      const fit = fitZoomLevel(meta.width, meta.height, w, h, 40)
+      const current = fc.getZoom()
+      if (current <= fit + 0.001) {
+        useUiStore.getState().setZoom(fit)
       }
+      // Otherwise (current > fit, user zoomed in) leave zoom alone; the
+      // canvas keeps its `page * current` size and scrollbars adjust.
     })
     observer.observe(containerEl)
     return () => observer.disconnect()

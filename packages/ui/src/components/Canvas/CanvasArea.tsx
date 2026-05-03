@@ -238,11 +238,28 @@ export function CanvasArea() {
           position: 'relative',
           background: 'var(--canvas-bg)',
           minHeight: 0,
-          overflow: 'hidden',
+          // GH #66: native scrollbars when the page (canvas) exceeds the
+          // visible viewport. The Fabric `<canvas>` is sized to
+          // `pageWidth * zoom × pageHeight * zoom` (see useFabricSync's
+          // zoom-sync effect), so when the user zooms past the fit level
+          // the canvas grows past this container and the browser draws
+          // both scrollbars.
+          //
+          // Centring uses `margin: auto` on the inner wrapper rather
+          // than `align-items / justify-content: center` on the flex
+          // container. With flex centring, when the child overflows the
+          // container its leading edge (left + top) gets pinned past
+          // negative scroll territory and can't be reached by scrollbars
+          // — the canvas would clip on the left and top with no way to
+          // pan there. `margin: auto` resolves to 0 when there's no room
+          // to distribute, so the canvas pins to top-left and overflow
+          // flows scrollably towards the bottom-right on both axes.
+          overflow: 'auto',
+          display: 'flex',
         }}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <div data-testid="canvas-stage-wrapper" style={{ width: '100%', height: '100%' }}>
+        <div data-testid="canvas-stage-wrapper" style={{ flex: 'none', margin: 'auto' }}>
           <canvas key="fabric-canvas" ref={setCanvasEl} />
         </div>
       </div>

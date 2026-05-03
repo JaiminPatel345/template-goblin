@@ -20,7 +20,6 @@ import { useUiStore } from '../../store/uiStore.js'
 import {
   groupToFieldPatch,
   fitZoomLevel,
-  centreViewport,
   snap,
   syncSelectionEmphasis,
   fitFontSize,
@@ -121,17 +120,19 @@ export function useFabricCanvas(
       // the current micro-task so the parent ref-callback has a chance to fire
       // and the DOM has been laid out (avoids 800×600 fallback when the
       // container ref fires after this canvas ref in the same React commit).
+      // GH #66: the canvas is now sized to `page * zoom` (not container);
+      // useFabricSync's zoom-sync effect resizes on every zoom change.
+      // Here we just compute the fit-zoom from container size and stamp
+      // the initial dimensions; the container's `overflow: auto` does the
+      // rest when the user zooms past fit.
       const { width: pageW, height: pageH } = useTemplateStore.getState().meta
       if (pageW > 0 && pageH > 0) {
         requestAnimationFrame(() => {
-          const cw = containerRef.current?.clientWidth || fc.width || 800
-          const ch = containerRef.current?.clientHeight || fc.height || 600
-          if (fc.width !== cw || fc.height !== ch) {
-            fc.setDimensions({ width: cw, height: ch })
-          }
+          const cw = containerRef.current?.clientWidth || 800
+          const ch = containerRef.current?.clientHeight || 600
           const z = fitZoomLevel(pageW, pageH, cw, ch, 40)
-          const vpt = centreViewport(z, pageW, pageH, cw, ch)
-          fc.setViewportTransform(vpt)
+          fc.setDimensions({ width: pageW * z, height: pageH * z })
+          fc.setViewportTransform([z, 0, 0, z, 0, 0])
           useUiStore.getState().setZoom(z)
         })
       }
