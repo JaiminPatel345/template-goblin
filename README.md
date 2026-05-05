@@ -8,11 +8,65 @@ Open-source PDF template engine for generating PDFs at scale. Non-technical user
 
 ## Quick Start — Library
 
+### 1. Install
+
 ```bash
-npm install template-goblin
+npm install template-goblin       # or: pnpm add template-goblin / yarn add template-goblin
 ```
 
-### Hono
+### 2. Get a `.tgbl` template
+
+Design one in the visual builder (`npx template-goblin-ui`) and click **Export → .tgbl**, or use any existing `.tgbl` file. Drop it next to your script — e.g. `./templates/result.tgbl`.
+
+### 3. Generate a PDF (minimal example)
+
+`generate.ts`:
+
+```ts
+import { writeFile } from 'node:fs/promises'
+import { loadTemplate, generatePDF } from 'template-goblin'
+
+// Load the template ONCE (parses ZIP, fonts, images into memory)
+const template = await loadTemplate('./templates/result.tgbl')
+
+// Fill it with data — keys must match the field names in your template
+const data = {
+  texts: { name: 'John Doe', indexnumber: '12345' },
+  tables: {
+    marks: [
+      { subject_name: 'Mathematics', grade: 'A' },
+      { subject_name: 'Science', grade: 'B+' },
+    ],
+  },
+  images: {},
+}
+
+const pdf = await generatePDF(template, data)
+await writeFile('./result.pdf', pdf)
+console.log('Wrote result.pdf')
+```
+
+Run it:
+
+```bash
+npx tsx generate.ts        # TypeScript, no build step
+# or for plain JS: node generate.js
+```
+
+That's the whole library — `loadTemplate` once, `generatePDF` as many times as you need.
+
+### Essential commands cheat sheet
+
+| Command                       | What it does                                      |
+| ----------------------------- | ------------------------------------------------- |
+| `npm install template-goblin` | Install the library                               |
+| `npx template-goblin-ui`      | Run the visual builder at `http://localhost:4242` |
+| `npx tsx generate.ts`         | Run a TypeScript script that generates a PDF      |
+| `node generate.js`            | Run a plain JS script                             |
+
+### Framework integrations
+
+#### Hono
 
 ```ts
 import { Hono } from 'hono'
@@ -30,7 +84,7 @@ app.post('/pdf', async (c) => {
 export default app
 ```
 
-### Express
+#### Express
 
 ```ts
 import express from 'express'
@@ -49,7 +103,7 @@ app.post('/pdf', async (req, res) => {
 app.listen(3000)
 ```
 
-### Bun
+#### Bun
 
 ```ts
 import { loadTemplate, generatePDF } from 'template-goblin'

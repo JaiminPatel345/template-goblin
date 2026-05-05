@@ -70,6 +70,15 @@ developers use the npm library to generate PDFs at scale.
     like "run master QA", "QA this", or otherwise explicitly
     requests it. This supersedes any earlier guidance that placed
     master QA on the default path.
+17. **After every PR merge, sync local main from origin.** As soon
+    as a PR is merged (whether you ran `gh pr merge` or the user
+    merged it on GitHub), run `git checkout main && git pull --ff-only`
+    so the local `main` mirrors the remote — including the new
+    merge commit. Do this BEFORE creating any new branch off
+    `main`, otherwise the new branch will start from a stale base
+    and risk picking up unmerged work from whichever branch was
+    checked out at merge time. Do not skip the pull "because it
+    looks up to date" — pull anyway.
 
 ## Tech Stack
 
