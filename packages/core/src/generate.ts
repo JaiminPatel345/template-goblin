@@ -3,18 +3,16 @@ import type {
   LoadedTemplate,
   InputJSON,
   FieldDefinition,
-  TableRow,
   PageDefinition,
-  TemplateMeta,
 } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
 import { validateData } from './validate.js'
+import { preflightImages } from './preflight.js'
 import { registerFonts } from './utils/font.js'
-import { resolveValue } from './utils/resolveValue.js'
-import { renderBackground, renderColorBackground } from './render/background.js'
-import { renderText } from './render/text.js'
-import { renderImage } from './render/image.js'
-import { renderLoop } from './render/loop.js'
+import { type PageContext } from './utils/errorContext.js'
+import { renderBackground } from './render/background.js'
+import { renderField } from './render/field.js'
+import { renderPageBackground, renderPageBackgroundSafely } from './render/page.js'
 
 /**
  * Generate a PDF from an in-memory template and input data.
@@ -24,15 +22,16 @@ import { renderLoop } from './render/loop.js'
  *
  * Process:
  * 1. Validate input data against manifest
- * 2. Create PDFKit document with page dimensions from manifest
- * 3. Register custom fonts
- * 4. Render background image
- * 5. Render all fields in zIndex order (lowest first)
+ * 2. Pre-flight image-bytes check (catches PDFKit format errors with context)
+ * 3. Create PDFKit document with page dimensions from manifest
+ * 4. Register custom fonts
+ * 5. Render background image
+ * 6. Render all fields in zIndex order (lowest first)
  *
  * @param template - LoadedTemplate returned by loadTemplate()
  * @param data - Input JSON with texts, images, and tables
  * @returns PDF as a Buffer
- * @throws TemplateGoblinError with code MISSING_REQUIRED_FIELD, INVALID_DATA_TYPE, MAX_PAGES_EXCEEDED, or PDF_GENERATION_FAILED
+ * @throws TemplateGoblinError with code MISSING_REQUIRED_FIELD, INVALID_DATA_TYPE, INVALID_FORMAT, MISSING_ASSET, MAX_PAGES_EXCEEDED, or PDF_GENERATION_FAILED
  */
 export async function generatePDF(template: LoadedTemplate, data: InputJSON): Promise<Buffer> {
   // REQ: Validate input data
@@ -46,12 +45,15 @@ export async function generatePDF(template: LoadedTemplate, data: InputJSON): Pr
     }
   }
 
+  // Pre-flight: catch image format / missing-asset issues before PDFKit runs
+  // so callers see field+asset context instead of "Unknown image format".
+  preflightImages(template, data)
+
   const { manifest, backgroundImage, pageBackgrounds } = template
   const { meta } = manifest
   const pages = manifest.pages && manifest.pages.length > 0 ? manifest.pages : null
 
   try {
-    // Create PDFKit document with page dimensions
     const doc = new PDFDocument({
       size: [meta.width, meta.height],
       margin: 0,
@@ -59,7 +61,6 @@ export async function generatePDF(template: LoadedTemplate, data: InputJSON): Pr
       bufferPages: true,
     })
 
-    // Collect PDF output into a Buffer
     const chunks: Buffer[] = []
     doc.on('data', (chunk: Buffer) => chunks.push(chunk))
 
@@ -73,25 +74,23 @@ export async function generatePDF(template: LoadedTemplate, data: InputJSON): Pr
 
     if (!pages) {
       // Backward compat: single-page template with no pages array
-      renderBackground(doc, backgroundImage, meta)
+      const legacyCtx: PageContext = { pageId: null, pageIndex: 0 }
+      renderPageBackgroundSafely(doc, () => renderBackground(doc, backgroundImage, meta), legacyCtx)
 
       const sortedFields = [...manifest.fields].sort(
         (a, b) => a.zIndex - b.zIndex || a.id.localeCompare(b.id),
       )
 
       for (const field of sortedFields) {
-        renderField(doc, field, data, fontMap, template)
+        renderField(doc, field, data, fontMap, template, legacyCtx)
       }
     } else {
       // Multi-page: group fields by pageId, render each page
       const fieldsByPage = new Map<string | null, FieldDefinition[]>()
       for (const field of manifest.fields) {
         const key = field.pageId
-        if (!fieldsByPage.has(key)) {
-          fieldsByPage.set(key, [])
-        }
-        const pageFields = fieldsByPage.get(key)
-        if (pageFields) pageFields.push(field)
+        if (!fieldsByPage.has(key)) fieldsByPage.set(key, [])
+        fieldsByPage.get(key)?.push(field)
       }
 
       const sortedPages = [...pages].sort((a, b) => a.index - b.index)
@@ -100,43 +99,44 @@ export async function generatePDF(template: LoadedTemplate, data: InputJSON): Pr
       for (let i = 0; i < sortedPages.length; i++) {
         const page = sortedPages[i] as PageDefinition
 
-        // Add new page for pages after the first (first page is auto-created)
         if (i > 0) {
           doc.addPage({ size: [meta.width, meta.height] })
         }
 
-        // Render page background based on backgroundType
-        const currentBackground = renderPageBackground(
+        const pageCtx: PageContext = { pageId: page.id, pageIndex: page.index }
+        let currentBackground: Buffer | null = null
+        renderPageBackgroundSafely(
           doc,
-          page,
-          meta,
-          pageBackgrounds,
-          backgroundImage,
-          previousBackground,
+          () => {
+            currentBackground = renderPageBackground(
+              doc,
+              page,
+              meta,
+              pageBackgrounds,
+              backgroundImage,
+              previousBackground,
+            )
+          },
+          pageCtx,
         )
         previousBackground = currentBackground
 
-        // Collect fields for this page: fields with matching pageId + null-pageId fields on page 0
+        // Collect fields: matching pageId + null-pageId fields on page 0
         const pageFields: FieldDefinition[] = []
-        const directFields = fieldsByPage.get(page.id) ?? []
-        pageFields.push(...directFields)
-
-        // Fields with pageId: null render on page index 0
+        pageFields.push(...(fieldsByPage.get(page.id) ?? []))
         if (page.index === 0) {
-          const nullFields = fieldsByPage.get(null) ?? []
-          pageFields.push(...nullFields)
+          pageFields.push(...(fieldsByPage.get(null) ?? []))
         }
 
         // Sort by zIndex (lowest first), stable with id tiebreaker
         pageFields.sort((a, b) => a.zIndex - b.zIndex || a.id.localeCompare(b.id))
 
         for (const field of pageFields) {
-          renderField(doc, field, data, fontMap, template)
+          renderField(doc, field, data, fontMap, template, pageCtx)
         }
       }
     }
 
-    // Finalize PDF
     doc.end()
     return await pdfReady
   } catch (error) {
@@ -145,94 +145,6 @@ export async function generatePDF(template: LoadedTemplate, data: InputJSON): Pr
       'PDF_GENERATION_FAILED',
       `PDF generation failed: ${error instanceof Error ? error.message : 'unknown error'}`,
     )
-  }
-}
-
-/**
- * Render the background for a single page based on its backgroundType.
- *
- * @param doc - PDFKit document
- * @param page - Page definition with background settings
- * @param meta - Template metadata with page dimensions
- * @param pageBackgrounds - Map of page ID to background image Buffer
- * @param backgroundImage - Legacy single background image (page 0 fallback)
- * @param previousBackground - Previous page's resolved background image Buffer
- * @returns The resolved background image Buffer for this page (for inherit chain)
- */
-function renderPageBackground(
-  doc: InstanceType<typeof PDFDocument>,
-  page: PageDefinition,
-  meta: TemplateMeta,
-  pageBackgrounds: Map<string, Buffer>,
-  backgroundImage: Buffer | null,
-  previousBackground: Buffer | null,
-): Buffer | null {
-  switch (page.backgroundType) {
-    case 'image': {
-      const bgBuffer = pageBackgrounds.get(page.id) ?? (page.index === 0 ? backgroundImage : null)
-      renderBackground(doc, bgBuffer, meta)
-      return bgBuffer
-    }
-    case 'color': {
-      if (page.backgroundColor) {
-        renderColorBackground(doc, page.backgroundColor, meta)
-      }
-      return null
-    }
-    case 'inherit': {
-      renderBackground(doc, previousBackground, meta)
-      return previousBackground
-    }
-    default:
-      return null
-  }
-}
-
-/**
- * Render a single field based on its type.
- */
-function renderField(
-  doc: InstanceType<typeof PDFDocument>,
-  field: FieldDefinition,
-  data: InputJSON,
-  fontMap: Map<string, string>,
-  template: LoadedTemplate,
-): void {
-  const value = resolveValue(field as FieldDefinition, data) as unknown
-
-  // Skip if value is not provided (optional dynamic field or unresolved static)
-  if (value === undefined || value === null) return
-
-  switch (field.type) {
-    case 'text':
-      if (typeof value !== 'string') break
-      renderText(doc, field, value, fontMap)
-      break
-
-    case 'image': {
-      // Dynamic image: value is Buffer or base64 string — passed directly.
-      // Static image: value is { filename } — look up bytes in staticImages.
-      let imageData: Buffer | string | undefined
-      if (typeof value === 'string' || Buffer.isBuffer(value)) {
-        imageData = value
-      } else if (value && typeof value === 'object' && 'filename' in value) {
-        imageData = template.staticImages.get((value as { filename: string }).filename)
-      }
-      if (!imageData) break
-      renderImage(doc, field, imageData)
-      break
-    }
-
-    case 'table':
-      renderLoop(
-        doc,
-        field,
-        value as TableRow[],
-        fontMap,
-        template.manifest.meta,
-        template.backgroundImage,
-      )
-      break
   }
 }
 
