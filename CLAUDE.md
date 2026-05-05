@@ -54,6 +54,15 @@ developers use the npm library to generate PDFs at scale.
     discoverable from the GitHub UI and from `git tag --list`. Tag
     AFTER pushing the version commit; never tag a local-only commit.
     Minor and patch bumps don't require this — tag only on majors.
+15. **Do exactly what is asked — nothing more.** If the user says
+    "add a comment", add the comment and stop. Do not also branch,
+    code, refactor, or kick off the next obvious step on your own.
+    When in doubt about whether the next action is in scope, ask.
+    Auto mode means execute requested actions immediately; it does
+    NOT mean proactively expand the request. Reading and quick
+    investigation tied to the asked task are fine; writing code,
+    creating branches, opening issues/PRs, or any side effect beyond
+    the explicit ask is not.
 
 ## Tech Stack
 
