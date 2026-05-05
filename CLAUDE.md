@@ -63,6 +63,13 @@ developers use the npm library to generate PDFs at scale.
     investigation tied to the asked task are fine; writing code,
     creating branches, opening issues/PRs, or any side effect beyond
     the explicit ask is not.
+16. **Run master QA only when explicitly asked.** Do NOT auto-spawn
+    a master-QA subagent before pushing, before `gh pr create`, or
+    as part of any standard workflow. Push and open PRs directly
+    when asked. Master QA runs only when the user types something
+    like "run master QA", "QA this", or otherwise explicitly
+    requests it. This supersedes any earlier guidance that placed
+    master QA on the default path.
 
 ## Tech Stack
 
