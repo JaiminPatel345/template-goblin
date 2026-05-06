@@ -25,9 +25,13 @@ export function renderTextHtml(field: TextField, value: string): string {
   const labelW = Math.max(1, field.width - innerPad * 2)
   const labelH = Math.max(1, field.height - innerPad * 2)
   const fitted = fitFontSize(value, labelW, labelH, fontFamily, s.lineHeight || 1.2)
-  // `fontSizeDynamic` is a hint that the canvas was already auto-fitting,
-  // so the right size to print is the fitted one regardless.
-  const fontSize = s.fontSizeDynamic ? fitted : Math.min(declared, fitted)
+  // GH #73: only static text may use the canvas's max-fit preview — the
+  // literal `source.value` is what the PDF will print so growing it is
+  // honest. Dynamic text is WYSIWYG with the authored `fontSize`; the PDF
+  // generator only ever shrinks (never grows), so the preview must too.
+  const isDynamicSource = field.source?.mode === 'dynamic'
+  const useAutoFit = !isDynamicSource && s.fontSizeDynamic
+  const fontSize = useAutoFit ? fitted : Math.min(declared, fitted)
 
   const truncate = s.overflowMode === 'truncate'
   const cls = `f${truncate ? ' f-truncate' : ''}`

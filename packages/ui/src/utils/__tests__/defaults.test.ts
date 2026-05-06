@@ -132,6 +132,13 @@ describe('defaultTextStyle', () => {
   it('maxRows is >= 1 (spec 010 edge case: min 1)', () => {
     expect(defaultTextStyle().maxRows).toBeGreaterThanOrEqual(1)
   })
+
+  // GH #73 — fontSizeDynamic defaults to false so the authored fontSize is
+  // WYSIWYG with the canvas and the PDF. Users opt in to runtime shrinking
+  // when they actually expect overflow on dynamic data.
+  it('fontSizeDynamic defaults to false (GH #73 WYSIWYG)', () => {
+    expect(defaultTextStyle().fontSizeDynamic).toBe(false)
+  })
 })
 
 // ---------------------------------------------------------------------------

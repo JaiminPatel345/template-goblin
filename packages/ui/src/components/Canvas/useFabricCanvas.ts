@@ -203,15 +203,17 @@ function wireDragResizeEvents(fc: FabricCanvas) {
     store.resizeField(g.__fieldId, patch.width, patch.height)
 
     // Sync fitted fontSize back to the store so the sidebar reflects what
-    // the user actually sees on the canvas. Applies to text fields where
-    // the rendered fontSize is auto-fitted: every static text field
-    // (fixed string, fitted to rect) and dynamic text with auto-fit on.
+    // the user sees on the canvas. Applies ONLY to static text fields with
+    // auto-fit on — those are the only fields whose canvas label legitimately
+    // auto-grows to a max-fit preview. Dynamic text is WYSIWYG with the
+    // authored `fontSize` (GH #73), so the canvas never derives a new size
+    // and we must not overwrite the sidebar value behind the user's back.
     const field = store.fields.find((f) => f.id === g.__fieldId)
     if (!field || field.type !== 'text') return
     const tf = field as TextField
     const isStatic = tf.source?.mode === 'static'
     const autoFit = tf.style.fontSizeDynamic === true
-    if (!isStatic && !autoFit) return
+    if (!isStatic || !autoFit) return
     const label = fieldCanvasLabel(tf)
     if (!label) return
     const innerPad = 6
