@@ -26,8 +26,14 @@ export default defineConfig({
       // and throws on actual reads/writes (browser code paths never
       // hit fs because we feed PDFKit pre-loaded Buffers).
       exclude: ['fs'],
+      // `Buffer: true` rewrites every module's `Buffer` reference to
+      // an import from `vite-plugin-node-polyfills/shims/buffer`, which
+      // Rollup can't resolve from the linked workspace package paths
+      // during prod build. We assign `globalThis.Buffer` ourselves in
+      // `src/main.tsx` instead — same semantic, no rewriting, build
+      // and dev both work.
       globals: {
-        Buffer: true,
+        Buffer: false,
         process: true,
         global: true,
       },
