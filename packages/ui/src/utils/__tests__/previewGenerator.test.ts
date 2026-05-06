@@ -437,6 +437,49 @@ describe('generatePreviewHtml', () => {
     })
   })
 
+  // GH #73 — for dynamic text the canvas, sidebar, and preview/PDF must all
+  // agree on the rendered fontSize. The HTML preview is the testable proxy
+  // for the canvas's rendered size: they share the effective-fontSize logic,
+  // and both must emit the user's authored value when the rect accommodates
+  // it. The pre-#73 bug grew the placeholder text past the authored size.
+  describe('GH #73 — dynamic text WYSIWYG', () => {
+    it('dynamic text with fontSizeDynamic=false renders at the authored fontSize', async () => {
+      const f = textField('name')
+      ;(f.style as TextFieldStyle).fontSize = 12
+      ;(f.style as TextFieldStyle).fontSizeDynamic = false
+      f.width = 400
+      f.height = 200
+      const blob = await generatePreviewHtml([f], defaultMeta, [], {
+        texts: { name: 'Jane' },
+        tables: {},
+        images: {},
+      })
+      const html = await blob.text()
+      expect(html).toContain('font-size:12pt')
+    })
+
+    it('dynamic text with fontSizeDynamic=true does NOT auto-grow above the authored fontSize', async () => {
+      // The PDF generator only ever shrinks (never grows), so the preview
+      // must too. Authored size is the ceiling regardless of the flag.
+      const f = textField('name')
+      ;(f.style as TextFieldStyle).fontSize = 12
+      ;(f.style as TextFieldStyle).fontSizeDynamic = true
+      f.width = 400
+      f.height = 200
+      const blob = await generatePreviewHtml([f], defaultMeta, [], {
+        texts: { name: 'Jane' },
+        tables: {},
+        images: {},
+      })
+      const html = await blob.text()
+      const m = html.match(/font-size:(\d+(?:\.\d+)?)pt/)
+      expect(m).not.toBeNull()
+      const size = m ? parseFloat(m[1]!) : 0
+      expect(size).toBeLessThanOrEqual(12)
+      expect(size).toBeGreaterThan(0)
+    })
+  })
+
   // GH #49 — multi-page preview: one <section> per page, fields routed by pageId.
   describe('GH #49 — multi-page rendering', () => {
     it('emits one <section class="page"> per supplied page', async () => {

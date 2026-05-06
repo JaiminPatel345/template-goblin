@@ -49,7 +49,9 @@ export function defaultTextStyle(): TextFieldStyle {
     fontId: null,
     fontFamily: 'Helvetica',
     fontSize: 12,
-    fontSizeDynamic: true,
+    // GH #73: default OFF so authored fontSize is WYSIWYG with canvas + PDF.
+    // Users opt in to dynamic shrinking when they expect overflow at runtime.
+    fontSizeDynamic: false,
     fontSizeMin: 11,
     lineHeight: 1.2,
     fontWeight: 'normal',
