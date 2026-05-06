@@ -273,6 +273,26 @@ describe('uiStore', () => {
     })
   })
 
+  // GH #78 — `previewJsonText` is the shared pin between the right-panel
+  // JsonPreview and the PreviewDialog. Round-tripping null ↔ string lets
+  // either surface drive the other.
+  describe('setPreviewJsonText', () => {
+    it('defaults to null (no pin — both surfaces show auto-generated)', () => {
+      expect(useUiStore.getState().previewJsonText).toBeNull()
+    })
+
+    it('stores the user-pinned text verbatim', () => {
+      useUiStore.getState().setPreviewJsonText('{"texts":{"name":"Jaimin"}}')
+      expect(useUiStore.getState().previewJsonText).toBe('{"texts":{"name":"Jaimin"}}')
+    })
+
+    it('null clears the pin (revert to auto-generated)', () => {
+      useUiStore.getState().setPreviewJsonText('{"texts":{"name":"x"}}')
+      useUiStore.getState().setPreviewJsonText(null)
+      expect(useUiStore.getState().previewJsonText).toBeNull()
+    })
+  })
+
   /* -- Theme -- */
 
   describe('toggleTheme', () => {

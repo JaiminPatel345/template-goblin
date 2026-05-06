@@ -27,6 +27,14 @@ export interface UiState {
   jsonPreviewMode: JsonPreviewMode
   /** Max mode repeat count for text */
   maxModeRepeatCount: number
+  /**
+   * User-edited JSON for the preview pipeline (#78). `null` means "use the
+   * auto-generated example" — both the right-panel JsonPreview textarea and
+   * the PreviewDialog's JSON editor read from this field, so an edit in
+   * either surface flows to the other. Transient (not persisted) — a fresh
+   * session starts unpinned, showing the auto-generated example.
+   */
+  previewJsonText: string | null
   /** Whether the right panel is visible */
   showRightPanel: boolean
   /** Whether the left panel is visible */
@@ -87,6 +95,11 @@ export interface UiState {
   setShowPreview: (show: boolean) => void
   setJsonPreviewMode: (mode: JsonPreviewMode) => void
   setMaxModeRepeatCount: (count: number) => void
+  /**
+   * Set the user-pinned preview JSON. Pass `null` to clear (revert to the
+   * auto-generated example).
+   */
+  setPreviewJsonText: (text: string | null) => void
   setShowRightPanel: (show: boolean) => void
   setShowLeftPanel: (show: boolean) => void
   setShowPageSizeDialog: (show: boolean) => void
@@ -119,6 +132,7 @@ export const useUiStore = create<UiState>()(
       showPreview: false,
       jsonPreviewMode: 'default',
       maxModeRepeatCount: 5,
+      previewJsonText: null,
       showRightPanel: true,
       showLeftPanel: true,
       showPageSizeDialog: false,
@@ -165,6 +179,7 @@ export const useUiStore = create<UiState>()(
       setShowPreview: (show) => set({ showPreview: show }),
       setJsonPreviewMode: (mode) => set({ jsonPreviewMode: mode }),
       setMaxModeRepeatCount: (count) => set({ maxModeRepeatCount: count }),
+      setPreviewJsonText: (text) => set({ previewJsonText: text }),
       setShowRightPanel: (show) => set({ showRightPanel: show }),
       setShowLeftPanel: (show) => set({ showLeftPanel: show }),
       setShowPageSizeDialog: (show) => set({ showPageSizeDialog: show }),
