@@ -13,6 +13,11 @@ import { renderLoop } from './loop.js'
  * Wraps each render call in a try/catch so any error from PDFKit (e.g.
  * "Unknown image format") is rethrown as `PDF_GENERATION_FAILED` carrying
  * the field id, type, page index, and asset filename.
+ *
+ * `resolvedImages` carries pre-resolved `Buffer`s for every dynamic image
+ * input — see `preflightImages` (#69). Lookup is by `field.source.jsonKey`
+ * for dynamic image fields. Static image bytes still come from
+ * `template.staticImages`.
  */
 export function renderField(
   doc: InstanceType<typeof PDFDocument>,
@@ -21,6 +26,7 @@ export function renderField(
   fontMap: Map<string, string>,
   template: LoadedTemplate,
   pageCtx: PageContext,
+  resolvedImages: Map<string, Buffer>,
 ): void {
   const value = resolveValue(field as FieldDefinition, data) as unknown
 
@@ -35,11 +41,12 @@ export function renderField(
         break
 
       case 'image': {
-        // Dynamic image: value is Buffer or base64 string — passed directly.
-        // Static image: value is { filename } — look up bytes in staticImages.
-        let imageData: Buffer | string | undefined
-        if (typeof value === 'string' || Buffer.isBuffer(value)) {
-          imageData = value
+        // Dynamic image: bytes were resolved up front by preflightImages and
+        // live in `resolvedImages` keyed by the field's jsonKey. Static
+        // image: value is `{ filename }` — look up bytes in `staticImages`.
+        let imageData: Buffer | undefined
+        if (field.source.mode === 'dynamic') {
+          imageData = resolvedImages.get(field.source.jsonKey)
         } else if (value && typeof value === 'object' && 'filename' in value) {
           imageData = template.staticImages.get((value as { filename: string }).filename)
         }

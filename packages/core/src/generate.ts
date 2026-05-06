@@ -7,12 +7,15 @@ import type {
 } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
 import { validateData } from './validate.js'
-import { preflightImages } from './preflight.js'
+import { preflightImages, type PreflightOptions } from './preflight.js'
 import { registerFonts } from './utils/font.js'
 import { type PageContext } from './utils/errorContext.js'
 import { renderBackground } from './render/background.js'
 import { renderField } from './render/field.js'
 import { renderPageBackground, renderPageBackgroundSafely } from './render/page.js'
+
+/** Per-call options for {@link generatePDF}. */
+export type GeneratePDFOptions = PreflightOptions
 
 /**
  * Generate a PDF from an in-memory template and input data.
@@ -33,7 +36,11 @@ import { renderPageBackground, renderPageBackgroundSafely } from './render/page.
  * @returns PDF as a Buffer
  * @throws TemplateGoblinError with code MISSING_REQUIRED_FIELD, INVALID_DATA_TYPE, INVALID_FORMAT, MISSING_ASSET, MAX_PAGES_EXCEEDED, or PDF_GENERATION_FAILED
  */
-export async function generatePDF(template: LoadedTemplate, data: InputJSON): Promise<Buffer> {
+export async function generatePDF(
+  template: LoadedTemplate,
+  data: InputJSON,
+  options: GeneratePDFOptions = {},
+): Promise<Buffer> {
   // REQ: Validate input data
   const validation = validateData(template, data)
   if (!validation.valid) {
@@ -46,8 +53,11 @@ export async function generatePDF(template: LoadedTemplate, data: InputJSON): Pr
   }
 
   // Pre-flight: catch image format / missing-asset issues before PDFKit runs
-  // so callers see field+asset context instead of "Unknown image format".
-  preflightImages(template, data)
+  // AND resolve every dynamic image input (Buffer / base64 / data URI / file
+  // path / URL / explicit shape — #69) to a Buffer the renderer can hand to
+  // PDFKit directly. Centralises all I/O at one boundary so the renderer
+  // stays pure.
+  const { resolvedImages } = await preflightImages(template, data, options)
 
   const { manifest, backgroundImage, pageBackgrounds } = template
   const { meta } = manifest
@@ -82,7 +92,7 @@ export async function generatePDF(template: LoadedTemplate, data: InputJSON): Pr
       )
 
       for (const field of sortedFields) {
-        renderField(doc, field, data, fontMap, template, legacyCtx)
+        renderField(doc, field, data, fontMap, template, legacyCtx, resolvedImages)
       }
     } else {
       // Multi-page: group fields by pageId, render each page
@@ -132,7 +142,7 @@ export async function generatePDF(template: LoadedTemplate, data: InputJSON): Pr
         pageFields.sort((a, b) => a.zIndex - b.zIndex || a.id.localeCompare(b.id))
 
         for (const field of pageFields) {
-          renderField(doc, field, data, fontMap, template, pageCtx)
+          renderField(doc, field, data, fontMap, template, pageCtx, resolvedImages)
         }
       }
     }

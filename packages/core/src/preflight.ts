@@ -1,32 +1,160 @@
-import type { FieldDefinition, InputJSON, LoadedTemplate } from '@template-goblin/types'
+import type { FieldDefinition, ImageInput, InputJSON, LoadedTemplate } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
 import { sniffImageFormat } from './utils/imageFormat.js'
 import { pageContextFor, pageLabel, type PageContext } from './utils/errorContext.js'
+import { resolveImageInputs, type ResolveContext, type ResolveOptions } from './utils/imageInput.js'
+
+/** Per-call options for {@link preflightImages}. */
+export interface PreflightOptions {
+  /** Abort each HTTP fetch after this many ms (default 10 000). */
+  imageFetchTimeoutMs?: number
+  /** Concurrency cap for resolving a batch of inputs (default 6). */
+  imageResolveConcurrency?: number
+}
+
+/**
+ * Result returned to `generatePDF` so the renderer can read pre-resolved
+ * image bytes without doing any I/O of its own.
+ */
+export interface PreflightResult {
+  /** `jsonKey` → resolved image `Buffer`. Only contains keys present in the
+   * input AND referenced by a dynamic image field. */
+  resolvedImages: Map<string, Buffer>
+}
 
 /**
  * Validate every image referenced by the template (static + dynamic) before
- * any PDFKit calls run. Surfaces precise errors that name the field id, page,
- * and asset filename — replacing PDFKit's bare "Unknown image format".
+ * any PDFKit calls run, AND resolve every dynamic image input to a `Buffer`.
  *
- * Throws `TemplateGoblinError` on the first problem so the caller can act on
+ * Dynamic inputs may now arrive as `Buffer`, base64 string, `data:` URI,
+ * file path, HTTP/HTTPS URL, or the explicit `{ type, value }` form (#69).
+ * All branches are normalised to `Buffer` here so the renderer is pure.
+ *
+ * Throws `TemplateGoblinError` on the first problem so the caller acts on
  * a stable, structured error object (`details` carries `fieldId`, `pageId`,
- * `pageIndex`, `assetFilename`, `jsonKey`).
+ * `pageIndex`, `assetFilename`, `jsonKey`, and where applicable `assetPath`,
+ * `assetUrl`, `httpStatus`, `timedOut`).
  */
-export function preflightImages(template: LoadedTemplate, data: InputJSON): void {
+export async function preflightImages(
+  template: LoadedTemplate,
+  data: InputJSON,
+  opts: PreflightOptions = {},
+): Promise<PreflightResult> {
   const { manifest } = template
   const inputImages = (data.images ?? {}) as Record<string, unknown>
 
+  // Pass 1 — static images sniff in place; dynamic image inputs collected for
+  // batched async resolution. Static images carry no I/O so they stay fully
+  // synchronous.
+  const dynamicWork: Array<{ input: ImageInput; ctx: ResolveContext; field: FieldDefinition }> = []
+
   for (const field of manifest.fields) {
     if (field.type !== 'image') continue
-
     const pageContext = pageContextFor(template, field.pageId)
 
     if (field.source.mode === 'static') {
       checkStaticImage(template, field, pageContext)
-    } else {
-      checkDynamicImage(inputImages, field, pageContext)
+      continue
+    }
+
+    if (field.source.mode !== 'dynamic') continue
+    const { jsonKey, required } = field.source
+    const raw = inputImages[jsonKey]
+
+    if (raw === undefined || raw === null || raw === '') {
+      // Optional + missing → renderer skips silently.
+      // Required + missing → validateData has already raised
+      // MISSING_REQUIRED_FIELD; nothing to resolve here either way.
+      void required
+      continue
+    }
+
+    if (!isImageInput(raw)) {
+      // validateData already raised INVALID_DATA_TYPE; skip resolution.
+      continue
+    }
+
+    dynamicWork.push({
+      input: raw,
+      field,
+      ctx: {
+        fieldId: field.id,
+        jsonKey,
+        pageId: pageContext.pageId,
+        pageIndex: pageContext.pageIndex,
+      },
+    })
+  }
+
+  // Pass 2 — resolve dynamic inputs in parallel (bounded). Errors from the
+  // resolver are TemplateGoblinError with full field context; let them
+  // propagate.
+  const resolveOpts: ResolveOptions & { concurrency?: number } = {
+    timeoutMs: opts.imageFetchTimeoutMs,
+    concurrency: opts.imageResolveConcurrency,
+  }
+  const resolvedImages = await resolveImageInputs(
+    dynamicWork.map((w) => ({ input: w.input, ctx: w.ctx })),
+    resolveOpts,
+  )
+
+  // Pass 3 — sniff every resolved Buffer. The original entry-point complaint
+  // (PDFKit's bare "Unknown image format") still has to be surfaced with
+  // field context regardless of where the bytes came from.
+  for (const work of dynamicWork) {
+    const bytes = resolvedImages.get(work.ctx.jsonKey)
+    if (!bytes) continue
+
+    const pageContext: PageContext = {
+      pageId: work.ctx.pageId,
+      pageIndex: work.ctx.pageIndex,
+    }
+
+    if (bytes.length === 0) {
+      throw new TemplateGoblinError(
+        'INVALID_DATA_TYPE',
+        `Empty image data for 'images.${work.ctx.jsonKey}' (field '${work.field.id}'${pageLabel(pageContext)}): resolved input decoded to zero bytes.`,
+        {
+          fieldId: work.field.id,
+          fieldType: 'image',
+          jsonKey: work.ctx.jsonKey,
+          pageId: pageContext.pageId,
+          pageIndex: pageContext.pageIndex,
+        },
+      )
+    }
+
+    if (sniffImageFormat(bytes) === null) {
+      throw new TemplateGoblinError(
+        'INVALID_FORMAT',
+        `Unsupported image format for 'images.${work.ctx.jsonKey}' (field '${work.field.id}'${pageLabel(pageContext)}): bytes are not a valid PNG or JPEG. PDFKit accepts only PNG and JPEG.`,
+        {
+          fieldId: work.field.id,
+          fieldType: 'image',
+          jsonKey: work.ctx.jsonKey,
+          pageId: pageContext.pageId,
+          pageIndex: pageContext.pageIndex,
+        },
+      )
     }
   }
+
+  return { resolvedImages }
+}
+
+/**
+ * Type guard for ImageInput. Anything that's a Buffer, string, or
+ * `{ type, value }` object qualifies; everything else falls to validateData
+ * which raises INVALID_DATA_TYPE.
+ */
+function isImageInput(v: unknown): v is ImageInput {
+  if (Buffer.isBuffer(v)) return true
+  if (typeof v === 'string') return true
+  if (v && typeof v === 'object' && 'type' in v && 'value' in v) {
+    const type = (v as { type: unknown }).type
+    return type === 'buffer' || type === 'base64' || type === 'path' || type === 'url'
+  }
+  return false
 }
 
 function checkStaticImage(
@@ -65,68 +193,5 @@ function checkStaticImage(
         pageIndex: pageContext.pageIndex,
       },
     )
-  }
-}
-
-function checkDynamicImage(
-  inputImages: Record<string, unknown>,
-  field: FieldDefinition,
-  pageContext: PageContext,
-): void {
-  if (field.source.mode !== 'dynamic') return
-  const { jsonKey, required } = field.source
-  const raw = inputImages[jsonKey]
-
-  // Optional + missing → renderer skips silently. validateData already raises
-  // MISSING_REQUIRED_FIELD for required+missing, so we only handle the bytes.
-  if (raw === undefined || raw === null || raw === '') {
-    if (required) return // already reported by validateData
-    return
-  }
-
-  const bytes = coerceImageBytes(raw)
-  if (!bytes) return // wrong type — validateData already raised INVALID_DATA_TYPE
-
-  if (bytes.length === 0) {
-    throw new TemplateGoblinError(
-      'INVALID_DATA_TYPE',
-      `Empty image data for 'images.${jsonKey}' (field '${field.id}'${pageLabel(pageContext)}): buffer/base64 string decoded to zero bytes.`,
-      {
-        fieldId: field.id,
-        fieldType: 'image',
-        jsonKey,
-        pageId: pageContext.pageId,
-        pageIndex: pageContext.pageIndex,
-      },
-    )
-  }
-
-  if (sniffImageFormat(bytes) === null) {
-    throw new TemplateGoblinError(
-      'INVALID_FORMAT',
-      `Unsupported image format for 'images.${jsonKey}' (field '${field.id}'${pageLabel(pageContext)}): bytes are not a valid PNG or JPEG. PDFKit accepts only PNG and JPEG.`,
-      {
-        fieldId: field.id,
-        fieldType: 'image',
-        jsonKey,
-        pageId: pageContext.pageId,
-        pageIndex: pageContext.pageIndex,
-      },
-    )
-  }
-}
-
-function coerceImageBytes(value: unknown): Buffer | null {
-  if (Buffer.isBuffer(value)) return value
-  if (typeof value !== 'string') return null
-  let str = value
-  if (str.startsWith('data:')) {
-    const comma = str.indexOf(',')
-    if (comma !== -1) str = str.slice(comma + 1)
-  }
-  try {
-    return Buffer.from(str, 'base64')
-  } catch {
-    return null
   }
 }
