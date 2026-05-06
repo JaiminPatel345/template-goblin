@@ -188,15 +188,45 @@ Binary assets are stored as real files inside the ZIP — ~33% smaller than base
     ]
   },
   "images": {
-    "student_photo": "<Buffer or base64 string>"
+    "student_photo": "<see formats below>"
   }
 }
 ```
 
 - `texts` — string values for text fields
 - `tables` — arrays of row objects for table fields
-- `images` — Buffer or base64 string for image fields
+- `images` — see image input formats below
 - Keys must match `jsonKey` values in the template (dot notation: `texts.name`)
+
+#### Image input formats
+
+`images.<key>` accepts any of:
+
+```ts
+// 1. Buffer
+{ images: { photo: fs.readFileSync('pic.png') } }
+
+// 2. Base64 string (with or without `data:` prefix)
+{ images: { photo: 'iVBORw0KGgo...' } }
+{ images: { photo: 'data:image/png;base64,iVBORw0KGgo...' } }
+
+// 3. Local file path (absolute, ./, ../, ~/, or Windows drive letter)
+{ images: { photo: '/var/uploads/pic.png' } }
+{ images: { photo: './assets/logo.jpg' } }
+
+// 4. HTTP / HTTPS URL (S3 presigned, CDN, or any 200-OK image host)
+{ images: { photo: 'https://cdn.example.com/pic.png' } }
+
+// 5. Explicit shape (escape hatch when auto-detection picks wrong)
+{ images: {
+  photo: { type: 'path', value: '/odd/looking/path' },
+  signed: { type: 'url', value: 'https://...', headers: { Authorization: 'Bearer …' } },
+  raw:    { type: 'base64', value: '/9j/4AAQ...' },  // bare base64 starting with `/`
+  buf:    { type: 'buffer', value: someBuffer },
+} }
+```
+
+All formats produce identical PDF output for the same underlying image bytes. Resolution happens once, in the pre-flight pass, before PDFKit runs — failures (missing file, failed fetch, bad bytes) raise `MISSING_ASSET` / `INVALID_FORMAT` with `fieldId`, `jsonKey`, and the resolved path / URL / status in `error.details`.
 
 ## API Reference
 
@@ -204,9 +234,18 @@ Binary assets are stored as real files inside the ZIP — ~33% smaller than base
 
 Load a `.tgbl` file from disk into memory. Call once at startup.
 
-### `generatePDF(template: LoadedTemplate, data: InputJSON): Promise<Buffer>`
+### `generatePDF(template: LoadedTemplate, data: InputJSON, options?: GeneratePDFOptions): Promise<Buffer>`
 
-Generate a PDF from an in-memory template and JSON data. The hot path — zero disk I/O.
+Generate a PDF from an in-memory template and JSON data. The hot path — zero disk I/O for in-memory inputs.
+
+```ts
+interface GeneratePDFOptions {
+  /** Abort each HTTP image fetch after this many ms (default 10 000). */
+  imageFetchTimeoutMs?: number
+  /** Concurrency cap when resolving a batch of image inputs (default 6). */
+  imageResolveConcurrency?: number
+}
+```
 
 ### `generatePDFFromFile(path: string, data: InputJSON): Promise<Buffer>`
 

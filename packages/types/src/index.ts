@@ -28,7 +28,7 @@ export type {
   OverflowMode,
   ImageFit,
 } from './template.js'
-export type { InputJSON, TextInputs, TableInputs, ImageInputs } from './input.js'
+export type { InputJSON, TextInputs, TableInputs, ImageInputs, ImageInput } from './input.js'
 export type { StaticSource, DynamicSource, FieldSource } from './source.js'
 export { isStaticSource, isDynamicSource } from './source.js'
 export type { LoadedTemplate, TemplateAssets } from './loaded.js'

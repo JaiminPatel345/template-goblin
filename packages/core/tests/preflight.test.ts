@@ -160,3 +160,91 @@ describe('generatePDF — pre-flight image error context', () => {
     expect((caught as TemplateGoblinError).code).toBe('INVALID_FORMAT')
   })
 })
+
+// GH #69 — preflight resolves every supported ImageInput shape end-to-end.
+// One test per branch ensures every shape produces the same INVALID_FORMAT
+// error when fed bytes that fail the magic-byte sniff (because the bytes
+// resolved to a Buffer and the sniff ran on it).
+describe('preflight — GH #69 ImageInput shapes', () => {
+  const realFetch = global.fetch
+  afterEach(() => {
+    global.fetch = realFetch
+  })
+
+  it('accepts a `data:` URI string', async () => {
+    const template = buildTemplate([dynImage('photo-1', 'student_photo', true)])
+    const dataUri = `data:image/png;base64,${BAD_BYTES.toString('base64')}`
+    const data = { texts: {}, images: { student_photo: dataUri }, tables: {} }
+    await expect(generatePDF(template, data)).rejects.toMatchObject({
+      code: 'INVALID_FORMAT',
+      details: expect.objectContaining({ jsonKey: 'student_photo' }),
+    })
+  })
+
+  it('accepts the explicit `{ type: "buffer" }` shape', async () => {
+    const template = buildTemplate([dynImage('photo-1', 'student_photo', true)])
+    const data = {
+      texts: {},
+      images: { student_photo: { type: 'buffer' as const, value: BAD_BYTES } },
+      tables: {},
+    }
+    await expect(generatePDF(template, data)).rejects.toMatchObject({
+      code: 'INVALID_FORMAT',
+      details: expect.objectContaining({ jsonKey: 'student_photo' }),
+    })
+  })
+
+  it('accepts the explicit `{ type: "base64" }` shape', async () => {
+    const template = buildTemplate([dynImage('photo-1', 'student_photo', true)])
+    const data = {
+      texts: {},
+      images: {
+        student_photo: { type: 'base64' as const, value: BAD_BYTES.toString('base64') },
+      },
+      tables: {},
+    }
+    await expect(generatePDF(template, data)).rejects.toMatchObject({
+      code: 'INVALID_FORMAT',
+      details: expect.objectContaining({ jsonKey: 'student_photo' }),
+    })
+  })
+
+  it('throws MISSING_ASSET with assetUrl + httpStatus when the URL fetch returns 404', async () => {
+    global.fetch = jest.fn(
+      async () => new Response('nope', { status: 404, statusText: 'Not Found' }),
+    ) as unknown as typeof fetch
+
+    const template = buildTemplate([dynImage('photo-1', 'student_photo', true)])
+    const data = {
+      texts: {},
+      images: { student_photo: 'https://example.com/missing.png' },
+      tables: {},
+    }
+    await expect(generatePDF(template, data)).rejects.toMatchObject({
+      code: 'MISSING_ASSET',
+      details: expect.objectContaining({
+        jsonKey: 'student_photo',
+        assetUrl: 'https://example.com/missing.png',
+        httpStatus: 404,
+      }),
+    })
+  })
+
+  it('throws MISSING_ASSET with assetPath when the explicit path shape points to a missing file', async () => {
+    const template = buildTemplate([dynImage('photo-1', 'student_photo', true)])
+    const data = {
+      texts: {},
+      images: {
+        student_photo: { type: 'path' as const, value: '/nope/does/not/exist.png' },
+      },
+      tables: {},
+    }
+    await expect(generatePDF(template, data)).rejects.toMatchObject({
+      code: 'MISSING_ASSET',
+      details: expect.objectContaining({
+        jsonKey: 'student_photo',
+        assetPath: '/nope/does/not/exist.png',
+      }),
+    })
+  })
+})

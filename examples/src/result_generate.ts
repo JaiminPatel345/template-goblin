@@ -1,4 +1,3 @@
-import fs from 'fs'
 import { writeFile } from 'node:fs/promises'
 import { loadTemplate, generatePDF } from 'template-goblin'
 
@@ -6,7 +5,6 @@ import { loadTemplate, generatePDF } from 'template-goblin'
 const template = await loadTemplate('./examples/tgbl_files/result.tgbl')
 
 // Fill it with data — keys must match the field names in your template
-const image_buffer = fs.readFileSync('/home/jaimin/My/Imp/Certificate/dp.png') //Change path
 const data = {
   texts: {
     result_date: '05-05-2026',
@@ -44,7 +42,7 @@ const data = {
     ],
   },
   images: {
-    student_image: image_buffer,
+    student_image: '/home/jaimin/Pictures/profile.jpg',
   },
 }
 

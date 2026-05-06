@@ -17,6 +17,49 @@ const MAX_TABLE_ROWS = 10_000
 /** Maximum allowed image size (50 MB) */
 const MAX_IMAGE_SIZE = 50 * 1024 * 1024
 
+/**
+ * Shape-check for `ImageInput` (#69). Accepts the four legal forms — Buffer,
+ * string, `{ type: 'buffer', value: Buffer }`, or one of the string-valued
+ * `{ type, value }` discriminated objects. Anything else is rejected with
+ * INVALID_DATA_TYPE.
+ */
+function isValidImageInputShape(value: unknown): boolean {
+  if (Buffer.isBuffer(value)) return true
+  if (typeof value === 'string') return true
+  if (value && typeof value === 'object' && 'type' in value && 'value' in value) {
+    const v = value as { type: unknown; value: unknown }
+    if (v.type === 'buffer') return Buffer.isBuffer(v.value)
+    if (v.type === 'base64' || v.type === 'path' || v.type === 'url') {
+      return typeof v.value === 'string'
+    }
+    return false
+  }
+  return false
+}
+
+/**
+ * Best-effort size in bytes WITHOUT performing any I/O. URL and path shapes
+ * return null — those only resolve in preflight, where the resolved Buffer
+ * is what matters. base64 strings are estimated at 0.75× length.
+ */
+function eagerImageSize(value: unknown): number | null {
+  if (Buffer.isBuffer(value)) return value.length
+  if (typeof value === 'string') {
+    if (value.startsWith('http://') || value.startsWith('https://')) return null
+    return Math.floor(value.length * 0.75)
+  }
+  if (value && typeof value === 'object' && 'type' in value && 'value' in value) {
+    const v = value as { type: unknown; value: unknown }
+    if (v.type === 'buffer' && Buffer.isBuffer(v.value)) return v.value.length
+    if (v.type === 'base64' && typeof v.value === 'string') {
+      return Math.floor(v.value.length * 0.75)
+    }
+    // 'path' and 'url' need I/O to size — defer to preflight.
+    return null
+  }
+  return null
+}
+
 function bucketKeyFor(type: FieldDefinition['type']): keyof InputJSON {
   switch (type) {
     case 'text':
@@ -108,15 +151,24 @@ function validateField(field: FieldDefinition, data: InputJSON): ValidationError
       break
 
     case 'image':
-      if (typeof value !== 'string' && !Buffer.isBuffer(value)) {
+      // GH #69: ImageInput accepts Buffer | string | { type, value } where
+      // string covers base64 / data URI / file path / URL. Validate the
+      // OUTER shape only; preflight resolves to a Buffer + sniffs format
+      // (handing back MISSING_ASSET / INVALID_FORMAT with field context).
+      if (!isValidImageInputShape(value)) {
         errors.push({
           code: 'INVALID_DATA_TYPE',
           field: jsonKey,
-          message: `Invalid data for field "${jsonKey}": expected Buffer or base64 string, got ${typeof value}`,
+          message: `Invalid data for field "${jsonKey}": expected Buffer, string (base64 / data URI / path / URL), or { type, value } — got ${typeof value}`,
         })
-      } else {
-        const size = Buffer.isBuffer(value) ? value.length : value.length * 0.75
-        if (size > MAX_IMAGE_SIZE) {
+        break
+      }
+      // Size guard runs only on the bytes we already have in hand. URL/path
+      // shapes haven't fetched yet — preflight enforces the same cap on the
+      // resolved Buffer (the renderer also returns silently on empty bytes).
+      {
+        const eager = eagerImageSize(value)
+        if (eager !== null && eager > MAX_IMAGE_SIZE) {
           errors.push({
             code: 'INVALID_DATA_TYPE',
             field: jsonKey,
