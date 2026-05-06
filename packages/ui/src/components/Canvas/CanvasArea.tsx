@@ -26,70 +26,7 @@ import {
 } from './useFabricSync.js'
 import { useCanvasKeyboard } from './useCanvasKeyboard.js'
 import { usePageHandlers } from './usePageHandlers.js'
-
-// ─── Background resolution helpers ──────────────────────────────────────────
-
-function useCurrentBackground() {
-  const pages = useTemplateStore((s) => s.pages)
-  const backgroundDataUrl = useTemplateStore((s) => s.backgroundDataUrl)
-  const pageBackgroundDataUrls = useTemplateStore((s) => s.pageBackgroundDataUrls)
-  const currentPageId = useUiStore((s) => s.currentPageId)
-
-  // Guard: if the persisted currentPageId no longer exists in the current
-  // template (e.g. stale localStorage from a previous session), treat it as
-  // null so that page-0 / backgroundDataUrl fallbacks apply correctly.
-  const effectivePageId =
-    currentPageId !== null && pages.some((p) => p.id === currentPageId) ? currentPageId : null
-
-  const currentBgDataUrl = ((): string | null => {
-    if (pages.length === 0) return backgroundDataUrl
-    if (effectivePageId === null) {
-      // No explicit page is "current". Prefer an explicit `pages[0]` image
-      // if one exists (this happens after removing a color page while an
-      // image page remains — GH #23). Otherwise fall back to the legacy
-      // `backgroundDataUrl`.
-      const page0 = pages.find((p) => p.index === 0)
-      if (page0 && page0.backgroundType === 'image') {
-        return pageBackgroundDataUrls.get(page0.id) ?? backgroundDataUrl
-      }
-      return backgroundDataUrl
-    }
-
-    const page = pages.find((p) => p.id === effectivePageId)
-    if (!page) return backgroundDataUrl
-
-    if (page.backgroundType === 'image') {
-      return pageBackgroundDataUrls.get(page.id) ?? null
-    }
-    if (page.backgroundType === 'inherit') {
-      for (let i = page.index - 1; i >= 0; i--) {
-        const prev = pages.find((p) => p.index === i)
-        if (!prev) continue
-        if (prev.backgroundType === 'image') {
-          return pageBackgroundDataUrls.get(prev.id) ?? null
-        }
-        if (prev.backgroundType === 'color') return null
-      }
-      return backgroundDataUrl
-    }
-    return null
-  })()
-
-  const currentBgColor = ((): string | null => {
-    if (pages.length === 0) return null
-    if (effectivePageId === null) {
-      const page0 = pages.find((p) => p.index === 0)
-      if (page0 && page0.backgroundType === 'color') return page0.backgroundColor
-      return null
-    }
-    const page = pages.find((p) => p.id === effectivePageId)
-    if (!page) return null
-    if (page.backgroundType === 'color') return page.backgroundColor
-    return null
-  })()
-
-  return { currentBgDataUrl, currentBgColor }
-}
+import { useCurrentBackground } from './useCurrentBackground.js'
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -238,11 +175,28 @@ export function CanvasArea() {
           position: 'relative',
           background: 'var(--canvas-bg)',
           minHeight: 0,
-          overflow: 'hidden',
+          // GH #66: native scrollbars when the page (canvas) exceeds the
+          // visible viewport. The Fabric `<canvas>` is sized to
+          // `pageWidth * zoom × pageHeight * zoom` (see useFabricSync's
+          // zoom-sync effect), so when the user zooms past the fit level
+          // the canvas grows past this container and the browser draws
+          // both scrollbars.
+          //
+          // Centring uses `margin: auto` on the inner wrapper rather
+          // than `align-items / justify-content: center` on the flex
+          // container. With flex centring, when the child overflows the
+          // container its leading edge (left + top) gets pinned past
+          // negative scroll territory and can't be reached by scrollbars
+          // — the canvas would clip on the left and top with no way to
+          // pan there. `margin: auto` resolves to 0 when there's no room
+          // to distribute, so the canvas pins to top-left and overflow
+          // flows scrollably towards the bottom-right on both axes.
+          overflow: 'auto',
+          display: 'flex',
         }}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <div data-testid="canvas-stage-wrapper" style={{ width: '100%', height: '100%' }}>
+        <div data-testid="canvas-stage-wrapper" style={{ flex: 'none', margin: 'auto' }}>
           <canvas key="fabric-canvas" ref={setCanvasEl} />
         </div>
       </div>
