@@ -1,29 +1,30 @@
 /**
- * PreviewDialog (#45) — interactive replacement for the old auto-open
- * preview flow.
+ * PreviewDialog — interactive preview backed by the real `template-goblin`
+ * `generatePDF` (#86). The dialog pre-fills a JSON editor, lets the user
+ * upload replacement images, and on Render runs the SAME `generatePDF` an
+ * SDK consumer would call. The resulting PDF Buffer opens in a new tab.
  *
- * Pre-fills a JSON editor with `generateExampleJson(...)` (the same shape
- * the previous auto-trigger used) and lists every dynamic image field for
- * optional file replacement. The user edits, clicks Render, and the dialog
- * runs the existing `generatePreviewHtml` pipeline with the supplied data
- * + image overrides; the result opens in a new tab.
+ * Pre-#86 the preview was a parallel HTML pipeline that drifted from core's
+ * renderer on every detail (header height, row fitting, font metrics, …).
+ * Now there is exactly one renderer; the preview is byte-identical to a
+ * library consumer's output.
  *
  * Heavy lifting (parse/upload helpers, ImageUploadRow) lives in sibling
  * files to keep this one under the 300-line cap (Hard Rule #11).
  */
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { ImageField } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
-import { generatePreviewHtml } from '../../utils/previewGenerator.js'
 import { generateExampleJson } from '../../utils/jsonGenerator.js'
-import { buildImageDataUrlMap, resolvePagePreviewInputs } from '../../utils/previewInputs.js'
+import { runCorePreview, openPdfInNewTab } from '../../utils/runCorePreview.js'
 import {
   parseInputJson,
   readAsDataUrl,
   getPlaceholderFilename,
   validateUpload,
 } from './previewDialogHelpers.js'
+import { buildImageDataUrlMap } from '../../utils/previewInputs.js'
 import { PreviewImageUploadRow } from './PreviewImageUploadRow.js'
 import { PreviewDialogHeader } from './PreviewDialogHeader.js'
 
@@ -34,12 +35,6 @@ interface UploadedImage {
 
 export function PreviewDialog({ onClose }: { onClose: () => void }) {
   const fields = useTemplateStore((s) => s.fields)
-  const meta = useTemplateStore((s) => s.meta)
-  const backgroundDataUrl = useTemplateStore((s) => s.backgroundDataUrl)
-  const pages = useTemplateStore((s) => s.pages)
-  const pageBackgroundDataUrls = useTemplateStore((s) => s.pageBackgroundDataUrls)
-  const placeholderBuffers = useTemplateStore((s) => s.placeholderBuffers)
-  const staticImageDataUrls = useTemplateStore((s) => s.staticImageDataUrls)
   const jsonMode = useUiStore((s) => s.jsonPreviewMode)
   const repeatCount = useUiStore((s) => s.maxModeRepeatCount)
   const previewJsonText = useUiStore((s) => s.previewJsonText)
@@ -58,14 +53,8 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [renderError, setRenderError] = useState<string | null>(null)
   const [isRendering, setIsRendering] = useState(false)
-  const prevUrlRef = useRef<string | null>(null)
 
   const parseResult = useMemo(() => parseInputJson(jsonText), [jsonText])
-
-  const baseImageDataUrls = useMemo(
-    () => buildImageDataUrlMap(staticImageDataUrls, placeholderBuffers),
-    [staticImageDataUrls, placeholderBuffers],
-  )
 
   const dynamicImageFields = useMemo(
     () =>
@@ -73,6 +62,16 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
         (f): f is ImageField => f.type === 'image' && !!f.source && f.source.mode === 'dynamic',
       ),
     [fields],
+  )
+
+  // Thumbnail data-URL map for the image-upload rows. Drawn from the user's
+  // already-loaded placeholder bitmaps + static images in the store; the
+  // PDF render path still gets bytes from the store via `templateToLoaded`.
+  const placeholderBuffers = useTemplateStore((s) => s.placeholderBuffers)
+  const staticImageDataUrls = useTemplateStore((s) => s.staticImageDataUrls)
+  const baseImageDataUrls = useMemo(
+    () => buildImageDataUrlMap(staticImageDataUrls, placeholderBuffers),
+    [staticImageDataUrls, placeholderBuffers],
   )
 
   // ESC dismiss.
@@ -84,14 +83,10 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  // Deliberately NO unmount cleanup that revokes `prevUrlRef.current`.
-  // After `window.open(url)`, calling `URL.revokeObjectURL(url)` while the
-  // newly-opened tab is still loading the blob raced with Chrome (the
-  // dialog unmounts as part of `onClose()` on the same tick the navigation
-  // begins). We rely on the browser's automatic blob cleanup at editor-tab
-  // unload instead — bounded leak, far smaller than the renderer output
-  // itself. The previous-URL is still revoked at line 154 below before
-  // a new render replaces it, so the in-session leak is at most one URL.
+  // No unmount cleanup that revokes the blob URL — `window.open(url)` hands
+  // the URL to a new tab, and revoking while that tab is still loading
+  // races against the navigation. Browsers reclaim the URL when the tab
+  // unloads. The same tradeoff applied to the pre-#86 HTML preview.
 
   function handleReset() {
     setJsonText(defaultJsonText)
@@ -140,42 +135,32 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
     setIsRendering(true)
     try {
       const parsed = parseResult.data
+      // Build the InputJSON the SDK expects. Dynamic images: start from the
+      // template's placeholder bitmaps (so a fresh preview "just works"
+      // without forcing the user to supply every image), then overlay
+      // anything in the user-edited JSON, then overlay any explicit upload.
+      const state = useTemplateStore.getState()
       const data = {
         texts: (parsed.texts ?? {}) as Record<string, string>,
         tables: (parsed.tables ?? {}) as Record<string, Record<string, string>[]>,
-        images: { ...((parsed.images ?? {}) as Record<string, string | null>) },
+        images: {} as Record<string, string | ArrayBuffer>,
       }
-      // The renderer resolves an image field's bitmap with
-      //   filename = source.placeholder?.filename ?? jsonKey
-      // (see `previewGenerator.ts` — image branch in `renderPageHtml`).
-      // Mirror that same key derivation here so the override lands on the
-      // exact key the renderer asks for, regardless of whether the field
-      // has a placeholder or not.
-      const merged = new Map(baseImageDataUrls)
+      for (const field of dynamicImageFields) {
+        if (field.source.mode !== 'dynamic') continue
+        const ph = field.source.placeholder
+        if (ph && typeof ph === 'object' && 'filename' in ph) {
+          const buf = state.placeholderBuffers.get(ph.filename as string)
+          if (buf) data.images[field.source.jsonKey] = buf
+        }
+      }
+      // User-edited JSON.images takes precedence over the placeholder
+      // defaults; explicit uploads take precedence over both.
+      Object.assign(data.images, (parsed.images ?? {}) as Record<string, string>)
       for (const [jsonKey, upload] of imageOverrides) {
-        const field = dynamicImageFields.find(
-          (f) => f.source.mode === 'dynamic' && f.source.jsonKey === jsonKey,
-        )
-        const placeholder = field ? getPlaceholderFilename(field.source) : null
-        const lookupKey = placeholder ?? jsonKey
-        merged.set(lookupKey, upload.dataUrl)
+        data.images[jsonKey] = upload.dataUrl
       }
-      const pagePreviewInputs = resolvePagePreviewInputs(
-        pages,
-        pageBackgroundDataUrls,
-        backgroundDataUrl,
-      )
-      const blob = await generatePreviewHtml(
-        fields,
-        { name: meta.name, width: meta.width, height: meta.height },
-        pagePreviewInputs,
-        data,
-        { imageDataUrls: merged },
-      )
-      if (prevUrlRef.current) URL.revokeObjectURL(prevUrlRef.current)
-      const url = URL.createObjectURL(blob)
-      prevUrlRef.current = url
-      window.open(url, '_blank')
+      const bytes = await runCorePreview(state, data as never)
+      openPdfInNewTab(bytes)
       onClose()
     } catch (err) {
       setRenderError(err instanceof Error ? err.message : 'Preview generation failed.')

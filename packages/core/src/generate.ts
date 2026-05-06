@@ -157,18 +157,3 @@ export async function generatePDF(
     )
   }
 }
-
-/**
- * Convenience function: load a template from disk and generate a PDF in one call.
- *
- * Do NOT use this in a loop — use loadTemplate() + generatePDF() instead.
- *
- * @param path - Path to the .tgbl file
- * @param data - Input JSON with texts, images, and tables
- * @returns PDF as a Buffer
- */
-export async function generatePDFFromFile(path: string, data: InputJSON): Promise<Buffer> {
-  const { loadTemplate } = await import('./load.js')
-  const template = await loadTemplate(path)
-  return generatePDF(template, data)
-}

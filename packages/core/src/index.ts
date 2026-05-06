@@ -7,8 +7,9 @@
  */
 
 export { loadTemplate } from './load.js'
-export { generatePDF, generatePDFFromFile } from './generate.js'
+export { generatePDF } from './generate.js'
 export type { GeneratePDFOptions } from './generate.js'
+export { generatePDFFromFile } from './generateFromFile.js'
 export { validateData } from './validate.js'
 export { validateManifest } from './validateManifest.js'
 export { resolveValue } from './utils/resolveValue.js'

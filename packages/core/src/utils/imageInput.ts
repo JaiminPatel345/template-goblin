@@ -1,7 +1,10 @@
-import { promises as fs } from 'node:fs'
-import { existsSync } from 'node:fs'
 import type { ImageInput } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
+
+// `node:fs` is loaded lazily inside `readFromPath` / `pathExists` so that
+// browser bundlers (Vite via `vite-plugin-node-polyfills` for #86) don't
+// have to resolve fs at module-load time. Buffer / base64 / data-URI / URL
+// inputs never touch fs and so never trigger the lazy import.
 
 /**
  * Default HTTP fetch timeout for `url`-shaped image inputs (10s). Override
@@ -89,7 +92,7 @@ export async function resolveImageInput(
   if (input.startsWith('http://') || input.startsWith('https://')) {
     return fetchFromUrl(input, ctx, timeout)
   }
-  if (looksLikePath(input) && existsSync(input)) {
+  if (looksLikePath(input) && (await pathExists(input))) {
     return readFromPath(input, ctx)
   }
   return decodeBase64(input)
@@ -147,8 +150,24 @@ function decodeBase64(value: string): Buffer {
   return Buffer.from(str, 'base64')
 }
 
+/**
+ * Lazy-load `existsSync` so the module's top-level imports stay free of
+ * `node:fs` for browser bundlers. Returns `false` when the runtime can't
+ * provide an fs (e.g. browser without polyfilled `existsSync`) so the
+ * caller falls through to the bare-base64 catch-all.
+ */
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    const fsMod = await import('node:fs')
+    return typeof fsMod.existsSync === 'function' ? fsMod.existsSync(p) : false
+  } catch {
+    return false
+  }
+}
+
 async function readFromPath(path: string, ctx: ResolveContext): Promise<Buffer> {
   try {
+    const { promises: fs } = await import('node:fs')
     return await fs.readFile(path)
   } catch (err) {
     const cause = err instanceof Error ? err.message : String(err)
