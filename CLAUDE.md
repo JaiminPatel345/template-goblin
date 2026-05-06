@@ -79,6 +79,28 @@ developers use the npm library to generate PDFs at scale.
     and risk picking up unmerged work from whichever branch was
     checked out at merge time. Do not skip the pull "because it
     looks up to date" — pull anyway.
+18. **"Merge" (and "commit and push and merge") is a one-shot
+    pipeline.** When the user authorises a merge of the current
+    branch with one of those phrases, execute every step in order
+    without pausing for further confirmation:
+    (a) ensure a Changeset exists for the work being merged;
+    create one if not (per Rule #12),
+    (b) `git add` the relevant changes and commit with a clear
+    conventional-commit message (no AI attribution per
+    Rule #13),
+    (c) `git push -u origin <branch>` (creating the upstream on
+    first push),
+    (d) `gh pr create` against `main` with a body summarising the
+    work (no AI attribution),
+    (e) `gh pr merge --merge --delete-branch`,
+    (f) `git checkout main && git pull --ff-only` (per Rule #17),
+    (g) `gh issue list --state open` and present the open issues
+    back to the user.
+    The single instruction is the authorisation for the whole
+    sequence — do NOT pause between steps for permission. This
+    supersedes Rule #15's "do exactly what is asked" for these
+    specific phrases: the merge is the asked action and ALL of
+    (a)-(g) are part of it.
 
 ## Tech Stack
 
@@ -104,29 +126,6 @@ developers use the npm library to generate PDFs at scale.
 - Always import types from `@template-goblin/types`
 - Never import from `packages/core/src/...` — use `template-goblin` package name
 - Never import from feature subfolders directly — use index.ts barrel exports
-
-## Agent Roles
-
-### Dev Agent
-
-- **Model**: Claude Opus (max reasoning effort)
-- **Reads**: spec files, journey files, CLAUDE.md
-- **Writes**: source code, unit tests
-- **Rule**: Code must implement what the spec says — no creative deviation
-
-### Reviewer Agent
-
-- **Model**: Claude Opus (max reasoning effort)
-- **Reads**: spec files, journey files, code diffs
-- **Checks**: spec compliance, edge cases, error handling, type safety, CLAUDE.md rules
-- **Rule**: Never fixes code — only reviews and comments
-
-### QA Agent
-
-- **Model**: Claude Opus (max reasoning effort)
-- **Reads**: spec files, journey files — never reads implementation code for test design
-- **Writes**: E2E tests (Playwright for UI), integration tests (Jest for core)
-- **Rule**: Tests verify behaviour from specs, not implementation details
 
 ## Workflow
 

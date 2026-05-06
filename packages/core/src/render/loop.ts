@@ -67,6 +67,10 @@ export function renderLoop(
         )
       }
 
+      // Close the perimeter on the page we're leaving before moving on,
+      // so each page's table chunk has all four edges (#65).
+      drawTablePerimeter(doc, x, y, width, field.height, style)
+
       doc.addPage({ size: [meta.width, meta.height] })
       renderBackground(doc, backgroundImage, meta)
 
@@ -80,6 +84,37 @@ export function renderLoop(
     rowIndex++
     void headerRowHeight
   }
+
+  // GH #65: stamp the table's perimeter on top so the user-configured
+  // border surrounds the rect's full extent, even when the last data row
+  // ended above the bottom edge or got skipped because it would overflow.
+  // Per-cell borders alone left the bottom edge open whenever the rect
+  // was taller than the rendered rows.
+  drawTablePerimeter(doc, x, y, width, field.height, style)
+}
+
+/**
+ * Draw the table's outer perimeter rectangle on top of any rendered rows.
+ *
+ * Uses `rowStyle.borderColor` / `borderWidth` as the closest proxy for "the
+ * table's frame" until an explicit perimeter style lands (#76). When the
+ * row border is zero-width, no perimeter is drawn — preserves the
+ * borderless look users opt into.
+ */
+function drawTablePerimeter(
+  doc: InstanceType<typeof PDFDocument>,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  style: TableFieldStyle,
+): void {
+  const bw = style.rowStyle.borderWidth
+  if (!bw || bw <= 0) return
+  doc.save()
+  doc.lineWidth(bw).strokeColor(style.rowStyle.borderColor)
+  doc.rect(x, y, width, height).stroke()
+  doc.restore()
 }
 
 /** Compute a single-row height from a CellStyle (font-size baseline + padding). */
