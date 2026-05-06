@@ -130,7 +130,21 @@ export function renderTableHtml(field: TableField, rows: Record<string, string>[
     .join('')
 
   const headHtml = showHeader ? `<thead><tr>${hdr}</tr></thead>` : ''
-  return `<div class="f" style="left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt"><table>${headHtml}<tbody>${body}</tbody></table></div>`
+  // GH #65: clip overflowing rows AND draw the table's perimeter on the
+  // wrapper so the rect's bottom edge always shows. Without `overflow:
+  // hidden` an over-long row count spills past the field rect; without the
+  // wrapper border, the last row's per-cell bottom border gets visually
+  // clipped along with the row, leaving an open-bottom table. The
+  // perimeter uses `rowStyle.borderColor` / `borderWidth` (the closest
+  // proxy for "the table's frame" until #76 introduces an explicit
+  // perimeter style). `box-sizing: border-box` keeps the inner content
+  // area at exactly `width × height` so cells line up with the design.
+  const perimeterBw = rs.borderWidth ?? 1
+  const perimeterBc = sc(rs.borderColor ?? '#000')
+  const wrapperStyle =
+    `left:${field.x}pt;top:${field.y}pt;width:${field.width}pt;height:${field.height}pt;` +
+    `overflow:hidden;border:${perimeterBw}pt solid ${perimeterBc};box-sizing:border-box`
+  return `<div class="f" style="${wrapperStyle}"><table>${headHtml}<tbody>${body}</tbody></table></div>`
 }
 
 /**

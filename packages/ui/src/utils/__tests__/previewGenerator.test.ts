@@ -190,6 +190,38 @@ describe('generatePreviewHtml', () => {
       expect(html).toContain('A+')
     })
 
+    // GH #65 — when the table's content overflows the field rect, the
+    // wrapper must clip overflow AND draw a perimeter border so the
+    // bottom edge always shows. Without these, an over-tall row count
+    // spilled past the rect and the last row's per-cell bottom border
+    // got visually clipped, leaving an open-bottom table.
+    it('clips overflowing rows AND renders a perimeter border on the wrapper (#65)', async () => {
+      const f = tableField('marks')
+      f.height = 60
+      ;(f.style as TableFieldStyle).maxRows = 50
+      const rows = Array.from({ length: 50 }, (_, i) => ({
+        name: `S${i}`,
+        grade: 'A',
+      }))
+      const blob = await generatePreviewHtml([f], defaultMeta, [], {
+        texts: {},
+        tables: { marks: rows },
+        images: {},
+      })
+      const html = await blob.text()
+      // Wrapper must clip overflow so excess rows don't bleed out of the rect.
+      expect(html).toMatch(/overflow:hidden/)
+      // Perimeter border must be on the wrapper — not just the per-cell
+      // borders — so the bottom edge survives even if a row got clipped.
+      // Match a `border:<n>pt solid <hex>` declaration (per-cell borders
+      // use the same syntax inside <td>/<th> but the wrapper's <div> sits
+      // first in the emitted string before any cell).
+      const wrapperBorder = html.match(
+        /<div class="f"[^>]*style="[^"]*border:\d+(?:\.\d+)?pt solid [^"]+/,
+      )
+      expect(wrapperBorder).not.toBeNull()
+    })
+
     it('does not render table when rows are empty', async () => {
       const fields = [tableField('marks')]
       const data = { texts: {}, tables: { marks: [] }, images: {} }
