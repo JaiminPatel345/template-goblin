@@ -18,6 +18,7 @@
 import { Rect, Line, Textbox } from 'fabric'
 import type { FabricObject } from 'fabric'
 import type { CellStyle, FieldDefinition, TableColumn } from '@template-goblin/types'
+import { pushBodyRows } from './tableBodyRows.js'
 
 const HEADER_FRACTION = 0.22
 const HEADER_MIN_PT = 14
@@ -75,14 +76,21 @@ export function computeHeaderHeight(totalHeight: number, showHeader: boolean): n
 
 /**
  * Build the table-specific Fabric children: header background, column
- * dividers, header divider, and per-column header labels. Returns `[]`
- * for non-table fields or when the field has no columns (fall through to
- * the centred body label `buildGroupChildren` already produces).
+ * dividers, header divider, per-column header labels, and (when `rows` is
+ * supplied) body cell labels (#79). Returns `[]` for non-table fields or
+ * when the field has no columns.
+ *
+ * `rows` is the runtime data the table should render against — flowed in
+ * from `previewJsonText` via `useEffectivePreviewData`. Pass `null` to
+ * skip the body-cell pass and render only the design-time header (legacy
+ * behaviour). Body rows are clipped to `style.maxRows` and to the count
+ * that physically fits inside the rect — never overflow (Hard Rule #10).
  */
 export function buildTableCanvasParts(
   field: FieldDefinition,
   width: number,
   height: number,
+  rows: Record<string, string>[] | null = null,
 ): FabricObject[] {
   if (field.type !== 'table' || !field.style) return []
   const columns = field.style.columns ?? []
@@ -144,6 +152,13 @@ export function buildTableCanvasParts(
         evented: false,
       }),
     )
+  }
+
+  // GH #79: render body rows from the supplied data so the canvas reflects
+  // the right-panel JSON. Skipped when `rows` is null — design-time
+  // preview only. Row count = min(data length, maxRows, rows-that-fit).
+  if (rows && rows.length > 0) {
+    pushBodyRows(parts, field, width, height, headerH, widths, rows)
   }
 
   if (showHeader && headerH > 0) {

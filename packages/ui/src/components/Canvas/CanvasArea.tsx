@@ -27,6 +27,7 @@ import {
 import { useCanvasKeyboard } from './useCanvasKeyboard.js'
 import { usePageHandlers } from './usePageHandlers.js'
 import { useCurrentBackground } from './useCurrentBackground.js'
+import { useEffectivePreviewData } from './useEffectivePreviewData.js'
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -48,6 +49,9 @@ export function CanvasArea() {
   const zoom = useUiStore((s) => s.zoom)
   const currentPageId = useUiStore((s) => s.currentPageId)
   const setCurrentPage = useUiStore((s) => s.setCurrentPage)
+  const previewJsonText = useUiStore((s) => s.previewJsonText)
+  const jsonPreviewMode = useUiStore((s) => s.jsonPreviewMode)
+  const maxModeRepeatCount = useUiStore((s) => s.maxModeRepeatCount)
 
   // ── Refs ───────────────────────────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -99,6 +103,17 @@ export function CanvasArea() {
   const isPlacing =
     activeTool === 'addText' || activeTool === 'addImage' || activeTool === 'addLoop'
 
+  // GH #79: the canvas reflects the right-panel JSON. `useEffectivePreviewData`
+  // parses `previewJsonText` if pinned, falls back to the auto-gen example,
+  // and caches the last-good parse so a mid-edit unparseable string never
+  // blanks the canvas.
+  const previewData = useEffectivePreviewData({
+    fields,
+    mode: jsonPreviewMode,
+    repeatCount: maxModeRepeatCount,
+    previewJsonText,
+  })
+
   // Resolve the *current page*'s size — drives canvas clipping, page-bounds
   // outline, grid extents, zoom-fit, and move/scale clamping. For legacy
   // single-page templates with no `pages[]` entry we fall through to
@@ -124,6 +139,7 @@ export function CanvasArea() {
     gridSize,
     zoom,
     isPlacing,
+    data: previewData,
   })
 
   // ── Container ref callback (for OnboardingPicker compatibility) ────────

@@ -17,7 +17,7 @@ import {
 } from 'fabric'
 import type { FabricObject } from 'fabric'
 import { useUiStore } from '../../store/uiStore.js'
-import type { FieldDefinition } from '@template-goblin/types'
+import type { FieldDefinition, InputJSON } from '@template-goblin/types'
 import {
   createFieldGroup,
   applyFieldToGroup,
@@ -66,6 +66,13 @@ export interface SyncDeps {
   gridSize: number
   zoom: number
   isPlacing: boolean
+  /**
+   * The `InputJSON` the canvas should render against (#79). When present,
+   * dynamic text fields render their `data.texts[jsonKey]` value and
+   * dynamic tables render `data.tables[jsonKey]` rows. `null` falls back
+   * to design-time placeholder rendering.
+   */
+  data: InputJSON | null
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -86,6 +93,7 @@ export function useFabricSync(deps: SyncDeps) {
     gridSize,
     zoom,
     isPlacing,
+    data,
   } = deps
 
   // ═══════════════ Reconciliation: store → canvas (REQ-050) ═══════════════
@@ -105,10 +113,10 @@ export function useFabricSync(deps: SyncDeps) {
     sorted.forEach((field) => {
       const g = existing.get(field.id)
       if (g) {
-        applyFieldToGroup(g, field, resolveImage)
+        applyFieldToGroup(g, field, resolveImage, data)
         existing.delete(field.id)
       } else {
-        const newGroup = createFieldGroup(field, resolveImage)
+        const newGroup = createFieldGroup(field, resolveImage, data)
         fc.add(newGroup)
       }
     })
@@ -125,7 +133,7 @@ export function useFabricSync(deps: SyncDeps) {
     })
 
     fc.requestRenderAll()
-  }, [fabricRef, fabricInstance, pageFields, resolveImage])
+  }, [fabricRef, fabricInstance, pageFields, resolveImage, data])
 
   // ═══════════════ Selection sync: store → canvas ═════════════════════════
   useEffect(() => {
