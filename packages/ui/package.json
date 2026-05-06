@@ -27,13 +27,17 @@
   "devDependencies": {
     "@playwright/test": "^1.49.1",
     "@template-goblin/types": "workspace:*",
+    "@types/pdfkit": "^0.13.5",
     "@types/react": "^18.3.14",
     "@types/react-dom": "^18.3.3",
     "@vitejs/plugin-react": "^4.3.4",
     "fake-indexeddb": "^6.2.5",
+    "pdf-parse": "^2.4.5",
+    "pdfkit": "^0.15.1",
     "template-goblin": "workspace:*",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
+    "vite-plugin-node-polyfills": "^0.26.0",
     "vitest": "^4.1.4"
   },
   "comment:fabric": "Canvas rendering engine (v6) replacing Konva — imperative 2D canvas, built-in drag/resize/selection, no React binding library required",

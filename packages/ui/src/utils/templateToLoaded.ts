@@ -1,0 +1,82 @@
+/**
+ * templateToLoaded — adapter that maps the UI's in-memory `templateStore`
+ * state into the `LoadedTemplate` shape `template-goblin`'s `generatePDF`
+ * accepts. Lives in the UI side so the core stays source-of-truth for the
+ * shape; this file is a thin transformation.
+ *
+ * The two halves of the input:
+ *   1. The manifest pieces — `meta`, `fields`, `pages`, `groups`, `fonts`
+ *      metadata. These flow through with the manifest version `'1.0'` (matches
+ *      `saveOpen.saveTemplate`).
+ *   2. The asset buffers — `pageBackgroundBuffers`, `placeholderBuffers`,
+ *      `staticImageBuffers`, `fontBuffers`, plus the legacy single-page
+ *      `backgroundBuffer`. The UI stores these as `ArrayBuffer`; core needs
+ *      `Buffer`. We wrap with `Buffer.from(...)` (polyfilled in the browser
+ *      via `vite-plugin-node-polyfills`).
+ */
+import { Buffer } from 'buffer'
+import type {
+  FieldDefinition,
+  FontDefinition,
+  GroupDefinition,
+  LoadedTemplate,
+  PageDefinition,
+  TemplateManifest,
+  TemplateMeta,
+} from '@template-goblin/types'
+
+export interface TemplateStoreSnapshot {
+  meta: TemplateMeta
+  fields: FieldDefinition[]
+  pages: PageDefinition[]
+  groups: GroupDefinition[]
+  fonts: FontDefinition[]
+  backgroundBuffer: ArrayBuffer | null
+  pageBackgroundBuffers: Map<string, ArrayBuffer>
+  fontBuffers: Map<string, ArrayBuffer>
+  placeholderBuffers: Map<string, ArrayBuffer>
+  staticImageBuffers: Map<string, ArrayBuffer>
+}
+
+/**
+ * Build a `LoadedTemplate` from the UI store snapshot. Pure — no React, no
+ * store reads. The caller (typically `PreviewDialog`) supplies a snapshot
+ * via `useTemplateStore.getState()` so this stays straightforward to test.
+ */
+export function templateToLoaded(state: TemplateStoreSnapshot): LoadedTemplate {
+  // Filter out malformed fields the same way `saveTemplate` does — a missing
+  // `source` only happens when an old persisted blob rehydrates, and would
+  // make `validateManifest` reject the template at preview time.
+  const fields = state.fields.filter((f) => !!f.source)
+
+  const manifest: TemplateManifest = {
+    version: '1.0',
+    meta: state.meta,
+    fonts: state.fonts,
+    groups: state.groups,
+    pages: state.pages,
+    fields,
+  }
+
+  const backgroundImage = state.backgroundBuffer ? toBuffer(state.backgroundBuffer) : null
+
+  return {
+    manifest,
+    backgroundImage,
+    pageBackgrounds: mapBuffers(state.pageBackgroundBuffers),
+    fonts: mapBuffers(state.fontBuffers),
+    placeholders: mapBuffers(state.placeholderBuffers),
+    staticImages: mapBuffers(state.staticImageBuffers),
+  }
+}
+
+/** ArrayBuffer → Node-style `Buffer`. Required by PDFKit and core's renderers. */
+function toBuffer(ab: ArrayBuffer): Buffer {
+  return Buffer.from(ab)
+}
+
+function mapBuffers(src: Map<string, ArrayBuffer>): Map<string, Buffer> {
+  const out = new Map<string, Buffer>()
+  for (const [k, v] of src) out.set(k, toBuffer(v))
+  return out
+}
