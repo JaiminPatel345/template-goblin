@@ -141,21 +141,28 @@ export function TextFieldProps({ field }: Props) {
     } as Partial<FieldDefinition>)
   }
 
+  // GH #73: typography changes auto-resize the rect ONLY for static text —
+  // the literal value is known at design time so growing the rect to fit is
+  // reasonable. Dynamic text fields hold an author-drawn rect that's the
+  // contract for runtime data, and changing fontSize/maxRows/lineHeight
+  // would silently move the rect out from under the author's hands.
   function onMaxRowsChange(maxRows: number) {
     updateFieldStyle(field.id, { maxRows })
-    // Recalculate height: maxRows * fontSize * lineHeight
+    if (!isStatic) return
     const newHeight = maxRows * style.fontSize * style.lineHeight
     resizeField(field.id, field.width, newHeight)
   }
 
   function onLineHeightChange(lineHeight: number) {
     updateFieldStyle(field.id, { lineHeight })
+    if (!isStatic) return
     const newHeight = style.maxRows * style.fontSize * lineHeight
     resizeField(field.id, field.width, newHeight)
   }
 
   function onFontSizeChange(fontSize: number) {
     updateFieldStyle(field.id, { fontSize })
+    if (!isStatic) return
     const newHeight = style.maxRows * fontSize * style.lineHeight
     resizeField(field.id, field.width, newHeight)
   }

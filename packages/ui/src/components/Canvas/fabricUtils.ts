@@ -785,14 +785,18 @@ export function buildGroupChildren(
             }>)
           : null
       const fontFamily = textStyle?.fontFamily || 'sans-serif'
-      // For dynamic text with auto-fit on, recompute against the rect; in
-      // every other case honour the user's chosen fontSize but never let it
-      // overflow the rect.
+      // GH #73: only static text fields may auto-grow the label to a max-fit
+      // preview — the literal `source.value` IS what the PDF will print, so
+      // showing it large is honest. Dynamic text fields must be WYSIWYG with
+      // the sidebar's authored `fontSize`: the placeholder is only a stand-in
+      // for variable runtime data, and the PDF generator never grows text
+      // above the authored size, so growing it here would lie to the user.
       const userFontSize =
         typeof textStyle?.fontSize === 'number' && textStyle.fontSize > 0
           ? textStyle.fontSize
           : null
-      const autoFit = textStyle?.fontSizeDynamic === true
+      const isDynamicSource = field.source?.mode === 'dynamic'
+      const autoFit = !isDynamicSource && textStyle?.fontSizeDynamic === true
       const fitted = fitFontSize(label, labelW, labelH, fontFamily)
       const fontSize = autoFit || userFontSize === null ? fitted : Math.min(userFontSize, fitted)
       if (fontSize >= 8) {
