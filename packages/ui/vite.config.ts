@@ -40,6 +40,15 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
   },
+  // PDFKit's built-in font lookup uses `__dirname` to find the bundled
+  // Helvetica/Times/Courier AFM files at runtime. The browser has no
+  // `__dirname`; PDFKit's standalone build inlines the data so the path
+  // is unused, but the reference still has to resolve at parse time.
+  // Same story for `__filename` in some transitive deps.
+  define: {
+    __dirname: JSON.stringify('/'),
+    __filename: JSON.stringify('/index.js'),
+  },
   resolve: {
     // Array form lets us use a regex `find` so the `pdfkit` alias matches
     // only the exact bare specifier — string-form aliases match by prefix
@@ -50,12 +59,15 @@ export default defineConfig({
         find: '@template-goblin/types',
         replacement: resolve(__dirname, '../types/src/index.ts'),
       },
-      // Redirect bare `import "pdfkit"` (in the core package) to the ESM
-      // browser build. PDFKit's published `main` is a Node CJS bundle that
-      // Vite's pre-bundler can't ingest.
+      // Redirect bare `import "pdfkit"` to the standalone UMD build.
+      // `pdfkit.es.js` reads its built-in AFM font files at runtime via
+      // `fs.readFileSync(__dirname + '/data/...')`, which our browser fs
+      // shim throws on. The standalone bundle inlines those AFM blobs
+      // and bundles every transitive dep — same render output, no fs
+      // reads. UMD is fine: esbuild auto-detects and Vite handles it.
       {
         find: /^pdfkit$/,
-        replacement: resolve(__dirname, 'node_modules/pdfkit/js/pdfkit.es.js'),
+        replacement: resolve(__dirname, 'node_modules/pdfkit/js/pdfkit.standalone.js'),
       },
       // Custom fs shim — see the `nodePolyfills` block above. fontkit /
       // pdfkit / core/file/* import named functions from `fs`; the empty
