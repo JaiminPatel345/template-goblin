@@ -35,13 +35,16 @@
  *  box math stays in sync.
  */
 
-import { Rect, Group, Textbox, FabricImage, Point, Line } from 'fabric'
-import type { FabricObject } from 'fabric'
-import type { FieldDefinition } from '@template-goblin/types'
+import { Group, Point, Line } from 'fabric'
+import type { FabricObject, FabricImage, Rect } from 'fabric'
+import type { FieldDefinition, InputJSON } from '@template-goblin/types'
 import { FIELD_COLORS, SELECTED_STROKE_WIDTH } from '../../theme/fieldColors.js'
-import { fieldCanvasLabel } from './fieldLabel.js'
-import { shouldRenderFillRect } from './rectFill.js'
-import { buildTableCanvasParts } from './tableCanvasParts.js'
+import { buildGroupChildren, type ImageResolver } from './buildGroupChildren.js'
+
+// Re-export the moved utilities so existing importers keep working without
+// having to update their import paths.
+export { buildGroupChildren, loadFabricImage, type ImageResolver } from './buildGroupChildren.js'
+export { fitFontSize } from './fitFontSize.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Coordinate helpers (REQ-036, AC-036)
@@ -65,79 +68,6 @@ export function fromPagePt(x: number, y: number): Point {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Font-size auto-fit helper (REQ-045, AC-045)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Cached 2D context for text measurement. */
-let _measureCtx: CanvasRenderingContext2D | null = null
-function getMeasureCtx(): CanvasRenderingContext2D | null {
-  if (typeof document === 'undefined') return null
-  if (_measureCtx) return _measureCtx
-  const cv = document.createElement('canvas')
-  _measureCtx = cv.getContext('2d')
-  return _measureCtx
-}
-
-/** Maximum font size the label auto-fit will return. */
-const LABEL_MAX_FONT_SIZE = 160
-
-/**
- * Fit font size to a bounding rect using greedy word-wrap and binary search.
- * Returns the largest integer size in `[8, min(LABEL_MAX_FONT_SIZE, rectHeight * 0.8)]`
- * such that the wrapped text fits within `rectWidth × rectHeight`.
- */
-export function fitFontSize(
-  text: string,
-  rectWidth: number,
-  rectHeight: number,
-  fontFamily: string,
-): number {
-  if (!text || rectWidth <= 0 || rectHeight <= 0) return 8
-  const ctx = getMeasureCtx()
-  if (!ctx) return Math.max(8, Math.min(LABEL_MAX_FONT_SIZE, Math.floor(rectHeight * 0.6)))
-
-  const upper = Math.max(8, Math.min(LABEL_MAX_FONT_SIZE, Math.floor(rectHeight * 0.8)))
-  let lo = 8
-  let hi = upper
-  let best = 8
-  const lineHeightFactor = 1.2
-
-  while (lo <= hi) {
-    const mid = Math.floor((lo + hi) / 2)
-    ctx.font = `${mid}px ${fontFamily}`
-    const lines = wrapToLines(ctx, text, rectWidth)
-    const totalH = lines.length * mid * lineHeightFactor
-    const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0)
-    if (maxW <= rectWidth && totalH <= rectHeight) {
-      best = mid
-      lo = mid + 1
-    } else {
-      hi = mid - 1
-    }
-  }
-  return best
-}
-
-function wrapToLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  if (maxWidth <= 0) return [text]
-  const words = text.split(/\s+/).filter(Boolean)
-  if (words.length === 0) return ['']
-  const lines: string[] = []
-  let current = ''
-  for (const w of words) {
-    const test = current ? `${current} ${w}` : w
-    if (ctx.measureText(test).width <= maxWidth || current === '') {
-      current = test
-    } else {
-      lines.push(current)
-      current = w
-    }
-  }
-  if (current) lines.push(current)
-  return lines
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Snap helper
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -152,12 +82,6 @@ export function snap(value: number, gridSize: number, enabled: boolean): number 
 // ─────────────────────────────────────────────────────────────────────────────
 // createFieldGroup (REQ-048)
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Resolve an image asset for a field (placeholder or static).
- * Returns the data URL string if available, or null.
- */
-export type ImageResolver = (filename: string) => string | null
 
 /**
  * Swap a field group's placeholder rect (and any stale prior image) for the
@@ -216,12 +140,21 @@ function swapPlaceholderForImage(
  *          caller should call `applyFieldToGroup` after the image loads to
  *          update the child if needed).
  */
-export function createFieldGroup(field: FieldDefinition, resolveImage: ImageResolver): Group {
+export function createFieldGroup(
+  field: FieldDefinition,
+  resolveImage: ImageResolver,
+  data: InputJSON | null = null,
+): Group {
   let createdGroup: Group | null = null
-  const children = buildGroupChildren(field, resolveImage, (img, phId) => {
-    if (!createdGroup) return
-    swapPlaceholderForImage(createdGroup, img, phId, field.id)
-  })
+  const children = buildGroupChildren(
+    field,
+    resolveImage,
+    (img, phId) => {
+      if (!createdGroup) return
+      swapPlaceholderForImage(createdGroup, img, phId, field.id)
+    },
+    data,
+  )
 
   createdGroup = new Group(children, {
     left: field.x,
@@ -273,7 +206,11 @@ export function createFieldGroup(field: FieldDefinition, resolveImage: ImageReso
  * filename as a text label. Without this bit, the next reconcile (after
  * the bitmap finishes loading) would short-circuit and keep showing text.
  */
-function fieldRenderHash(field: FieldDefinition, resolveImage: ImageResolver): string {
+function fieldRenderHash(
+  field: FieldDefinition,
+  resolveImage: ImageResolver,
+  data: InputJSON | null,
+): string {
   let imageResolved = false
   if (field.type === 'image' && field.source) {
     let filename: string | null = null
@@ -292,6 +229,20 @@ function fieldRenderHash(field: FieldDefinition, resolveImage: ImageResolver): s
     }
     if (filename) imageResolved = resolveImage(filename) !== null
   }
+  // GH #79: include the slice of data the field actually consumes so that
+  // editing the right-panel JSON triggers a child rebuild on the next
+  // reconcile. Folding the WHOLE InputJSON in would invalidate every field
+  // on every keystroke, so we only stash the relevant text value or the
+  // table row count + first row.
+  let dataSlice: unknown = null
+  if (data && field.source?.mode === 'dynamic') {
+    if (field.type === 'text') {
+      dataSlice = data.texts?.[field.source.jsonKey] ?? null
+    } else if (field.type === 'table') {
+      const rows = data.tables?.[field.source.jsonKey]
+      if (Array.isArray(rows)) dataSlice = { n: rows.length, head: rows[0] ?? null }
+    }
+  }
   return JSON.stringify({
     t: field.type,
     w: field.width,
@@ -299,6 +250,7 @@ function fieldRenderHash(field: FieldDefinition, resolveImage: ImageResolver): s
     s: field.style,
     src: field.source,
     imgR: imageResolved,
+    d: dataSlice,
   })
 }
 
@@ -306,12 +258,13 @@ export function applyFieldToGroup(
   group: Group,
   field: FieldDefinition,
   resolveImage: ImageResolver,
+  data: InputJSON | null = null,
 ): void {
   // Pure-position fast path — the visual content didn't change, only x/y.
   // Skip the children rebuild (which on image fields would briefly drop
   // back to the alpha-0.05 placeholder rect while the bitmap re-decodes,
   // visible as a "white flash" on mouseup of every drag).
-  const newHash = fieldRenderHash(field, resolveImage)
+  const newHash = fieldRenderHash(field, resolveImage, data)
   if (group.__fieldHash === newHash && group.getObjects().length > 0) {
     group.set({
       left: field.x,
@@ -353,9 +306,14 @@ export function applyFieldToGroup(
     group.remove(...existing)
   }
 
-  const children = buildGroupChildren(field, resolveImage, (img, phId) => {
-    swapPlaceholderForImage(group, img, phId, field.id)
-  })
+  const children = buildGroupChildren(
+    field,
+    resolveImage,
+    (img, phId) => {
+      swapPlaceholderForImage(group, img, phId, field.id)
+    },
+    data,
+  )
   if (children.length > 0) {
     group.add(...children)
   }
@@ -621,289 +579,4 @@ export function fitZoomLevel(
   const fx = (canvasPxW - 2 * padding) / pageWidth
   const fy = (canvasPxH - 2 * padding) / pageHeight
   return Math.max(0.1, Math.min(5, Math.min(fx, fy)))
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Internal helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Build the child objects for a field Group.
- *
- * Conditional fill (REQ-047, IMP-3 / IMP-4):
- *  - Static fields (any type): fill rect uses `fill: 'transparent'` (keeps
- *    hit-detection via stroke; the selection border is still rendered by Fabric
- *    around the Group's bounding box).
- *  - Image field with a resolved placeholder/static image: fill rect uses
- *    `fill: 'transparent'`; the FabricImage child is added instead.
- *  - All other dynamic fields: fill rect uses the per-type colour token.
- */
-export function buildGroupChildren(
-  field: FieldDefinition,
-  resolveImage: ImageResolver,
-  onAsyncUpdate?: (img: FabricImage, placeholderId: string) => void,
-): FabricObject[] {
-  const colors = FIELD_COLORS[field.type]
-  const w = field.width
-  const h = field.height
-
-  // Resolve image data URL (for image fields).
-  let imageDataUrl: string | null = null
-  if (field.type === 'image' && field.source) {
-    let filename: string | null = null
-    if (field.source.mode === 'dynamic') {
-      const ph = field.source.placeholder as unknown
-      if (ph && typeof ph === 'object' && 'filename' in ph) {
-        const name = (ph as { filename: unknown }).filename
-        if (typeof name === 'string' && name.length > 0) filename = name
-      }
-    } else {
-      const v = field.source.value as unknown
-      if (v && typeof v === 'object' && 'filename' in v) {
-        const name = (v as { filename: unknown }).filename
-        if (typeof name === 'string' && name.length > 0) filename = name
-      }
-    }
-    if (filename) {
-      imageDataUrl = resolveImage(filename)
-    }
-  }
-
-  const placeholderResolved = imageDataUrl !== null
-  const shouldFill = shouldRenderFillRect(field, { placeholderResolved })
-
-  // 1. Background rect — always present so the Group has a stable bounding box
-  //    and hit-testing works (Fabric needs a non-zero area; fill: 'transparent'
-  //    still participates in hit-detection unlike fill: null or fill: '').
-  const defaultFill = shouldFill ? colors.fill : 'transparent'
-  const defaultStroke = colors.stroke
-  const defaultStrokeWidth = 1
-  const bgRect = new Rect({
-    left: 0,
-    top: 0,
-    width: w,
-    height: h,
-    fill: defaultFill,
-    stroke: defaultStroke,
-    strokeWidth: defaultStrokeWidth,
-    strokeUniform: true,
-    rx: 2,
-    ry: 2,
-    selectable: false,
-    evented: false,
-    originX: 'left',
-    originY: 'top',
-  })
-  bgRect.__defaultFill = defaultFill
-  bgRect.__defaultStroke = defaultStroke
-  bgRect.__defaultStrokeWidth = defaultStrokeWidth
-
-  const children: FabricObject[] = [bgRect]
-
-  // 2. Placeholder / static image (asynchronous — created synchronously using
-  //    a dummy element; the caller is responsible for re-rendering after load).
-  //    We create a lightweight placeholder if the data URL is available.
-  if (placeholderResolved && imageDataUrl) {
-    const imgPlaceholder = new Rect({
-      left: 0,
-      top: 0,
-      width: w,
-      height: h,
-      fill: 'rgba(0,0,0,0.05)',
-      selectable: false,
-      evented: false,
-      originX: 'left',
-      originY: 'top',
-    })
-    imgPlaceholder.__fieldId = `__img_placeholder_${field.id}`
-    children.push(imgPlaceholder)
-
-    // Honour the field's fit mode so 'contain' / 'cover' / 'fill' all work.
-    const imageStyle =
-      field.type === 'image' && field.style && typeof field.style === 'object'
-        ? (field.style as { fit?: 'fill' | 'contain' | 'cover' })
-        : null
-    const fit = imageStyle?.fit ?? 'contain'
-    const fieldId = field.id
-    loadFabricImage(imageDataUrl, w, h, fieldId, fit).then((img) => {
-      if (!img || !onAsyncUpdate) return
-      // The async swap is the single place that mutates the group after
-      // the synchronous rebuild — it removes the placeholder + any prior
-      // image and adds the freshly-loaded one. Position/scale are baked
-      // into `img` by `loadFabricImage` and the reset-add-restore dance in
-      // `applyFieldToGroup` keeps them intact through the add.
-      onAsyncUpdate(img, `__img_placeholder_${fieldId}`)
-    })
-  }
-
-  // 2.5 Table column dividers + header labels (GH #38). Done before the
-  //     centred body label so a non-empty `style.columns` short-circuits
-  //     it — the column-header labels in the band already convey the
-  //     field's purpose, and a centred field-name label would clash with
-  //     the grid.
-  if (field.type === 'table' && field.style?.columns?.length) {
-    children.push(...buildTableCanvasParts(field, w, h))
-  }
-
-  // 3. Auto-fit label (GH #12) — skipped when an image is rendered, and
-  //    skipped for tables that already drew their column headers above.
-  //    Uses a centred `Textbox` (wraps to `labelW`) rather than a plain
-  //    `FabricText` with a clipPath.  The previous clipPath approach was
-  //    fragile: Fabric positions clipPath relative to the clipped object's
-  //    centre, so a clipPath at (0, 0) with origin top-left could sit
-  //    entirely below the text and effectively hide it.  Textbox + centre
-  //    origin + a sensible fontSize upper bound gives a reliable
-  //    "max-fit" label that rerenders correctly when the field is
-  //    resized (`applyFieldToGroup` rebuilds children on every field
-  //    update, so fontSize is recomputed against the new bounds).
-  const skipBodyLabel =
-    placeholderResolved || (field.type === 'table' && (field.style?.columns?.length ?? 0) > 0)
-  if (!skipBodyLabel) {
-    const label = fieldCanvasLabel(field)
-    if (label) {
-      const innerPad = 6
-      const labelW = Math.max(1, w - innerPad * 2)
-      const labelH = Math.max(1, h - innerPad * 2)
-      // Pull typography + colour from the field's own style when it is a
-      // text or table field (image fields keep the default per-type tokens
-      // — they don't expose font controls). This is the canvas half of the
-      // sidebar↔canvas sync (GH #25): editing colour or font in the
-      // properties panel must redraw the label here on the next reconcile.
-      const textStyle =
-        field.type === 'text' && field.style && typeof field.style === 'object'
-          ? (field.style as Partial<{
-              fontFamily: string
-              fontSize: number
-              fontSizeDynamic: boolean
-              color: string
-              fontWeight: 'normal' | 'bold'
-              fontStyle: 'normal' | 'italic'
-              textDecoration: 'none' | 'underline' | 'line-through'
-              align: 'left' | 'center' | 'right'
-              verticalAlign: 'top' | 'middle' | 'bottom'
-              lineHeight: number
-            }>)
-          : null
-      const fontFamily = textStyle?.fontFamily || 'sans-serif'
-      // GH #73: only static text fields may auto-grow the label to a max-fit
-      // preview — the literal `source.value` IS what the PDF will print, so
-      // showing it large is honest. Dynamic text fields must be WYSIWYG with
-      // the sidebar's authored `fontSize`: the placeholder is only a stand-in
-      // for variable runtime data, and the PDF generator never grows text
-      // above the authored size, so growing it here would lie to the user.
-      const userFontSize =
-        typeof textStyle?.fontSize === 'number' && textStyle.fontSize > 0
-          ? textStyle.fontSize
-          : null
-      const isDynamicSource = field.source?.mode === 'dynamic'
-      const autoFit = !isDynamicSource && textStyle?.fontSizeDynamic === true
-      const fitted = fitFontSize(label, labelW, labelH, fontFamily)
-      const fontSize = autoFit || userFontSize === null ? fitted : Math.min(userFontSize, fitted)
-      if (fontSize >= 8) {
-        const verticalAlign = textStyle?.verticalAlign || 'middle'
-        // Map the per-field verticalAlign to a Textbox origin + position.
-        // The Textbox is itself centred horizontally (originX: 'center')
-        // so only the Y axis varies here.
-        const top =
-          verticalAlign === 'top' ? innerPad : verticalAlign === 'bottom' ? h - innerPad : h / 2
-        const originY =
-          verticalAlign === 'top' ? 'top' : verticalAlign === 'bottom' ? 'bottom' : 'center'
-        const textObj = new Textbox(label, {
-          left: w / 2,
-          top,
-          width: labelW,
-          fontSize,
-          fontFamily,
-          fill: textStyle?.color || colors.text,
-          fontWeight: textStyle?.fontWeight || 'normal',
-          fontStyle: textStyle?.fontStyle || 'normal',
-          underline: textStyle?.textDecoration === 'underline',
-          linethrough: textStyle?.textDecoration === 'line-through',
-          textAlign: textStyle?.align || 'center',
-          selectable: false,
-          evented: false,
-          originX: 'center',
-          originY,
-          splitByGrapheme: false,
-          lineHeight:
-            textStyle?.lineHeight && textStyle.lineHeight > 0 ? textStyle.lineHeight : 1.2,
-        })
-        children.push(textObj)
-      }
-    }
-  }
-
-  return children
-}
-
-/**
- * Load a `FabricImage` from a data URL and configure it to fill the given
- * dimensions.  Returned as a Promise so callers can await and then call
- * `canvas.requestRenderAll()`.
- *
- * This is exported so `applyFieldToGroup` can await it when updating an
- * existing group's image child.
- */
-export async function loadFabricImage(
-  dataUrl: string,
-  width: number,
-  height: number,
-  fieldId: string,
-  fit: 'fill' | 'contain' | 'cover' = 'contain',
-): Promise<FabricImage> {
-  const img = await FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' })
-  // Native bitmap dimensions. Fabric exposes them on the loaded image; fall
-  // back to the rect size if missing so we never divide by zero.
-  const natW = img.width || width
-  const natH = img.height || height
-  // Compute per-axis scale based on the user-chosen fit mode. The image is
-  // positioned centred on the field group's centre regardless of fit so the
-  // visible portion is always the middle of the image.
-  let scaleX: number
-  let scaleY: number
-  if (fit === 'fill') {
-    scaleX = width / natW
-    scaleY = height / natH
-  } else if (fit === 'cover') {
-    const s = Math.max(width / natW, height / natH)
-    scaleX = s
-    scaleY = s
-  } else {
-    // 'contain' (default) — preserve aspect, fit entirely inside the rect.
-    const s = Math.min(width / natW, height / natH)
-    scaleX = s
-    scaleY = s
-  }
-  // Children inside this group use the same coordinate convention as the
-  // bgRect: local (0, 0) is the group's top-left (NOT centre), so the
-  // group's geometric centre is at (width/2, height/2). Placing the image
-  // there with origin:center lands its centre on the rect's centre — this
-  // is what makes contain leave equal padding on both sides and cover
-  // crop equally from both edges.
-  img.set({
-    left: width / 2,
-    top: height / 2,
-    selectable: false,
-    evented: false,
-    originX: 'center',
-    originY: 'center',
-    scaleX,
-    scaleY,
-  })
-  // Clip the rendered image to the field rect. With `absolutePositioned: false`
-  // the clipPath uses the IMAGE'S local coords; for origin:center at (0, 0)
-  // that means a rect centred on the image's own centre. Dividing by scale
-  // converts the rect's pt size into image-bitmap pixels — exactly the
-  // central portion that lines up with the field rect after scaling.
-  img.clipPath = new Rect({
-    left: 0,
-    top: 0,
-    width: width / scaleX,
-    height: height / scaleY,
-    originX: 'center',
-    originY: 'center',
-    absolutePositioned: false,
-  })
-  img.__fieldId = `__img_${fieldId}`
-  return img
 }
