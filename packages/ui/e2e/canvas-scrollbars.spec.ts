@@ -276,4 +276,132 @@ test.describe('Canvas scrollbars (#66)', () => {
     expect(s.scrollLeft).toBeGreaterThanOrEqual(75)
     expect(s.scrollTop).toBeGreaterThanOrEqual(75)
   })
+
+  test('mouse wheel over the canvas scrolls the container vertically', async ({ page }) => {
+    // The pre-fix `mouse:wheel` handler called `preventDefault()` on every
+    // wheel event and shifted Fabric's `viewportTransform` translate
+    // instead of letting the browser's native scroll fire. Under the new
+    // page-sized canvas model that translate moves Fabric's drawing INSIDE
+    // its own pixel area (off-page), so neither path scrolled the visible
+    // viewport. This test asserts that a plain `wheel` event over the
+    // canvas now bubbles to the `overflow: auto` container.
+    await seed(page)
+    await page.goto('/')
+    await expect(fabricCanvas(page)).toBeVisible()
+    await page.waitForTimeout(200)
+
+    await page.evaluate(() => {
+      interface FabricLike {
+        setDimensions: (d: { width: number; height: number }) => void
+        setViewportTransform: (vpt: number[]) => void
+        requestRenderAll: () => void
+      }
+      const fc = (window as unknown as { __fabricCanvas?: FabricLike }).__fabricCanvas
+      if (!fc) throw new Error('fabric canvas not exposed')
+      const z = 3
+      fc.setDimensions({ width: 595 * z, height: 842 * z })
+      fc.setViewportTransform([z, 0, 0, z, 0, 0])
+      fc.requestRenderAll()
+    })
+    await page.waitForTimeout(100)
+
+    const before = await readScrollState(page)
+    expect(before.scrollTop).toBe(0)
+
+    // Position the mouse over the canvas, then dispatch a vertical wheel.
+    const canvas = fabricCanvas(page)
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('canvas has no bounding box')
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.wheel(0, 200)
+
+    await page.waitForTimeout(80)
+    const after = await readScrollState(page)
+    expect(after.scrollTop).toBeGreaterThan(before.scrollTop)
+  })
+
+  test('shift+wheel scrolls the container horizontally', async ({ page }) => {
+    await seed(page)
+    await page.goto('/')
+    await expect(fabricCanvas(page)).toBeVisible()
+    await page.waitForTimeout(200)
+
+    await page.evaluate(() => {
+      interface FabricLike {
+        setDimensions: (d: { width: number; height: number }) => void
+        setViewportTransform: (vpt: number[]) => void
+        requestRenderAll: () => void
+      }
+      const fc = (window as unknown as { __fabricCanvas?: FabricLike }).__fabricCanvas
+      if (!fc) throw new Error('fabric canvas not exposed')
+      const z = 3
+      fc.setDimensions({ width: 595 * z, height: 842 * z })
+      fc.setViewportTransform([z, 0, 0, z, 0, 0])
+      fc.requestRenderAll()
+    })
+    await page.waitForTimeout(100)
+
+    const canvas = fabricCanvas(page)
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('canvas has no bounding box')
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+
+    // Modern browsers translate shift+wheel deltaY into horizontal scroll
+    // automatically when the target element is horizontally scrollable —
+    // we just need to NOT call preventDefault. Hold Shift and wheel.
+    await page.keyboard.down('Shift')
+    await page.mouse.wheel(0, 200)
+    await page.keyboard.up('Shift')
+
+    await page.waitForTimeout(80)
+    const after = await readScrollState(page)
+    expect(after.scrollLeft).toBeGreaterThan(0)
+  })
+
+  test('space + drag pans by scrolling the container', async ({ page }) => {
+    // Pre-#66 space+drag mutated `viewportTransform` translate. Under the
+    // new page-sized canvas model that translate is wiped by the next
+    // zoom-sync. The handler now drives `container.scrollLeft/Top` so the
+    // pan tracks the scrollbar position and survives every effect re-run.
+    await seed(page)
+    await page.goto('/')
+    await expect(fabricCanvas(page)).toBeVisible()
+    await page.waitForTimeout(200)
+
+    await page.evaluate(() => {
+      interface FabricLike {
+        setDimensions: (d: { width: number; height: number }) => void
+        setViewportTransform: (vpt: number[]) => void
+        requestRenderAll: () => void
+      }
+      const fc = (window as unknown as { __fabricCanvas?: FabricLike }).__fabricCanvas
+      if (!fc) throw new Error('fabric canvas not exposed')
+      const z = 3
+      fc.setDimensions({ width: 595 * z, height: 842 * z })
+      fc.setViewportTransform([z, 0, 0, z, 0, 0])
+      fc.requestRenderAll()
+    })
+    await page.waitForTimeout(100)
+
+    const before = await readScrollState(page)
+    expect(before.scrollTop).toBe(0)
+
+    const canvas = fabricCanvas(page)
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('canvas has no bounding box')
+
+    // Hold Space, mousedown, drag up-and-left (scroll grows down-and-right),
+    // mouseup, release Space.
+    await page.keyboard.down('Space')
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width / 2 - 120, box.y + box.height / 2 - 120, { steps: 6 })
+    await page.mouse.up()
+    await page.keyboard.up('Space')
+
+    await page.waitForTimeout(80)
+    const after = await readScrollState(page)
+    expect(after.scrollTop).toBeGreaterThan(before.scrollTop)
+    expect(after.scrollLeft).toBeGreaterThan(before.scrollLeft)
+  })
 })
