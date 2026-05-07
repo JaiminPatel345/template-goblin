@@ -91,6 +91,8 @@ export async function loadTemplate(path: string): Promise<LoadedTemplate> {
   for (const field of manifest.fields) {
     if (field.type !== 'image') continue
     if (field.source.mode === 'static') {
+      // GH #81 — solid-colour static fields carry no asset to load.
+      if ('color' in field.source.value) continue
       const filename = field.source.value.filename
       if (!staticImages.has(filename)) {
         const entry = zip.getEntry(`${IMAGES_DIR}${filename}`)
@@ -103,6 +105,8 @@ export async function loadTemplate(path: string): Promise<LoadedTemplate> {
         staticImages.set(filename, entry.getData())
       }
     } else if (field.source.placeholder) {
+      // Solid-colour placeholders also carry no asset.
+      if ('color' in field.source.placeholder) continue
       const filename = field.source.placeholder.filename
       if (!placeholders.has(filename)) {
         const entry = zip.getEntry(`${PLACEHOLDERS_DIR}${filename}`)

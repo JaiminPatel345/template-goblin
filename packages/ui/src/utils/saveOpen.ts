@@ -292,7 +292,10 @@ export async function openTemplate(file: File): Promise<void> {
   for (const field of manifest.fields) {
     if (field.type !== 'image') continue
     if (field.source.mode !== 'dynamic') continue
-    const filename = field.source.placeholder?.filename
+    const ph = field.source.placeholder
+    // GH #81 — solid-colour placeholders carry no asset; skip.
+    if (!ph || 'color' in ph) continue
+    const filename = ph.filename
     if (!filename || !isSafeZipPath(filename)) continue
     const archivePath = filename.startsWith('placeholders/') ? filename : `placeholders/${filename}`
     const phFile = zip.file(archivePath) ?? zip.file(filename)
@@ -309,7 +312,9 @@ export async function openTemplate(file: File): Promise<void> {
   for (const field of manifest.fields) {
     if (field.type !== 'image') continue
     if (field.source.mode !== 'static') continue
-    const filename = field.source.value?.filename
+    // GH #81 — solid-colour static fields carry no asset; skip.
+    if ('color' in field.source.value) continue
+    const filename = field.source.value.filename
     if (!filename) continue
     const archivePath = filename.startsWith('images/') ? filename : `images/${filename}`
     if (!isSafeZipPath(archivePath)) continue

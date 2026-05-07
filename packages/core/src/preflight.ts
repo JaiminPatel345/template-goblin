@@ -3,6 +3,7 @@ import { TemplateGoblinError } from '@template-goblin/types'
 import { sniffImageFormat } from './utils/imageFormat.js'
 import { pageContextFor, pageLabel, type PageContext } from './utils/errorContext.js'
 import { resolveImageInputs, type ResolveContext, type ResolveOptions } from './utils/imageInput.js'
+import { isImageColorMarker } from './utils/imageColorMarker.js'
 
 /** Per-call options for {@link preflightImages}. */
 export interface PreflightOptions {
@@ -68,6 +69,11 @@ export async function preflightImages(
       void required
       continue
     }
+
+    // GH #81 — solid-colour markers (`<STATICIMAGE_COLOR_#hex>`) are not
+    // image bytes; the renderer paints a filled rect from the marker
+    // string. Skip the resolver + format sniff for them.
+    if (isImageColorMarker(raw)) continue
 
     if (!isImageInput(raw)) {
       // validateData already raised INVALID_DATA_TYPE; skip resolution.
@@ -163,7 +169,11 @@ function checkStaticImage(
   pageContext: PageContext,
 ): void {
   if (field.source.mode !== 'static') return
-  const filename = (field.source.value as { filename?: string } | null)?.filename
+  const value = field.source.value as { filename?: string; color?: string } | null
+  // GH #81 — solid-colour static fields carry no asset; the renderer
+  // paints a filled rect. Skip the bytes / format checks entirely.
+  if (value && typeof value.color === 'string') return
+  const filename = value?.filename
   if (!filename) return // nothing baked in — renderer skips silently
 
   const bytes = template.staticImages.get(filename)
