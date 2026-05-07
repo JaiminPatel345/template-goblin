@@ -3,9 +3,6 @@ import { persist } from 'zustand/middleware'
 /** The current tool active in the UI */
 export type ActiveTool = 'select' | 'addText' | 'addImage' | 'addLoop'
 
-/** JSON preview mode */
-export type JsonPreviewMode = 'default' | 'max'
-
 export type Theme = 'light' | 'dark'
 
 export interface UiState {
@@ -23,9 +20,12 @@ export interface UiState {
   zoom: number
   /** Whether the PDF preview panel is open */
   showPreview: boolean
-  /** JSON preview mode */
-  jsonPreviewMode: JsonPreviewMode
-  /** Max mode repeat count for text */
+  /**
+   * How many times the per-text "It works in my machine " phrase repeats
+   * when the user clicks **Max Fill** (#90). Pre-#90 this also drove the
+   * removed Default/Max toggle's max output; the toggle is gone, but the
+   * repeat count still parameterises Max Fill's snapshot.
+   */
   maxModeRepeatCount: number
   /**
    * User-edited JSON for the preview pipeline (#78). `null` means "use the
@@ -93,7 +93,6 @@ export interface UiState {
     padding?: number,
   ) => number
   setShowPreview: (show: boolean) => void
-  setJsonPreviewMode: (mode: JsonPreviewMode) => void
   setMaxModeRepeatCount: (count: number) => void
   /**
    * Set the user-pinned preview JSON. Pass `null` to clear (revert to the
@@ -130,7 +129,6 @@ export const useUiStore = create<UiState>()(
       gridSize: 5,
       zoom: 1.0,
       showPreview: false,
-      jsonPreviewMode: 'default',
       maxModeRepeatCount: 5,
       previewJsonText: null,
       showRightPanel: true,
@@ -177,7 +175,6 @@ export const useUiStore = create<UiState>()(
         return clamped
       },
       setShowPreview: (show) => set({ showPreview: show }),
-      setJsonPreviewMode: (mode) => set({ jsonPreviewMode: mode }),
       setMaxModeRepeatCount: (count) => set({ maxModeRepeatCount: count }),
       setPreviewJsonText: (text) => set({ previewJsonText: text }),
       setShowRightPanel: (show) => set({ showRightPanel: show }),
@@ -195,25 +192,28 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'template-goblin-ui',
-      version: 2,
+      version: 3,
       // Only persist user preferences, not transient UI state
       partialize: (state) => ({
         theme: state.theme,
         showGrid: state.showGrid,
         gridSize: state.gridSize,
-        jsonPreviewMode: state.jsonPreviewMode,
         maxModeRepeatCount: state.maxModeRepeatCount,
         showLeftPanel: state.showLeftPanel,
         showRightPanel: state.showRightPanel,
         currentPageId: state.currentPageId,
       }),
-      // Migrate v1 -> v2: 'min' mode was removed
+      // v1 → v2: removed the 'min' jsonPreviewMode value.
+      // v2 → v3: removed jsonPreviewMode entirely (#90 collapsed Default/Max
+      //   toggle into a single JSON + Max-Fill button). Strip the stale key
+      //   from rehydrated state so it doesn't linger as dead persisted data.
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown>
         if (version < 2) {
-          if (state.jsonPreviewMode === 'min') {
-            state.jsonPreviewMode = 'default'
-          }
+          if (state.jsonPreviewMode === 'min') state.jsonPreviewMode = 'default'
+        }
+        if (version < 3) {
+          delete state.jsonPreviewMode
         }
         return state
       },

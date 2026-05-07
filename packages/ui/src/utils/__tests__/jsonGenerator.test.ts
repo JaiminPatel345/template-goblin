@@ -146,6 +146,43 @@ describe('generateExampleJson', () => {
       const result = generateExampleJson([imageField('logo', false)], 'default', 5)
       expect(result.images.logo).toBeNull()
     })
+
+    // GH #90 — default-mode JSON should track each field's placeholder so the
+    // sidebar input ↔ canvas label ↔ JSON value all stay in sync. Falls back
+    // to the synthetic 'A' / '' / first-row only when no placeholder is set.
+    it('uses field.source.placeholder for text fields when set', () => {
+      const f = textField('name')
+      ;(f.source as { mode: 'dynamic'; placeholder: string | null }).placeholder = 'Alice'
+      const result = generateExampleJson([f], 'default', 5)
+      expect(result.texts.name).toBe('Alice')
+    })
+
+    it('falls back to "A" when placeholder is empty / null', () => {
+      const f = textField('name')
+      ;(f.source as { mode: 'dynamic'; placeholder: string | null }).placeholder = ''
+      const result = generateExampleJson([f], 'default', 5)
+      expect(result.texts.name).toBe('A')
+    })
+
+    it('uses the first row of source.placeholder for tables when supplied', () => {
+      const f = tableField('marks')
+      ;(f.source as { mode: 'dynamic'; placeholder: Record<string, string>[] | null }).placeholder =
+        [
+          { name: 'Alice', grade: 'A+' },
+          { name: 'Bob', grade: 'B' },
+        ]
+      const result = generateExampleJson([f], 'default', 5)
+      expect(result.tables.marks).toHaveLength(1)
+      expect(result.tables.marks![0]).toEqual({ name: 'Alice', grade: 'A+' })
+    })
+
+    it('falls back to "A" for table cells when the placeholder row is missing a column key', () => {
+      const f = tableField('marks')
+      ;(f.source as { mode: 'dynamic'; placeholder: Record<string, string>[] | null }).placeholder =
+        [{ name: 'Alice' }]
+      const result = generateExampleJson([f], 'default', 5)
+      expect(result.tables.marks![0]).toEqual({ name: 'Alice', grade: 'A' })
+    })
   })
 
   describe('max mode', () => {

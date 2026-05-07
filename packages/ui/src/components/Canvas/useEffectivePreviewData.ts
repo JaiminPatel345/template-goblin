@@ -20,11 +20,11 @@
 import { useMemo, useRef } from 'react'
 import type { FieldDefinition, InputJSON } from '@template-goblin/types'
 import { generateExampleJson } from '../../utils/jsonGenerator.js'
-import type { JsonPreviewMode } from '../../store/uiStore.js'
 
 export interface EffectiveDataDeps {
   fields: FieldDefinition[]
-  mode: JsonPreviewMode
+  /** `maxModeRepeatCount` — only consulted when the user pins a Max-Fill
+   *  snapshot via `previewJsonText`; the auto-Default baseline ignores it. */
   repeatCount: number
   /** `previewJsonText` from `uiStore` — `null` means "no user pin". */
   previewJsonText: string | null
@@ -33,17 +33,18 @@ export interface EffectiveDataDeps {
 /**
  * Resolve the `InputJSON` the canvas should render against. The hook is
  * stable: same inputs → same reference, so React's reconciler doesn't
- * re-render fields needlessly.
+ * re-render fields needlessly. The baseline is always Default-mode (#90);
+ * Max-Fill snapshots flow in through `previewJsonText` instead.
  */
 export function useEffectivePreviewData(deps: EffectiveDataDeps): InputJSON {
-  const { fields, mode, repeatCount, previewJsonText } = deps
+  const { fields, repeatCount, previewJsonText } = deps
 
   // The auto-generated baseline is always available — used both as the
   // fall-through when there's no pin AND as the seed for the last-good cache
   // so a fresh session never starts with a "blank" reference.
   const generated = useMemo(
-    () => generateExampleJson(fields, mode, repeatCount) as unknown as InputJSON,
-    [fields, mode, repeatCount],
+    () => generateExampleJson(fields, 'default', repeatCount) as unknown as InputJSON,
+    [fields, repeatCount],
   )
 
   // Cache the last successfully-parsed pin so a mid-edit unparseable string

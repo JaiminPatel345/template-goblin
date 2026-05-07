@@ -50,7 +50,6 @@ export function CanvasArea() {
   const currentPageId = useUiStore((s) => s.currentPageId)
   const setCurrentPage = useUiStore((s) => s.setCurrentPage)
   const previewJsonText = useUiStore((s) => s.previewJsonText)
-  const jsonPreviewMode = useUiStore((s) => s.jsonPreviewMode)
   const maxModeRepeatCount = useUiStore((s) => s.maxModeRepeatCount)
 
   // ── Refs ───────────────────────────────────────────────────────────────
@@ -109,7 +108,6 @@ export function CanvasArea() {
   // blanks the canvas.
   const previewData = useEffectivePreviewData({
     fields,
-    mode: jsonPreviewMode,
     repeatCount: maxModeRepeatCount,
     previewJsonText,
   })

@@ -1,5 +1,20 @@
 import type { FieldDefinition } from '@template-goblin/types'
-import type { JsonPreviewMode } from '../store/uiStore.js'
+
+/**
+ * The two example-JSON shapes the right panel offers (#90).
+ *
+ * - `'default'` — minimal sample with each text/image filled from the
+ *   field's `source.placeholder` (when set) or a synthetic fallback
+ *   (`'A'` / `'<base64-image-data>'`). Tables get one row sourced from
+ *   `source.placeholder[0]` when set, otherwise one row of `'A'`s. This
+ *   is the JSON the right-panel textarea always shows when no user pin
+ *   is active.
+ * - `'max'` — every text gets a long repeated string and every table
+ *   gets `style.maxRows` rows. Used by the **Max Fill** button to seed
+ *   bulk test data — the result is written into `previewJsonText` as a
+ *   user-pinned edit, not displayed as a separate mode.
+ */
+export type JsonPreviewMode = 'default' | 'max'
 
 /**
  * Shape of the example JSON generated for the right-panel preview.
@@ -13,16 +28,15 @@ interface GeneratedJson {
 }
 
 /**
- * Generate example JSON from template fields for the JSON preview panel.
+ * Generate example JSON from template fields.
  *
  * @param fields - Template field definitions
- * @param mode - Preview mode: 'default' or 'max'
+ * @param mode - `'default'` (panel display) or `'max'` (Max-Fill button)
  * @param repeatCount - How many times to repeat text in max mode
- * @returns Generated example JSON object
  */
 export function generateExampleJson(
   fields: FieldDefinition[],
-  mode: JsonPreviewMode,
+  mode: JsonPreviewMode = 'default',
   repeatCount: number = 5,
 ): GeneratedJson {
   const result: GeneratedJson = {
@@ -51,7 +65,7 @@ export function generateExampleJson(
         break
 
       case 'table':
-        result.tables[name] = getTableValue(field, mode, required, repeatCount)
+        result.tables[name] = getTableValue(field, mode, required, repeatCount, placeholder)
         break
     }
   }
@@ -68,9 +82,10 @@ function getTextValue(
   if (mode === 'max') {
     return 'It works in my machine '.repeat(repeatCount).trim()
   }
-  // GH #25: when the user typed a placeholder for the dynamic field, surface
-  // it as the JSON mock value so what they see in the panel matches the
-  // preview. Fall back to the legacy synthetic 'A' / '' when no placeholder.
+  // GH #25 / #90: when the user typed a placeholder for the dynamic field,
+  // surface it as the JSON mock value so what they see in the panel matches
+  // the canvas + preview. Fall back to the synthetic 'A' / '' only when no
+  // placeholder exists.
   if (typeof placeholder === 'string' && placeholder.length > 0) return placeholder
   return required ? 'A' : ''
 }
@@ -96,6 +111,7 @@ function getTableValue(
   mode: JsonPreviewMode,
   required: boolean,
   repeatCount: number,
+  placeholder: unknown,
 ): Record<string, string>[] {
   if (field.type !== 'table') return []
   const columns = field.style.columns || []
@@ -113,7 +129,22 @@ function getTableValue(
     return rows
   }
 
-  // default (and any unknown mode fallback)
+  // GH #90: prefer the first row of the user's placeholder array when set —
+  // matches the text/image branches and keeps the JSON in sync with what the
+  // designer typed in the properties panel. Falls through to one synthetic
+  // row of 'A's only when no placeholder is supplied.
+  if (Array.isArray(placeholder) && placeholder.length > 0) {
+    const sample = placeholder[0]
+    if (sample && typeof sample === 'object') {
+      const row: Record<string, string> = {}
+      for (const col of columns) {
+        const value = (sample as Record<string, unknown>)[col.key]
+        row[col.key] = typeof value === 'string' && value.length > 0 ? value : 'A'
+      }
+      return [row]
+    }
+  }
+
   if (!required) return []
   const row: Record<string, string> = {}
   for (const col of columns) {
