@@ -22,7 +22,6 @@ import {
   createFieldGroup,
   applyFieldToGroup,
   buildGridLines,
-  fitZoomLevel,
   type ImageResolver,
 } from './fabricUtils.js'
 import { usePageBoundsEnforcement } from './usePageBoundsEnforcement.js'
@@ -41,13 +40,6 @@ export interface SyncDeps {
    * don't trigger dep re-fires (GH #17).
    */
   fabricInstance: FabricCanvas | null
-  /**
-   * State mirror of the canvas container element. Effects that must
-   * re-attach to a new container element (e.g. the ResizeObserver) depend
-   * on this so the observer doesn't stay bound to the unmounted onboarding
-   * picker on the first visit (GH #17).
-   */
-  containerEl: HTMLDivElement | null
   pageFields: FieldDefinition[]
   bgImage: HTMLImageElement | null
   currentBgColor: string | null
@@ -86,7 +78,6 @@ export function useFabricSync(deps: SyncDeps) {
   const {
     fabricRef,
     fabricInstance,
-    containerEl,
     pageFields,
     bgImage,
     currentBgColor,
@@ -253,42 +244,6 @@ export function useFabricSync(deps: SyncDeps) {
     fc.requestRenderAll()
     useUiStore.getState().setZoom(1)
   }, [fabricRef, fabricInstance, currentPageId, meta.width, meta.height])
-
-  // ═══════════════ Resize observer (GH #17, #66) ═════════════════════════
-  // Pre-#66 the observer resized the Fabric canvas to match the container
-  // and recentred the page via `viewportTransform`. Now the canvas is
-  // sized to `page * zoom` (independent of the container) and centring is
-  // CSS flex; on a container-size change the only thing that needs to
-  // update is the auto-fit zoom — useFabricSync's auto-fit-zoom-on-meta
-  // effect already handles meta changes, but a window resize doesn't
-  // touch meta so we recompute zoom here when the user is at (or below)
-  // the previous fit level. Above fit-zoom we leave the user's zoom
-  // alone — they're explicitly zoomed in and a window resize shouldn't
-  // throw away their context.
-  //
-  // Depend on `containerEl` (state mirror) — refs have stable identity
-  // so the old implementation stayed bound to the onboarding picker's
-  // <div> after the canvas subtree mounted on the first visit.
-  useEffect(() => {
-    if (!containerEl || !fabricInstance) return
-
-    const observer = new ResizeObserver(() => {
-      const fc = fabricRef.current
-      if (!fc) return
-      if (meta.width <= 0 || meta.height <= 0) return
-      const w = containerEl.clientWidth
-      const h = containerEl.clientHeight
-      const fit = fitZoomLevel(meta.width, meta.height, w, h, 40)
-      const current = fc.getZoom()
-      if (current <= fit + 0.001) {
-        useUiStore.getState().setZoom(fit)
-      }
-      // Otherwise (current > fit, user zoomed in) leave zoom alone; the
-      // canvas keeps its `page * current` size and scrollbars adjust.
-    })
-    observer.observe(containerEl)
-    return () => observer.disconnect()
-  }, [fabricRef, fabricInstance, containerEl, meta.width, meta.height])
 
   // ═══════════════ Cursor sync (REQ-043) ═════════════════════════════════
   useEffect(() => {
