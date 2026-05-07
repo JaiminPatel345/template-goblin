@@ -9,8 +9,6 @@ import { useRef, useCallback, useState } from 'react'
 import { Canvas as FabricCanvas } from 'fabric'
 import type { Rect as FabricRect } from 'fabric'
 import type { FieldCreationDraft } from './FieldCreationPopup.js'
-import { useTemplateStore } from '../../store/templateStore.js'
-import { useUiStore } from '../../store/uiStore.js'
 import { wireSelectionEvents } from './wireSelectionEvents.js'
 import { wireDragResizeEvents } from './wireDragResizeEvents.js'
 import { wireMouseEvents } from './wireMouseEvents.js'
@@ -111,36 +109,11 @@ export function useFabricCanvas(
       )
       wireWheelEvents(fc)
 
-      // GH #84: default zoom is 100% on canvas creation. The canvas is
-      // sized to the raw page dimensions; the container's `overflow: auto`
-      // scrolls when the page is larger than the viewport. Users can zoom
-      // out via the ZoomControls if they want a fit-to-viewport view.
-      const { width: pageW, height: pageH } = useTemplateStore.getState().meta
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.log('[#84 setCanvasEl]', {
-          ctorW: w,
-          ctorH: h,
-          metaW: pageW,
-          metaH: pageH,
-          willResize: pageW > 0 && pageH > 0,
-        })
-      }
-      if (pageW > 0 && pageH > 0) {
-        requestAnimationFrame(() => {
-          fc.setDimensions({ width: pageW, height: pageH })
-          fc.setViewportTransform([1, 0, 0, 1, 0, 0])
-          useUiStore.getState().setZoom(1)
-          if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
-            console.log('[#84 setCanvasEl rAF]', {
-              fcZoom: fc.getZoom(),
-              fcW: fc.width,
-              fcH: fc.height,
-            })
-          }
-        })
-      }
+      // Canvas dimensions / zoom are fully owned by useFabricSync's
+      // zoom-sync effect — it fires on mount (fabricInstance changing
+      // null → fc) and on every zoom / meta change, sizing the wrapper
+      // to `meta * store.zoom`. Doing a setDimensions or setZoom here
+      // would stomp the persisted zoom restored by the store on refresh.
     },
     [setPendingDraft, containerRef],
   )

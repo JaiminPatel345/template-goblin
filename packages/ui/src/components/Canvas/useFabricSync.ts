@@ -8,7 +8,7 @@
  *   - `useFabricImages` — bg / placeholder / static image loading.
  *   - `usePageBoundsEnforcement` — clipPath + outline rect + clamp handlers.
  */
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   type Canvas as FabricCanvas,
   FabricImage,
@@ -214,10 +214,15 @@ export function useFabricSync(deps: SyncDeps) {
   // level. The viewportTransform is identity-with-zoom (no centring
   // translate) — the container's flex centring places smaller-than-
   // viewport canvases instead.
+  //
+  // No early-return on `fc.getZoom() === zoom`: on refresh the canvas is
+  // created at container size with fabric's default zoom = 1 and the
+  // store's default zoom is also 1, so the equality would skip the very
+  // resize that gives the page its real `meta * 1` dimensions. Always
+  // sync on every dep change — setDimensions is idempotent and cheap.
   useEffect(() => {
     const fc = fabricRef.current
     if (!fc || meta.width <= 0 || meta.height <= 0) return
-    if (Math.abs(fc.getZoom() - zoom) < 0.001) return
 
     fc.setDimensions({ width: meta.width * zoom, height: meta.height * zoom })
     fc.setViewportTransform([zoom, 0, 0, zoom, 0, 0])
@@ -230,46 +235,20 @@ export function useFabricSync(deps: SyncDeps) {
   // `currentPageId` is depended on explicitly so same-sized page switches
   // — where `meta.width`/`meta.height` don't change — still reset.
   //
-  // Resize the canvas synchronously here AND update store.zoom — delegating
-  // the resize to the zoom-sync effect is fragile: if the previous page
-  // left fabric's zoom already at 1 but with stale dimensions, the zoom-
-  // sync's `fc.getZoom() === zoom` early-return skips the setDimensions
-  // call, leaving the canvas painting at the old page's `meta * zoom` while
-  // the indicator reads 100%.
+  // The first valid run (canvas mounted + meta hydrated) is the post-
+  // refresh restore: the user is reopening the view they left, so we
+  // preserve the persisted zoom and just let the zoom-sync effect resize
+  // the canvas to `meta * persistedZoom`. Every subsequent currentPageId
+  // / meta change does reset to 1×.
+  const resetInitialisedRef = useRef(false)
   useEffect(() => {
     const fc = fabricRef.current
-    if (!fc || meta.width <= 0 || meta.height <= 0) {
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.log('[#84 reset SKIP]', { fc: !!fc, meta })
-      }
+    if (!fc || meta.width <= 0 || meta.height <= 0) return
+    if (!resetInitialisedRef.current) {
+      resetInitialisedRef.current = true
       return
     }
-    const wrapper = (fc as unknown as { wrapperEl?: HTMLElement }).wrapperEl
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.log('[#84 reset BEFORE]', {
-        pageId: currentPageId,
-        meta: { w: meta.width, h: meta.height },
-        fc: { zoom: fc.getZoom(), w: fc.width, h: fc.height },
-        wrapperStyle: wrapper && { w: wrapper.style.width, h: wrapper.style.height },
-      })
-    }
-    fc.setDimensions({ width: meta.width, height: meta.height })
-    fc.setViewportTransform([1, 0, 0, 1, 0, 0])
-    fc.requestRenderAll()
     useUiStore.getState().setZoom(1)
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.log('[#84 reset AFTER]', {
-        fc: { zoom: fc.getZoom(), w: fc.width, h: fc.height },
-        wrapperStyle: wrapper && { w: wrapper.style.width, h: wrapper.style.height },
-        wrapperRect: wrapper && {
-          ow: wrapper.offsetWidth,
-          oh: wrapper.offsetHeight,
-        },
-      })
-    }
   }, [fabricRef, fabricInstance, currentPageId, meta.width, meta.height])
 
   // ═══════════════ Cursor sync (REQ-043) ═════════════════════════════════

@@ -202,6 +202,9 @@ export const useUiStore = create<UiState>()(
         showLeftPanel: state.showLeftPanel,
         showRightPanel: state.showRightPanel,
         currentPageId: state.currentPageId,
+        // GH #84 follow-up: preserve zoom across refresh so the canvas
+        // restores at whatever level the user was last looking at.
+        zoom: state.zoom,
       }),
       // v1 → v2: removed the 'min' jsonPreviewMode value.
       // v2 → v3: removed jsonPreviewMode entirely (#90 collapsed Default/Max
