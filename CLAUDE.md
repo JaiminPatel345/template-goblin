@@ -95,7 +95,10 @@ developers use the npm library to generate PDFs at scale.
     (e) `gh pr merge --merge --delete-branch`,
     (f) `git checkout main && git pull --ff-only` (per Rule #17),
     (g) `gh issue list --state open` and present the open issues
-    back to the user.
+    back to the user as a list of `#<number> — <title>` entries
+    (the title is the load-bearing part — never present bare
+    numbers, the user shouldn't have to look up what each issue
+    is about).
     The single instruction is the authorisation for the whole
     sequence — do NOT pause between steps for permission. This
     supersedes Rule #15's "do exactly what is asked" for these

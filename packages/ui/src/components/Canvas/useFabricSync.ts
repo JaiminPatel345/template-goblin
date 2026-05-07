@@ -8,7 +8,7 @@
  *   - `useFabricImages` — bg / placeholder / static image loading.
  *   - `usePageBoundsEnforcement` — clipPath + outline rect + clamp handlers.
  */
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   type Canvas as FabricCanvas,
   FabricImage,
@@ -22,7 +22,6 @@ import {
   createFieldGroup,
   applyFieldToGroup,
   buildGridLines,
-  fitZoomLevel,
   type ImageResolver,
 } from './fabricUtils.js'
 import { usePageBoundsEnforcement } from './usePageBoundsEnforcement.js'
@@ -41,13 +40,6 @@ export interface SyncDeps {
    * don't trigger dep re-fires (GH #17).
    */
   fabricInstance: FabricCanvas | null
-  /**
-   * State mirror of the canvas container element. Effects that must
-   * re-attach to a new container element (e.g. the ResizeObserver) depend
-   * on this so the observer doesn't stay bound to the unmounted onboarding
-   * picker on the first visit (GH #17).
-   */
-  containerEl: HTMLDivElement | null
   pageFields: FieldDefinition[]
   bgImage: HTMLImageElement | null
   currentBgColor: string | null
@@ -86,7 +78,6 @@ export function useFabricSync(deps: SyncDeps) {
   const {
     fabricRef,
     fabricInstance,
-    containerEl,
     pageFields,
     bgImage,
     currentBgColor,
@@ -223,10 +214,15 @@ export function useFabricSync(deps: SyncDeps) {
   // level. The viewportTransform is identity-with-zoom (no centring
   // translate) — the container's flex centring places smaller-than-
   // viewport canvases instead.
+  //
+  // No early-return on `fc.getZoom() === zoom`: on refresh the canvas is
+  // created at container size with fabric's default zoom = 1 and the
+  // store's default zoom is also 1, so the equality would skip the very
+  // resize that gives the page its real `meta * 1` dimensions. Always
+  // sync on every dep change — setDimensions is idempotent and cheap.
   useEffect(() => {
     const fc = fabricRef.current
     if (!fc || meta.width <= 0 || meta.height <= 0) return
-    if (Math.abs(fc.getZoom() - zoom) < 0.001) return
 
     fc.setDimensions({ width: meta.width * zoom, height: meta.height * zoom })
     fc.setViewportTransform([zoom, 0, 0, zoom, 0, 0])
@@ -239,56 +235,21 @@ export function useFabricSync(deps: SyncDeps) {
   // `currentPageId` is depended on explicitly so same-sized page switches
   // — where `meta.width`/`meta.height` don't change — still reset.
   //
-  // Resize the canvas synchronously here AND update store.zoom — delegating
-  // the resize to the zoom-sync effect is fragile: if the previous page
-  // left fabric's zoom already at 1 but with stale dimensions, the zoom-
-  // sync's `fc.getZoom() === zoom` early-return skips the setDimensions
-  // call, leaving the canvas painting at the old page's `meta * zoom` while
-  // the indicator reads 100%.
+  // The first valid run (canvas mounted + meta hydrated) is the post-
+  // refresh restore: the user is reopening the view they left, so we
+  // preserve the persisted zoom and just let the zoom-sync effect resize
+  // the canvas to `meta * persistedZoom`. Every subsequent currentPageId
+  // / meta change does reset to 1×.
+  const resetInitialisedRef = useRef(false)
   useEffect(() => {
     const fc = fabricRef.current
     if (!fc || meta.width <= 0 || meta.height <= 0) return
-    fc.setDimensions({ width: meta.width, height: meta.height })
-    fc.setViewportTransform([1, 0, 0, 1, 0, 0])
-    fc.requestRenderAll()
+    if (!resetInitialisedRef.current) {
+      resetInitialisedRef.current = true
+      return
+    }
     useUiStore.getState().setZoom(1)
   }, [fabricRef, fabricInstance, currentPageId, meta.width, meta.height])
-
-  // ═══════════════ Resize observer (GH #17, #66) ═════════════════════════
-  // Pre-#66 the observer resized the Fabric canvas to match the container
-  // and recentred the page via `viewportTransform`. Now the canvas is
-  // sized to `page * zoom` (independent of the container) and centring is
-  // CSS flex; on a container-size change the only thing that needs to
-  // update is the auto-fit zoom — useFabricSync's auto-fit-zoom-on-meta
-  // effect already handles meta changes, but a window resize doesn't
-  // touch meta so we recompute zoom here when the user is at (or below)
-  // the previous fit level. Above fit-zoom we leave the user's zoom
-  // alone — they're explicitly zoomed in and a window resize shouldn't
-  // throw away their context.
-  //
-  // Depend on `containerEl` (state mirror) — refs have stable identity
-  // so the old implementation stayed bound to the onboarding picker's
-  // <div> after the canvas subtree mounted on the first visit.
-  useEffect(() => {
-    if (!containerEl || !fabricInstance) return
-
-    const observer = new ResizeObserver(() => {
-      const fc = fabricRef.current
-      if (!fc) return
-      if (meta.width <= 0 || meta.height <= 0) return
-      const w = containerEl.clientWidth
-      const h = containerEl.clientHeight
-      const fit = fitZoomLevel(meta.width, meta.height, w, h, 40)
-      const current = fc.getZoom()
-      if (current <= fit + 0.001) {
-        useUiStore.getState().setZoom(fit)
-      }
-      // Otherwise (current > fit, user zoomed in) leave zoom alone; the
-      // canvas keeps its `page * current` size and scrollbars adjust.
-    })
-    observer.observe(containerEl)
-    return () => observer.disconnect()
-  }, [fabricRef, fabricInstance, containerEl, meta.width, meta.height])
 
   // ═══════════════ Cursor sync (REQ-043) ═════════════════════════════════
   useEffect(() => {
