@@ -12,7 +12,6 @@ function resetStore(): void {
     gridSize: 5,
     zoom: 1.0,
     showPreview: false,
-    jsonPreviewMode: 'default',
     maxModeRepeatCount: 5,
     showRightPanel: true,
     showLeftPanel: true,
@@ -255,21 +254,6 @@ describe('uiStore', () => {
       useUiStore.getState().setZoom(0.2)
       useUiStore.getState().resetZoom()
       expect(useUiStore.getState().zoom).toBe(1.0)
-    })
-  })
-
-  /* -- JSON Preview Mode -- */
-
-  describe('setJsonPreviewMode', () => {
-    it('switches to max mode', () => {
-      useUiStore.getState().setJsonPreviewMode('max')
-      expect(useUiStore.getState().jsonPreviewMode).toBe('max')
-    })
-
-    it('switches back to default mode', () => {
-      useUiStore.getState().setJsonPreviewMode('max')
-      useUiStore.getState().setJsonPreviewMode('default')
-      expect(useUiStore.getState().jsonPreviewMode).toBe('default')
     })
   })
 

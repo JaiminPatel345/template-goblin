@@ -2,32 +2,33 @@ import { useMemo, useCallback } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { generateExampleJson } from '../../utils/jsonGenerator.js'
-import type { JsonPreviewMode } from '../../store/uiStore.js'
-
-const MODES: { key: JsonPreviewMode; label: string }[] = [
-  { key: 'default', label: 'Default' },
-  { key: 'max', label: 'Max' },
-]
 
 /**
- * Right-panel JSON preview. The textarea content lives in
- * `uiStore.previewJsonText` so an edit here flows straight into the
- * PreviewDialog (#78). When the store value is `null` the textarea shows
- * the auto-generated example for the current fields and mode; the moment
- * the user types, the store value goes non-null and pins the user's text
- * across mode/field changes. The Reset button clears it back to `null`.
+ * Right-panel JSON preview (#90).
+ *
+ * One textarea, one source of truth. The displayed JSON is either:
+ *   - `uiStore.previewJsonText` (user-pinned edit), or
+ *   - the auto-generated default-mode JSON for the current fields.
+ *
+ * Pre-#90 there was a Default / Max toggle. That created a UX trap: a
+ * user staring at Max-mode JSON would add a field on canvas, the field
+ * would land in the (hidden) Default JSON, and the user would think
+ * the field "didn't appear in JSON" until they switched modes. The
+ * toggle is gone; **Max Fill** replaces it as a one-shot button that
+ * generates the max-mode JSON and pins it via `setPreviewJsonText` —
+ * exactly as if the user typed it. Adding a new field after Max-Fill
+ * leaves the pin alone (so the user's bulk-test data isn't lost), and
+ * **Reset** still clears the pin → reverts to auto-Default.
  */
 export function JsonPreview() {
   const fields = useTemplateStore((s) => s.fields)
-  const jsonPreviewMode = useUiStore((s) => s.jsonPreviewMode)
-  const setJsonPreviewMode = useUiStore((s) => s.setJsonPreviewMode)
   const maxModeRepeatCount = useUiStore((s) => s.maxModeRepeatCount)
   const previewJsonText = useUiStore((s) => s.previewJsonText)
   const setPreviewJsonText = useUiStore((s) => s.setPreviewJsonText)
 
   const generated = useMemo(
-    () => generateExampleJson(fields, jsonPreviewMode, maxModeRepeatCount),
-    [fields, jsonPreviewMode, maxModeRepeatCount],
+    () => generateExampleJson(fields, 'default', maxModeRepeatCount),
+    [fields, maxModeRepeatCount],
   )
   const generatedText = useMemo(() => JSON.stringify(generated, null, 2), [generated])
 
@@ -42,6 +43,11 @@ export function JsonPreview() {
       // Fallback: ignore clipboard errors
     })
   }, [value])
+
+  const handleMaxFill = useCallback(() => {
+    const max = generateExampleJson(fields, 'max', maxModeRepeatCount)
+    setPreviewJsonText(JSON.stringify(max, null, 2))
+  }, [fields, maxModeRepeatCount, setPreviewJsonText])
 
   return (
     <div className="tg-panel-section">
@@ -70,23 +76,19 @@ export function JsonPreview() {
           <button
             className="tg-btn"
             style={{ fontSize: 10, padding: '2px 8px' }}
+            onClick={handleMaxFill}
+            title="Pin a max-fill snapshot — every text repeated, every table at maxRows"
+          >
+            Max Fill
+          </button>
+          <button
+            className="tg-btn"
+            style={{ fontSize: 10, padding: '2px 8px' }}
             onClick={handleCopy}
           >
             Copy
           </button>
         </div>
-      </div>
-
-      <div className="tg-json-mode-toggle">
-        {MODES.map((m) => (
-          <button
-            key={m.key}
-            className={`tg-json-mode-btn ${jsonPreviewMode === m.key ? 'tg-json-mode-btn--active' : ''}`}
-            onClick={() => setJsonPreviewMode(m.key)}
-          >
-            {m.label}
-          </button>
-        ))}
       </div>
 
       {fields.length === 0 ? (
