@@ -11,7 +11,6 @@ import type { Rect as FabricRect } from 'fabric'
 import type { FieldCreationDraft } from './FieldCreationPopup.js'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
-import { fitZoomLevel } from './fabricUtils.js'
 import { wireSelectionEvents } from './wireSelectionEvents.js'
 import { wireDragResizeEvents } from './wireDragResizeEvents.js'
 import { wireMouseEvents } from './wireMouseEvents.js'
@@ -112,24 +111,16 @@ export function useFabricCanvas(
       )
       wireWheelEvents(fc)
 
-      // Auto-fit zoom on canvas creation.  Re-read container dimensions after
-      // the current micro-task so the parent ref-callback has a chance to fire
-      // and the DOM has been laid out (avoids 800×600 fallback when the
-      // container ref fires after this canvas ref in the same React commit).
-      // GH #66: the canvas is now sized to `page * zoom` (not container);
-      // useFabricSync's zoom-sync effect resizes on every zoom change.
-      // Here we just compute the fit-zoom from container size and stamp
-      // the initial dimensions; the container's `overflow: auto` does the
-      // rest when the user zooms past fit.
+      // GH #84: default zoom is 100% on canvas creation. The canvas is
+      // sized to the raw page dimensions; the container's `overflow: auto`
+      // scrolls when the page is larger than the viewport. Users can zoom
+      // out via the ZoomControls if they want a fit-to-viewport view.
       const { width: pageW, height: pageH } = useTemplateStore.getState().meta
       if (pageW > 0 && pageH > 0) {
         requestAnimationFrame(() => {
-          const cw = containerRef.current?.clientWidth || 800
-          const ch = containerRef.current?.clientHeight || 600
-          const z = fitZoomLevel(pageW, pageH, cw, ch, 40)
-          fc.setDimensions({ width: pageW * z, height: pageH * z })
-          fc.setViewportTransform([z, 0, 0, z, 0, 0])
-          useUiStore.getState().setZoom(z)
+          fc.setDimensions({ width: pageW, height: pageH })
+          fc.setViewportTransform([1, 0, 0, 1, 0, 0])
+          useUiStore.getState().setZoom(1)
         })
       }
     },
