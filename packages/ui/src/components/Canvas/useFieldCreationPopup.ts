@@ -41,6 +41,11 @@ export function useFieldCreationPopup() {
             return { ...base, label, source: { mode: 'static', value: source.value } }
           }
           if (base.type === 'image') {
+            // GH #81 — solid-colour static fields store `{ color }`
+            // directly. No filename, no static-image asset, no fit math.
+            if (source.color) {
+              return { ...base, label, source: { mode: 'static', value: { color: source.color } } }
+            }
             const filename = source.image?.filename ?? ''
             return { ...base, label, source: { mode: 'static', value: { filename } } }
           }

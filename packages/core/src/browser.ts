@@ -26,3 +26,8 @@ export { validateData } from './validate.js'
 export { validateManifest } from './validateManifest.js'
 export { resolveValue } from './utils/resolveValue.js'
 export { subsetTemplateFonts, extractUsedCodePoints } from './utils/fontSubset.js'
+export {
+  parseImageColorMarker,
+  isImageColorMarker,
+  makeImageColorMarker,
+} from './utils/imageColorMarker.js'

@@ -67,6 +67,10 @@ function validateTextField(field: TextField): void {
 
 function isImageSourceValue(v: unknown): v is ImageSourceValue {
   if (v === null || typeof v !== 'object') return false
+  // GH #81 — `{ color: '#hex' }` is a valid `ImageSourceValue` for solid-
+  // colour static fields. No image asset; the renderer paints a fill.
+  const c = (v as { color?: unknown }).color
+  if (typeof c === 'string' && c.length > 0) return true
   const f = (v as { filename?: unknown }).filename
   return typeof f === 'string' && f.length > 0
 }
@@ -77,7 +81,7 @@ function validateImageField(field: ImageField): void {
     if (!isImageSourceValue(field.source.value)) {
       fail(
         'INVALID_STATIC_VALUE',
-        `Image field ${field.id}: static value must be { filename: non-empty string }`,
+        `Image field ${field.id}: static value must be { filename } or { color }`,
         { fieldId: field.id },
       )
     }
@@ -87,7 +91,7 @@ function validateImageField(field: ImageField): void {
     if (ph !== null && !isImageSourceValue(ph)) {
       fail(
         'INVALID_DYNAMIC_SOURCE',
-        `Image field ${field.id}: placeholder must be { filename: string } or null`,
+        `Image field ${field.id}: placeholder must be { filename } / { color } / null`,
         { fieldId: field.id },
       )
     }

@@ -9,6 +9,8 @@ export type {
   TextFieldStyle,
   ImageFieldStyle,
   ImageSourceValue,
+  ImageFilenameValue,
+  ImageColorValue,
   TableFieldStyle,
   TableCellRuntimeStyle,
   TableColumn,
@@ -31,6 +33,7 @@ export type {
 export type { InputJSON, TextInputs, TableInputs, ImageInputs, ImageInput } from './input.js'
 export type { StaticSource, DynamicSource, FieldSource } from './source.js'
 export { isStaticSource, isDynamicSource } from './source.js'
+export { isImageFilenameValue, isImageColorValue } from './template.js'
 export type { LoadedTemplate, TemplateAssets } from './loaded.js'
 export { PAGE_SIZE_PRESETS, getPageSize } from './pageSize.js'
 export { isSafeKey } from './safeKey.js'

@@ -20,3 +20,8 @@ export type { BatchOptions, BatchResult } from './batch.js'
 export { generateAndStore, S3StorageProvider } from './storage.js'
 export type { StorageProvider, GenerateAndStoreOptions, StoreResult } from './storage.js'
 export { subsetTemplateFonts, extractUsedCodePoints } from './utils/fontSubset.js'
+export {
+  parseImageColorMarker,
+  isImageColorMarker,
+  makeImageColorMarker,
+} from './utils/imageColorMarker.js'

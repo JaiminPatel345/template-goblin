@@ -241,6 +241,12 @@ function fieldRenderHash(
     } else if (field.type === 'table') {
       const rows = data.tables?.[field.source.jsonKey]
       if (Array.isArray(rows)) dataSlice = { n: rows.length, head: rows[0] ?? null }
+    } else if (field.type === 'image') {
+      // GH #81 — surface the dynamic colour-marker string in the hash so
+      // typing `<STATICIMAGE_COLOR_#hex>` into the right-panel JSON
+      // triggers a child rebuild and repaints the rect.
+      const supplied = data.images?.[field.source.jsonKey]
+      if (typeof supplied === 'string') dataSlice = supplied
     }
   }
   return JSON.stringify({

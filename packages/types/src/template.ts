@@ -149,9 +149,35 @@ export interface TableFieldStyle {
 /** A single row in a table — column key -> cell string value. */
 export type TableRow = Record<string, string>
 
-/** Image source value shape — a filename inside the `.tgbl` archive. */
-export interface ImageSourceValue {
+/**
+ * Image source value — what a field's `source.value` (static) or
+ * `source.placeholder` (dynamic, canvas-time preview) actually points at.
+ *
+ * Two shapes:
+ *   - `{ filename }` — a baked image asset stored inside the `.tgbl`
+ *     archive (PNG/JPEG bytes). The renderer decodes and paints.
+ *   - `{ color }` — a solid colour, painted as a filled rectangle (#81).
+ *     No image bytes; the colour is the value. Hex (`#rgb` or `#rrggbb`).
+ */
+export type ImageSourceValue = ImageFilenameValue | ImageColorValue
+
+export interface ImageFilenameValue {
   filename: string
+}
+
+export interface ImageColorValue {
+  /** Hex colour — `#rgb` or `#rrggbb`. */
+  color: string
+}
+
+/** Type guard for the image-asset variant of `ImageSourceValue`. */
+export function isImageFilenameValue(v: ImageSourceValue): v is ImageFilenameValue {
+  return 'filename' in v && typeof v.filename === 'string'
+}
+
+/** Type guard for the solid-colour variant of `ImageSourceValue`. */
+export function isImageColorValue(v: ImageSourceValue): v is ImageColorValue {
+  return 'color' in v && typeof v.color === 'string'
 }
 
 /** Background type for a page */
