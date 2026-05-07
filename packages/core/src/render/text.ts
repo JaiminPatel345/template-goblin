@@ -32,19 +32,21 @@ export function renderText(
   let fontSize = style.fontSize
   let lines: string[]
 
-  if (style.overflowMode === 'dynamic_font' && style.fontSizeDynamic) {
-    // REQ: Dynamic font mode — shrink fontSize until text fits or fontSizeMin reached
+  if (style.overflowMode === 'dynamic_font') {
+    // GH #91: shrink `fontSize` to `fontSizeMin` until the text fits.
+    // If it still doesn't fit at min, fall through to a character-
+    // boundary truncation (no ellipsis — that was the pre-#91 behaviour
+    // the user explicitly didn't want).
     const result = fitTextDynamic(doc, value, fontSize, style.fontSizeMin, width, style.maxRows)
     fontSize = result.fontSize
     lines = result.lines
-
-    // REQ: If still doesn't fit at fontSizeMin, truncate with ellipsis
     if (!result.fits) {
       doc.fontSize(fontSize)
       lines = truncateLines(doc, lines, style.maxRows, width)
     }
   } else {
-    // REQ: Truncate mode — fixed fontSize, cut off excess
+    // GH #91: 'truncate' mode — fixed `fontSize`, cut characters from the
+    // end at a character boundary until the content fits.
     doc.fontSize(fontSize)
     const result = measureText(doc, value, fontSize, width, style.maxRows)
     lines = result.fits ? result.lines : truncateLines(doc, result.lines, style.maxRows, width)

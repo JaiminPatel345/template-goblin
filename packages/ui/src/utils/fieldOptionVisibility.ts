@@ -15,11 +15,11 @@ import type { FieldDefinition } from '@template-goblin/types'
  * | required       |      ✗      |    ✓     |      ✗       |     ✓     |      ✗       |     ✓     |
  * | placeholder    |      ✗      |    ✓     |      ✗       |     ✓     |      ✗       |     ✓     |
  * | font options   |      ✓      |    ✓     |      ✗       |     ✗     |      ✓       |     ✓     |
- * | auto-fit font  |      ✗      |    ✓     |      ✗       |     ✗     |      ✗       |     ✗     |
- * | min font size  |      ✗      |    ⊘*    |      ✗       |     ✗     |      ✗       |     ✗     |
+ * | overflow mode  |      ✗      |    ✓     |      ✗       |     ✗     |      ✓       |     ✓     |
+ * | min font size  |      ✗      |    ⊘*    |      ✗       |     ✗     |      ⊘*      |     ⊘*    |
  * | image fit mode |      ✗      |    ✗     |      ✓       |     ✓     |      ✗       |     ✗     |
  *
- * `⊘*` = only when auto-fit font is enabled.
+ * `⊘*` = only when overflow mode is `dynamic_font` (#91).
  */
 
 /** Source mode for a field (returns 'static' if missing — defensive). */
@@ -42,17 +42,17 @@ export function showFontOptions(field: FieldDefinition): boolean {
   return field.type === 'text' || field.type === 'table'
 }
 
-/** Auto-fit font-size only applies to dynamic text — static strings are fixed. */
-export function showAutoFitFont(field: FieldDefinition): boolean {
-  return field.type === 'text' && modeOf(field) === 'dynamic'
-}
-
 /**
- * Min-font-size only matters when auto-fit is enabled. Caller passes the
- * current `style.fontSizeDynamic` (true when auto-fit is on).
+ * Minimum Font Size only matters when Overflow Mode is `dynamic_font`
+ * (#91 — the legacy `fontSizeDynamic` boolean was removed). Caller passes
+ * the current `style.overflowMode`.
  */
-export function showMinFontSize(field: FieldDefinition, fontSizeDynamic: boolean): boolean {
-  return showAutoFitFont(field) && fontSizeDynamic
+export function showMinFontSize(
+  field: FieldDefinition,
+  overflowMode: 'truncate' | 'dynamic_font' | undefined,
+): boolean {
+  if (!showOverflowMode(field)) return false
+  return overflowMode === 'dynamic_font'
 }
 
 /** Image-specific fit mode (contain / cover / etc.). */

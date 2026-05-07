@@ -4,13 +4,17 @@
  * grid-snap during a drag (REQ-008, REQ-012, REQ-013, REQ-051). Extracted
  * from `useFabricCanvas.ts` to keep that file under the 300 LOC cap (Hard
  * Rule #11).
+ *
+ * GH #91 — the pre-#73 "auto-fit fontSize back to the store on resize"
+ * behaviour for static text was removed. The user's preference: "max-fit
+ * do not change static element". Every text field now renders at its
+ * authored `fontSize` and overflow is handled by the field's
+ * `overflowMode` (truncate / dynamic_font), not by mutating `fontSize`.
  */
 import type { Canvas as FabricCanvas, Group as FabricGroup } from 'fabric'
-import type { TextField } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
-import { groupToFieldPatch, snap, fitFontSize } from './fabricUtils.js'
-import { fieldCanvasLabel } from './fieldLabel.js'
+import { groupToFieldPatch, snap } from './fabricUtils.js'
 
 /** Wire drag/resize commit + grid-snap on the given Fabric canvas. */
 export function wireDragResizeEvents(fc: FabricCanvas) {
@@ -22,28 +26,6 @@ export function wireDragResizeEvents(fc: FabricCanvas) {
     const store = useTemplateStore.getState()
     store.moveField(g.__fieldId, patch.x, patch.y)
     store.resizeField(g.__fieldId, patch.width, patch.height)
-
-    // Sync fitted fontSize back to the store so the sidebar reflects what
-    // the user sees on the canvas. Applies ONLY to static text fields with
-    // auto-fit on — those are the only fields whose canvas label legitimately
-    // auto-grows to a max-fit preview. Dynamic text is WYSIWYG with the
-    // authored `fontSize` (GH #73), so the canvas never derives a new size
-    // and we must not overwrite the sidebar value behind the user's back.
-    const field = store.fields.find((f) => f.id === g.__fieldId)
-    if (!field || field.type !== 'text') return
-    const tf = field as TextField
-    const isStatic = tf.source?.mode === 'static'
-    const autoFit = tf.style.fontSizeDynamic === true
-    if (!isStatic || !autoFit) return
-    const label = fieldCanvasLabel(tf)
-    if (!label) return
-    const innerPad = 6
-    const labelW = Math.max(1, patch.width - innerPad * 2)
-    const labelH = Math.max(1, patch.height - innerPad * 2)
-    const fitted = fitFontSize(label, labelW, labelH, tf.style.fontFamily || 'sans-serif')
-    if (fitted >= 8 && fitted !== tf.style.fontSize) {
-      store.updateFieldStyle(g.__fieldId, { fontSize: fitted })
-    }
   })
 
   fc.on('object:moving', (opt) => {

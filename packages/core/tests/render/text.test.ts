@@ -27,7 +27,6 @@ function createTextField(overrides: Partial<TextFieldStyle> = {}): FieldDefiniti
       fontId: null,
       fontFamily: 'Helvetica',
       fontSize: 12,
-      fontSizeDynamic: true,
       fontSizeMin: 6,
       lineHeight: 1.2,
       fontWeight: 'normal',
@@ -82,7 +81,6 @@ describe('Text rendering', () => {
   it('should reduce fontSize with dynamic_font overflow mode', async () => {
     const field = createTextField({
       overflowMode: 'dynamic_font',
-      fontSizeDynamic: true,
       fontSize: 24,
       fontSizeMin: 6,
       maxRows: 1,
@@ -99,7 +97,6 @@ describe('Text rendering', () => {
   it('should stop reducing at fontSizeMin', async () => {
     const field = createTextField({
       overflowMode: 'dynamic_font',
-      fontSizeDynamic: true,
       fontSize: 24,
       fontSizeMin: 10,
       maxRows: 1,
@@ -118,7 +115,6 @@ describe('Text rendering', () => {
     // is handled by measureText/truncateLines (tested separately).
     const field = createTextField({
       overflowMode: 'dynamic_font',
-      fontSizeDynamic: true,
       fontSize: 12,
       fontSizeMin: 12, // no shrink room
       maxRows: 1,
@@ -134,7 +130,6 @@ describe('Text rendering', () => {
   it('should handle truncate overflow mode', async () => {
     const field = createTextField({
       overflowMode: 'truncate',
-      fontSizeDynamic: false,
       fontSize: 12,
       maxRows: 1,
     })
@@ -177,7 +172,6 @@ describe('Text rendering', () => {
     const field = createTextField({
       maxRows: 5,
       overflowMode: 'truncate',
-      fontSizeDynamic: false,
     })
     ;(field as FieldDefinition).height = 200
 
@@ -192,7 +186,6 @@ describe('Text rendering', () => {
     const field = createTextField({
       maxRows: 5,
       overflowMode: 'truncate',
-      fontSizeDynamic: false,
     })
     ;(field as FieldDefinition).height = 200
 
@@ -216,7 +209,6 @@ describe('Text rendering', () => {
     const field = createTextField({
       maxRows: 3,
       overflowMode: 'dynamic_font',
-      fontSizeDynamic: true,
     })
 
     const veryLongText = 'Lorem ipsum dolor sit amet. '.repeat(100)

@@ -95,7 +95,6 @@ describe('defaultTextStyle', () => {
       'fontId',
       'fontFamily',
       'fontSize',
-      'fontSizeDynamic',
       'fontSizeMin',
       'lineHeight',
       'fontWeight',
@@ -133,11 +132,10 @@ describe('defaultTextStyle', () => {
     expect(defaultTextStyle().maxRows).toBeGreaterThanOrEqual(1)
   })
 
-  // GH #73 — fontSizeDynamic defaults to false so the authored fontSize is
-  // WYSIWYG with the canvas and the PDF. Users opt in to runtime shrinking
-  // when they actually expect overflow on dynamic data.
-  it('fontSizeDynamic defaults to false (GH #73 WYSIWYG)', () => {
-    expect(defaultTextStyle().fontSizeDynamic).toBe(false)
+  // GH #91 — overflowMode defaults to 'truncate'. Designers who want the
+  // renderer to shrink instead of cut switch the dropdown to Dynamic Font.
+  it("overflowMode defaults to 'truncate' (GH #91)", () => {
+    expect(defaultTextStyle().overflowMode).toBe('truncate')
   })
 })
 

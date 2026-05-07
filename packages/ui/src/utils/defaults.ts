@@ -49,9 +49,6 @@ export function defaultTextStyle(): TextFieldStyle {
     fontId: null,
     fontFamily: 'Helvetica',
     fontSize: 12,
-    // GH #73: default OFF so authored fontSize is WYSIWYG with canvas + PDF.
-    // Users opt in to dynamic shrinking when they expect overflow at runtime.
-    fontSizeDynamic: false,
     fontSizeMin: 11,
     lineHeight: 1.2,
     fontWeight: 'normal',
@@ -62,7 +59,11 @@ export function defaultTextStyle(): TextFieldStyle {
     align: 'center',
     verticalAlign: 'middle',
     maxRows: 3,
-    overflowMode: 'dynamic_font',
+    // GH #91: 'truncate' is the friendlier default — content stays at the
+    // user's authored fontSize until it truly doesn't fit, then we cut the
+    // tail. Designers who want the renderer to shrink instead can switch
+    // the dropdown to 'Dynamic Font'.
+    overflowMode: 'truncate',
     snapToGrid: true,
   }
 }
