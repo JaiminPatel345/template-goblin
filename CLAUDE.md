@@ -101,6 +101,22 @@ developers use the npm library to generate PDFs at scale.
     supersedes Rule #15's "do exactly what is asked" for these
     specific phrases: the merge is the asked action and ALL of
     (a)-(g) are part of it.
+19. **Clarify before starting — both when filing an issue and when
+    starting work on one.** If anything about the requested change
+    is ambiguous (acceptance scope, edge cases, backward compat,
+    cut-point / cap / default values, which surfaces are in scope,
+    schema changes, related tradeoffs), surface a short numbered
+    list of the open questions FIRST and wait for answers before:
+    - filing the issue,
+    - writing any code,
+    - editing any tests.
+      For each question include your own recommended lean ("I'd lean
+      (a) because …") so the user can usually answer with a single
+      "go with those" rather than having to decide every detail.
+      Reading the existing code to FORM those questions is fine and
+      expected; it's writing changes that has to wait. Trivial / one-
+      line tweaks where the intent is obvious do not need this gate —
+      the rule is for any task with real design choices.
 
 ## Tech Stack
 
