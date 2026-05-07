@@ -77,12 +77,21 @@ export interface CellStyle {
   verticalAlign: VerticalAlign
 }
 
-/** Style properties for text fields */
+/**
+ * Style properties for text fields.
+ *
+ * GH #91 — `overflowMode` is the single knob that controls behaviour
+ * when content doesn't fit the rect. `'truncate'` cuts characters from
+ * the end; `'dynamic_font'` shrinks `fontSize` down to `fontSizeMin`
+ * before truncating. Pre-#91 there was an additional `fontSizeDynamic`
+ * boolean — that field has been removed; the same intent is now
+ * expressed by `overflowMode === 'dynamic_font'`.
+ */
 export interface TextFieldStyle {
   fontId: string | null
   fontFamily: string
   fontSize: number
-  fontSizeDynamic: boolean
+  /** Floor for `overflowMode: 'dynamic_font'`. Ignored otherwise. */
   fontSizeMin: number
   lineHeight: number
   fontWeight: FontWeight

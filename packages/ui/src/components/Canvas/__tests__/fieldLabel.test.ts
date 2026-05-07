@@ -41,7 +41,6 @@ function textStyle(): TextFieldStyle {
     fontId: null,
     fontFamily: 'Helvetica',
     fontSize: 12,
-    fontSizeDynamic: true,
     fontSizeMin: 11,
     lineHeight: 1.2,
     fontWeight: 'normal',

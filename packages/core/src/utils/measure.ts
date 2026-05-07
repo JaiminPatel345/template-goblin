@@ -142,11 +142,16 @@ export function measureText(
 /**
  * Truncate lines to fit within maxRows, appending ellipsis to the last visible line.
  *
+ * GH #91 \u2014 content NEVER crosses the rect, and we cut characters from the
+ * END at a character boundary with no ellipsis. Pre-#91 we appended `\u2026`,
+ * which the user explicitly didn't want.
+ *
  * @param doc - PDFKit document
  * @param lines - All wrapped lines
  * @param maxRows - Maximum number of lines to show
- * @param maxWidth - Maximum width for the last line (to fit ellipsis)
- * @returns Truncated lines with ellipsis on last line if needed
+ * @param maxWidth - Maximum width for the last line
+ * @returns Truncated lines \u2014 last line cut at a character boundary so it
+ *          fits within `maxWidth`. No ellipsis.
  */
 export function truncateLines(
   doc: InstanceType<typeof PDFDocument>,
@@ -160,12 +165,12 @@ export function truncateLines(
   const lastIndex = truncated.length - 1
   let lastLine = truncated[lastIndex] ?? ''
 
-  // Trim last line to fit with ellipsis
-  const ellipsis = '\u2026'
-  while (lastLine && doc.widthOfString(lastLine + ellipsis) > maxWidth) {
-    lastLine = lastLine.slice(0, -1).trimEnd()
+  // Trim last line at a character boundary until it fits the rect width.
+  // No ellipsis \u2014 the user wants the literal characters that fit.
+  while (lastLine && doc.widthOfString(lastLine) > maxWidth) {
+    lastLine = lastLine.slice(0, -1)
   }
 
-  truncated[lastIndex] = lastLine + ellipsis
+  truncated[lastIndex] = lastLine
   return truncated
 }
