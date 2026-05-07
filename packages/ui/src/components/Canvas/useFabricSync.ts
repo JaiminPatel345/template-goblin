@@ -238,11 +238,38 @@ export function useFabricSync(deps: SyncDeps) {
   // the indicator reads 100%.
   useEffect(() => {
     const fc = fabricRef.current
-    if (!fc || meta.width <= 0 || meta.height <= 0) return
+    if (!fc || meta.width <= 0 || meta.height <= 0) {
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.log('[#84 reset SKIP]', { fc: !!fc, meta })
+      }
+      return
+    }
+    const wrapper = (fc as unknown as { wrapperEl?: HTMLElement }).wrapperEl
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log('[#84 reset BEFORE]', {
+        pageId: currentPageId,
+        meta: { w: meta.width, h: meta.height },
+        fc: { zoom: fc.getZoom(), w: fc.width, h: fc.height },
+        wrapperStyle: wrapper && { w: wrapper.style.width, h: wrapper.style.height },
+      })
+    }
     fc.setDimensions({ width: meta.width, height: meta.height })
     fc.setViewportTransform([1, 0, 0, 1, 0, 0])
     fc.requestRenderAll()
     useUiStore.getState().setZoom(1)
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log('[#84 reset AFTER]', {
+        fc: { zoom: fc.getZoom(), w: fc.width, h: fc.height },
+        wrapperStyle: wrapper && { w: wrapper.style.width, h: wrapper.style.height },
+        wrapperRect: wrapper && {
+          ow: wrapper.offsetWidth,
+          oh: wrapper.offsetHeight,
+        },
+      })
+    }
   }, [fabricRef, fabricInstance, currentPageId, meta.width, meta.height])
 
   // ═══════════════ Cursor sync (REQ-043) ═════════════════════════════════

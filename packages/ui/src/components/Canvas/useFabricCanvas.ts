@@ -116,11 +116,29 @@ export function useFabricCanvas(
       // scrolls when the page is larger than the viewport. Users can zoom
       // out via the ZoomControls if they want a fit-to-viewport view.
       const { width: pageW, height: pageH } = useTemplateStore.getState().meta
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.log('[#84 setCanvasEl]', {
+          ctorW: w,
+          ctorH: h,
+          metaW: pageW,
+          metaH: pageH,
+          willResize: pageW > 0 && pageH > 0,
+        })
+      }
       if (pageW > 0 && pageH > 0) {
         requestAnimationFrame(() => {
           fc.setDimensions({ width: pageW, height: pageH })
           fc.setViewportTransform([1, 0, 0, 1, 0, 0])
           useUiStore.getState().setZoom(1)
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.log('[#84 setCanvasEl rAF]', {
+              fcZoom: fc.getZoom(),
+              fcW: fc.width,
+              fcH: fc.height,
+            })
+          }
         })
       }
     },
