@@ -19,7 +19,6 @@ function makeTextStyle(): TextFieldStyle {
     fontId: null,
     fontFamily: 'Helvetica',
     fontSize: 12,
-    fontSizeDynamic: false,
     fontSizeMin: 11,
     lineHeight: 1.2,
     fontWeight: 'normal',

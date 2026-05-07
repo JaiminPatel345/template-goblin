@@ -19,7 +19,6 @@ const TEXT_STYLE = {
   fontId: null,
   fontFamily: 'Helvetica',
   fontSize: 16,
-  fontSizeDynamic: false,
   fontSizeMin: 8,
   lineHeight: 1.2,
   fontWeight: 'normal',

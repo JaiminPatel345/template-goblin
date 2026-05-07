@@ -4,20 +4,29 @@ import type { FieldDefinition, ImageFieldStyle } from '@template-goblin/types'
 /**
  * Render an image field onto a PDFKit document within its bounding rectangle.
  *
- * Supports three fit modes: fill, contain, cover.
- * Accepts both Buffer and base64 string inputs.
+ * Supports three fit modes: fill, contain, cover. Accepts Buffer + base64.
  *
- * @param doc - PDFKit document
- * @param field - Field definition with position and dimensions
- * @param value - Image data as Buffer or base64 string
+ * GH #81 — additionally accepts a `{ color: '#hex' }` shape (or its string
+ * marker form `<STATICIMAGE_COLOR_#hex>` resolved upstream by preflight)
+ * which paints a filled rectangle at the rect bounds. The `style.fit`
+ * dropdown is irrelevant in that case — solid fills always cover the
+ * rect — so it's ignored.
  */
 export function renderImage(
   doc: InstanceType<typeof PDFDocument>,
   field: FieldDefinition,
-  value: Buffer | string,
+  value: Buffer | string | { color: string },
 ): void {
   const style = field.style as ImageFieldStyle
   const { x, y, width, height } = field
+
+  // GH #81 — solid-colour fill: no image bytes, just paint the rect.
+  if (typeof value === 'object' && value !== null && !Buffer.isBuffer(value) && 'color' in value) {
+    doc.save()
+    doc.rect(x, y, width, height).fill(value.color)
+    doc.restore()
+    return
+  }
 
   // REQ: Support both Buffer and base64 string input
   // Strip data URI prefix if present (e.g., "data:image/png;base64,...")

@@ -39,13 +39,20 @@ export function ImageFieldProps({ field }: Props) {
         mode: 'dynamic'
         jsonKey: string
         required: boolean
-        placeholder: { filename: string } | null
+        placeholder: { filename: string } | { color: string } | null
       })
     : null
   const staticValue = isStatic
-    ? ((field.source as { mode: 'static'; value: { filename: string } }).value ?? { filename: '' })
+    ? ((field.source as { mode: 'static'; value: { filename?: string; color?: string } }).value ?? {
+        filename: '',
+      })
     : { filename: '' }
   const displayKey = dynamicSource?.jsonKey ?? ''
+  // GH #81 — solid-colour static field: value is `{ color }`. Hide the
+  // image-asset upload + Fit Mode dropdown; show a colour picker instead.
+  const isStaticSolidColor =
+    isStatic && typeof (staticValue as { color?: string }).color === 'string'
+  const staticColor = isStaticSolidColor ? (staticValue as { color: string }).color : null
 
   function handleStaticUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -97,7 +104,10 @@ export function ImageFieldProps({ field }: Props) {
     e.target.value = ''
   }
 
-  const placeholderFilename = dynamicSource?.placeholder?.filename ?? null
+  const placeholderFilename =
+    dynamicSource?.placeholder && 'filename' in dynamicSource.placeholder
+      ? dynamicSource.placeholder.filename
+      : null
 
   return (
     <>
@@ -107,7 +117,27 @@ export function ImageFieldProps({ field }: Props) {
       <div className="tg-panel-section">
         <div className="tg-panel-section-title">Field Properties</div>
 
-        {isStatic && (
+        {isStatic && isStaticSolidColor && (
+          <div className="tg-form-row">
+            <label>Color</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="color"
+                value={staticColor ?? '#ffffff'}
+                onChange={(e) =>
+                  updateField(field.id, {
+                    source: { mode: 'static', value: { color: e.target.value } },
+                  } as Partial<FieldDefinition>)
+                }
+                style={{ width: 44, height: 32 }}
+                data-testid="image-static-color-input"
+              />
+              <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{staticColor}</span>
+            </div>
+          </div>
+        )}
+
+        {isStatic && !isStaticSolidColor && (
           <div className="tg-form-row">
             <label>Value (image file)</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -192,64 +222,69 @@ export function ImageFieldProps({ field }: Props) {
         )}
       </div>
 
-      <div className="tg-panel-section">
-        <div className="tg-panel-section-title">Image Settings</div>
+      {/* GH #81 — solid-colour static fields don't need any image-style
+          settings: the colour fills the rect, fit-mode is meaningless,
+          and there's no placeholder asset to upload. */}
+      {!isStaticSolidColor && (
+        <div className="tg-panel-section">
+          <div className="tg-panel-section-title">Image Settings</div>
 
-        <div className="tg-form-row">
-          <label>Fit Mode</label>
-          <select
-            className="tg-select"
-            value={style.fit}
-            onChange={(e) =>
-              updateFieldStyle(field.id, { fit: e.target.value as 'fill' | 'contain' | 'cover' })
-            }
-          >
-            <option value="fill">Fill</option>
-            <option value="contain">Contain</option>
-            <option value="cover">Cover</option>
-          </select>
-        </div>
-
-        {isDynamic && (
           <div className="tg-form-row">
-            <label>Placeholder Image</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button
-                className="tg-btn"
-                onClick={() => dynamicFileInputRef.current?.click()}
-                style={{
-                  fontSize: 11,
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-tertiary)',
-                }}
-                data-testid="image-placeholder-upload"
-              >
-                Upload
-              </button>
-              {placeholderFilename && (
-                <span
+            <label>Fit Mode</label>
+            <select
+              className="tg-select"
+              value={style.fit}
+              onChange={(e) =>
+                updateFieldStyle(field.id, { fit: e.target.value as 'fill' | 'contain' | 'cover' })
+              }
+            >
+              <option value="fill">Fill</option>
+              <option value="contain">Contain</option>
+              <option value="cover">Cover</option>
+            </select>
+          </div>
+
+          {isDynamic && (
+            <div className="tg-form-row">
+              <label>Placeholder Image</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  className="tg-btn"
+                  onClick={() => dynamicFileInputRef.current?.click()}
                   style={{
                     fontSize: 11,
-                    color: 'var(--text-muted)',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-tertiary)',
                   }}
+                  data-testid="image-placeholder-upload"
                 >
-                  {placeholderFilename}
-                </span>
-              )}
+                  Upload
+                </button>
+                {placeholderFilename && (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--text-muted)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {placeholderFilename}
+                  </span>
+                )}
+              </div>
+              <input
+                ref={dynamicFileInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={handlePlaceholderUpload}
+              />
             </div>
-            <input
-              ref={dynamicFileInputRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={handlePlaceholderUpload}
-            />
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </>
   )
 }

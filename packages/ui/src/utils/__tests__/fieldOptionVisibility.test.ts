@@ -17,7 +17,6 @@ import {
   showValueInput,
   showDynamicSourceInputs,
   showFontOptions,
-  showAutoFitFont,
   showMinFontSize,
   showImageFitMode,
   showModeToggle,
@@ -28,7 +27,6 @@ const TEXT_STYLE: TextFieldStyle = {
   fontId: null,
   fontFamily: 'Helvetica',
   fontSize: 12,
-  fontSizeDynamic: false,
   fontSizeMin: 8,
   lineHeight: 1.2,
   fontWeight: 'normal',
@@ -146,7 +144,6 @@ describe('fieldOptionVisibility — matrix per case', () => {
   for (const [label, field] of ALL) {
     const isStatic = field.source.mode === 'static'
     const isDynamic = field.source.mode === 'dynamic'
-    const isText = field.type === 'text'
     const isImage = field.type === 'image'
     const isTextOrTable = field.type === 'text' || field.type === 'table'
 
@@ -163,9 +160,6 @@ describe('fieldOptionVisibility — matrix per case', () => {
       it(`showFontOptions = ${isTextOrTable}`, () => {
         expect(showFontOptions(field)).toBe(isTextOrTable)
       })
-      it(`showAutoFitFont = ${isText && isDynamic}`, () => {
-        expect(showAutoFitFont(field)).toBe(isText && isDynamic)
-      })
       it(`showImageFitMode = ${isImage}`, () => {
         expect(showImageFitMode(field)).toBe(isImage)
       })
@@ -177,15 +171,20 @@ describe('fieldOptionVisibility — matrix per case', () => {
     })
   }
 
-  it('showMinFontSize is gated by both auto-fit and the dynamic flag passed by the caller', () => {
+  // GH #91 — Minimum Font Size is gated by Overflow Mode = 'dynamic_font'
+  // (the legacy fontSizeDynamic boolean is gone). Show only when both:
+  // (a) the field's overflow mode would be visible at all, and
+  // (b) the current overflow mode is dynamic_font.
+  it('showMinFontSize is visible only when Overflow Mode = dynamic_font', () => {
     const dynText = textField('dynamic')
-    expect(showMinFontSize(dynText, true)).toBe(true)
-    expect(showMinFontSize(dynText, false)).toBe(false)
+    expect(showMinFontSize(dynText, 'dynamic_font')).toBe(true)
+    expect(showMinFontSize(dynText, 'truncate')).toBe(false)
+    expect(showMinFontSize(dynText, undefined)).toBe(false)
 
     const staticText = textField('static')
-    expect(showMinFontSize(staticText, true)).toBe(false)
+    expect(showMinFontSize(staticText, 'dynamic_font')).toBe(false)
 
     const dynImage = imageField('dynamic')
-    expect(showMinFontSize(dynImage, true)).toBe(false)
+    expect(showMinFontSize(dynImage, 'dynamic_font')).toBe(false)
   })
 })

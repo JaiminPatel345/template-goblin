@@ -86,22 +86,39 @@ describe('truncateLines', () => {
     expect(result).toEqual(['Line one', 'Line two'])
   })
 
-  it('should truncate and add ellipsis when lines > maxRows', () => {
+  // GH #91 \u2014 `truncateLines` no longer appends `\u2026`. The last visible line
+  // is cut at a character boundary so it fits the rect width; if every
+  // line already fits, it's returned verbatim (no synthetic suffix).
+  it('truncates to maxRows and never appends an ellipsis', () => {
     const doc = createDoc()
     doc.fontSize(12)
     const lines = ['Line one', 'Line two', 'Line three', 'Line four']
     const result = truncateLines(doc, lines, 2, 500)
     expect(result.length).toBe(2)
-    // Last line should end with ellipsis character
-    expect(result[1]).toMatch(/\u2026$/)
+    expect(result[0]).toBe('Line one')
+    expect(result[1]).toBe('Line two')
+    expect(result[1]).not.toMatch(/\u2026$/)
   })
 
-  it('should handle single row overflow', () => {
+  it('cuts the last visible line at a character boundary when too wide', () => {
+    const doc = createDoc()
+    doc.fontSize(12)
+    // Pick a width so narrow that even "First line" (10 chars) overflows;
+    // truncateLines should chop characters off the end until it fits.
+    const lines = ['First line', 'Second line']
+    const result = truncateLines(doc, lines, 1, 20)
+    expect(result.length).toBe(1)
+    const last = result[0] ?? ''
+    expect(last).not.toMatch(/\u2026$/)
+    expect('First line'.startsWith(last)).toBe(true)
+    expect(doc.widthOfString(last)).toBeLessThanOrEqual(20)
+  })
+
+  it('keeps the last visible line whole when it already fits', () => {
     const doc = createDoc()
     doc.fontSize(12)
     const lines = ['First line', 'Second line']
     const result = truncateLines(doc, lines, 1, 500)
-    expect(result.length).toBe(1)
-    expect(result[0]).toMatch(/\u2026$/)
+    expect(result).toEqual(['First line'])
   })
 })

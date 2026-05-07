@@ -305,49 +305,18 @@ export function TextFieldProps({ field }: Props) {
           />
         </div>
 
-        {/* Auto-fit + min-font-size only apply to dynamic text fields — the
-            content varies per row, so we may need to shrink to fit. Static
-            text has a fixed string and the user explicitly chose its size. */}
-        {isDynamic && (
-          <>
-            <div className="tg-toggle-row">
-              <label>
-                Dynamic Font Size
-                <InfoTip text="When enabled, font size shrinks automatically if text overflows." />
-              </label>
-              <input
-                type="checkbox"
-                className="tg-checkbox"
-                checked={style.fontSizeDynamic}
-                onChange={(e) => updateFieldStyle(field.id, { fontSizeDynamic: e.target.checked })}
-              />
-            </div>
-
-            {style.fontSizeDynamic && (
-              <div className="tg-form-row">
-                <label>
-                  Min Font Size
-                  <InfoTip text="The smallest font size allowed when dynamic sizing is enabled." />
-                </label>
-                <NumberInput
-                  value={style.fontSizeMin}
-                  min={1}
-                  defaultValue={11}
-                  onChange={(v) => updateFieldStyle(field.id, { fontSizeMin: v })}
-                />
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Overflow Mode only applies to dynamic text — the rendered string
-            varies per row so we may need to shrink-or-truncate. Static text
-            has a fixed string and a fixed fontSize, so nothing to overflow. */}
+        {/* GH #91 — Overflow Mode is the single knob for what happens when
+            content exceeds the rect. Static text has no rendered drift
+            (fixed string at fixed fontSize) so the dropdown is dynamic-only.
+            Truncate cuts characters from the end at a character boundary
+            (no ellipsis); Dynamic Font shrinks `fontSize` down to
+            `fontSizeMin`, then truncates the rest. The pre-#91 "Dynamic
+            Font Size" checkbox was a redundant second knob and is gone. */}
         {isDynamic && (
           <div className="tg-form-row">
             <label>
               Overflow Mode
-              <InfoTip text="Dynamic Font: automatically shrinks text to fit. Truncate: cuts text with ellipsis." />
+              <InfoTip text="Truncate: cut characters from the end so the visible text fits the rect (no ellipsis). Dynamic Font: shrink the font size down to Minimum Font Size, then truncate." />
             </label>
             <select
               className="tg-select"
@@ -358,9 +327,25 @@ export function TextFieldProps({ field }: Props) {
                 })
               }
             >
-              <option value="dynamic_font">Dynamic Font</option>
               <option value="truncate">Truncate</option>
+              <option value="dynamic_font">Dynamic Font</option>
             </select>
+          </div>
+        )}
+
+        {/* Minimum Font Size only matters when Overflow Mode = Dynamic Font. */}
+        {isDynamic && style.overflowMode === 'dynamic_font' && (
+          <div className="tg-form-row">
+            <label>
+              Minimum Font Size
+              <InfoTip text="The smallest font size the renderer will shrink to before falling back to truncation." />
+            </label>
+            <NumberInput
+              value={style.fontSizeMin}
+              min={1}
+              defaultValue={11}
+              onChange={(v) => updateFieldStyle(field.id, { fontSizeMin: v })}
+            />
           </div>
         )}
 

@@ -41,25 +41,36 @@ export function buildGroupChildren(
   const w = field.width
   const h = field.height
 
-  // Resolve image data URL (for image fields).
+  // Resolve the image-field paint shape: either a colour fill (#81) or a
+  // baked image asset. Colour wins over filename when both are present
+  // (shouldn't happen, but defensive).
   let imageDataUrl: string | null = null
+  let imageColor: string | null = null
   if (field.type === 'image' && field.source) {
-    let filename: string | null = null
-    if (field.source.mode === 'dynamic') {
-      const ph = field.source.placeholder as unknown
-      if (ph && typeof ph === 'object' && 'filename' in ph) {
-        const name = (ph as { filename: unknown }).filename
-        if (typeof name === 'string' && name.length > 0) filename = name
-      }
-    } else {
-      const v = field.source.value as unknown
-      if (v && typeof v === 'object' && 'filename' in v) {
-        const name = (v as { filename: unknown }).filename
-        if (typeof name === 'string' && name.length > 0) filename = name
+    const fromValue =
+      field.source.mode === 'dynamic'
+        ? (field.source.placeholder as unknown)
+        : (field.source.value as unknown)
+    if (fromValue && typeof fromValue === 'object') {
+      if ('color' in fromValue) {
+        const c = (fromValue as { color: unknown }).color
+        if (typeof c === 'string' && c.length > 0) imageColor = c
+      } else if ('filename' in fromValue) {
+        const name = (fromValue as { filename: unknown }).filename
+        if (typeof name === 'string' && name.length > 0) {
+          imageDataUrl = resolveImage(name)
+        }
       }
     }
-    if (filename) {
-      imageDataUrl = resolveImage(filename)
+    // GH #81 — dynamic image fields can also receive a colour marker via
+    // `data.images[jsonKey]` like `<STATICIMAGE_COLOR_#hex>`; the canvas
+    // shows that fill at design time as soon as the user pins it.
+    if (!imageColor && field.source.mode === 'dynamic' && data) {
+      const supplied = data.images?.[field.source.jsonKey]
+      if (typeof supplied === 'string') {
+        const m = /^<STATICIMAGE_COLOR_(#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}))>$/.exec(supplied)
+        if (m && m[1]) imageColor = m[1]
+      }
     }
   }
 
@@ -76,13 +87,16 @@ export function buildGroupChildren(
     (field.style?.columns?.length ?? 0) > 0 &&
     !!tableRowsForRender &&
     tableRowsForRender.length > 0
-  const shouldFill = !tableHasBodyRows && shouldRenderFillRect(field, { placeholderResolved })
+  // GH #81: solid-colour image fields paint the user's colour ON the
+  // bgRect itself — no per-type design-time tint, no separate child.
+  const shouldFill =
+    !tableHasBodyRows && !imageColor && shouldRenderFillRect(field, { placeholderResolved })
 
   // 1. Background rect — always present so the Group has a stable bounding
   //    box and hit-testing works (Fabric needs a non-zero area; fill:
   //    'transparent' still participates in hit-detection unlike fill: null
   //    or fill: '').
-  const defaultFill = shouldFill ? colors.fill : 'transparent'
+  const defaultFill = imageColor ?? (shouldFill ? colors.fill : 'transparent')
   const defaultStroke = colors.stroke
   const defaultStrokeWidth = 1
   const bgRect = new Rect({
@@ -147,10 +161,14 @@ export function buildGroupChildren(
     children.push(...buildTableCanvasParts(field, w, h, tableRowsForRender))
   }
 
-  // 3. Auto-fit label (GH #12) — skipped when an image is rendered, and
-  //    skipped for tables that already drew their column headers.
+  // 3. Auto-fit label (GH #12) — skipped when an image is rendered, when
+  //    the field paints a solid colour fill (#81 — the colour IS the
+  //    content; a centred label would obscure it), and for tables that
+  //    already drew their column headers.
   const skipBodyLabel =
-    placeholderResolved || (field.type === 'table' && (field.style?.columns?.length ?? 0) > 0)
+    placeholderResolved ||
+    imageColor !== null ||
+    (field.type === 'table' && (field.style?.columns?.length ?? 0) > 0)
   if (!skipBodyLabel) {
     const label = labelFor(field, data)
     if (label) {

@@ -43,7 +43,7 @@ export interface PickedImage {
 }
 
 export type SourceInputs =
-  | { mode: 'static'; value: string; image?: PickedImage }
+  | { mode: 'static'; value: string; image?: PickedImage; color?: string }
   | { mode: 'dynamic'; jsonKey: string; required: boolean; placeholder: string }
 
 export interface FieldCreationPopupProps {
@@ -80,6 +80,9 @@ export function FieldCreationPopup({
   const [placeholder, setPlaceholder] = useState('')
   const [value, setValue] = useState('')
   const [pickedImage, setPickedImage] = useState<PickedImage | null>(null)
+  // GH #81 — solid-colour image fields are stored as `{ color }` and skip
+  // the byte-asset pipeline. Mutually exclusive with `pickedImage`.
+  const [pickedColor, setPickedColor] = useState<string | null>(null)
   const [imagePickMode, setImagePickMode] = useState<'choose' | 'color'>('choose')
   const [imageColor, setImageColor] = useState('#ffffff')
   const [error, setError] = useState<string | null>(null)
@@ -107,7 +110,7 @@ export function FieldCreationPopup({
         placeholder: required ? '' : placeholder,
       })
     } else {
-      if (draft.type === 'image' && !pickedImage) {
+      if (draft.type === 'image' && !pickedImage && !pickedColor) {
         setError('Pick an image or a solid color for this static image field.')
         return
       }
@@ -115,9 +118,21 @@ export function FieldCreationPopup({
         mode: 'static',
         value,
         image: draft.type === 'image' && pickedImage ? pickedImage : undefined,
+        color: draft.type === 'image' && pickedColor ? pickedColor : undefined,
       })
     }
-  }, [label, mode, jsonKey, required, placeholder, value, draft.type, pickedImage, onConfirm])
+  }, [
+    label,
+    mode,
+    jsonKey,
+    required,
+    placeholder,
+    value,
+    draft.type,
+    pickedImage,
+    pickedColor,
+    onConfirm,
+  ])
 
   async function onPickFile(file: File) {
     const buffer = await file.arrayBuffer()
@@ -130,34 +145,17 @@ export function FieldCreationPopup({
     const ext = file.name.match(/\.[A-Za-z0-9]+$/)?.[0] ?? '.png'
     const filename = `static-${Date.now()}${ext}`
     setPickedImage({ filename, dataUrl, buffer })
+    // Picking a real image clears any previously-picked solid colour —
+    // they're mutually exclusive in the data model (#81).
+    setPickedColor(null)
   }
 
-  async function onPickSolidColor(hex: string) {
-    // Render the chosen colour to a 1x1 PNG and treat it as an image payload.
-    // This keeps the schema image-first (source.value.filename) while still
-    // supporting the "solid color" ergonomic the user asked for.
-    const canvas = document.createElement('canvas')
-    canvas.width = 1
-    canvas.height = 1
-    const ctx = canvas.getContext('2d')
-    if (!ctx) {
-      setError('Could not build a solid-color image in this browser.')
-      return
-    }
-    ctx.fillStyle = hex
-    ctx.fillRect(0, 0, 1, 1)
-    const blob: Blob = await new Promise((resolve, reject) => {
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png')
-    })
-    const buffer = await blob.arrayBuffer()
-    const dataUrl: string = await new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = () => reject(new Error('Failed to read blob'))
-      reader.readAsDataURL(blob)
-    })
-    const filename = `static-color-${hex.replace('#', '').toLowerCase()}.png`
-    setPickedImage({ filename, dataUrl, buffer })
+  function onPickSolidColor(hex: string) {
+    // GH #81 — store the colour directly. No 1×1 PNG, no
+    // staticImageBuffers entry, no fit-mode irrelevance. The renderer
+    // (canvas + PDF) paints a filled rect at the field's bounds.
+    setPickedColor(hex)
+    setPickedImage(null)
   }
 
   // Keyboard shortcuts: Esc = cancel, Ctrl/Cmd+Enter = create
@@ -313,7 +311,30 @@ export function FieldCreationPopup({
           {mode === 'static' && draft.type === 'image' && (
             <div className="tg-field-row">
               <span className="tg-field-label">Image content</span>
-              {pickedImage ? (
+              {pickedColor ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      background: pickedColor,
+                      border: '1px solid var(--border)',
+                      borderRadius: 4,
+                    }}
+                  />
+                  <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{pickedColor}</span>
+                  <button
+                    className="tg-btn"
+                    onClick={() => {
+                      setPickedColor(null)
+                      setImagePickMode('choose')
+                    }}
+                    data-testid="create-popup-color-clear"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : pickedImage ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <img
                     src={pickedImage.dataUrl}
