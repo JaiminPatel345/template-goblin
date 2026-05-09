@@ -38,6 +38,14 @@ function handleFocusIn(target: EventTarget | null): void {
   if (target instanceof HTMLInputElement && SKIP_INPUT_TYPES.has(target.type)) {
     return
   }
+  // Skip <textarea> entirely — these hold multi-line content (e.g. the
+  // right-panel JSON preview) where the user clicks at a specific
+  // position to edit one value. Auto-selecting all wipes the buffer
+  // out the moment they start typing. Single-line <input>s still get
+  // select-on-focus.
+  if (target instanceof HTMLTextAreaElement) {
+    return
+  }
   setTimeout(() => {
     if (document.activeElement !== target) return
     if (target.selectionStart !== target.selectionEnd) return
