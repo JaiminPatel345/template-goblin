@@ -113,13 +113,26 @@ developers use the npm library to generate PDFs at scale.
     - filing the issue,
     - writing any code,
     - editing any tests.
-      For each question include your own recommended lean ("I'd lean
-      (a) because …") so the user can usually answer with a single
-      "go with those" rather than having to decide every detail.
-      Reading the existing code to FORM those questions is fine and
-      expected; it's writing changes that has to wait. Trivial / one-
-      line tweaks where the intent is obvious do not need this gate —
-      the rule is for any task with real design choices.
+      For each question lay out the actual choices in full — not
+      just letter labels. Format each question as a numbered prompt
+      followed by the concrete options spelled out:
+      1. \<question\>
+         (a) \<concrete option A — what it actually means\>
+         (b) \<concrete option B — what it actually means\>
+         (c) \<...\>
+         I'd lean \<letter\> because \<one-line reason\>.
+         Bare "I'd lean (a)" without the user being able to read what
+         (a) and (b) ARE forces them to guess from context. Always
+         spell the options out.
+         DO NOT ask silly / trivial questions where one answer is the
+         only sensible one (e.g. "should deleting a field also delete
+         the field?" or "should we run the existing tests?"). The
+         bar is "is there a real design choice with non-obvious
+         tradeoffs?" — if not, just decide and proceed.
+         Reading the existing code to FORM the questions is fine and
+         expected; it's writing changes that has to wait. Trivial /
+         one-line tweaks where the intent is obvious do not need this
+         gate — the rule is for any task with real design choices.
 
 ## Tech Stack
 

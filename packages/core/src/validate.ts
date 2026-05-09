@@ -7,6 +7,7 @@ import type {
   ValidationError,
   ValidationResult,
 } from '@template-goblin/types'
+import { isValidHyperlinkUrl } from '@template-goblin/types'
 
 /** Maximum allowed text length to prevent memory exhaustion */
 const MAX_TEXT_LENGTH = 100_000
@@ -225,10 +226,38 @@ export function validateData(template: LoadedTemplate, data: InputJSON): Validat
 
   for (const field of template.manifest.fields) {
     errors.push(...validateField(field, data))
+    errors.push(...validateHyperlink(field, data))
   }
 
   return {
     valid: errors.length === 0,
     errors,
   }
+}
+
+/**
+ * Validate a dynamic hyperlink's URL pulled from `data.texts[jsonKey]` (#87).
+ *
+ * Empty / missing values are NOT errors — the renderer simply omits the
+ * clickable region. A non-empty value that doesn't pass `isValidHyperlinkUrl`
+ * (allowed protocols: https / http / mailto / tel) is rejected as
+ * `INVALID_DATA_TYPE` with field context. Static hyperlinks are validated by
+ * `validateManifest`, not here.
+ */
+function validateHyperlink(field: FieldDefinition, data: InputJSON): ValidationError[] {
+  const link = field.hyperlink
+  if (!link || link.mode !== 'dynamic') return []
+  const raw = (data.texts as Record<string, unknown> | undefined)?.[link.jsonKey]
+  // Empty / missing → no link, no error.
+  if (raw === undefined || raw === null || raw === '') return []
+  if (!isValidHyperlinkUrl(raw)) {
+    return [
+      {
+        code: 'INVALID_DATA_TYPE',
+        field: link.jsonKey,
+        message: `Invalid hyperlink URL for field "${field.id}" (jsonKey "${link.jsonKey}"): must be a non-empty http(s)/mailto/tel URL`,
+      },
+    ]
+  }
+  return []
 }

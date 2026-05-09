@@ -3,6 +3,7 @@ import type { FieldDefinition, ImageField, ImageFieldStyle } from '@template-gob
 import { isSafeKey } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { SourceModeToggle } from './SourceModeToggle.js'
+import { HyperlinkSection } from './HyperlinkSection.js'
 
 interface Props {
   field: ImageField
@@ -285,6 +286,7 @@ export function ImageFieldProps({ field }: Props) {
           )}
         </div>
       )}
+      <HyperlinkSection field={field} />
     </>
   )
 }

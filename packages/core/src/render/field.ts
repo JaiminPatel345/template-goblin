@@ -1,12 +1,34 @@
 import type PDFDocument from 'pdfkit'
 import type { FieldDefinition, InputJSON, LoadedTemplate, TableRow } from '@template-goblin/types'
-import { TemplateGoblinError } from '@template-goblin/types'
+import { TemplateGoblinError, isValidHyperlinkUrl } from '@template-goblin/types'
 import { resolveValue } from '../utils/resolveValue.js'
 import { fieldErrorDetails, pageLabel, type PageContext } from '../utils/errorContext.js'
 import { parseImageColorMarker } from '../utils/imageColorMarker.js'
 import { renderText } from './text.js'
 import { renderImage } from './image.js'
 import { renderLoop } from './loop.js'
+
+/**
+ * Resolve `field.hyperlink` to a concrete URL string, or `null` if the
+ * field has no link / the dynamic value is empty / missing (#87).
+ *
+ * Static links use the literal `url`. Dynamic links read
+ * `data.texts[jsonKey]` and short-circuit on empty (no error — that's
+ * the contract: missing dynamic URL = no clickable region). Invalid
+ * non-empty dynamic strings have already been rejected by
+ * `validateData`; we double-check here defensively so a renderer error
+ * can never produce a `doc.link` to garbage.
+ */
+function resolveHyperlinkUrl(field: FieldDefinition, data: InputJSON): string | null {
+  const link = field.hyperlink
+  if (!link) return null
+  if (link.mode === 'static') {
+    return isValidHyperlinkUrl(link.url) ? link.url : null
+  }
+  const raw = (data.texts as Record<string, unknown> | undefined)?.[link.jsonKey]
+  if (typeof raw !== 'string' || raw.length === 0) return null
+  return isValidHyperlinkUrl(raw) ? raw : null
+}
 
 /**
  * Render a single field based on its type.
@@ -83,6 +105,18 @@ export function renderField(
           template.backgroundImage,
         )
         break
+    }
+
+    // GH #87 — clickable hyperlink overlay. Drawn AFTER content so the
+    // link rect sits in front of the rendered text/image/table, and so
+    // an exception during render skips the link too (we never advertise
+    // a clickable region for content that didn't actually paint). The
+    // rect matches the field's bounding box exactly; for tables, that
+    // means the whole table is clickable as a single unit (per #87
+    // resolution — no per-row variant in v1).
+    const url = resolveHyperlinkUrl(field, data)
+    if (url !== null) {
+      doc.link(field.x, field.y, field.width, field.height, url)
     }
   } catch (error) {
     if (error instanceof TemplateGoblinError) throw error

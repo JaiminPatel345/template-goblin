@@ -8,6 +8,7 @@ import type {
   FontWeight,
 } from '@template-goblin/types'
 import { isSafeKey } from '@template-goblin/types'
+import { HyperlinkSection } from './HyperlinkSection.js'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { InfoTip } from './TextFieldProps.js'
 import { NumberInput } from '../NumberInput.js'
@@ -547,6 +548,7 @@ export function LoopFieldProps({ field }: Props) {
           </div>
         </div>
       </div>
+      <HyperlinkSection field={field} />
     </>
   )
 }

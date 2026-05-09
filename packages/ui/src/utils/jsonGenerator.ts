@@ -48,29 +48,50 @@ export function generateExampleJson(
   for (const field of fields) {
     // Defence in depth: skip fields missing `source` (corrupt rehydrated state).
     if (!field.source) continue
-    // Static fields don't appear in InputJSON — skip them
-    if (field.source.mode !== 'dynamic') continue
-    const name = field.source.jsonKey
-    const required = field.source.required
-    const placeholder = field.source.placeholder
-    if (!name) continue
-
-    switch (field.type) {
-      case 'text':
-        result.texts[name] = getTextValue(mode, required, repeatCount, placeholder)
-        break
-
-      case 'image':
-        result.images[name] = getImageValue(mode, required, placeholder)
-        break
-
-      case 'table':
-        result.tables[name] = getTableValue(field, mode, required, repeatCount, placeholder)
-        break
+    if (field.source.mode === 'dynamic') {
+      const name = field.source.jsonKey
+      const required = field.source.required
+      const placeholder = field.source.placeholder
+      if (name) {
+        switch (field.type) {
+          case 'text':
+            result.texts[name] = getTextValue(mode, required, repeatCount, placeholder)
+            break
+          case 'image':
+            result.images[name] = getImageValue(mode, required, placeholder)
+            break
+          case 'table':
+            result.tables[name] = getTableValue(field, mode, required, repeatCount, placeholder)
+            break
+        }
+      }
+    }
+    // GH #87 — dynamic hyperlinks contribute their own jsonKey to
+    // `texts`, regardless of what the field's primary source is. Without
+    // this, a field with `hyperlink: { mode: 'dynamic', jsonKey: ... }`
+    // would never appear in the JSON preview, so the user would think
+    // the link "did nothing".
+    if (
+      field.hyperlink &&
+      field.hyperlink.mode === 'dynamic' &&
+      field.hyperlink.jsonKey &&
+      result.texts[field.hyperlink.jsonKey] === undefined
+    ) {
+      result.texts[field.hyperlink.jsonKey] = getHyperlinkValue(mode)
     }
   }
 
   return result
+}
+
+/**
+ * Sample value for a dynamic hyperlink jsonKey shown in the JSON preview.
+ * Default mode uses a recognisable example URL so the user can see the
+ * key is wired up and replace it with a real one. Max mode emits the
+ * same — there's no useful "max" variant for a URL string.
+ */
+function getHyperlinkValue(_mode: JsonPreviewMode): string {
+  return 'https://example.com'
 }
 
 function getTextValue(
