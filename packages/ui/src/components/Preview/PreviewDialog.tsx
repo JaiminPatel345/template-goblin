@@ -146,6 +146,12 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
         texts: (parsed.texts ?? {}) as Record<string, string>,
         tables: (parsed.tables ?? {}) as Record<string, Record<string, string>[]>,
         images: {} as Record<string, string | ArrayBuffer>,
+        // GH #87 — carry the hyperlink URL bucket through to generatePDF
+        // so dynamic-link fields (mode: 'dynamic', jsonKey) actually
+        // become clickable in the rendered preview. Pre-fix this was
+        // silently dropped and the link annotations never made it into
+        // the PDF byte stream.
+        links: (parsed.links ?? {}) as Record<string, string>,
       }
       for (const field of dynamicImageFields) {
         if (field.source.mode !== 'dynamic') continue

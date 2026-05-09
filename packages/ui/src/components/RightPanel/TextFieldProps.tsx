@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { SourceModeToggle } from './SourceModeToggle.js'
+import { HyperlinkSection } from './HyperlinkSection.js'
 import { NumberInput } from '../NumberInput.js'
 import type {
   FieldDefinition,
@@ -445,6 +446,7 @@ export function TextFieldProps({ field }: Props) {
           />
         </div>
       </div>
+      <HyperlinkSection field={field} />
     </>
   )
 }

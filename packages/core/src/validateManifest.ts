@@ -1,5 +1,6 @@
 import {
   TemplateGoblinError,
+  isValidHyperlinkUrl,
   type ErrorCode,
   type FieldDefinition,
   type ImageField,
@@ -154,23 +155,57 @@ function validateTableField(field: TableField): void {
   }
 }
 
+/**
+ * Hyperlink shape check (#87). Static URLs are validated end-to-end here
+ * (allowed protocols only). Dynamic links only get their `jsonKey` shape
+ * checked at design time — the actual URL string is resolved from input
+ * data and validated by `validateData`.
+ */
+function validateHyperlink(field: FieldDefinition): void {
+  const link = field.hyperlink
+  if (link === undefined || link === null) return
+  if (link.mode === 'static') {
+    if (!isValidHyperlinkUrl(link.url)) {
+      fail(
+        'INVALID_DATA_TYPE',
+        `Field ${field.id}: hyperlink.url must be a valid http(s)/mailto/tel URL`,
+        { fieldId: field.id, url: link.url },
+      )
+    }
+  } else if (link.mode === 'dynamic') {
+    if (typeof link.jsonKey !== 'string' || !isSafeKey(link.jsonKey)) {
+      fail(
+        'INVALID_DATA_TYPE',
+        `Field ${field.id}: hyperlink.jsonKey must match /^[A-Za-z_][A-Za-z0-9_]*$/`,
+        { fieldId: field.id, jsonKey: link.jsonKey },
+      )
+    }
+  } else {
+    fail('INVALID_DATA_TYPE', `Field ${field.id}: hyperlink.mode must be 'static' or 'dynamic'`, {
+      fieldId: field.id,
+      mode: (link as { mode?: unknown }).mode,
+    })
+  }
+}
+
 function validateField(field: FieldDefinition): void {
   switch (field.type) {
     case 'text':
       validateTextField(field)
-      return
+      break
     case 'image':
       validateImageField(field)
-      return
+      break
     case 'table':
       validateTableField(field)
-      return
+      break
     default: {
       const exhaustive: never = field
       void exhaustive
       fail('INVALID_MANIFEST', `Unknown field type`)
     }
   }
+  validateHyperlink(field)
 }
 
 function checkDuplicateJsonKeys(fields: FieldDefinition[]): void {

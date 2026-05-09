@@ -7,6 +7,16 @@ export type TextInputs = Record<string, string>
 export type TableInputs = Record<string, TableRow[]>
 
 /**
+ * Hyperlink URLs keyed by `field.hyperlink.jsonKey` (#87).
+ *
+ * Lives in its own top-level bucket so URLs don't get mixed into
+ * `texts` — they're a different kind of value (clickable target, not
+ * rendered content) and the JSON preview should make that obvious.
+ * Allowed protocols at validation time: https, http, mailto, tel.
+ */
+export type LinkInputs = Record<string, string>
+
+/**
  * One image input slot in `InputJSON.images`.
  *
  * Auto-detected shorthand (recommended for almost all use cases):
@@ -49,6 +59,14 @@ export interface InputJSON {
   texts: TextInputs
   images: ImageInputs
   tables: TableInputs
+  /**
+   * Optional hyperlink URLs, keyed by `field.hyperlink.jsonKey`. Sits
+   * alongside `texts` rather than nested inside it so the JSON preview
+   * can render URLs as a visually distinct section. Empty / missing
+   * entries render the corresponding field with no clickable region —
+   * not an error.
+   */
+  links?: LinkInputs
 }
 
 export type { TableRow } from './template.js'

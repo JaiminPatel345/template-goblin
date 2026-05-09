@@ -226,12 +226,12 @@ describe('generateExampleJson', () => {
   describe('edge cases', () => {
     it('handles empty fields array', () => {
       const result = generateExampleJson([], 'default', 5)
-      expect(result).toEqual({ texts: {}, tables: {}, images: {} })
+      expect(result).toEqual({ texts: {}, tables: {}, images: {}, links: {} })
     })
 
     it('handles empty fields array in max mode', () => {
       const result = generateExampleJson([], 'max', 5)
-      expect(result).toEqual({ texts: {}, tables: {}, images: {} })
+      expect(result).toEqual({ texts: {}, tables: {}, images: {}, links: {} })
     })
 
     it('skips fields with empty jsonKey', () => {

@@ -1,4 +1,5 @@
 import type { FieldSource } from './source.js'
+import type { Hyperlink } from './hyperlink.js'
 
 /** Page size presets supported by the template */
 export type PageSize = 'custom' | 'A3' | 'A4' | 'A5' | 'Letter' | 'Legal'
@@ -218,6 +219,14 @@ export interface FieldBase {
   width: number
   height: number
   zIndex: number
+  /**
+   * Optional clickable URL attached to the field's bounding rect (#87).
+   * Either a literal `{ mode: 'static', url }` or a `{ mode: 'dynamic',
+   * jsonKey }` resolved from `InputJSON.texts[jsonKey]` at render time.
+   * For tables, the link covers the WHOLE table — no per-row variant.
+   * Allowed protocols: `https`, `http`, `mailto`, `tel`.
+   */
+  hyperlink?: Hyperlink
 }
 
 /** A text field — static value is the literal rendered string. */

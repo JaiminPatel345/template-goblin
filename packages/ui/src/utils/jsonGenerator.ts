@@ -25,6 +25,12 @@ interface GeneratedJson {
   texts: Record<string, string>
   tables: Record<string, Record<string, string>[]>
   images: Record<string, string | null>
+  /**
+   * Dynamic hyperlink URLs, keyed by `field.hyperlink.jsonKey` (#87).
+   * Lives in its own bucket alongside `texts` so URLs are visually
+   * distinct from rendered text content in the JSON preview.
+   */
+  links: Record<string, string>
 }
 
 /**
@@ -43,34 +49,55 @@ export function generateExampleJson(
     texts: {},
     tables: {},
     images: {},
+    links: {},
   }
 
   for (const field of fields) {
     // Defence in depth: skip fields missing `source` (corrupt rehydrated state).
     if (!field.source) continue
-    // Static fields don't appear in InputJSON — skip them
-    if (field.source.mode !== 'dynamic') continue
-    const name = field.source.jsonKey
-    const required = field.source.required
-    const placeholder = field.source.placeholder
-    if (!name) continue
-
-    switch (field.type) {
-      case 'text':
-        result.texts[name] = getTextValue(mode, required, repeatCount, placeholder)
-        break
-
-      case 'image':
-        result.images[name] = getImageValue(mode, required, placeholder)
-        break
-
-      case 'table':
-        result.tables[name] = getTableValue(field, mode, required, repeatCount, placeholder)
-        break
+    if (field.source.mode === 'dynamic') {
+      const name = field.source.jsonKey
+      const required = field.source.required
+      const placeholder = field.source.placeholder
+      if (name) {
+        switch (field.type) {
+          case 'text':
+            result.texts[name] = getTextValue(mode, required, repeatCount, placeholder)
+            break
+          case 'image':
+            result.images[name] = getImageValue(mode, required, placeholder)
+            break
+          case 'table':
+            result.tables[name] = getTableValue(field, mode, required, repeatCount, placeholder)
+            break
+        }
+      }
+    }
+    // GH #87 — dynamic hyperlinks contribute their own jsonKey to the
+    // dedicated `links` bucket so URLs render as a visually distinct
+    // section, not mixed in with rendered text content. Multiple fields
+    // with the same hyperlink key collapse to one entry.
+    if (
+      field.hyperlink &&
+      field.hyperlink.mode === 'dynamic' &&
+      field.hyperlink.jsonKey &&
+      result.links[field.hyperlink.jsonKey] === undefined
+    ) {
+      result.links[field.hyperlink.jsonKey] = getHyperlinkValue(mode)
     }
   }
 
   return result
+}
+
+/**
+ * Sample value for a dynamic hyperlink jsonKey shown in the JSON preview.
+ * Default mode uses a recognisable example URL so the user can see the
+ * key is wired up and replace it with a real one. Max mode emits the
+ * same — there's no useful "max" variant for a URL string.
+ */
+function getHyperlinkValue(_mode: JsonPreviewMode): string {
+  return 'https://example.com'
 }
 
 function getTextValue(
