@@ -9,13 +9,14 @@ Add hyperlink support — clickable elements in generated PDFs (#87).
 Designers can attach a URL to any text, image, or table field via a new "Link" section in the Properties panel. Two flavours:
 
 - **Static**: a literal URL pinned in the manifest (`{ mode: 'static', url }`).
-- **Dynamic**: a `texts[jsonKey]` lookup (`{ mode: 'dynamic', jsonKey }`) resolved per render so the URL can vary across runs.
+- **Dynamic**: a `links[jsonKey]` lookup (`{ mode: 'dynamic', jsonKey }`) resolved per render so the URL can vary across runs. URLs live in their own top-level `links` bucket on `InputJSON` — separate from `texts` so they're visually distinct in the JSON preview and never get confused with rendered text content.
 
 Allowed protocols: `https`, `http`, `mailto`, `tel`. Anything else is rejected as `INVALID_DATA_TYPE` with field context. Empty / missing dynamic values render the field without a clickable region (no error). For tables, the link covers the whole table's bounding rect — there is no per-row or per-column variant in v1.
 
 ### Schema additions
 
 - `FieldBase.hyperlink?: Hyperlink` — optional on every field.
+- `InputJSON.links?: LinkInputs` — new top-level bucket (`Record<string, string>`) for runtime hyperlink URLs.
 - New `Hyperlink` discriminated union exported from `@template-goblin/types`.
 - New helpers: `isValidHyperlinkUrl`, `isStaticHyperlink`, `isDynamicHyperlink`.
 

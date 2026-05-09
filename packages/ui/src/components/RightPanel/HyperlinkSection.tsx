@@ -12,7 +12,9 @@ import { useTemplateStore } from '../../store/templateStore.js'
  *                  manifest. Validated end-to-end (https / http / mailto
  *                  / tel only).
  *   - **Dynamic**: `{ mode: 'dynamic', jsonKey }`. URL pulled from
- *                  `InputJSON.texts[jsonKey]` per render.
+ *                  `InputJSON.links[jsonKey]` per render — a separate
+ *                  top-level bucket from `texts` so URLs are visually
+ *                  distinct in the JSON preview.
  *
  * Validation runs on blur (commits to the store on focus-out). The
  * inline-error UI only flags shape problems — empty strings revert the
@@ -127,7 +129,7 @@ export function HyperlinkSection({ field }: Props) {
 
       {mode === 'dynamic' && (
         <div className="tg-form-row">
-          <label htmlFor={`hyperlink-key-${field.id}`}>JSON key (under texts.)</label>
+          <label htmlFor={`hyperlink-key-${field.id}`}>JSON key (under links.)</label>
           <input
             id={`hyperlink-key-${field.id}`}
             className="tg-input"

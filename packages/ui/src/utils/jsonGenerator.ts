@@ -25,6 +25,12 @@ interface GeneratedJson {
   texts: Record<string, string>
   tables: Record<string, Record<string, string>[]>
   images: Record<string, string | null>
+  /**
+   * Dynamic hyperlink URLs, keyed by `field.hyperlink.jsonKey` (#87).
+   * Lives in its own bucket alongside `texts` so URLs are visually
+   * distinct from rendered text content in the JSON preview.
+   */
+  links: Record<string, string>
 }
 
 /**
@@ -43,6 +49,7 @@ export function generateExampleJson(
     texts: {},
     tables: {},
     images: {},
+    links: {},
   }
 
   for (const field of fields) {
@@ -66,18 +73,17 @@ export function generateExampleJson(
         }
       }
     }
-    // GH #87 — dynamic hyperlinks contribute their own jsonKey to
-    // `texts`, regardless of what the field's primary source is. Without
-    // this, a field with `hyperlink: { mode: 'dynamic', jsonKey: ... }`
-    // would never appear in the JSON preview, so the user would think
-    // the link "did nothing".
+    // GH #87 — dynamic hyperlinks contribute their own jsonKey to the
+    // dedicated `links` bucket so URLs render as a visually distinct
+    // section, not mixed in with rendered text content. Multiple fields
+    // with the same hyperlink key collapse to one entry.
     if (
       field.hyperlink &&
       field.hyperlink.mode === 'dynamic' &&
       field.hyperlink.jsonKey &&
-      result.texts[field.hyperlink.jsonKey] === undefined
+      result.links[field.hyperlink.jsonKey] === undefined
     ) {
-      result.texts[field.hyperlink.jsonKey] = getHyperlinkValue(mode)
+      result.links[field.hyperlink.jsonKey] = getHyperlinkValue(mode)
     }
   }
 

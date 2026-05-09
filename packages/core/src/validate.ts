@@ -236,18 +236,20 @@ export function validateData(template: LoadedTemplate, data: InputJSON): Validat
 }
 
 /**
- * Validate a dynamic hyperlink's URL pulled from `data.texts[jsonKey]` (#87).
+ * Validate a dynamic hyperlink's URL pulled from `data.links[jsonKey]` (#87).
  *
+ * Lives in its own top-level bucket alongside `texts` / `images` /
+ * `tables` so URLs are visually distinct from rendered text content.
  * Empty / missing values are NOT errors — the renderer simply omits the
- * clickable region. A non-empty value that doesn't pass `isValidHyperlinkUrl`
- * (allowed protocols: https / http / mailto / tel) is rejected as
- * `INVALID_DATA_TYPE` with field context. Static hyperlinks are validated by
- * `validateManifest`, not here.
+ * clickable region. A non-empty value that doesn't pass
+ * `isValidHyperlinkUrl` (allowed protocols: https / http / mailto / tel)
+ * is rejected as `INVALID_DATA_TYPE` with field context. Static
+ * hyperlinks are validated by `validateManifest`, not here.
  */
 function validateHyperlink(field: FieldDefinition, data: InputJSON): ValidationError[] {
   const link = field.hyperlink
   if (!link || link.mode !== 'dynamic') return []
-  const raw = (data.texts as Record<string, unknown> | undefined)?.[link.jsonKey]
+  const raw = (data.links as Record<string, unknown> | undefined)?.[link.jsonKey]
   // Empty / missing → no link, no error.
   if (raw === undefined || raw === null || raw === '') return []
   if (!isValidHyperlinkUrl(raw)) {

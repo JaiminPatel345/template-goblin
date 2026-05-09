@@ -118,4 +118,111 @@ describe('validateManifest — field.hyperlink', () => {
     })
     expect(() => validateManifest(m)).not.toThrow()
   })
+
+  it('accepts a hyperlink on every field type in one manifest', () => {
+    const m = makeManifest({
+      fields: [
+        {
+          ...staticText('t1', 'hi'),
+          hyperlink: { mode: 'static', url: 'https://text.example.com' },
+        },
+        {
+          ...staticImage('i1', 'pic.png'),
+          hyperlink: { mode: 'static', url: 'mailto:foo@example.com' },
+        },
+        {
+          ...staticTable('tb1', ['a'], [{ a: 'x' }]),
+          hyperlink: { mode: 'dynamic', jsonKey: 'tab_link' },
+        },
+      ],
+    })
+    expect(() => validateManifest(m)).not.toThrow()
+  })
+
+  it('rejects a static hyperlink with a non-string url', () => {
+    const m = makeManifest({
+      fields: [
+        {
+          ...staticText('t1', 'hi'),
+          hyperlink: { mode: 'static', url: 42 } as unknown as { mode: 'static'; url: string },
+        },
+      ],
+    })
+    expect(() => validateManifest(m)).toThrow(TemplateGoblinError)
+  })
+
+  it('rejects a dynamic hyperlink with a non-string jsonKey', () => {
+    const m = makeManifest({
+      fields: [
+        {
+          ...staticText('t1', 'hi'),
+          hyperlink: { mode: 'dynamic', jsonKey: 5 } as unknown as {
+            mode: 'dynamic'
+            jsonKey: string
+          },
+        },
+      ],
+    })
+    expect(() => validateManifest(m)).toThrow(TemplateGoblinError)
+  })
+
+  it('rejects a dynamic hyperlink with an empty jsonKey', () => {
+    const m = makeManifest({
+      fields: [
+        {
+          ...staticText('t1', 'hi'),
+          hyperlink: { mode: 'dynamic', jsonKey: '' },
+        },
+      ],
+    })
+    expect(() => validateManifest(m)).toThrow(TemplateGoblinError)
+  })
+
+  it.each([
+    ['leading digit', '1url'],
+    ['hyphen', 'profile-url'],
+    ['dot', 'profile.url'],
+    ['unicode', 'üURL'],
+  ])('rejects dynamic jsonKey with %s', (_label, key) => {
+    const m = makeManifest({
+      fields: [
+        {
+          ...staticText('t1', 'hi'),
+          hyperlink: { mode: 'dynamic', jsonKey: key },
+        },
+      ],
+    })
+    expect(() => validateManifest(m)).toThrow(TemplateGoblinError)
+  })
+
+  it('allows the same dynamic jsonKey across two fields (no DUPLICATE check)', () => {
+    // The DUPLICATE_JSON_KEY check is per-type-per-source — hyperlink
+    // jsonKeys live in their own `links` bucket and may legitimately be
+    // shared by multiple fields (one URL covering several visuals).
+    const m = makeManifest({
+      fields: [
+        {
+          ...staticText('t1', 'a'),
+          hyperlink: { mode: 'dynamic', jsonKey: 'shared_url' },
+        },
+        {
+          ...staticText('t2', 'b'),
+          hyperlink: { mode: 'dynamic', jsonKey: 'shared_url' },
+        },
+      ],
+    })
+    expect(() => validateManifest(m)).not.toThrow()
+  })
+
+  it('rejects a static URL containing newlines', () => {
+    const m = makeManifest({
+      fields: [
+        {
+          ...staticText('t1', 'hi'),
+          hyperlink: { mode: 'static', url: 'https://example.com\n<script>' },
+        },
+      ],
+    })
+    expect(() => validateManifest(m)).toThrow(TemplateGoblinError)
+  })
 })

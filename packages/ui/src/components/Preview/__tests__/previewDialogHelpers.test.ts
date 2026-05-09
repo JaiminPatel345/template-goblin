@@ -62,6 +62,54 @@ describe('parseInputJson', () => {
     const r = parseInputJson('{"texts":{},"extra":42}')
     expect(r.ok).toBe(true)
   })
+
+  // ---- GH #87 hyperlink bucket ----
+
+  it('accepts a "links" bucket', () => {
+    const r = parseInputJson('{"texts":{},"links":{"profile_url":"https://x.com"}}')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.links).toEqual({ profile_url: 'https://x.com' })
+    }
+  })
+
+  it('accepts an empty "links" bucket', () => {
+    const r = parseInputJson('{"links":{}}')
+    expect(r.ok).toBe(true)
+  })
+
+  it('rejects "links" as an array', () => {
+    const r = parseInputJson('{"links":["https://x.com"]}')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/links/)
+  })
+
+  it('rejects "links" as a string', () => {
+    const r = parseInputJson('{"links":"https://x.com"}')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/links/)
+  })
+
+  it('rejects "links" as null', () => {
+    const r = parseInputJson('{"links":null}')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/links/)
+  })
+
+  it('parses a complete payload with all four buckets', () => {
+    const r = parseInputJson(
+      '{"texts":{"a":"x"},"tables":{},"images":{},"links":{"l":"https://example.com"}}',
+    )
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data).toEqual({
+        texts: { a: 'x' },
+        tables: {},
+        images: {},
+        links: { l: 'https://example.com' },
+      })
+    }
+  })
 })
 
 describe('validateUpload', () => {

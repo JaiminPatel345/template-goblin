@@ -13,7 +13,7 @@ export const ALLOWED_UPLOAD_MIME = new Set(['image/png', 'image/jpeg', 'image/we
 
 interface ParseOk {
   ok: true
-  data: { texts?: unknown; tables?: unknown; images?: unknown }
+  data: { texts?: unknown; tables?: unknown; images?: unknown; links?: unknown }
 }
 interface ParseErr {
   ok: false
@@ -39,7 +39,9 @@ export function parseInputJson(text: string): ParseResult {
     return { ok: false, error: 'Top-level value must be an object.' }
   }
   const o = parsed as Record<string, unknown>
-  for (const key of ['texts', 'tables', 'images'] as const) {
+  // `links` is the GH #87 hyperlink-URL bucket — same shape contract as
+  // texts/tables/images: optional, must be an object when present.
+  for (const key of ['texts', 'tables', 'images', 'links'] as const) {
     if (key in o) {
       const v = o[key]
       if (typeof v !== 'object' || v === null || Array.isArray(v)) {

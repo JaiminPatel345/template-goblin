@@ -13,11 +13,12 @@ import { renderLoop } from './loop.js'
  * field has no link / the dynamic value is empty / missing (#87).
  *
  * Static links use the literal `url`. Dynamic links read
- * `data.texts[jsonKey]` and short-circuit on empty (no error — that's
- * the contract: missing dynamic URL = no clickable region). Invalid
- * non-empty dynamic strings have already been rejected by
- * `validateData`; we double-check here defensively so a renderer error
- * can never produce a `doc.link` to garbage.
+ * `data.links[jsonKey]` (separate top-level bucket from `texts` so URLs
+ * are visually distinct in the JSON preview) and short-circuit on
+ * empty — no error, that's the contract: missing dynamic URL = no
+ * clickable region. Invalid non-empty dynamic strings have already
+ * been rejected by `validateData`; we double-check here defensively so
+ * a renderer error can never produce a `doc.link` to garbage.
  */
 function resolveHyperlinkUrl(field: FieldDefinition, data: InputJSON): string | null {
   const link = field.hyperlink
@@ -25,7 +26,7 @@ function resolveHyperlinkUrl(field: FieldDefinition, data: InputJSON): string | 
   if (link.mode === 'static') {
     return isValidHyperlinkUrl(link.url) ? link.url : null
   }
-  const raw = (data.texts as Record<string, unknown> | undefined)?.[link.jsonKey]
+  const raw = (data.links as Record<string, unknown> | undefined)?.[link.jsonKey]
   if (typeof raw !== 'string' || raw.length === 0) return null
   return isValidHyperlinkUrl(raw) ? raw : null
 }

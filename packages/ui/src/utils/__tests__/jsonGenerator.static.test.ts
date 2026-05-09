@@ -194,17 +194,17 @@ function dynamicTable(jsonKey: string): FieldDefinition {
 describe('generateExampleJson — static fields excluded', () => {
   it('template with only static text produces empty texts/images/tables', () => {
     const result = generateExampleJson([staticText('Hello')], 'default', 5)
-    expect(result).toEqual({ texts: {}, images: {}, tables: {} })
+    expect(result).toEqual({ texts: {}, images: {}, tables: {}, links: {} })
   })
 
   it('template with only static image produces empty', () => {
     const result = generateExampleJson([staticImage('logo.png')], 'default', 5)
-    expect(result).toEqual({ texts: {}, images: {}, tables: {} })
+    expect(result).toEqual({ texts: {}, images: {}, tables: {}, links: {} })
   })
 
   it('template with only static table produces empty', () => {
     const result = generateExampleJson([staticTable([{ c1: 'v' }])], 'default', 5)
-    expect(result).toEqual({ texts: {}, images: {}, tables: {} })
+    expect(result).toEqual({ texts: {}, images: {}, tables: {}, links: {} })
   })
 
   it('mixed static + dynamic: only dynamic keys appear', () => {

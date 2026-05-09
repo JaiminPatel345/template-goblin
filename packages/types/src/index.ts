@@ -30,7 +30,14 @@ export type {
   OverflowMode,
   ImageFit,
 } from './template.js'
-export type { InputJSON, TextInputs, TableInputs, ImageInputs, ImageInput } from './input.js'
+export type {
+  InputJSON,
+  TextInputs,
+  TableInputs,
+  ImageInputs,
+  ImageInput,
+  LinkInputs,
+} from './input.js'
 export type { StaticSource, DynamicSource, FieldSource } from './source.js'
 export { isStaticSource, isDynamicSource } from './source.js'
 export type { Hyperlink, StaticHyperlink, DynamicHyperlink } from './hyperlink.js'

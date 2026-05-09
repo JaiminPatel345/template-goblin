@@ -73,9 +73,10 @@ describe('renderField — hyperlink overlay (#87)', () => {
     const doc = new PDFDocument({ size: [595, 842], margin: 0 })
     const linkSpy = jest.spyOn(doc, 'link')
     const data: InputJSON = {
-      texts: { name: 'Alice', profile_url: 'https://example.com/alice' },
+      texts: { name: 'Alice' },
       images: {},
       tables: {},
+      links: { profile_url: 'https://example.com/alice' },
     }
     const template = loadedTemplate(makeManifest({ fields: [field] }))
     renderField(doc, field, data, new Map(), template, { pageIndex: 0 }, new Map())
@@ -92,9 +93,10 @@ describe('renderField — hyperlink overlay (#87)', () => {
     const doc = new PDFDocument({ size: [595, 842], margin: 0 })
     const linkSpy = jest.spyOn(doc, 'link')
     const data: InputJSON = {
-      texts: { name: 'Alice', profile_url: '' },
+      texts: { name: 'Alice' },
       images: {},
       tables: {},
+      links: { profile_url: '' },
     }
     const template = loadedTemplate(makeManifest({ fields: [field] }))
     renderField(doc, field, data, new Map(), template, { pageIndex: 0 }, new Map())
@@ -180,6 +182,156 @@ describe('renderField — hyperlink overlay (#87)', () => {
     // whether bytes were available. (User may upload bytes later.)
     expect(linkSpy).toHaveBeenCalledTimes(1)
     expect(linkSpy).toHaveBeenCalledWith(5, 5, 50, 50, 'https://example.com')
+    linkSpy.mockRestore()
+  })
+
+  it('static link with an INVALID URL: doc.link is not called (defensive)', () => {
+    // validateManifest should have rejected this at load time. Render
+    // double-checks via isValidHyperlinkUrl so a slip-through never
+    // produces a clickable region pointing at garbage.
+    const field: FieldDefinition = {
+      ...staticText('t1', 'Hello'),
+      hyperlink: { mode: 'static', url: 'ftp://nope' } as { mode: 'static'; url: string },
+    }
+    const doc = new PDFDocument({ size: [595, 842], margin: 0 })
+    const linkSpy = jest.spyOn(doc, 'link')
+    const template = loadedTemplate(makeManifest({ fields: [field] }))
+    renderField(
+      doc,
+      field,
+      { texts: {}, images: {}, tables: {} },
+      new Map(),
+      template,
+      { pageIndex: 0 },
+      new Map(),
+    )
+    expect(linkSpy).not.toHaveBeenCalled()
+    linkSpy.mockRestore()
+  })
+
+  it('dynamic link with a non-string value (number) does NOT call doc.link', () => {
+    const field: FieldDefinition = {
+      ...dynText('t1', 'name', false),
+      hyperlink: { mode: 'dynamic', jsonKey: 'profile_url' },
+    }
+    const doc = new PDFDocument({ size: [595, 842], margin: 0 })
+    const linkSpy = jest.spyOn(doc, 'link')
+    const data = {
+      texts: { name: 'Alice' },
+      images: {},
+      tables: {},
+      links: { profile_url: 42 as unknown as string },
+    } as unknown as InputJSON
+    const template = loadedTemplate(makeManifest({ fields: [field] }))
+    renderField(doc, field, data, new Map(), template, { pageIndex: 0 }, new Map())
+    expect(linkSpy).not.toHaveBeenCalled()
+    linkSpy.mockRestore()
+  })
+
+  it('two fields share the same dynamic key: each gets its own doc.link rect', () => {
+    const fieldA: FieldDefinition = {
+      ...dynText('t1', 'a', false, { x: 10, y: 10, width: 100, height: 30 }),
+      hyperlink: { mode: 'dynamic', jsonKey: 'shared' },
+    }
+    const fieldB: FieldDefinition = {
+      ...dynText('t2', 'b', false, { x: 200, y: 200, width: 80, height: 40 }),
+      hyperlink: { mode: 'dynamic', jsonKey: 'shared' },
+    }
+    const doc = new PDFDocument({ size: [595, 842], margin: 0 })
+    const linkSpy = jest.spyOn(doc, 'link')
+    const data: InputJSON = {
+      texts: { a: 'A', b: 'B' },
+      images: {},
+      tables: {},
+      links: { shared: 'https://shared.example.com' },
+    }
+    const template = loadedTemplate(makeManifest({ fields: [fieldA, fieldB] }))
+    renderField(doc, fieldA, data, new Map(), template, { pageIndex: 0 }, new Map())
+    renderField(doc, fieldB, data, new Map(), template, { pageIndex: 0 }, new Map())
+    expect(linkSpy).toHaveBeenCalledTimes(2)
+    expect(linkSpy).toHaveBeenNthCalledWith(1, 10, 10, 100, 30, 'https://shared.example.com')
+    expect(linkSpy).toHaveBeenNthCalledWith(2, 200, 200, 80, 40, 'https://shared.example.com')
+    linkSpy.mockRestore()
+  })
+
+  it('zero-size field with a hyperlink: doc.link still fires with the rect', () => {
+    // Degenerate but legal — designer hasn't sized the field yet. The
+    // renderer doesn't filter on size; the PDF viewer would just have a
+    // 0×0 click target. Document the contract via a test.
+    const field: FieldDefinition = {
+      ...staticText('t1', 'x', { x: 0, y: 0, width: 0, height: 0 }),
+      hyperlink: { mode: 'static', url: 'https://example.com' },
+    }
+    const doc = new PDFDocument({ size: [595, 842], margin: 0 })
+    const linkSpy = jest.spyOn(doc, 'link')
+    const template = loadedTemplate(makeManifest({ fields: [field] }))
+    renderField(
+      doc,
+      field,
+      { texts: {}, images: {}, tables: {} },
+      new Map(),
+      template,
+      { pageIndex: 0 },
+      new Map(),
+    )
+    expect(linkSpy).toHaveBeenCalledTimes(1)
+    expect(linkSpy).toHaveBeenCalledWith(0, 0, 0, 0, 'https://example.com')
+    linkSpy.mockRestore()
+  })
+
+  it('mailto and tel render correctly', () => {
+    const fieldA: FieldDefinition = {
+      ...staticText('t1', 'mail', { x: 10, y: 10, width: 50, height: 20 }),
+      hyperlink: { mode: 'static', url: 'mailto:hi@example.com' },
+    }
+    const fieldB: FieldDefinition = {
+      ...staticText('t2', 'phone', { x: 80, y: 10, width: 50, height: 20 }),
+      hyperlink: { mode: 'static', url: 'tel:+15551234' },
+    }
+    const doc = new PDFDocument({ size: [595, 842], margin: 0 })
+    const linkSpy = jest.spyOn(doc, 'link')
+    const template = loadedTemplate(makeManifest({ fields: [fieldA, fieldB] }))
+    renderField(
+      doc,
+      fieldA,
+      { texts: {}, images: {}, tables: {} },
+      new Map(),
+      template,
+      { pageIndex: 0 },
+      new Map(),
+    )
+    renderField(
+      doc,
+      fieldB,
+      { texts: {}, images: {}, tables: {} },
+      new Map(),
+      template,
+      { pageIndex: 0 },
+      new Map(),
+    )
+    expect(linkSpy).toHaveBeenCalledTimes(2)
+    expect(linkSpy).toHaveBeenNthCalledWith(1, 10, 10, 50, 20, 'mailto:hi@example.com')
+    expect(linkSpy).toHaveBeenNthCalledWith(2, 80, 10, 50, 20, 'tel:+15551234')
+    linkSpy.mockRestore()
+  })
+
+  it('value sitting in texts (not links) does NOT trigger doc.link', () => {
+    // The renderer reads from `data.links`. A URL placed in `data.texts`
+    // — whether by mistake or migration — must not be treated as a link.
+    const field: FieldDefinition = {
+      ...dynText('t1', 'name', false),
+      hyperlink: { mode: 'dynamic', jsonKey: 'profile_url' },
+    }
+    const doc = new PDFDocument({ size: [595, 842], margin: 0 })
+    const linkSpy = jest.spyOn(doc, 'link')
+    const data: InputJSON = {
+      texts: { name: 'Alice', profile_url: 'https://example.com' },
+      images: {},
+      tables: {},
+    }
+    const template = loadedTemplate(makeManifest({ fields: [field] }))
+    renderField(doc, field, data, new Map(), template, { pageIndex: 0 }, new Map())
+    expect(linkSpy).not.toHaveBeenCalled()
     linkSpy.mockRestore()
   })
 })
