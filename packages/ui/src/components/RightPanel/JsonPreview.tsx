@@ -1,7 +1,8 @@
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { generateExampleJson } from '../../utils/jsonGenerator.js'
+import { formatJsonString } from './formatJson.js'
 
 /**
  * Right-panel JSON preview (#90).
@@ -49,6 +50,51 @@ export function JsonPreview() {
     setPreviewJsonText(JSON.stringify(max, null, 2))
   }, [fields, maxModeRepeatCount, setPreviewJsonText])
 
+  // GH #85 — Format button. Inline error message lives below the textarea
+  // and self-clears after 3s. We intentionally don't disable the button on
+  // unparseable input (per issue: "always enabled, fail gracefully").
+  const [formatError, setFormatError] = useState<string | null>(null)
+  const formatErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (formatErrorTimerRef.current) clearTimeout(formatErrorTimerRef.current)
+    }
+  }, [])
+
+  const handleFormat = useCallback(() => {
+    // When the textarea is showing the auto-generated baseline (not
+    // pinned), the text is already 2-space formatted via the
+    // `JSON.stringify(_, null, 2)` in `generatedText`. Re-pinning a
+    // formatted copy here would lock the preview to that snapshot and
+    // stop tracking field-add / field-edit events on the canvas — the
+    // user would have to hit Reset to see new columns appear. So
+    // Format is a no-op in the unpinned state; the user only needs it
+    // after they've edited the textarea (which already pinned it).
+    if (!isPinned) return
+    const result = formatJsonString(value)
+    if (result.ok) {
+      setPreviewJsonText(result.text)
+      setFormatError(null)
+      if (formatErrorTimerRef.current) clearTimeout(formatErrorTimerRef.current)
+      return
+    }
+    setFormatError(result.error)
+    if (formatErrorTimerRef.current) clearTimeout(formatErrorTimerRef.current)
+    formatErrorTimerRef.current = setTimeout(() => setFormatError(null), 3000)
+  }, [isPinned, value, setPreviewJsonText])
+
+  const handleTextareaKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Cmd/Ctrl+Shift+F triggers Format from inside the textarea (#85).
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        handleFormat()
+      }
+    },
+    [handleFormat],
+  )
+
   return (
     <div className="tg-panel-section">
       <div
@@ -69,10 +115,20 @@ export function JsonPreview() {
               style={{ fontSize: 10, padding: '2px 8px' }}
               onClick={() => setPreviewJsonText(null)}
               title="Discard your edits and show the auto-generated example"
+              data-testid="json-preview-reset"
             >
               Reset
             </button>
           )}
+          <button
+            className="tg-btn"
+            style={{ fontSize: 10, padding: '2px 8px' }}
+            onClick={handleFormat}
+            title="Pretty-print the JSON with 2-space indentation (Cmd/Ctrl+Shift+F)"
+            data-testid="json-preview-format"
+          >
+            Format
+          </button>
           <button
             className="tg-btn"
             style={{ fontSize: 10, padding: '2px 8px' }}
@@ -99,30 +155,47 @@ export function JsonPreview() {
           No fields defined yet
         </div>
       ) : (
-        <textarea
-          className="tg-json-preview"
-          value={value}
-          onChange={(e) => setPreviewJsonText(e.target.value)}
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            background: 'var(--bg-primary)',
-            border: '1px solid var(--border)',
-            borderRadius: 4,
-            padding: 10,
-            minHeight: 120,
-            maxHeight: 300,
-            overflowY: 'auto',
-            whiteSpace: 'pre',
-            lineHeight: 1.4,
-            color: 'var(--text-primary)',
-            width: '100%',
-            resize: 'vertical',
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
-          spellCheck={false}
-        />
+        <>
+          <textarea
+            className="tg-json-preview"
+            data-testid="json-preview-textarea"
+            value={value}
+            onChange={(e) => setPreviewJsonText(e.target.value)}
+            onKeyDown={handleTextareaKeyDown}
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              background: 'var(--bg-primary)',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+              padding: 10,
+              minHeight: 120,
+              maxHeight: 300,
+              overflowY: 'auto',
+              whiteSpace: 'pre',
+              lineHeight: 1.4,
+              color: 'var(--text-primary)',
+              width: '100%',
+              resize: 'vertical',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+            spellCheck={false}
+          />
+          {formatError && (
+            <div
+              role="alert"
+              data-testid="json-preview-format-error"
+              style={{
+                marginTop: 6,
+                fontSize: 11,
+                color: 'var(--error)',
+              }}
+            >
+              {formatError}
+            </div>
+          )}
+        </>
       )}
     </div>
   )
