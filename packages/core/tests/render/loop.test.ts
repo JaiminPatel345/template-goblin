@@ -231,6 +231,44 @@ describe('Loop/table rendering', () => {
     expect(output.length).toBeGreaterThan(0)
   })
 
+  // GH #76 — `null` on backgroundColor / borderColor means "transparent"
+  // (no fill / no stroke). The renderer must skip the `.fill()` /
+  // `.stroke()` call entirely and still produce a valid PDF.
+  it('should render transparent header background without throwing (#76)', async () => {
+    const field = createLoopField({
+      headerStyle: { ...BASE_CELL, fontWeight: 'bold', backgroundColor: null },
+      rowStyle: { ...BASE_CELL, backgroundColor: null },
+    })
+    const rows = sampleRows(2)
+    const output = await renderAndFinish(field, rows)
+    expect(output).toBeInstanceOf(Buffer)
+    expect(output.length).toBeGreaterThan(0)
+  })
+
+  it('should render transparent borders without throwing (#76)', async () => {
+    const field = createLoopField({
+      rowStyle: { ...BASE_CELL, borderColor: null, borderWidth: 1 },
+    })
+    const rows = sampleRows(2)
+    const output = await renderAndFinish(field, rows)
+    expect(output).toBeInstanceOf(Buffer)
+    expect(output.length).toBeGreaterThan(0)
+  })
+
+  it('should produce a smaller PDF when fills/strokes are transparent (#76)', async () => {
+    const filled = createLoopField()
+    const transparent = createLoopField({
+      headerStyle: { ...BASE_CELL, fontWeight: 'bold', backgroundColor: null },
+      rowStyle: { ...BASE_CELL, backgroundColor: null, borderColor: null },
+    })
+    const rows = sampleRows(5)
+    const filledOut = await renderAndFinish(filled, rows)
+    const transparentOut = await renderAndFinish(transparent, rows)
+    // Skipping per-cell fill + stroke commands must emit fewer drawing
+    // operations into the page content stream.
+    expect(transparentOut.length).toBeLessThan(filledOut.length)
+  })
+
   it('should handle dynamic_font overflow mode in row cells', async () => {
     // Override the runtime cell style so the renderer takes the dynamic_font branch.
     const dynamicRowStyle: CellStyle = { ...BASE_CELL }

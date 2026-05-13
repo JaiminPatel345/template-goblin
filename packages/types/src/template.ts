@@ -67,9 +67,11 @@ export interface CellStyle {
   fontStyle: FontStyle
   textDecoration: TextDecoration
   color: string
-  backgroundColor: string
+  /** Hex fill colour, or `null` for a transparent (no-fill) cell background. */
+  backgroundColor: string | null
   borderWidth: number
-  borderColor: string
+  /** Hex stroke colour, or `null` for a transparent (no-stroke) cell border. */
+  borderColor: string | null
   paddingTop: number
   paddingBottom: number
   paddingLeft: number

@@ -111,8 +111,10 @@ function drawTablePerimeter(
 ): void {
   const bw = style.rowStyle.borderWidth
   if (!bw || bw <= 0) return
+  const stroke = style.rowStyle.borderColor
+  if (!stroke) return
   doc.save()
-  doc.lineWidth(bw).strokeColor(style.rowStyle.borderColor)
+  doc.lineWidth(bw).strokeColor(stroke)
   doc.rect(x, y, width, height).stroke()
   doc.restore()
 }
@@ -148,7 +150,7 @@ function renderHeaderRow(
       doc.restore()
     }
 
-    if (hs.borderWidth > 0) {
+    if (hs.borderWidth > 0 && hs.borderColor) {
       doc.save()
       doc.lineWidth(hs.borderWidth).strokeColor(hs.borderColor)
       doc.rect(colX, startY, colWidth, rowHeight).stroke()
@@ -198,7 +200,7 @@ function renderDataRow(
       doc.restore()
     }
 
-    if (rs.borderWidth > 0) {
+    if (rs.borderWidth > 0 && rs.borderColor) {
       doc.save()
       doc.lineWidth(rs.borderWidth).strokeColor(rs.borderColor)
       doc.rect(colX, startY, colWidth, rowHeight).stroke()
