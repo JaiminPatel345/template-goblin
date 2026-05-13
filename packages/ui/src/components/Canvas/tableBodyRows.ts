@@ -79,6 +79,30 @@ export function pushBodyRows(
       const cellValue = row[col.key] ?? ''
       const padL = Math.max(0, cs.paddingLeft ?? 4)
       const padR = Math.max(0, cs.paddingRight ?? 4)
+
+      // Per-cell stroked rect — mirrors core/render/loop.ts so cell
+      // border width/colour changes in the right panel reflect on canvas
+      // (#76 follow-up). Skip when width <= 0 or colour is null.
+      const cellBw = typeof cs.borderWidth === 'number' ? cs.borderWidth : 0
+      if (cellBw > 0 && isVisibleColor(cs.borderColor)) {
+        parts.push(
+          new Rect({
+            left: leftCum,
+            top: rowTop,
+            width: colWidth,
+            height: rowH,
+            fill: '',
+            stroke: cs.borderColor,
+            strokeWidth: cellBw,
+            strokeUniform: true,
+            selectable: false,
+            evented: false,
+            originX: 'left',
+            originY: 'top',
+          }),
+        )
+      }
+
       if (cellValue && colWidth > padL + padR + 2) {
         const innerW = Math.max(1, colWidth - padL - padR)
         const align = cs.align ?? 'center'

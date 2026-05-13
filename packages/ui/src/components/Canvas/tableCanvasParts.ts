@@ -154,6 +154,35 @@ export function buildTableCanvasParts(
     )
   }
 
+  // Per-header-cell stroked rects — mirrors PDFKit's renderHeaderRow so
+  // header border width/colour edits show up live on canvas (#76).
+  if (showHeader && headerH > 0 && headerStyle) {
+    const hbw = typeof headerStyle.borderWidth === 'number' ? headerStyle.borderWidth : 0
+    if (hbw > 0 && isVisibleColor(headerStyle.borderColor)) {
+      let leftCum = 0
+      for (let i = 0; i < widths.length; i++) {
+        const cw = widths[i] ?? 0
+        parts.push(
+          new Rect({
+            left: leftCum,
+            top: 0,
+            width: cw,
+            height: headerH,
+            fill: '',
+            stroke: headerStyle.borderColor,
+            strokeWidth: hbw,
+            strokeUniform: true,
+            selectable: false,
+            evented: false,
+            originX: 'left',
+            originY: 'top',
+          }),
+        )
+        leftCum += cw
+      }
+    }
+  }
+
   // GH #79: render body rows from the supplied data so the canvas reflects
   // the right-panel JSON. Skipped when `rows` is null — design-time
   // preview only. Row count = min(data length, maxRows, rows-that-fit).
