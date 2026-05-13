@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { type PageSize } from '@template-goblin/types'
 import { PageSizePicker, resolveChoice, type PageSizeChoice } from './PageSizePicker.js'
+import { ColorPickerPopover } from '../ColorPickerPopover.js'
 
 /**
  * Empty-state onboarding picker. Shown on page 0 when no background has been
@@ -118,12 +119,12 @@ export function OnboardingPicker({
                 marginTop: 8,
               }}
             >
-              <input
-                type="color"
+              <ColorPickerPopover
                 value={color}
-                onChange={(e) => setColor(e.target.value)}
-                style={{ width: 56, height: 40, border: 'none', cursor: 'pointer' }}
-                data-testid="onboarding-color-input"
+                onChange={setColor}
+                swatchWidth={56}
+                swatchHeight={40}
+                ariaLabel="Onboarding page color"
               />
               <input
                 type="text"

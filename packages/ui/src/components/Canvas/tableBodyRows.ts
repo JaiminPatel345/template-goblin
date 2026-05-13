@@ -41,10 +41,6 @@ export function pushBodyRows(
   const renderCount = Math.min(rows.length, maxRows, fitCount)
   if (renderCount <= 0) return
 
-  const padL = Math.max(0, rowStyle?.paddingLeft ?? 4)
-  const padR = Math.max(0, rowStyle?.paddingRight ?? 4)
-  const fontFamily = rowStyle?.fontFamily || DEFAULT_FONT_FAMILY
-  const color = rowStyle?.color || DEFAULT_TEXT_COLOR
   const bg = rowStyle?.backgroundColor
 
   for (let r = 0; r < renderCount; r++) {
@@ -75,23 +71,55 @@ export function pushBodyRows(
         leftCum += colWidth
         continue
       }
+      // Per-column style overrides (e.g. align, color, padding) merge over
+      // the table's rowStyle — mirrors core/render/loop.ts `mergeStyle` so
+      // canvas and PDF agree. Without this, changing a column's align in
+      // the sidebar had no visible effect on canvas (#76 follow-up).
+      const cs: Partial<CellStyle> = { ...(rowStyle ?? {}), ...(col.style ?? {}) }
       const cellValue = row[col.key] ?? ''
+      const padL = Math.max(0, cs.paddingLeft ?? 4)
+      const padR = Math.max(0, cs.paddingRight ?? 4)
+
+      // Per-cell stroked rect — mirrors core/render/loop.ts so cell
+      // border width/colour changes in the right panel reflect on canvas
+      // (#76 follow-up). Skip when width <= 0 or colour is null.
+      const cellBw = typeof cs.borderWidth === 'number' ? cs.borderWidth : 0
+      if (cellBw > 0 && isVisibleColor(cs.borderColor)) {
+        parts.push(
+          new Rect({
+            left: leftCum,
+            top: rowTop,
+            width: colWidth,
+            height: rowH,
+            fill: '',
+            stroke: cs.borderColor,
+            strokeWidth: cellBw,
+            strokeUniform: true,
+            selectable: false,
+            evented: false,
+            originX: 'left',
+            originY: 'top',
+          }),
+        )
+      }
+
       if (cellValue && colWidth > padL + padR + 2) {
         const innerW = Math.max(1, colWidth - padL - padR)
+        const align = cs.align ?? 'center'
         parts.push(
           new Textbox(String(cellValue), {
-            left: leftCum + padL + innerW / 2,
+            left: leftCum + padL,
             top: rowTop + rowH / 2,
             width: innerW,
             fontSize,
-            fontFamily,
-            fontWeight: rowStyle?.fontWeight || 'normal',
-            fontStyle: rowStyle?.fontStyle || 'normal',
-            underline: rowStyle?.textDecoration === 'underline',
-            linethrough: rowStyle?.textDecoration === 'line-through',
-            fill: color,
-            textAlign: rowStyle?.align || 'center',
-            originX: 'center',
+            fontFamily: cs.fontFamily || DEFAULT_FONT_FAMILY,
+            fontWeight: cs.fontWeight || 'normal',
+            fontStyle: cs.fontStyle || 'normal',
+            underline: cs.textDecoration === 'underline',
+            linethrough: cs.textDecoration === 'line-through',
+            fill: cs.color || DEFAULT_TEXT_COLOR,
+            textAlign: align,
+            originX: 'left',
             originY: 'center',
             selectable: false,
             evented: false,

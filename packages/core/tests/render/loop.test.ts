@@ -231,6 +231,99 @@ describe('Loop/table rendering', () => {
     expect(output.length).toBeGreaterThan(0)
   })
 
+  // GH #76 — `null` on backgroundColor / borderColor means "transparent"
+  // (no fill / no stroke). The renderer must skip the `.fill()` /
+  // `.stroke()` call entirely and still produce a valid PDF.
+  it('should render transparent header background without throwing (#76)', async () => {
+    const field = createLoopField({
+      headerStyle: { ...BASE_CELL, fontWeight: 'bold', backgroundColor: null },
+      rowStyle: { ...BASE_CELL, backgroundColor: null },
+    })
+    const rows = sampleRows(2)
+    const output = await renderAndFinish(field, rows)
+    expect(output).toBeInstanceOf(Buffer)
+    expect(output.length).toBeGreaterThan(0)
+  })
+
+  it('should render transparent borders without throwing (#76)', async () => {
+    const field = createLoopField({
+      rowStyle: { ...BASE_CELL, borderColor: null, borderWidth: 1 },
+    })
+    const rows = sampleRows(2)
+    const output = await renderAndFinish(field, rows)
+    expect(output).toBeInstanceOf(Buffer)
+    expect(output.length).toBeGreaterThan(0)
+  })
+
+  // #76 follow-up — `fitToContent` collapses the painted perimeter to the
+  // last rendered row. Smaller content stream when the rect is much taller
+  // than the data (no extra empty bordered box trailing the table).
+  it('should emit a smaller PDF when fitToContent collapses a short table (#76)', async () => {
+    const fitted = createLoopField({ fitToContent: true })
+    fitted.height = 400 // tall rect, few rows
+    const fullRect = createLoopField({ fitToContent: false })
+    fullRect.height = 400
+    const rows = sampleRows(2)
+    const fittedOut = await renderAndFinish(fitted, rows)
+    const fullOut = await renderAndFinish(fullRect, rows)
+    expect(fittedOut).toBeInstanceOf(Buffer)
+    expect(fullOut).toBeInstanceOf(Buffer)
+    // Two PDFs differ — the perimeter rect's height parameter changed,
+    // so the content streams cannot be byte-identical.
+    expect(fittedOut.equals(fullOut)).toBe(false)
+  })
+
+  it('should treat omitted fitToContent as true (legacy templates) (#76)', async () => {
+    const field = createLoopField()
+    delete (field.style as { fitToContent?: boolean }).fitToContent
+    const rows = sampleRows(2)
+    const output = await renderAndFinish(field, rows)
+    expect(output).toBeInstanceOf(Buffer)
+    expect(output.length).toBeGreaterThan(0)
+  })
+
+  // #76 follow-up (option b) — `tableBorder` overrides the legacy
+  // row-derived perimeter colour and width. Null colour or zero width
+  // suppresses the perimeter entirely while still rendering cells.
+  it('should paint the perimeter using tableBorder when set (#76)', async () => {
+    const withTableBorder = createLoopField({
+      tableBorder: { color: '#ff00aa', width: 3 },
+    })
+    const rows = sampleRows(2)
+    const output = await renderAndFinish(withTableBorder, rows)
+    expect(output).toBeInstanceOf(Buffer)
+    expect(output.length).toBeGreaterThan(0)
+  })
+
+  it('should suppress the perimeter when tableBorder.color is null (#76)', async () => {
+    const noBorder = createLoopField({
+      tableBorder: { color: null, width: 2 },
+      rowStyle: { ...BASE_CELL, borderWidth: 0 },
+    })
+    const withBorder = createLoopField({
+      tableBorder: { color: '#000000', width: 2 },
+      rowStyle: { ...BASE_CELL, borderWidth: 0 },
+    })
+    const rows = sampleRows(2)
+    const noBorderOut = await renderAndFinish(noBorder, rows)
+    const withBorderOut = await renderAndFinish(withBorder, rows)
+    expect(noBorderOut.length).toBeLessThan(withBorderOut.length)
+  })
+
+  it('should produce a smaller PDF when fills/strokes are transparent (#76)', async () => {
+    const filled = createLoopField()
+    const transparent = createLoopField({
+      headerStyle: { ...BASE_CELL, fontWeight: 'bold', backgroundColor: null },
+      rowStyle: { ...BASE_CELL, backgroundColor: null, borderColor: null },
+    })
+    const rows = sampleRows(5)
+    const filledOut = await renderAndFinish(filled, rows)
+    const transparentOut = await renderAndFinish(transparent, rows)
+    // Skipping per-cell fill + stroke commands must emit fewer drawing
+    // operations into the page content stream.
+    expect(transparentOut.length).toBeLessThan(filledOut.length)
+  })
+
   it('should handle dynamic_font overflow mode in row cells', async () => {
     // Override the runtime cell style so the renderer takes the dynamic_font branch.
     const dynamicRowStyle: CellStyle = { ...BASE_CELL }

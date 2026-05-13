@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import type { FieldType } from '@template-goblin/types'
 import { isSafeKey } from '@template-goblin/types'
 import { CloseIcon } from '../icons/index.js'
+import { ColorPickerPopover } from '../ColorPickerPopover.js'
 
 /**
  * Element Creation Popup (design 2026-04-18 §8.1, spec 024).
@@ -393,12 +394,12 @@ export function FieldCreationPopup({
                     flexWrap: 'wrap',
                   }}
                 >
-                  <input
-                    type="color"
+                  <ColorPickerPopover
                     value={imageColor}
-                    onChange={(e) => setImageColor(e.target.value)}
-                    style={{ width: 44, height: 32 }}
-                    data-testid="create-popup-image-color-input"
+                    onChange={setImageColor}
+                    swatchWidth={44}
+                    swatchHeight={32}
+                    ariaLabel="Image color"
                   />
                   <input
                     type="text"

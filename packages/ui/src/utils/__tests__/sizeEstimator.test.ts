@@ -106,6 +106,7 @@ function tableField(
       maxColumns: 3,
       multiPage: false,
       showHeader: true,
+      fitToContent: true,
       headerStyle: cell({ fontWeight: 'bold', backgroundColor: '#eee' }),
       rowStyle: cell(),
       oddRowStyle: null,

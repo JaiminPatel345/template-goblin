@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { type PageBackgroundType, type PageSize } from '@template-goblin/types'
 import { PageSizePicker, resolveChoice, type PageSizeChoice } from './PageSizePicker.js'
+import { ColorPickerPopover } from '../ColorPickerPopover.js'
 
 /**
  * Two-step "Add page" dialog.
@@ -219,11 +220,12 @@ export function AddPageDialog({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <label style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Color:</label>
-              <input
-                type="color"
+              <ColorPickerPopover
                 value={color}
-                onChange={(e) => setColor(e.target.value)}
-                style={{ width: '48px', height: '32px', border: 'none', cursor: 'pointer' }}
+                onChange={setColor}
+                swatchWidth={48}
+                swatchHeight={32}
+                ariaLabel="Page background color"
               />
               <span
                 style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}

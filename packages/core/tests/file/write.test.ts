@@ -410,6 +410,33 @@ describe('roundtrip: save then read', () => {
     expect(result).toEqual(manifest)
   })
 
+  // GH #76 — `null` is a valid value for CellStyle.backgroundColor /
+  // borderColor and must round-trip through save/read so a template saved
+  // with a transparent header band re-opens with the same null sentinel.
+  it('should roundtrip null (transparent) backgroundColor and borderColor on table cells (#76)', async () => {
+    const table = dynTable('t1', 'rows', false, ['a'], {
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+      zIndex: 0,
+    })
+    table.style.headerStyle = { ...table.style.headerStyle, backgroundColor: null }
+    table.style.rowStyle = { ...table.style.rowStyle, backgroundColor: null, borderColor: null }
+    const manifest = createValidManifest({ fields: [table] })
+    const outputPath = join(tmpDir, 'roundtrip-transparent.tgbl')
+
+    await saveTemplate(manifest, createEmptyAssets(), outputPath)
+    const result = await readManifest(outputPath)
+
+    const reloaded = result.fields[0]
+    expect(reloaded?.type).toBe('table')
+    if (reloaded?.type !== 'table') return
+    expect(reloaded.style.headerStyle.backgroundColor).toBeNull()
+    expect(reloaded.style.rowStyle.backgroundColor).toBeNull()
+    expect(reloaded.style.rowStyle.borderColor).toBeNull()
+  })
+
   it('should emit static images under images/ and roundtrip through loadTemplate', async () => {
     const logoData = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xde, 0xad])
 

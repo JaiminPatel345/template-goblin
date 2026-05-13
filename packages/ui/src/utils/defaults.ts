@@ -84,11 +84,20 @@ export function defaultTableStyle(): TableFieldStyle {
     maxColumns: 5,
     multiPage: false,
     showHeader: true,
+    // #76 follow-up: collapse the painted perimeter to the last rendered
+    // row by default so short tables don't trail an empty bordered box.
+    fitToContent: true,
+    // #76 follow-up (option b): new tables ship with an outer perimeter
+    // only; per-cell strokes are off by default so the table reads as a
+    // single bordered grid rather than a busy mesh of individual cells.
+    // Users can opt into grid lines via the Cell Border Width control.
+    tableBorder: { color: '#000000', width: 1 },
     headerStyle: defaultCellStyle({
       fontWeight: 'bold',
       backgroundColor: '#f0f0f0',
+      borderWidth: 0,
     }),
-    rowStyle: defaultCellStyle({ backgroundColor: '#ffffff' }),
+    rowStyle: defaultCellStyle({ backgroundColor: '#ffffff', borderWidth: 0 }),
     oddRowStyle: null,
     evenRowStyle: null,
     cellStyle: { overflowMode: 'dynamic_font' },

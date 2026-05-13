@@ -154,12 +154,49 @@ export function buildTableCanvasParts(
     )
   }
 
+  // Per-header-cell stroked rects — mirrors PDFKit's renderHeaderRow so
+  // header border width/colour edits show up live on canvas (#76).
+  if (showHeader && headerH > 0 && headerStyle) {
+    const hbw = typeof headerStyle.borderWidth === 'number' ? headerStyle.borderWidth : 0
+    if (hbw > 0 && isVisibleColor(headerStyle.borderColor)) {
+      let leftCum = 0
+      for (let i = 0; i < widths.length; i++) {
+        const cw = widths[i] ?? 0
+        parts.push(
+          new Rect({
+            left: leftCum,
+            top: 0,
+            width: cw,
+            height: headerH,
+            fill: '',
+            stroke: headerStyle.borderColor,
+            strokeWidth: hbw,
+            strokeUniform: true,
+            selectable: false,
+            evented: false,
+            originX: 'left',
+            originY: 'top',
+          }),
+        )
+        leftCum += cw
+      }
+    }
+  }
+
   // GH #79: render body rows from the supplied data so the canvas reflects
   // the right-panel JSON. Skipped when `rows` is null — design-time
   // preview only. Row count = min(data length, maxRows, rows-that-fit).
   if (rows && rows.length > 0) {
     pushBodyRows(parts, field, width, height, headerH, widths, rows)
   }
+
+  // #76 follow-up — paint the table-level outer perimeter so canvas
+  // matches the PDF renderer (core/render/loop.ts drawTablePerimeter).
+  // Reads from `tableBorder` when set, otherwise falls back to the
+  // row-derived perimeter for legacy templates. When `fitToContent` is
+  // on AND rows are supplied, the perimeter ends at the last rendered
+  // row instead of the rect's full height.
+  pushTablePerimeter(parts, field, width, height, headerH, rows)
 
   if (showHeader && headerH > 0) {
     const padL = Math.max(0, headerStyle?.paddingLeft ?? 0)
@@ -213,4 +250,59 @@ function isVisibleColor(c: string | null | undefined): c is string {
   if (!c) return false
   const s = c.trim().toLowerCase()
   return s.length > 0 && s !== 'transparent' && s !== 'none'
+}
+
+/**
+ * Compute and append the table's outer perimeter rect, mirroring the
+ * PDFKit renderer so changes to `tableBorder.color`, `tableBorder.width`,
+ * or `fitToContent` show up live on canvas.
+ */
+function pushTablePerimeter(
+  parts: FabricObject[],
+  field: FieldDefinition,
+  width: number,
+  height: number,
+  headerH: number,
+  rows: Record<string, string>[] | null,
+): void {
+  if (field.type !== 'table' || !field.style) return
+  const style = field.style
+  const tb = style.tableBorder
+  const stroke = tb ? tb.color : style.rowStyle?.borderColor
+  const sw = tb ? tb.width : (style.rowStyle?.borderWidth ?? 0)
+  if (!isVisibleColor(stroke) || !(sw > 0)) return
+
+  let perimeterH = height
+  const fitToContent = style.fitToContent !== false
+  if (fitToContent && rows && rows.length > 0) {
+    const rs = style.rowStyle
+    const fontSize = typeof rs?.fontSize === 'number' && rs.fontSize > 0 ? rs.fontSize : 10
+    const padTop = Math.max(0, rs?.paddingTop ?? 2)
+    const padBottom = Math.max(0, rs?.paddingBottom ?? 2)
+    const rowH = fontSize + padTop + padBottom
+    const maxRowsCfg = style.maxRows
+    const maxRows = typeof maxRowsCfg === 'number' && maxRowsCfg > 0 ? maxRowsCfg : rows.length
+    const availableH = Math.max(0, height - headerH)
+    const fitCount = rowH > 0 ? Math.floor(availableH / rowH) : 0
+    const renderCount = Math.min(rows.length, maxRows, fitCount)
+    if (renderCount > 0) perimeterH = Math.min(height, headerH + renderCount * rowH)
+    else if (headerH > 0) perimeterH = headerH
+  }
+
+  parts.push(
+    new Rect({
+      left: 0,
+      top: 0,
+      width,
+      height: perimeterH,
+      fill: '',
+      stroke,
+      strokeWidth: sw,
+      strokeUniform: true,
+      selectable: false,
+      evented: false,
+      originX: 'left',
+      originY: 'top',
+    }),
+  )
 }

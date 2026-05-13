@@ -4,6 +4,7 @@ import { isSafeKey } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { SourceModeToggle } from './SourceModeToggle.js'
 import { HyperlinkSection } from './HyperlinkSection.js'
+import { ColorPickerPopover } from '../ColorPickerPopover.js'
 
 interface Props {
   field: ImageField
@@ -122,16 +123,16 @@ export function ImageFieldProps({ field }: Props) {
           <div className="tg-form-row">
             <label>Color</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input
-                type="color"
+              <ColorPickerPopover
                 value={staticColor ?? '#ffffff'}
-                onChange={(e) =>
+                onChange={(c) =>
                   updateField(field.id, {
-                    source: { mode: 'static', value: { color: e.target.value } },
+                    source: { mode: 'static', value: { color: c } },
                   } as Partial<FieldDefinition>)
                 }
-                style={{ width: 44, height: 32 }}
-                data-testid="image-static-color-input"
+                swatchWidth={44}
+                swatchHeight={32}
+                ariaLabel="Static image color"
               />
               <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{staticColor}</span>
             </div>
