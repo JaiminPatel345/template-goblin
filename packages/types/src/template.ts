@@ -139,6 +139,19 @@ export interface TableFieldStyle {
   multiPage: boolean
   /** When false, the header row is skipped entirely at render time. */
   showHeader: boolean
+  /**
+   * When true (default), the table's outer perimeter is drawn down to the
+   * last rendered row's bottom edge instead of the field rect's full
+   * height. Eliminates the empty whitespace + dangling border that legacy
+   * `field.height`-based perimeter drawing left when row data was shorter
+   * than the rect (#76 follow-up). The field's geometry rect is unchanged;
+   * only the painted perimeter collapses. Multi-page chunks still draw a
+   * full-height perimeter on every page except the last.
+   *
+   * Optional for backward compatibility with templates saved before this
+   * field existed; the renderer treats `undefined` as `true`.
+   */
+  fitToContent?: boolean
   headerStyle: CellStyle
   rowStyle: CellStyle
   /** Applied to rows with odd 0-indexed position (rows 1, 3, 5...). */
@@ -147,6 +160,26 @@ export interface TableFieldStyle {
   evenRowStyle: Partial<CellStyle> | null
   cellStyle: TableCellRuntimeStyle
   columns: TableColumn[]
+  /**
+   * Optional table-level outer perimeter style (#76 follow-up).
+   *
+   * When present, the renderer paints the table's outer border using
+   * `tableBorder.color` / `tableBorder.width` instead of falling back to
+   * `rowStyle.borderColor` / `borderWidth`. Cell-level strokes are still
+   * drawn from `CellStyle` for users who want internal grid lines.
+   *
+   * Optional for backward compatibility with templates saved before this
+   * field existed; the renderer falls back to `rowStyle` when absent.
+   */
+  tableBorder?: TableBorderStyle
+}
+
+/** Outer-perimeter style for a table — independent of per-cell borders. */
+export interface TableBorderStyle {
+  /** Hex stroke colour, or `null` for no perimeter. */
+  color: string | null
+  /** Stroke width in points. `0` also suppresses the perimeter. */
+  width: number
 }
 
 /** A single row in a table — column key -> cell string value. */

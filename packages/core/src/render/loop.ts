@@ -90,7 +90,17 @@ export function renderLoop(
   // ended above the bottom edge or got skipped because it would overflow.
   // Per-cell borders alone left the bottom edge open whenever the rect
   // was taller than the rendered rows.
-  drawTablePerimeter(doc, x, y, width, field.height, style)
+  //
+  // #76 follow-up: when `fitToContent` is enabled (the default for new
+  // templates), end the perimeter at the last rendered row instead of
+  // `field.height` so short tables don't drag a tall, empty box below
+  // the data. `fitToContent === false` preserves the legacy full-rect
+  // perimeter.
+  const fitToContent = style.fitToContent !== false
+  const renderedHeight = Math.max(0, currentY - y)
+  const perimeterHeight =
+    fitToContent && renderedHeight > 0 ? Math.min(renderedHeight, field.height) : field.height
+  drawTablePerimeter(doc, x, y, width, perimeterHeight, style)
 }
 
 /**
@@ -109,9 +119,14 @@ function drawTablePerimeter(
   height: number,
   style: TableFieldStyle,
 ): void {
-  const bw = style.rowStyle.borderWidth
+  // #76 follow-up: prefer the explicit table-level border when set; fall
+  // back to the legacy row-derived perimeter for templates that predate
+  // the `tableBorder` field. Either source can suppress the perimeter
+  // with width <= 0 or a null colour.
+  const tb = style.tableBorder
+  const bw = tb ? tb.width : style.rowStyle.borderWidth
   if (!bw || bw <= 0) return
-  const stroke = style.rowStyle.borderColor
+  const stroke = tb ? tb.color : style.rowStyle.borderColor
   if (!stroke) return
   doc.save()
   doc.lineWidth(bw).strokeColor(stroke)

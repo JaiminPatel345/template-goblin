@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { SourceModeToggle } from './SourceModeToggle.js'
 import { HyperlinkSection } from './HyperlinkSection.js'
 import { NumberInput } from '../NumberInput.js'
+import { ColorPickerPopover } from '../ColorPickerPopover.js'
 import type {
   FieldDefinition,
   TextField,
@@ -412,11 +413,10 @@ export function TextFieldProps({ field }: Props) {
 
         <div className="tg-form-row">
           <label>Text Color</label>
-          <input
-            type="color"
-            className="tg-color-input"
+          <ColorPickerPopover
             value={style.color}
-            onChange={(e) => updateFieldStyle(field.id, { color: e.target.value })}
+            onChange={(c) => updateFieldStyle(field.id, { color: c })}
+            ariaLabel="Text color"
           />
         </div>
       </div>

@@ -12,6 +12,7 @@ export type {
   ImageFilenameValue,
   ImageColorValue,
   TableFieldStyle,
+  TableBorderStyle,
   TableCellRuntimeStyle,
   TableColumn,
   TableRow,

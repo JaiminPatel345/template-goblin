@@ -1,7 +1,14 @@
-import type { CellStyle, FontWeight, TableField, TextAlign } from '@template-goblin/types'
+import type {
+  CellStyle,
+  FontWeight,
+  TableBorderStyle,
+  TableField,
+  TextAlign,
+} from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { NumberInput } from '../NumberInput.js'
 import { NullableColorInput } from '../NullableColorInput.js'
+import { ColorPickerPopover } from '../ColorPickerPopover.js'
 
 interface Props {
   field: TableField
@@ -25,6 +32,11 @@ export function TableStyleSections({ field, allFontFamilies }: Props) {
   }
   function updateRow(updates: Partial<CellStyle>) {
     updateFieldStyle(field.id, { rowStyle: { ...rowStyle, ...updates } })
+  }
+
+  const tableBorder: TableBorderStyle = style.tableBorder ?? { color: '#000000', width: 1 }
+  function updateTableBorder(updates: Partial<TableBorderStyle>) {
+    updateFieldStyle(field.id, { tableBorder: { ...tableBorder, ...updates } })
   }
 
   return (
@@ -84,11 +96,10 @@ export function TableStyleSections({ field, allFontFamilies }: Props) {
 
         <div className="tg-form-row">
           <label>Header Text Color</label>
-          <input
-            type="color"
-            className="tg-color-input"
+          <ColorPickerPopover
             value={headerStyle.color}
-            onChange={(e) => updateHeader({ color: e.target.value })}
+            onChange={(c) => updateHeader({ color: c })}
+            ariaLabel="Header text color"
           />
         </div>
 
@@ -144,11 +155,10 @@ export function TableStyleSections({ field, allFontFamilies }: Props) {
 
         <div className="tg-form-row">
           <label>Row Text Color</label>
-          <input
-            type="color"
-            className="tg-color-input"
+          <ColorPickerPopover
             value={rowStyle.color}
-            onChange={(e) => updateRow({ color: e.target.value })}
+            onChange={(c) => updateRow({ color: c })}
+            ariaLabel="Row text color"
           />
         </div>
 
@@ -178,6 +188,30 @@ export function TableStyleSections({ field, allFontFamilies }: Props) {
             <option value="dynamic_font">Dynamic Font</option>
             <option value="truncate">Truncate</option>
           </select>
+        </div>
+      </div>
+
+      <div className="tg-panel-section">
+        <div className="tg-panel-section-title">Table Border</div>
+
+        <div className="tg-form-row">
+          <label>Border Width</label>
+          <NumberInput
+            min={0}
+            step={0.5}
+            value={tableBorder.width}
+            defaultValue={1}
+            onChange={(v) => updateTableBorder({ width: v })}
+          />
+        </div>
+
+        <div className="tg-form-row">
+          <label>Border Color</label>
+          <NullableColorInput
+            value={tableBorder.color}
+            onChange={(c) => updateTableBorder({ color: c })}
+            ariaLabel="Table border color"
+          />
         </div>
       </div>
 

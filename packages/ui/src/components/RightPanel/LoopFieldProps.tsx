@@ -148,6 +148,19 @@ export function LoopFieldProps({ field }: Props) {
             onChange={(e) => updateFieldStyle(field.id, { showHeader: e.target.checked })}
           />
         </div>
+
+        <div className="tg-toggle-row">
+          <label>
+            Fit to Content
+            <InfoTip text="When on, the table's perimeter ends at the last row instead of stretching to the full rect — collapses the empty area below short tables." />
+          </label>
+          <input
+            type="checkbox"
+            className="tg-checkbox"
+            checked={style.fitToContent !== false}
+            onChange={(e) => updateFieldStyle(field.id, { fitToContent: e.target.checked })}
+          />
+        </div>
       </div>
 
       <TableColumnsSection field={field} />

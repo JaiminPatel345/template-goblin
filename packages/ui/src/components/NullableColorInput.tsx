@@ -1,22 +1,21 @@
 import { useCallback } from 'react'
+import { ColorPickerPopover } from './ColorPickerPopover.js'
 
 interface NullableColorInputProps {
   /** Hex string when a colour is set; `null` for transparent / no-fill. */
   value: string | null
   onChange: (value: string | null) => void
-  /** Hex used to re-seed the native picker when toggling back from null. */
+  /** Hex used to re-seed the picker when toggling back from null. */
   fallback?: string
-  className?: string
   ariaLabel?: string
 }
 
 /**
- * Colour picker that can express "transparent" alongside hex values.
+ * Colour control that can express "transparent" alongside hex values.
  *
- * Renders the native `<input type="color">` when `value` is a hex string and
- * a checker-pattern swatch with the label "Transparent" when `value` is
- * `null`. The "✕" button toggles to `null`; clicking the transparent swatch
- * returns to the previous hex (or `fallback`).
+ * Shows a SketchPicker swatch when `value` is a hex, and a checker-pattern
+ * swatch labelled Transparent when `value` is `null`. The "Clear / Color"
+ * toggle flips between the two states.
  *
  * GH #76 — used wherever a CellStyle / page background colour field can be
  * opted out of (table header bg, row bg, odd/even row bg, borders, page bg).
@@ -25,17 +24,9 @@ export function NullableColorInput({
   value,
   onChange,
   fallback = '#ffffff',
-  className = 'tg-color-input',
   ariaLabel,
 }: NullableColorInputProps) {
   const isTransparent = value === null
-
-  const handleColorChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      onChange(e.target.value)
-    },
-    [onChange],
-  )
 
   const clear = useCallback(() => onChange(null), [onChange])
   const restore = useCallback(() => onChange(fallback), [onChange, fallback])
@@ -67,13 +58,7 @@ export function NullableColorInput({
           }}
         />
       ) : (
-        <input
-          type="color"
-          className={className}
-          value={value ?? fallback}
-          aria-label={ariaLabel}
-          onChange={handleColorChange}
-        />
+        <ColorPickerPopover value={value} onChange={onChange} ariaLabel={ariaLabel} />
       )}
       <button
         type="button"

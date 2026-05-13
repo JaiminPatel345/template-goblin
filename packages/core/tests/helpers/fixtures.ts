@@ -69,6 +69,7 @@ export function tableStyle(columnKeys: string[] = ['col']): TableFieldStyle {
     maxColumns: 10,
     multiPage: false,
     showHeader: true,
+    fitToContent: true,
     headerStyle: { ...BASE_CELL, fontWeight: 'bold', backgroundColor: '#eeeeee' },
     rowStyle: BASE_CELL,
     oddRowStyle: null,
