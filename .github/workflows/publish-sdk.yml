@@ -1,9 +1,12 @@
-name: Publish SDK to npm
+name: Publish SDK to npm (manual escape hatch)
+
+# Default release flow lives in `release.yml` (changesets-driven on
+# push to main). This workflow is kept ONLY as a manual fallback when
+# a one-off republish is needed (e.g. broken npm artifact, registry
+# outage retry). Triggered explicitly via the Actions UI; never on
+# tag push.
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       version:
@@ -89,13 +92,6 @@ jobs:
       - name: Build types
         run: pnpm --filter @template-goblin/types build
 
-      # Copy the repo-root README into the package so npm shows it on the
-      # package page. The README is shared verbatim across all three
-      # published packages; per-package READMEs would drift. Done at
-      # publish time only so the working tree stays clean.
-      - name: Stage README for npm
-        run: cp README.md packages/types/README.md
-
       - name: Publish @template-goblin/types
         run: pnpm --filter @template-goblin/types publish --no-git-checks --access public || true
         env:
@@ -137,9 +133,6 @@ jobs:
       - name: Build all
         run: pnpm build
 
-      - name: Stage README for npm
-        run: cp README.md packages/core/README.md
-
       - name: Publish template-goblin
         run: pnpm --filter template-goblin publish --no-git-checks --access public || true
         env:
@@ -180,9 +173,6 @@ jobs:
 
       - name: Build all
         run: pnpm build
-
-      - name: Stage README for npm
-        run: cp README.md packages/ui/README.md
 
       - name: Publish template-goblin-ui
         run: pnpm --filter template-goblin-ui publish --no-git-checks --access public || true
