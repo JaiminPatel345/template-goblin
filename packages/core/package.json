@@ -35,13 +35,14 @@
     "pdf-generation"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').copyFileSync('README.md','dist/README.md')\"",
     "type-check": "tsc --noEmit",
     "lint": "eslint src/ --ext .ts",
     "test": "jest"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "dependencies": {
     "adm-zip": "^0.5.16",
