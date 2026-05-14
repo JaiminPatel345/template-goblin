@@ -1,5 +1,13 @@
 # template-goblin-examples
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [740933c]
+  - @template-goblin/types@2.1.0
+  - template-goblin@3.0.0
+
 ## 0.0.1
 
 ### Patch Changes

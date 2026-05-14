@@ -1,6 +1,6 @@
 {
   "name": "template-goblin",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "PDF template engine — load a .tgbl template + JSON data, generate PDFs at scale",
   "type": "module",
   "main": "./dist/index.js",
