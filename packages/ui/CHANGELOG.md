@@ -1,5 +1,11 @@
 # template-goblin-ui
 
+## 2.2.0
+
+### Minor Changes
+
+- a006138: Add README
+
 ## 2.1.0
 
 ### Minor Changes

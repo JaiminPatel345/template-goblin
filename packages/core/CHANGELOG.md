@@ -1,5 +1,16 @@
 # template-goblin
 
+## 3.0.0
+
+### Minor Changes
+
+- a006138: Add README
+
+### Patch Changes
+
+- Updated dependencies [a006138]
+  - @template-goblin/types@2.2.0
+
 ## 2.1.0
 
 ### Minor Changes
