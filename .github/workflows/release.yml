@@ -1,0 +1,90 @@
+name: Release
+
+# Changesets-driven release pipeline.
+#
+# How it works:
+#   1. Devs include a `.changeset/*.md` in their PRs (via `pnpm changeset`).
+#   2. When a PR merges to `main`, this workflow runs.
+#   3. If there are pending changesets, `changesets/action` opens (or
+#      updates) a "chore(release): version packages" PR that:
+#        - bumps every affected package.json version,
+#        - regenerates each package's CHANGELOG.md,
+#        - consumes (deletes) the .changeset/*.md files.
+#   4. When that release PR is merged, this workflow runs again. No
+#      pending changesets remain, so `changesets/action` switches to
+#      publish mode and runs `pnpm -r publish` for every non-private
+#      workspace package (`@template-goblin/types`, `template-goblin`,
+#      `template-goblin-ui`). Each tarball already carries its own
+#      README from the package root, so npm shows real docs.
+#
+# Manual publishes still live in `publish-sdk.yml` (workflow_dispatch
+# only) as an escape hatch.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  release:
+    name: Version or publish via changesets
+    runs-on: ubuntu-latest
+    if: github.repository == 'JaiminPatel345/template-goblin'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history is required so changeset can read commit
+          # context when generating release-PR bodies.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify NPM_TOKEN is set
+        run: |
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "::error::NPM_TOKEN secret is not set. Add it in Settings → Secrets → Actions."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        # `pnpm build` runs the per-package build scripts, which also
+        # copy README.md into each dist/. The pre-published tarball
+        # picks up README.md from the package root via the "files"
+        # array; the dist/ copy is for in-bundle consumers.
+        run: pnpm build
+
+      - name: Create release PR or publish to npm
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          # When there ARE pending changesets, this command runs and the
+          # action opens/updates a release PR with the resulting diff.
+          version: pnpm changeset version
+          # When there are NO pending changesets (state immediately after
+          # merging the release PR), this command runs to actually
+          # publish. --no-git-checks is required because changesets
+          # bumps versions without an extra git commit before publish.
+          publish: pnpm -r publish --no-git-checks --access public
+          commit: 'chore(release): version packages'
+          title: 'chore(release): version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
