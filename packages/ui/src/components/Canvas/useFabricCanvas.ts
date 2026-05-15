@@ -13,6 +13,7 @@ import { wireSelectionEvents } from './wireSelectionEvents.js'
 import { wireDragResizeEvents } from './wireDragResizeEvents.js'
 import { wireMouseEvents } from './wireMouseEvents.js'
 import { wireWheelEvents } from './wireWheelEvents.js'
+import { wireSmartGuides } from './smartGuides/index.js'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -97,6 +98,7 @@ export function useFabricCanvas(
 
       wireSelectionEvents(fc)
       wireDragResizeEvents(fc)
+      wireSmartGuides(fc)
       wireMouseEvents(
         fc,
         containerRef,

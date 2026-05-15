@@ -21,6 +21,8 @@ declare module 'fabric' {
     __isGrid?: boolean
     /** Internal flag: marks the non-interactive page-bounds outline rect. */
     __isPageBounds?: boolean
+    /** Internal flag: marks transient smart-alignment guide lines (#41). */
+    __isSmartGuide?: boolean
     /** Default (un-selected) fill saved on the field's background Rect. */
     __defaultFill?: string
     /** Default (un-selected) stroke saved on the field's background Rect. */
