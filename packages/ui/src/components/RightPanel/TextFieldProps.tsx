@@ -1,8 +1,6 @@
-import { useState } from 'react'
 import { SourceModeToggle } from './SourceModeToggle.js'
 import { HyperlinkSection } from './HyperlinkSection.js'
 import { NumberInput } from '../NumberInput.js'
-import { ColorPickerPopover } from '../ColorPickerPopover.js'
 import type {
   FieldDefinition,
   TextField,
@@ -12,63 +10,14 @@ import type {
 } from '@template-goblin/types'
 import { isSafeKey } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
+import { autoShrinkStaticField } from '../../utils/autoShrinkDispatch.js'
+import { InfoTip } from './InfoTip.js'
+import { AlignButtonGroup } from './AlignButtonGroup.js'
+import { TextTypographySection } from './TextTypographySection.js'
 
-export function InfoTip({ text }: { text: string }) {
-  const [show, setShow] = useState(false)
-  return (
-    <span
-      style={{
-        cursor: 'help',
-        marginLeft: 4,
-        color: 'var(--text-muted)',
-        fontSize: 11,
-        position: 'relative',
-        display: 'inline-flex',
-        alignItems: 'center',
-      }}
-      onMouseEnter={() => setShow(true)}
-      onMouseLeave={() => setShow(false)}
-      onClick={() => setShow(!show)}
-    >
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-      >
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="16" x2="12" y2="12" />
-        <line x1="12" y1="8" x2="12.01" y2="8" />
-      </svg>
-      {show && (
-        <span
-          style={{
-            position: 'absolute',
-            bottom: '100%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            padding: '6px 10px',
-            fontSize: 11,
-            color: 'var(--text-primary)',
-            zIndex: 100,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            marginBottom: 4,
-            maxWidth: 250,
-            whiteSpace: 'normal',
-            lineHeight: 1.4,
-          }}
-        >
-          {text}
-        </span>
-      )}
-    </span>
-  )
-}
+// `InfoTip` is re-exported for backward compatibility with sibling files
+// (e.g. LoopFieldProps) that imported it from here before the split.
+export { InfoTip }
 
 interface Props {
   field: TextField
@@ -188,6 +137,7 @@ export function TextFieldProps({ field }: Props) {
               className="tg-input"
               value={staticValue}
               onChange={(e) => onStaticValueChange(e.target.value)}
+              onBlur={() => void autoShrinkStaticField(field.id)}
               data-testid="text-static-value"
             />
           </div>
@@ -278,148 +228,14 @@ export function TextFieldProps({ field }: Props) {
         </div>
       </div>
 
-      {/* Typography */}
-      <div className="tg-panel-section">
-        <div className="tg-panel-section-title">Typography</div>
-
-        <div className="tg-form-row">
-          <label>Font Family</label>
-          <select
-            className="tg-select"
-            value={style.fontFamily}
-            onChange={(e) => updateFieldStyle(field.id, { fontFamily: e.target.value })}
-          >
-            {allFontFamilies.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="tg-form-row">
-          <label>Font Size</label>
-          <NumberInput
-            value={style.fontSize}
-            min={1}
-            defaultValue={12}
-            onChange={(v) => onFontSizeChange(v)}
-          />
-        </div>
-
-        {/* GH #91 — Overflow Mode is the single knob for what happens when
-            content exceeds the rect. Static text has no rendered drift
-            (fixed string at fixed fontSize) so the dropdown is dynamic-only.
-            Truncate cuts characters from the end at a character boundary
-            (no ellipsis); Dynamic Font shrinks `fontSize` down to
-            `fontSizeMin`, then truncates the rest. The pre-#91 "Dynamic
-            Font Size" checkbox was a redundant second knob and is gone. */}
-        {isDynamic && (
-          <div className="tg-form-row">
-            <label>
-              Overflow Mode
-              <InfoTip text="Truncate: cut characters from the end so the visible text fits the rect (no ellipsis). Dynamic Font: shrink the font size down to Minimum Font Size, then truncate." />
-            </label>
-            <select
-              className="tg-select"
-              value={style.overflowMode}
-              onChange={(e) =>
-                updateFieldStyle(field.id, {
-                  overflowMode: e.target.value as 'dynamic_font' | 'truncate',
-                })
-              }
-            >
-              <option value="truncate">Truncate</option>
-              <option value="dynamic_font">Dynamic Font</option>
-            </select>
-          </div>
-        )}
-
-        {/* Minimum Font Size only matters when Overflow Mode = Dynamic Font. */}
-        {isDynamic && style.overflowMode === 'dynamic_font' && (
-          <div className="tg-form-row">
-            <label>
-              Minimum Font Size
-              <InfoTip text="The smallest font size the renderer will shrink to before falling back to truncation." />
-            </label>
-            <NumberInput
-              value={style.fontSizeMin}
-              min={1}
-              defaultValue={11}
-              onChange={(v) => updateFieldStyle(field.id, { fontSizeMin: v })}
-            />
-          </div>
-        )}
-
-        <div className="tg-form-row">
-          <label>Font Weight</label>
-          <select
-            className="tg-select"
-            value={style.fontWeight}
-            onChange={(e) =>
-              updateFieldStyle(field.id, { fontWeight: e.target.value as 'normal' | 'bold' })
-            }
-          >
-            <option value="normal">Normal</option>
-            <option value="bold">Bold</option>
-          </select>
-        </div>
-
-        <div className="tg-form-row">
-          <label>Font Style</label>
-          <select
-            className="tg-select"
-            value={style.fontStyle}
-            onChange={(e) =>
-              updateFieldStyle(field.id, { fontStyle: e.target.value as 'normal' | 'italic' })
-            }
-          >
-            <option value="normal">Normal</option>
-            <option value="italic">Italic</option>
-          </select>
-        </div>
-
-        <div className="tg-form-row">
-          <label>Text Decoration</label>
-          <select
-            className="tg-select"
-            // The displayed value collapses fontWeight=bold into the
-            // dropdown so the user has a single "format" picker. When the
-            // user changes the value, we write to fontWeight or
-            // textDecoration accordingly so each store field still stays
-            // single-purposed (no schema change).
-            value={style.fontWeight === 'bold' ? 'bold' : style.textDecoration}
-            onChange={(e) => {
-              const v = e.target.value
-              if (v === 'bold') {
-                updateFieldStyle(field.id, {
-                  fontWeight: 'bold',
-                  textDecoration: 'none',
-                })
-              } else {
-                updateFieldStyle(field.id, {
-                  fontWeight: 'normal',
-                  textDecoration: v as 'none' | 'underline' | 'line-through',
-                })
-              }
-            }}
-          >
-            <option value="none">None</option>
-            <option value="underline">Underline</option>
-            <option value="line-through">Line Through</option>
-            <option value="bold">Bold</option>
-          </select>
-        </div>
-
-        <div className="tg-form-row">
-          <label>Text Color</label>
-          <ColorPickerPopover
-            value={style.color}
-            onChange={(c) => updateFieldStyle(field.id, { color: c })}
-            ariaLabel="Text color"
-          />
-        </div>
-      </div>
+      <TextTypographySection
+        field={field}
+        style={style}
+        isDynamic={isDynamic}
+        allFontFamilies={allFontFamilies}
+        onFontSizeChange={onFontSizeChange}
+        updateFieldStyle={updateFieldStyle}
+      />
 
       {/* Alignment */}
       <div className="tg-panel-section">
@@ -448,30 +264,5 @@ export function TextFieldProps({ field }: Props) {
       </div>
       <HyperlinkSection field={field} />
     </>
-  )
-}
-
-function AlignButtonGroup<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: T[]
-  value: T
-  onChange: (v: T) => void
-}) {
-  return (
-    <div style={{ display: 'flex', gap: 2 }}>
-      {options.map((opt) => (
-        <button
-          key={opt}
-          className={`tg-btn ${value === opt ? 'tg-btn--active' : ''}`}
-          style={{ flex: 1, justifyContent: 'center', fontSize: 11, padding: '4px 6px' }}
-          onClick={() => onChange(opt)}
-        >
-          {opt.charAt(0).toUpperCase() + opt.slice(1)}
-        </button>
-      ))}
-    </div>
   )
 }
