@@ -7,6 +7,7 @@ import { useState, useCallback } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { createDefaultField } from '../../utils/defaults.js'
+import { autoShrinkStaticField } from '../../utils/autoShrinkDispatch.js'
 import type { FieldDefinition } from '@template-goblin/types'
 import type { FieldCreationDraft, SourceInputs } from './FieldCreationPopup.js'
 
@@ -71,7 +72,16 @@ export function useFieldCreationPopup() {
       setTimeout(() => {
         const currentFields = useTemplateStore.getState().fields
         const newField = currentFields[currentFields.length - 1]
-        if (newField) selectField(newField.id)
+        if (newField) {
+          selectField(newField.id)
+          // GH #42 — collapse dead space in the just-created rect when the
+          // content's natural / measured size is smaller than what the user
+          // drew. Image path resolves the dataUrl asynchronously, so the
+          // dispatcher is fire-and-forget.
+          if (newField.source?.mode === 'static') {
+            void autoShrinkStaticField(newField.id)
+          }
+        }
       }, 0)
       setPendingDraft(null)
     },

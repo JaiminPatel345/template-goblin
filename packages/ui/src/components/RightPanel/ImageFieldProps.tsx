@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import type { FieldDefinition, ImageField, ImageFieldStyle } from '@template-goblin/types'
 import { isSafeKey } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
+import { autoShrinkStaticField } from '../../utils/autoShrinkDispatch.js'
 import { SourceModeToggle } from './SourceModeToggle.js'
 import { HyperlinkSection } from './HyperlinkSection.js'
 import { ColorPickerPopover } from '../ColorPickerPopover.js'
@@ -67,6 +68,8 @@ export function ImageFieldProps({ field }: Props) {
       updateField(field.id, {
         source: { mode: 'static', value: { filename } },
       } as Partial<FieldDefinition>)
+      // GH #42 — shrink rect to the new image's natural aspect.
+      void autoShrinkStaticField(field.id)
     }
     reader.readAsArrayBuffer(file)
     e.target.value = ''
