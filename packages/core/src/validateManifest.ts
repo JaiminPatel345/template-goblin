@@ -241,11 +241,38 @@ function checkDuplicateJsonKeys(fields: FieldDefinition[]): void {
  * @throws {TemplateGoblinError} on the first violation encountered.
  */
 export function validateManifest(manifest: TemplateManifest): void {
+  validatePageDimensions(manifest)
   for (const field of manifest.fields) {
     validateField(field)
   }
   checkDuplicateJsonKeys(manifest.fields)
   validateBands(manifest)
+}
+
+/**
+ * Defence-in-depth — reject manifests that carry non-positive / non-finite
+ * page dimensions before they ever reach PDFKit. The UI clamps these at
+ * input time, but a hand-edited `.tgbl` or a malicious upload could still
+ * arrive here with `meta.width = -100` or `pages[0].height = NaN`. PDFKit
+ * silently produces a corrupted PDF (or crashes in a worker) on those, so
+ * we surface them as a clean validation error.
+ */
+function validatePageDimensions(manifest: TemplateManifest): void {
+  const checkDim = (value: unknown, where: string): void => {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) {
+      fail('INVALID_MANIFEST', `${where} must be a finite number ≥ 1 (got ${String(value)})`, {
+        where,
+        value,
+      })
+    }
+  }
+  checkDim(manifest.meta.width, 'meta.width')
+  checkDim(manifest.meta.height, 'meta.height')
+  for (const page of manifest.pages) {
+    // Per-page width / height are optional; when present they must be valid.
+    if (page.width !== undefined) checkDim(page.width, `pages[${page.id}].width`)
+    if (page.height !== undefined) checkDim(page.height, `pages[${page.id}].height`)
+  }
 }
 
 /**

@@ -217,6 +217,17 @@ export interface TemplateState {
 }
 
 /**
+ * Sanitise an externally-supplied page dimension. Keeps any positive finite
+ * value untouched, otherwise floors at 1pt. Negative / zero / NaN / Infinity
+ * page sizes would blank the canvas + crash the PDFKit renderer, so this is
+ * the defence-in-depth clamp called from `setPageSize` and `updatePage`.
+ */
+function clampPageDimension(value: number): number {
+  if (!Number.isFinite(value) || value < 1) return 1
+  return value
+}
+
+/**
  * Default `PageBand` config emitted the first time the user enables a
  * band from the toolbar menu (#61). Divider on by default — the user
  * specifically asked for this in the right-panel rebuild iteration. Height
@@ -490,9 +501,20 @@ export const useTemplateStore = create<TemplateState>()(
           meta: { ...state.meta, ...updates, updatedAt: new Date().toISOString() },
         })),
 
+      // Defence-in-depth clamp: the page-size UI inputs already enforce
+      // `min="1"` at the HTML level, but a programmatic injection via the
+      // dev console (or a stale persisted blob from a future bug) could
+      // still land negative / zero / NaN values here, blanking the canvas
+      // and crashing the renderer downstream. Pin width + height ≥ 1pt.
       setPageSize: (pageSize, width, height) =>
         set((state) => ({
-          meta: { ...state.meta, pageSize, width, height, updatedAt: new Date().toISOString() },
+          meta: {
+            ...state.meta,
+            pageSize,
+            width: clampPageDimension(width),
+            height: clampPageDimension(height),
+            updatedAt: new Date().toISOString(),
+          },
         })),
 
       setBackground: (dataUrl, buffer) =>
@@ -1009,9 +1031,22 @@ export const useTemplateStore = create<TemplateState>()(
         }),
 
       updatePage: (pageId, updates) =>
-        set((state) => ({
-          pages: state.pages.map((p) => (p.id === pageId ? { ...p, ...updates } : p)),
-        })),
+        set((state) => {
+          // Same defence-in-depth clamp as `setPageSize` — per-page width
+          // / height are reached through this mutation too (e.g. the page
+          // size dialog for an individual page). Sanitise both before
+          // letting them land in the store.
+          const sanitised: Partial<PageDefinition> = { ...updates }
+          if (typeof sanitised.width === 'number') {
+            sanitised.width = clampPageDimension(sanitised.width)
+          }
+          if (typeof sanitised.height === 'number') {
+            sanitised.height = clampPageDimension(sanitised.height)
+          }
+          return {
+            pages: state.pages.map((p) => (p.id === pageId ? { ...p, ...sanitised } : p)),
+          }
+        }),
 
       setPageBackground: (pageId, dataUrl, buffer) =>
         set((state) => {
