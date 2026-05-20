@@ -13,6 +13,7 @@ import { type PageContext } from './utils/errorContext.js'
 import { renderBackground } from './render/background.js'
 import { renderField } from './render/field.js'
 import { renderPageBackground, renderPageBackgroundSafely } from './render/page.js'
+import { stampBands } from './render/bands.js'
 
 /** Per-call options for {@link generatePDF}. */
 export type GeneratePDFOptions = PreflightOptions
@@ -146,6 +147,12 @@ export async function generatePDF(
         }
       }
     }
+
+    // #61 — page-wide header / footer / page-number stamp pass. Runs AFTER
+    // body content for every page is buffered so we know the final pageCount
+    // and can iterate via `bufferedPageRange()`/`switchToPage()`. Safe no-op
+    // when manifest has neither header nor footer nor enabled page number.
+    stampBands(doc, manifest, data, fontMap, template, resolvedImages)
 
     doc.end()
     return await pdfReady

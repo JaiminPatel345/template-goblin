@@ -24,6 +24,28 @@ export function wireDragResizeEvents(fc: FabricCanvas) {
     const { showGrid: sg, gridSize: gs } = useUiStore.getState()
     const patch = groupToFieldPatch(g as FabricGroup, gs, sg)
     const store = useTemplateStore.getState()
+
+    // #61 — band fields commit to the band's own `fields` array, with
+    // coordinates translated back to band-local before storing. The
+    // `useBandVisuals` renderer adds bandTop + paddingTop on every paint,
+    // so we subtract them here to keep the round-trip lossless.
+    if (g.__isBandField && g.__bandKind) {
+      const kind = g.__bandKind
+      const band = kind === 'header' ? store.header : store.footer
+      if (!band) return
+      const bandTop = kind === 'header' ? 0 : store.meta.height - band.style.height
+      const localX = patch.x - band.style.paddingLeft
+      const localY = patch.y - bandTop - band.style.paddingTop
+      const updater = kind === 'header' ? store.updateHeaderField : store.updateFooterField
+      updater(g.__fieldId, {
+        x: localX,
+        y: localY,
+        width: patch.width,
+        height: patch.height,
+      })
+      return
+    }
+
     store.moveField(g.__fieldId, patch.x, patch.y)
     store.resizeField(g.__fieldId, patch.width, patch.height)
   })

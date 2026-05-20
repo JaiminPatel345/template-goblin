@@ -48,6 +48,8 @@ export interface UiState {
   showChangeBgDialog: boolean
   /** Whether the font manager dialog is open */
   showFontManager: boolean
+  /** Whether the Page Layout (header / footer / page number) dialog is open (#61). */
+  showPageLayoutDialog: boolean
   /** Pending background image for page size dialog */
   pendingBackground: { dataUrl: string; buffer: ArrayBuffer; width: number; height: number } | null
   /** Context menu state */
@@ -104,6 +106,7 @@ export interface UiState {
   setShowPageSizeDialog: (show: boolean) => void
   setShowChangeBgDialog: (show: boolean) => void
   setShowFontManager: (show: boolean) => void
+  setShowPageLayoutDialog: (show: boolean) => void
   setPendingBackground: (bg: UiState['pendingBackground']) => void
   setContextMenu: (menu: UiState['contextMenu']) => void
   startDrawing: (x: number, y: number) => void
@@ -136,6 +139,7 @@ export const useUiStore = create<UiState>()(
       showPageSizeDialog: false,
       showChangeBgDialog: false,
       showFontManager: false,
+      showPageLayoutDialog: false,
       pendingBackground: null,
       contextMenu: null,
       currentPageId: null,
@@ -182,6 +186,7 @@ export const useUiStore = create<UiState>()(
       setShowPageSizeDialog: (show) => set({ showPageSizeDialog: show }),
       setShowChangeBgDialog: (show) => set({ showChangeBgDialog: show }),
       setShowFontManager: (show) => set({ showFontManager: show }),
+      setShowPageLayoutDialog: (show) => set({ showPageLayoutDialog: show }),
       setPendingBackground: (bg) => set({ pendingBackground: bg }),
       setContextMenu: (menu) => set({ contextMenu: menu }),
       setCurrentPage: (pageId) => set({ currentPageId: pageId }),

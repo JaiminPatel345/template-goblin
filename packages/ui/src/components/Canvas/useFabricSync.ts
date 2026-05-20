@@ -25,6 +25,8 @@ import {
   type ImageResolver,
 } from './fabricUtils.js'
 import { usePageBoundsEnforcement } from './usePageBoundsEnforcement.js'
+import { useBandVisuals } from './useBandVisuals.js'
+import { useTemplateStore } from '../../store/templateStore.js'
 
 // Re-export image hooks so existing `import { useBackgroundImage, ... } from './useFabricSync'`
 // callers don't have to update their imports immediately.
@@ -99,7 +101,11 @@ export function useFabricSync(deps: SyncDeps) {
 
     const existing = new Map<string, FabricGroup>()
     fc.getObjects().forEach((o) => {
-      if (o.__fieldId && !o.__isGrid && !o.__isPageBounds) {
+      // #61 — band visuals (rectangles + band-field groups) are managed by
+      // `useBandVisuals`, not this reconciler. Skip them so the body-field
+      // reconciler doesn't strip band-field groups whose ids aren't in
+      // `pageFields`.
+      if (o.__fieldId && !o.__isGrid && !o.__isPageBounds && !o.__isBandField) {
         existing.set(o.__fieldId, o as FabricGroup)
       }
     })
@@ -264,6 +270,34 @@ export function useFabricSync(deps: SyncDeps) {
     }
   }, [fabricRef, fabricInstance, isPlacing])
 
-  // ═══════════════ Page bounds: clip + outline + clamp (#46/#47) ═════════
-  usePageBoundsEnforcement({ fabricRef, fabricInstance, meta, pageFillColor: currentBgColor })
+  // ═══════════════ Page bounds: clip + outline + clamp (#46/#47, #61) ════
+  // Body-zone clamp accounts for header/footer band heights (#61). Reading
+  // header / footer / pageNumber directly from the store via selectors so
+  // the effect re-runs when the user changes a band's height.
+  const header = useTemplateStore((s) => s.header)
+  const footer = useTemplateStore((s) => s.footer)
+  const pageNumber = useTemplateStore((s) => s.pageNumber)
+  const pages = useTemplateStore((s) => s.pages)
+  const currentPageIndex = pages.findIndex((p) => p.id === currentPageId)
+  const safeCurrentPageIndex = currentPageIndex >= 0 ? currentPageIndex : 0
+
+  usePageBoundsEnforcement({
+    fabricRef,
+    fabricInstance,
+    meta,
+    pageFillColor: currentBgColor,
+    headerHeight: header?.style.height ?? 0,
+    footerHeight: footer?.style.height ?? 0,
+  })
+
+  // ═══════════════ Band visuals: header / footer / page number (#61) ══════
+  useBandVisuals({
+    fabricRef,
+    fabricInstance,
+    meta,
+    header,
+    footer,
+    pageNumber,
+    currentPageIndex: safeCurrentPageIndex,
+  })
 }

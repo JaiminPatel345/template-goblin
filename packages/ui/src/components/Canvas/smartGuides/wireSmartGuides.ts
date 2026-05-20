@@ -47,6 +47,15 @@ function readPageMeta(): PageMeta {
   return getPageSize(page, store.meta)
 }
 
+/** Read the current header/footer band heights from the store (#61). */
+function readBandHeights(): { header: number; footer: number } {
+  const s = useTemplateStore.getState()
+  return {
+    header: s.header?.style.height ?? 0,
+    footer: s.footer?.style.height ?? 0,
+  }
+}
+
 /** Set of `FabricObject` filtered to the rects we want to align against. */
 function collectOtherRects(fc: FabricCanvas, active: FabricObject): Rect[] {
   // Active selections expose members via `getObjects()` so we exclude all of them.
@@ -141,9 +150,11 @@ export function wireSmartGuides(fc: FabricCanvas): void {
     const gaps = detectEqualSpacing(snappedRect, others, SPACING_MATCH_TOLERANCE_PT)
     if (gaps.length > 0) r.drawSpacing(gaps)
 
-    // Re-clamp after our snap in case we pushed the object past the page edge.
+    // Re-clamp after our snap in case we pushed the object past the page
+    // edge OR into a header/footer band (#61). Reading bandHeights from the
+    // store on every tick is fine — these are tiny scalar lookups.
     obj.setCoords()
-    clampToPage(obj, meta.width, meta.height)
+    clampToPage(obj, meta.width, meta.height, readBandHeights())
     r.requestRender()
   })
 

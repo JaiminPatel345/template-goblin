@@ -20,7 +20,9 @@ import type {
   FontDefinition,
   GroupDefinition,
   LoadedTemplate,
+  PageBand,
   PageDefinition,
+  PageNumberConfig,
   TemplateManifest,
   TemplateMeta,
 } from '@template-goblin/types'
@@ -36,6 +38,12 @@ export interface TemplateStoreSnapshot {
   fontBuffers: Map<string, ArrayBuffer>
   placeholderBuffers: Map<string, ArrayBuffer>
   staticImageBuffers: Map<string, ArrayBuffer>
+  // #61 — page-wide header / footer / page-number config; forwarded to the
+  // renderer so the preview / generated PDF show the same bands the editor
+  // canvas draws.
+  header?: PageBand
+  footer?: PageBand
+  pageNumber?: PageNumberConfig
 }
 
 /**
@@ -49,6 +57,12 @@ export function templateToLoaded(state: TemplateStoreSnapshot): LoadedTemplate {
   // make `validateManifest` reject the template at preview time.
   const fields = state.fields.filter((f) => !!f.source)
 
+  // #61 — drop band fields that lost their `source` for the same reason
+  // body fields do; otherwise the renderer's validateManifest would reject
+  // the whole template.
+  const sanitizeBand = (band: PageBand | undefined): PageBand | undefined =>
+    band ? { ...band, fields: band.fields.filter((f) => !!f.source) } : band
+
   const manifest: TemplateManifest = {
     version: '1.0',
     meta: state.meta,
@@ -56,6 +70,9 @@ export function templateToLoaded(state: TemplateStoreSnapshot): LoadedTemplate {
     groups: state.groups,
     pages: state.pages,
     fields,
+    header: sanitizeBand(state.header),
+    footer: sanitizeBand(state.footer),
+    pageNumber: state.pageNumber,
   }
 
   const backgroundImage = state.backgroundBuffer ? toBuffer(state.backgroundBuffer) : null

@@ -373,6 +373,32 @@ export function Toolbar() {
           </svg>
           Table
         </button>
+        {/* #61 — Insert-style entry-point for the page-wide header / footer
+            and page-number settings. Mirrors Google Docs / Word's
+            Insert → Header & Footer pattern. Keeps the per-field property
+            editor in the sidebar free of template-wide concerns. */}
+        <button
+          className="tg-btn"
+          onClick={() => useUiStore.getState().setShowPageLayoutDialog(true)}
+          disabled={locked || !hasBackground}
+          title="Page layout (header, footer, page number)"
+          data-testid="toolbar-page-layout"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="1" />
+            <line x1="3" y1="8" x2="21" y2="8" />
+            <line x1="3" y1="16" x2="21" y2="16" />
+          </svg>
+          Page Layout
+        </button>
       </div>
 
       <div className="tg-toolbar-separator" />

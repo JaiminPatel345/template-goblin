@@ -94,6 +94,83 @@ describe('clampToPage', () => {
     expect(obj._state().left).toBe(595 - 100)
     expect(obj._state().top).toBe(842 - 100)
   })
+
+  // #61 — body-zone clamp: header/footer bands reserve Y-space and body
+  // fields cannot intrude.
+  it('clamps a body field out of the header band Y-range', () => {
+    const obj = fakeFabricObject({ left: 50, top: 10, width: 100, height: 30 })
+    const moved = clampToPage(obj as never, 595, 842, { header: 60 })
+    expect(moved).toBe(true)
+    expect(obj._state().top).toBe(60) // shifted down to the header's bottom edge
+  })
+
+  it('clamps a body field out of the footer band Y-range', () => {
+    // Footer = 50pt; body must end at 842 - 50 = 792. Field bottom = 830 → shift.
+    const obj = fakeFabricObject({ left: 50, top: 780, width: 100, height: 50 })
+    const moved = clampToPage(obj as never, 595, 842, { footer: 50 })
+    expect(moved).toBe(true)
+    expect(obj._state().top).toBe(842 - 50 - 50) // top = 742
+  })
+
+  it('respects both bands simultaneously', () => {
+    const obj = fakeFabricObject({ left: 50, top: 0, width: 100, height: 30 })
+    const moved = clampToPage(obj as never, 595, 842, { header: 40, footer: 40 })
+    expect(moved).toBe(true)
+    expect(obj._state().top).toBe(40)
+  })
+
+  it('zero band heights collapse to the original page-rect clamp', () => {
+    const obj = fakeFabricObject({ left: 50, top: 50, width: 100, height: 100 })
+    const moved = clampToPage(obj as never, 595, 842, { header: 0, footer: 0 })
+    expect(moved).toBe(false)
+  })
+
+  // #61 follow-up — a band-tagged field is clamped INSIDE its band, not
+  // pushed out of it. The user's draw-to-create flow tags new fields with
+  // __bandKind based on where the rect was drawn.
+  it('keeps a header-band field inside the header band on drag', () => {
+    const obj = fakeFabricObject({ left: 50, top: 10, width: 100, height: 20 })
+    ;(obj as unknown as { __bandKind: 'header' }).__bandKind = 'header'
+    // Header height = 60. The field is already inside [0, 60] → no clamp.
+    const moved = clampToPage(obj as never, 595, 842, { header: 60, footer: 30 })
+    expect(moved).toBe(false)
+    expect(obj._state().top).toBe(10)
+  })
+
+  it('pushes a header-band field back DOWN if dragged above page top', () => {
+    const obj = fakeFabricObject({ left: 50, top: -5, width: 100, height: 20 })
+    ;(obj as unknown as { __bandKind: 'header' }).__bandKind = 'header'
+    const moved = clampToPage(obj as never, 595, 842, { header: 60, footer: 30 })
+    expect(moved).toBe(true)
+    expect(obj._state().top).toBe(0)
+  })
+
+  it('pushes a header-band field UP if dragged past the header bottom edge', () => {
+    // Header height 60, field height 20 → max top = 40.
+    const obj = fakeFabricObject({ left: 50, top: 100, width: 100, height: 20 })
+    ;(obj as unknown as { __bandKind: 'header' }).__bandKind = 'header'
+    const moved = clampToPage(obj as never, 595, 842, { header: 60, footer: 30 })
+    expect(moved).toBe(true)
+    expect(obj._state().top).toBe(40)
+  })
+
+  it('keeps a footer-band field inside the footer band on drag', () => {
+    // Footer height = 40; band Y = [802, 842]. Field at top=812, height=20 → fits.
+    const obj = fakeFabricObject({ left: 50, top: 812, width: 100, height: 20 })
+    ;(obj as unknown as { __bandKind: 'footer' }).__bandKind = 'footer'
+    const moved = clampToPage(obj as never, 595, 842, { header: 60, footer: 40 })
+    expect(moved).toBe(false)
+    expect(obj._state().top).toBe(812)
+  })
+
+  it('pushes a footer-band field DOWN if dragged above the footer top edge', () => {
+    // Footer band top = 842 - 40 = 802. Field at top=700 → must shift down.
+    const obj = fakeFabricObject({ left: 50, top: 700, width: 100, height: 20 })
+    ;(obj as unknown as { __bandKind: 'footer' }).__bandKind = 'footer'
+    const moved = clampToPage(obj as never, 595, 842, { header: 60, footer: 40 })
+    expect(moved).toBe(true)
+    expect(obj._state().top).toBe(802)
+  })
 })
 
 describe('buildPageBoundsRect — page colour fill', () => {

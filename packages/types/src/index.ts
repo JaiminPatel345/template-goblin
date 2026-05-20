@@ -30,7 +30,15 @@ export type {
   TextDecoration,
   OverflowMode,
   ImageFit,
+  PageBand,
+  PageBandStyle,
+  PageBandDivider,
+  PageNumberConfig,
+  PageNumberPlacement,
+  PageNumberAlign,
+  PageNumberNumeralStyle,
 } from './template.js'
+export { toRoman, formatPageNumber, defaultPageNumberConfig } from './pageNumber.js'
 export type {
   InputJSON,
   TextInputs,

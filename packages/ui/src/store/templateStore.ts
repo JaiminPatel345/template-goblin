@@ -11,6 +11,9 @@ import type {
   ImageFieldStyle,
   TableFieldStyle,
   PageSize,
+  PageBand,
+  PageBandStyle,
+  PageNumberConfig,
 } from '@template-goblin/types'
 
 /** Snapshot of the template state for undo/redo */
@@ -50,6 +53,13 @@ export interface TemplateState {
   staticImageBuffers: Map<string, ArrayBuffer>
   /** Data-URL mirror of staticImageBuffers for canvas preview. */
   staticImageDataUrls: Map<string, string>
+
+  /** #61 — Optional page-wide header. */
+  header?: PageBand
+  /** #61 — Optional page-wide footer. */
+  footer?: PageBand
+  /** #61 — Optional page-number stamp configuration. */
+  pageNumber?: PageNumberConfig
 
   /** Undo/redo history */
   history: HistorySnapshot[]
@@ -96,6 +106,31 @@ export interface TemplateState {
   removeFont: (id: string) => void
 
   addPlaceholder: (filename: string, buffer: ArrayBuffer) => void
+
+  /** #61 — Replace or clear the page-wide header. */
+  setHeader: (header: PageBand | undefined) => void
+  /** #61 — Patch the header's style (height / padding / divider / bg). */
+  setHeaderStyle: (patch: Partial<PageBandStyle>) => void
+  /** #61 — Add a band-local field to the header. */
+  addHeaderField: (field: FieldDefinition) => void
+  /** #61 — Update one of the header's band-local fields. */
+  updateHeaderField: (id: string, updates: Partial<FieldDefinition>) => void
+  /** #61 — Remove a band-local field from the header. */
+  removeHeaderField: (id: string) => void
+  /** #61 — Replace or clear the page-wide footer. */
+  setFooter: (footer: PageBand | undefined) => void
+  /** #61 — Patch the footer's style (height / padding / divider / bg). */
+  setFooterStyle: (patch: Partial<PageBandStyle>) => void
+  /** #61 — Add a band-local field to the footer. */
+  addFooterField: (field: FieldDefinition) => void
+  /** #61 — Update one of the footer's band-local fields. */
+  updateFooterField: (id: string, updates: Partial<FieldDefinition>) => void
+  /** #61 — Remove a band-local field from the footer. */
+  removeFooterField: (id: string) => void
+  /** #61 — Replace or clear the page-number config. */
+  setPageNumber: (config: PageNumberConfig | undefined) => void
+  /** #61 — Patch the page-number config (enabled / placement / etc.). */
+  setPageNumberConfig: (patch: Partial<PageNumberConfig>) => void
 
   /**
    * Register a static image (baked into the template) for a static image
@@ -156,6 +191,12 @@ export interface TemplateState {
     pageBackgroundBuffers?: Map<string, ArrayBuffer>,
     staticImageBuffers?: Map<string, ArrayBuffer>,
     staticImageDataUrls?: Map<string, string>,
+    // #61 — restored from `manifest.header` / `manifest.footer` /
+    // `manifest.pageNumber`. All optional; legacy templates leave them
+    // undefined and the editor behaves exactly as before.
+    header?: PageBand,
+    footer?: PageBand,
+    pageNumber?: PageNumberConfig,
   ) => void
 }
 
@@ -417,6 +458,131 @@ export const useTemplateStore = create<TemplateState>()(
           meta: { ...state.meta, locked, updatedAt: new Date().toISOString() },
         })),
 
+      // ── #61: header / footer / page number ─────────────────────────────
+      setHeader: (header) =>
+        set((state) => ({
+          header,
+          meta: { ...state.meta, updatedAt: new Date().toISOString() },
+        })),
+
+      setHeaderStyle: (patch) =>
+        set((state) =>
+          state.header
+            ? {
+                header: { ...state.header, style: { ...state.header.style, ...patch } },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      addHeaderField: (field) =>
+        set((state) =>
+          state.header
+            ? {
+                header: { ...state.header, fields: [...state.header.fields, field] },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      updateHeaderField: (id, updates) =>
+        set((state) =>
+          state.header
+            ? {
+                header: {
+                  ...state.header,
+                  fields: state.header.fields.map((f) =>
+                    f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+                  ),
+                },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      removeHeaderField: (id) =>
+        set((state) =>
+          state.header
+            ? {
+                header: {
+                  ...state.header,
+                  fields: state.header.fields.filter((f) => f.id !== id),
+                },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      setFooter: (footer) =>
+        set((state) => ({
+          footer,
+          meta: { ...state.meta, updatedAt: new Date().toISOString() },
+        })),
+
+      setFooterStyle: (patch) =>
+        set((state) =>
+          state.footer
+            ? {
+                footer: { ...state.footer, style: { ...state.footer.style, ...patch } },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      addFooterField: (field) =>
+        set((state) =>
+          state.footer
+            ? {
+                footer: { ...state.footer, fields: [...state.footer.fields, field] },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      updateFooterField: (id, updates) =>
+        set((state) =>
+          state.footer
+            ? {
+                footer: {
+                  ...state.footer,
+                  fields: state.footer.fields.map((f) =>
+                    f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+                  ),
+                },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      removeFooterField: (id) =>
+        set((state) =>
+          state.footer
+            ? {
+                footer: {
+                  ...state.footer,
+                  fields: state.footer.fields.filter((f) => f.id !== id),
+                },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      setPageNumber: (config) =>
+        set((state) => ({
+          pageNumber: config,
+          meta: { ...state.meta, updatedAt: new Date().toISOString() },
+        })),
+
+      setPageNumberConfig: (patch) =>
+        set((state) =>
+          state.pageNumber
+            ? {
+                pageNumber: { ...state.pageNumber, ...patch },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
       addField: (field) =>
         set((state) => {
           const newField = { ...field, id: field.id || generateId() }
@@ -428,6 +594,30 @@ export const useTemplateStore = create<TemplateState>()(
 
       updateField: (id, updates) =>
         set((state) => {
+          // #61 — route to whichever pool owns this id (body / header / footer).
+          // Field-props components (TextFieldProps etc.) only know `updateField`;
+          // making the router transparent means they keep working for band fields
+          // without per-callsite knowledge of which pool the field lives in.
+          if (state.header?.fields.some((f) => f.id === id)) {
+            return {
+              header: {
+                ...state.header,
+                fields: state.header.fields.map((f) =>
+                  f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+                ),
+              },
+            }
+          }
+          if (state.footer?.fields.some((f) => f.id === id)) {
+            return {
+              footer: {
+                ...state.footer,
+                fields: state.footer.fields.map((f) =>
+                  f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+                ),
+              },
+            }
+          }
           // `{ ...f, ...updates }` widens the discriminated union — cast back to
           // `FieldDefinition` once the shape is known to match (`type` stays put,
           // style stays wired to its field type). BUG-005 (NIT, Option B): we do
@@ -444,6 +634,31 @@ export const useTemplateStore = create<TemplateState>()(
 
       updateFieldStyle: (id, updates) =>
         set((state) => {
+          // #61 — route through the band pool when the field lives there.
+          if (state.header?.fields.some((f) => f.id === id)) {
+            return {
+              header: {
+                ...state.header,
+                fields: state.header.fields.map((f) =>
+                  f.id === id
+                    ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition)
+                    : f,
+                ),
+              },
+            }
+          }
+          if (state.footer?.fields.some((f) => f.id === id)) {
+            return {
+              footer: {
+                ...state.footer,
+                fields: state.footer.fields.map((f) =>
+                  f.id === id
+                    ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition)
+                    : f,
+                ),
+              },
+            }
+          }
           const fields = state.fields.map((f) =>
             f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
           )
@@ -484,6 +699,23 @@ export const useTemplateStore = create<TemplateState>()(
 
       removeField: (id) =>
         set((state) => {
+          // #61 — band-aware removal.
+          if (state.header?.fields.some((f) => f.id === id)) {
+            return {
+              header: {
+                ...state.header,
+                fields: state.header.fields.filter((f) => f.id !== id),
+              },
+            }
+          }
+          if (state.footer?.fields.some((f) => f.id === id)) {
+            return {
+              footer: {
+                ...state.footer,
+                fields: state.footer.fields.filter((f) => f.id !== id),
+              },
+            }
+          }
           const fields = state.fields.filter((f) => f.id !== id)
           return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
         }),
@@ -805,6 +1037,9 @@ export const useTemplateStore = create<TemplateState>()(
         pageBackgroundBuffers,
         staticImageBuffers,
         staticImageDataUrls,
+        header,
+        footer,
+        pageNumber,
       ) =>
         set({
           meta,
@@ -820,6 +1055,13 @@ export const useTemplateStore = create<TemplateState>()(
           placeholderBuffers,
           staticImageBuffers: staticImageBuffers ?? new Map(),
           staticImageDataUrls: staticImageDataUrls ?? new Map(),
+          // #61 — restore band + page-number config from the manifest.
+          // Explicitly resetting to `undefined` when omitted so opening a
+          // pre-#61 template wipes any band config left over from a
+          // previous open of a band-using template.
+          header,
+          footer,
+          pageNumber,
           history: [createSnapshot({ fields, groups })],
           historyIndex: 0,
         }),
@@ -842,6 +1084,11 @@ export const useTemplateStore = create<TemplateState>()(
         placeholderBuffers: state.placeholderBuffers,
         staticImageBuffers: state.staticImageBuffers,
         staticImageDataUrls: state.staticImageDataUrls,
+        // #61 — bands + page number. Optional; persists only when present
+        // so legacy templates restore exactly as before.
+        header: state.header,
+        footer: state.footer,
+        pageNumber: state.pageNumber,
       }),
       // Zustand invokes `migrate` when the stored version differs from the
       // current `version`. Pre-Phase-1 entries were written with implicit

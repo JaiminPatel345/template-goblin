@@ -68,6 +68,11 @@ export async function saveTemplate(): Promise<void> {
     fontBuffers,
     placeholderBuffers,
     staticImageBuffers,
+    // #61 — page-wide header / footer / page-number config. Optional; only
+    // present in the saved manifest when the user has enabled them.
+    header,
+    footer,
+    pageNumber,
   } = state
 
   // Defence in depth: filter out fields missing `source` before serialising.
@@ -81,6 +86,22 @@ export async function saveTemplate(): Promise<void> {
     return true
   })
 
+  // Apply the same source-missing guard to band fields so a malformed band
+  // can't poison the saved manifest either (#61).
+  const sanitizeBand = (band: typeof header): typeof header =>
+    band
+      ? {
+          ...band,
+          fields: band.fields.filter((f) => {
+            if (!f.source) {
+              console.warn('[saveTemplate] dropping band field with missing source:', f.id)
+              return false
+            }
+            return true
+          }),
+        }
+      : band
+
   const manifest: TemplateManifest = {
     version: '1.0',
     meta: { ...meta, updatedAt: new Date().toISOString() },
@@ -88,6 +109,9 @@ export async function saveTemplate(): Promise<void> {
     groups,
     pages,
     fields: sanitizedFields,
+    header: sanitizeBand(header),
+    footer: sanitizeBand(footer),
+    pageNumber,
   }
 
   const zip = new JSZip()
@@ -341,6 +365,12 @@ export async function openTemplate(file: File): Promise<void> {
     pageBackgroundBuffers,
     staticImageBuffers,
     staticImageDataUrls,
+    // #61 — restore bands + page-number config on open. Pre-#61 manifests
+    // simply have these undefined; the store accepts that and leaves the
+    // existing legacy behaviour untouched.
+    manifest.header,
+    manifest.footer,
+    manifest.pageNumber,
   )
 }
 
