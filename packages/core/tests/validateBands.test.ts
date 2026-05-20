@@ -22,6 +22,8 @@ describe('validateManifest — bands (gated)', () => {
     const m = bareManifest({
       fields: [dynText('overlap', 'k', false, { y: 10, height: 30 })],
       header: {
+        enabled: true,
+
         style: {
           height: 50,
           backgroundColor: null,
@@ -45,6 +47,8 @@ describe('validateManifest — bands (gated)', () => {
     const m = bareManifest({
       fields: [dynText('overlap', 'k', false, { y: meta.height - 40, height: 30 })],
       footer: {
+        enabled: true,
+
         style: {
           height: 50,
           backgroundColor: null,
@@ -109,6 +113,8 @@ describe('validateManifest — bands (gated)', () => {
     const m = bareManifest({
       fields: [],
       header: {
+        enabled: true,
+
         style: {
           height: 80,
           backgroundColor: null,

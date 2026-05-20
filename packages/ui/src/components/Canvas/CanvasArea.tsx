@@ -28,6 +28,41 @@ import { useCanvasKeyboard } from './useCanvasKeyboard.js'
 import { usePageHandlers } from './usePageHandlers.js'
 import { useCurrentBackground } from './useCurrentBackground.js'
 import { useEffectivePreviewData } from './useEffectivePreviewData.js'
+import type { FieldDefinition, PageDefinition } from '@template-goblin/types'
+
+/**
+ * Translate a band-local field into a page-coord field copy the reconciler
+ * can hand to `createFieldGroup` / `applyFieldToGroup` (#61). The original
+ * store entry keeps its band-local x/y; the translated copy is renderer-only.
+ */
+function translateForCanvas(
+  f: FieldDefinition,
+  offset: { x: number; y: number },
+  kind: 'header' | 'footer',
+): FieldDefinition & { __bandKind: 'header' | 'footer' } {
+  return {
+    ...f,
+    x: f.x + offset.x,
+    y: f.y + offset.y,
+    __bandKind: kind,
+  } as FieldDefinition & { __bandKind: 'header' | 'footer' }
+}
+
+/**
+ * Does this band render on the page the user is currently viewing? We
+ * mirror the renderer's rule — only page index 0 needs the
+ * `applyToFirstPage` check; every later page always renders bands.
+ */
+function currentPageIndexIsZeroOrApplied(
+  currentPageId: string | null,
+  pages: PageDefinition[],
+  applyToFirstPage: boolean,
+): boolean {
+  const currentIndex = pages.findIndex((p) => p.id === currentPageId)
+  const safeIndex = currentIndex >= 0 ? currentIndex : 0
+  if (safeIndex === 0 && !applyToFirstPage) return false
+  return true
+}
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -87,7 +122,7 @@ export function CanvasArea() {
   // Other pages match strictly on id.
   const page1Id = pages.find((p) => p.index === 0)?.id ?? null
   const isOnPage1 = currentPageId === null || currentPageId === page1Id
-  const pageFields = fields.filter((f) => {
+  const bodyFields = fields.filter((f) => {
     if (isOnPage1) {
       return f.pageId === null || f.pageId === undefined || f.pageId === page1Id
     }
@@ -115,6 +150,45 @@ export function CanvasArea() {
   const currentPage = pages.find((p) => p.id === currentPageId) ?? null
   const fallbackPage = pages.find((p) => p.index === 0) ?? null
   const pageBounds = getPageSize(currentPage ?? fallbackPage, meta)
+
+  // #61 — band fields flow through the same `useFabricSync` reconciler as
+  // body fields so they keep their Fabric identity across store updates.
+  // Each band field is translated into page coords (band-local → page) and
+  // tagged with `__bandKind`; the reconciler stamps that marker onto the
+  // resulting Fabric group so `clampToPage` and the drag-commit path route
+  // band fields to the right zone / store.
+  const header = useTemplateStore((s) => s.header)
+  const footer = useTemplateStore((s) => s.footer)
+  // #61 follow-up — only render band fields when the band is enabled.
+  // A disabled band keeps its config (so re-show restores it) but its
+  // fields will have already been migrated to body on hide, so they don't
+  // appear here either way.
+  const headerActive = !!header?.enabled
+  const footerActive = !!footer?.enabled
+  const headerOffset =
+    headerActive && header ? { x: header.style.paddingLeft, y: header.style.paddingTop } : null
+  const footerOffset =
+    footerActive && footer
+      ? {
+          x: footer.style.paddingLeft,
+          y: pageBounds.height - footer.style.height + footer.style.paddingTop,
+        }
+      : null
+  const headerPageFields =
+    headerActive &&
+    header &&
+    headerOffset &&
+    currentPageIndexIsZeroOrApplied(currentPageId, pages, header.applyToFirstPage)
+      ? header.fields.map((f) => translateForCanvas(f, headerOffset, 'header'))
+      : []
+  const footerPageFields =
+    footerActive &&
+    footer &&
+    footerOffset &&
+    currentPageIndexIsZeroOrApplied(currentPageId, pages, footer.applyToFirstPage)
+      ? footer.fields.map((f) => translateForCanvas(f, footerOffset, 'footer'))
+      : []
+  const pageFields = [...bodyFields, ...headerPageFields, ...footerPageFields]
 
   // ── Sync effects ───────────────────────────────────────────────────────
   useFabricSync({

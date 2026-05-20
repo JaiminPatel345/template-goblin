@@ -324,8 +324,17 @@ export interface PageBandStyle {
  * (single source of truth — never duplicated per page). Fields inside a
  * band carry x/y in BAND-LOCAL coordinates (origin = band's top-left), not
  * page coordinates.
+ *
+ * `enabled` flips visibility without losing the band's style — toggling
+ * "Hide header" in the editor must remember height / padding / divider /
+ * applyToFirstPage so re-showing the band restores exactly the same look.
+ * Band fields are migrated to the body field array on hide and stay there
+ * (they don't pop back into the band on re-show); see the store's
+ * `setHeaderEnabled` / `setFooterEnabled` mutations.
  */
 export interface PageBand {
+  /** When false, the band is hidden but its config is preserved. */
+  enabled: boolean
   style: PageBandStyle
   /** Fields rendered inside the band; x/y are band-local. Text + image only. */
   fields: FieldDefinition[]

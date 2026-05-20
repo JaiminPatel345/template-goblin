@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import type { TemplateManifest, PageDefinition } from '@template-goblin/types'
+import type { TemplateManifest, PageDefinition, PageBand } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
 import { validateManifest } from 'template-goblin/validateManifest'
 import { useTemplateStore } from '../store/templateStore.js'
@@ -367,11 +367,26 @@ export async function openTemplate(file: File): Promise<void> {
     staticImageDataUrls,
     // #61 — restore bands + page-number config on open. Pre-#61 manifests
     // simply have these undefined; the store accepts that and leaves the
-    // existing legacy behaviour untouched.
-    manifest.header,
-    manifest.footer,
+    // existing legacy behaviour untouched. Bands written before the
+    // hide-preserves-config follow-up may lack the `enabled` flag — we
+    // default missing values to `true` so opening an old archive shows
+    // the band exactly as it was saved.
+    backfillEnabledFlag(manifest.header),
+    backfillEnabledFlag(manifest.footer),
     manifest.pageNumber,
   )
+}
+
+/**
+ * Default the `enabled` flag to `true` on bands written before the
+ * hide-preserves-config follow-up landed. Old archives serialised the
+ * band without that key, so we'd otherwise treat them as hidden after
+ * the schema change.
+ */
+function backfillEnabledFlag(band: PageBand | undefined): PageBand | undefined {
+  if (!band) return band
+  if (typeof band.enabled === 'boolean') return band
+  return { ...band, enabled: true }
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {

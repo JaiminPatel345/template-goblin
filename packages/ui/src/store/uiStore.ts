@@ -48,8 +48,27 @@ export interface UiState {
   showChangeBgDialog: boolean
   /** Whether the font manager dialog is open */
   showFontManager: boolean
-  /** Whether the Page Layout (header / footer / page number) dialog is open (#61). */
-  showPageLayoutDialog: boolean
+  /**
+   * Anchored Page Layout menu state (#61, follow-up).
+   *
+   * Mirrors the Word / Google Docs Insert → Header & Footer pattern:
+   *  - `closed` — menu hidden.
+   *  - `main` — the toolbar-anchored dropdown is showing the top-level
+   *    items (Header / Footer / Page Number).
+   *  - `flyout` — a sub-menu pane is open for one of the three targets;
+   *    the top-level menu stays visible alongside it.
+   */
+  pageLayoutMenu:
+    | { kind: 'closed' }
+    | { kind: 'main' }
+    | { kind: 'flyout'; target: 'header' | 'footer' | 'pageNumber' }
+  /**
+   * Which band's full settings modal is currently open. `null` when the
+   * modal is closed. Independent of `pageLayoutMenu` — opening the modal
+   * closes the menu, but the modal then lives until the user dismisses
+   * it.
+   */
+  pageLayoutSettings: 'header' | 'footer' | 'pageNumber' | null
   /** Pending background image for page size dialog */
   pendingBackground: { dataUrl: string; buffer: ArrayBuffer; width: number; height: number } | null
   /** Context menu state */
@@ -106,7 +125,15 @@ export interface UiState {
   setShowPageSizeDialog: (show: boolean) => void
   setShowChangeBgDialog: (show: boolean) => void
   setShowFontManager: (show: boolean) => void
-  setShowPageLayoutDialog: (show: boolean) => void
+  /** Update the Page Layout menu state (toolbar-anchored dropdown). */
+  setPageLayoutMenu: (
+    next:
+      | { kind: 'closed' }
+      | { kind: 'main' }
+      | { kind: 'flyout'; target: 'header' | 'footer' | 'pageNumber' },
+  ) => void
+  /** Open / close the full settings modal for one band or page number. */
+  setPageLayoutSettings: (target: 'header' | 'footer' | 'pageNumber' | null) => void
   setPendingBackground: (bg: UiState['pendingBackground']) => void
   setContextMenu: (menu: UiState['contextMenu']) => void
   startDrawing: (x: number, y: number) => void
@@ -139,7 +166,8 @@ export const useUiStore = create<UiState>()(
       showPageSizeDialog: false,
       showChangeBgDialog: false,
       showFontManager: false,
-      showPageLayoutDialog: false,
+      pageLayoutMenu: { kind: 'closed' },
+      pageLayoutSettings: null,
       pendingBackground: null,
       contextMenu: null,
       currentPageId: null,
@@ -186,7 +214,14 @@ export const useUiStore = create<UiState>()(
       setShowPageSizeDialog: (show) => set({ showPageSizeDialog: show }),
       setShowChangeBgDialog: (show) => set({ showChangeBgDialog: show }),
       setShowFontManager: (show) => set({ showFontManager: show }),
-      setShowPageLayoutDialog: (show) => set({ showPageLayoutDialog: show }),
+      setPageLayoutMenu: (next) => set({ pageLayoutMenu: next }),
+      setPageLayoutSettings: (target) =>
+        set((state) => ({
+          // Opening a settings modal also closes the menu — the modal owns
+          // focus from that point on.
+          pageLayoutMenu: target ? { kind: 'closed' } : state.pageLayoutMenu,
+          pageLayoutSettings: target,
+        })),
       setPendingBackground: (bg) => set({ pendingBackground: bg }),
       setContextMenu: (menu) => set({ contextMenu: menu }),
       setCurrentPage: (pageId) => set({ currentPageId: pageId }),

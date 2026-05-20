@@ -135,6 +135,8 @@ async function seedBandTemplate(page: Page, opts: SeedOptions = {}): Promise<voi
       staticImageBuffers: [],
       staticImageDataUrls: [],
       header: {
+        enabled: true,
+
         style: {
           height: 40,
           backgroundColor: '#f5f5f5',
@@ -148,6 +150,8 @@ async function seedBandTemplate(page: Page, opts: SeedOptions = {}): Promise<voi
         applyToFirstPage: true,
       },
       footer: {
+        enabled: true,
+
         style: {
           height: 30,
           backgroundColor: null,

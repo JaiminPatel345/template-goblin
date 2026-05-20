@@ -324,17 +324,17 @@ function enforceBodyOutsideBand(manifest: TemplateManifest, kind: 'header' | 'fo
 function validatePageNumberPlacement(manifest: TemplateManifest): void {
   const cfg = manifest.pageNumber
   if (!cfg?.enabled) return
-  if (cfg.placement === 'header' && !manifest.header) {
+  if (cfg.placement === 'header' && !manifest.header?.enabled) {
     fail(
       'PAGE_NUMBER_PLACEMENT_INVALID',
-      `pageNumber.placement = 'header' but manifest has no header band`,
+      `pageNumber.placement = 'header' but manifest has no enabled header band`,
       { placement: cfg.placement },
     )
   }
-  if (cfg.placement === 'footer' && !manifest.footer) {
+  if (cfg.placement === 'footer' && !manifest.footer?.enabled) {
     fail(
       'PAGE_NUMBER_PLACEMENT_INVALID',
-      `pageNumber.placement = 'footer' but manifest has no footer band`,
+      `pageNumber.placement = 'footer' but manifest has no enabled footer band`,
       { placement: cfg.placement },
     )
   }

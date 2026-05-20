@@ -109,6 +109,19 @@ export interface TemplateState {
 
   /** #61 — Replace or clear the page-wide header. */
   setHeader: (header: PageBand | undefined) => void
+  /**
+   * #61 (follow-up) — show / hide the header while preserving its config.
+   *  - Disabling migrates any band fields into `fields` with page-absolute
+   *    coords so the user can keep editing them as normal body elements.
+   *  - Enabling flips the visibility flag back on; the band's style /
+   *    padding / divider come back exactly as the user left them.
+   *  - Calling on a never-configured store creates the default band only
+   *    when `enabled === true`.
+   * Atomic: the body-fields append and the band-fields clear happen in one
+   * `set` so the reconciler never sees the same id in both pools (the
+   * "drag duplicates the element" symptom users reported).
+   */
+  setHeaderEnabled: (enabled: boolean) => void
   /** #61 — Patch the header's style (height / padding / divider / bg). */
   setHeaderStyle: (patch: Partial<PageBandStyle>) => void
   /** #61 — Add a band-local field to the header. */
@@ -119,6 +132,9 @@ export interface TemplateState {
   removeHeaderField: (id: string) => void
   /** #61 — Replace or clear the page-wide footer. */
   setFooter: (footer: PageBand | undefined) => void
+  /** #61 (follow-up) — show / hide the footer; same semantics as
+   *  `setHeaderEnabled`. */
+  setFooterEnabled: (enabled: boolean) => void
   /** #61 — Patch the footer's style (height / padding / divider / bg). */
   setFooterStyle: (patch: Partial<PageBandStyle>) => void
   /** #61 — Add a band-local field to the footer. */
@@ -198,6 +214,30 @@ export interface TemplateState {
     footer?: PageBand,
     pageNumber?: PageNumberConfig,
   ) => void
+}
+
+/**
+ * Default `PageBand` config emitted the first time the user enables a
+ * band from the toolbar menu (#61). Divider on by default — the user
+ * specifically asked for this in the right-panel rebuild iteration. Height
+ * differs between header (40pt) and footer (30pt) because footers tend
+ * to be quieter (just a page number / line).
+ */
+function defaultBand(kind: 'header' | 'footer'): PageBand {
+  return {
+    enabled: true,
+    style: {
+      height: kind === 'header' ? 40 : 30,
+      backgroundColor: null,
+      divider: { color: '#888888', width: 0.5, gap: 4 },
+      paddingTop: 4,
+      paddingBottom: 4,
+      paddingLeft: 12,
+      paddingRight: 12,
+    },
+    fields: [],
+    applyToFirstPage: true,
+  }
 }
 
 const defaultMeta: TemplateMeta = {
@@ -313,6 +353,11 @@ interface PersistedState {
   fontBuffers: [string, string][]
   placeholderBuffers: [string, string][]
   staticImageDataUrls?: [string, string][]
+  // #61 — page-wide header / footer / page-number config. Optional so
+  // pre-#61 persisted entries restore cleanly with these undefined.
+  header?: PageBand
+  footer?: PageBand
+  pageNumber?: PageNumberConfig
   // Legacy — still read on rehydration for backwards-compatibility with
   // entries written before #11 landed, but NOT written any more.
   backgroundBuffer?: string | null
@@ -465,6 +510,43 @@ export const useTemplateStore = create<TemplateState>()(
           meta: { ...state.meta, updatedAt: new Date().toISOString() },
         })),
 
+      setHeaderEnabled: (enabled) =>
+        set((state) => {
+          // First-time enable on a never-configured store: lay down a sensible
+          // default band. First-time disable: nothing to remember; no-op.
+          if (!state.header) {
+            return enabled
+              ? {
+                  header: defaultBand('header'),
+                  meta: { ...state.meta, updatedAt: new Date().toISOString() },
+                }
+              : state
+          }
+          if (state.header.enabled === enabled) return state
+          if (enabled) {
+            // Re-show — preserve every style detail; fields stay empty
+            // (they were migrated to body on the previous hide).
+            return {
+              header: { ...state.header, enabled: true },
+              meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            }
+          }
+          // Hide — migrate band fields to body with page-absolute coords so
+          // the user can continue editing them freely. Done atomically with
+          // clearing band.fields so the reconciler never sees a duplicate id.
+          const bandTop = 0
+          const padX = state.header.style.paddingLeft
+          const padY = state.header.style.paddingTop
+          const migrated = state.header.fields.map(
+            (f) => ({ ...f, x: f.x + padX, y: f.y + bandTop + padY }) as FieldDefinition,
+          )
+          return {
+            fields: [...state.fields, ...migrated],
+            header: { ...state.header, enabled: false, fields: [] },
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+          }
+        }),
+
       setHeaderStyle: (patch) =>
         set((state) =>
           state.header
@@ -518,6 +600,36 @@ export const useTemplateStore = create<TemplateState>()(
           footer,
           meta: { ...state.meta, updatedAt: new Date().toISOString() },
         })),
+
+      setFooterEnabled: (enabled) =>
+        set((state) => {
+          if (!state.footer) {
+            return enabled
+              ? {
+                  footer: defaultBand('footer'),
+                  meta: { ...state.meta, updatedAt: new Date().toISOString() },
+                }
+              : state
+          }
+          if (state.footer.enabled === enabled) return state
+          if (enabled) {
+            return {
+              footer: { ...state.footer, enabled: true },
+              meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            }
+          }
+          const bandTop = state.meta.height - state.footer.style.height
+          const padX = state.footer.style.paddingLeft
+          const padY = state.footer.style.paddingTop
+          const migrated = state.footer.fields.map(
+            (f) => ({ ...f, x: f.x + padX, y: f.y + bandTop + padY }) as FieldDefinition,
+          )
+          return {
+            fields: [...state.fields, ...migrated],
+            footer: { ...state.footer, enabled: false, fields: [] },
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+          }
+        }),
 
       setFooterStyle: (patch) =>
         set((state) =>
@@ -1200,6 +1312,14 @@ export const useTemplateStore = create<TemplateState>()(
               ab2b64(v),
             ]),
             staticImageDataUrls: Array.from(state.staticImageDataUrls.entries()),
+            // #61 — write header / footer / pageNumber alongside the rest
+            // so refreshing the editor doesn't lose them. The earlier
+            // `partialize` change was insufficient because this custom
+            // storage adapter builds its own serialised payload and
+            // doesn't honour partialize. Keep both call sites in sync.
+            header: state.header,
+            footer: state.footer,
+            pageNumber: state.pageNumber,
           }
           const payload = JSON.stringify({
             state: serialized,

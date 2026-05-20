@@ -4,7 +4,8 @@ import { PropertiesPanel } from './components/LeftPanel/PropertiesPanel.js'
 import { CanvasArea } from './components/Canvas/CanvasArea.js'
 import { StructurePanel } from './components/RightPanel/StructurePanel.js'
 import { PageSizeDialog } from './components/Toolbar/PageSizeDialog.js'
-import { PageLayoutDialog } from './components/Toolbar/PageLayoutDialog.js'
+import { PageLayoutMenu } from './components/Toolbar/PageLayoutMenu.js'
+import { BandSettingsModal } from './components/Toolbar/BandSettingsModal.js'
 import { ContextMenu } from './components/Canvas/ContextMenu.js'
 import { FontManager } from './components/Toolbar/FontManager.js'
 import { PdfPreview } from './components/Preview/PdfPreview.js'
@@ -118,7 +119,8 @@ export function App() {
       <PdfPreview />
       {showPageSizeDialog && <PageSizeDialog />}
       {showFontManager && <FontManager />}
-      <PageLayoutDialog />
+      <PageLayoutMenu />
+      <BandSettingsModal />
 
       <ImageCompressor />
       {contextMenu && <ContextMenu />}

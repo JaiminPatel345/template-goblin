@@ -25,8 +25,10 @@ function detectDrawZone(
   pageHeight: number,
 ): 'header' | 'footer' | 'body' {
   const centerY = rectY + rectHeight / 2
-  if (header && header.style.height > 0 && centerY < header.style.height) return 'header'
-  if (footer && footer.style.height > 0 && centerY > pageHeight - footer.style.height) {
+  if (header?.enabled && header.style.height > 0 && centerY < header.style.height) {
+    return 'header'
+  }
+  if (footer?.enabled && footer.style.height > 0 && centerY > pageHeight - footer.style.height) {
     return 'footer'
   }
   return 'body'

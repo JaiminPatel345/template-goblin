@@ -120,44 +120,38 @@ test.describe('#61 — Page Layout dialog + band visuals', () => {
     await page.goto('/')
     await completeOnboarding(page)
     await waitForCanvas(page)
-    // Open the Page Layout dialog before every band-toggle test. The toggles
-    // live inside the modal now (Word / Google Docs "Insert → Header &
-    // Footer" pattern), not the sidebar.
+  })
+
+  /** Open the anchored Page Layout menu from the toolbar. */
+  async function openMenu(page: Page): Promise<void> {
     await page.locator('[data-testid="toolbar-page-layout"]').click()
-    await expect(page.locator('[data-testid="page-layout-dialog"]')).toBeVisible({
+    await expect(page.locator('[data-testid="page-layout-menu"]')).toBeVisible({
       timeout: 3000,
     })
-  })
-
-  test('toolbar button opens a Page Layout dialog with band controls', async ({ page }) => {
-    await expect(page.locator('text=Enable header')).toBeVisible()
-    await expect(page.locator('text=Enable footer')).toBeVisible()
-    await expect(page.locator('text=Show page number')).toBeVisible()
-  })
-
-  test('sidebar empty state no longer shows Page Layout content', async ({ page }) => {
-    // Close the dialog and verify the left properties panel went back to
-    // the field-selection placeholder.
-    await page.getByRole('button', { name: 'Done' }).click()
-    await expect(page.locator('[data-testid="page-layout-dialog"]')).toBeHidden()
-    await expect(page.locator('text=Select a field to edit its properties')).toBeVisible()
-    // Confirm the band controls are NOT in the sidebar.
-    await expect(page.locator('text=Enable header')).toBeHidden()
-  })
-
-  /**
-   * Find the checkbox whose label text matches `labelText`. The form rows
-   * render as `<div class="tg-toggle-row"><label>X</label><input type=...>`.
-   */
-  function checkboxByLabel(page: Page, labelText: string) {
-    return page.locator('.tg-toggle-row', { hasText: labelText }).locator('input[type="checkbox"]')
   }
 
-  test('Enabling the footer paints a band rectangle on the canvas', async ({ page }) => {
+  /** Click a top-level item (Header / Footer / Page Number) to open its flyout. */
+  async function openFlyout(page: Page, item: 'header' | 'footer' | 'page-number'): Promise<void> {
+    await page.locator(`[data-testid="page-layout-menu-${item}"]`).click()
+  }
+
+  test('toolbar opens an anchored menu with Header / Footer / Page Number items', async ({
+    page,
+  }) => {
+    await openMenu(page)
+    await expect(page.locator('[data-testid="page-layout-menu-header"]')).toBeVisible()
+    await expect(page.locator('[data-testid="page-layout-menu-footer"]')).toBeVisible()
+    await expect(page.locator('[data-testid="page-layout-menu-page-number"]')).toBeVisible()
+    // Sidebar stays in the field-selection placeholder — band controls
+    // are no longer there.
+    await expect(page.locator('text=Select a field to edit its properties')).toBeVisible()
+  })
+
+  test('Header flyout: "Show header" toggle paints a band on the canvas', async ({ page }) => {
     expect((await bandObjects(page)).filter((o) => o.isBand)).toHaveLength(0)
-
-    await checkboxByLabel(page, 'Enable footer').check()
-
+    await openMenu(page)
+    await openFlyout(page, 'header')
+    await page.locator('[data-testid="page-layout-flyout-header-toggle"]').click()
     await expect
       .poll(async () => (await bandObjects(page)).filter((o) => o.isBand).length, {
         timeout: 3000,
@@ -165,14 +159,27 @@ test.describe('#61 — Page Layout dialog + band visuals', () => {
       .toBeGreaterThan(0)
   })
 
-  test('Enabling Show Page Number paints a Textbox inside the chosen band', async ({ page }) => {
-    await checkboxByLabel(page, 'Enable footer').check()
-    await checkboxByLabel(page, 'Show page number').check()
-    // Default config has `showOnFirstPage: false`; our test template only
-    // has a single page (index 0), so we patch the store directly to
-    // override that default. Setting via UI is fragile because the
-    // "Show on first page" label sits in a different section that may not
-    // be visible until the user scrolls / the layout reflows.
+  test('Header settings opens the full configuration modal', async ({ page }) => {
+    await openMenu(page)
+    await openFlyout(page, 'header')
+    await page.locator('[data-testid="page-layout-flyout-header-toggle"]').click()
+    // Header on → Settings… button enables → click → modal opens.
+    await page.locator('[data-testid="page-layout-flyout-header-settings"]').click()
+    await expect(page.locator('[data-testid="band-settings-modal"]')).toBeVisible()
+    // The modal exposes the Apply-to-first-page toggle the user can now
+    // adjust without rummaging through a sidebar.
+    await expect(page.locator('text=Apply to first page')).toBeVisible()
+  })
+
+  test('Page Number flyout: showing the page number paints a Textbox', async ({ page }) => {
+    // First enable a footer so the page number has a band to live in.
+    await openMenu(page)
+    await openFlyout(page, 'footer')
+    await page.locator('[data-testid="page-layout-flyout-footer-toggle"]').click()
+    await openFlyout(page, 'page-number')
+    await page.locator('[data-testid="page-layout-flyout-pageNumber-toggle"]').click()
+    // Default config has `showOnFirstPage: false`; flip via the store so
+    // the single-page test template renders the number on page 0.
     await page.evaluate(() => {
       interface StoreLike {
         getState(): { setPageNumberConfig: (p: { showOnFirstPage: boolean }) => void }
@@ -180,7 +187,6 @@ test.describe('#61 — Page Layout dialog + band visuals', () => {
       const store = (window as unknown as { __templateStore?: StoreLike }).__templateStore
       store?.getState().setPageNumberConfig({ showOnFirstPage: true })
     })
-
     await expect
       .poll(async () => (await bandObjects(page)).filter((o) => o.isBand && o.isTextbox).length, {
         timeout: 3000,
@@ -188,19 +194,24 @@ test.describe('#61 — Page Layout dialog + band visuals', () => {
       .toBeGreaterThan(0)
   })
 
-  test('applyToFirstPage = false removes the band on page index 0', async ({ page }) => {
-    await checkboxByLabel(page, 'Enable header').check()
-
+  test('applyToFirstPage = false (set via Settings modal) removes the band on page 0', async ({
+    page,
+  }) => {
+    await openMenu(page)
+    await openFlyout(page, 'header')
+    await page.locator('[data-testid="page-layout-flyout-header-toggle"]').click()
     await expect
       .poll(async () => (await bandObjects(page)).filter((o) => o.isBand).length, {
         timeout: 3000,
       })
       .toBeGreaterThan(0)
-
-    // "Apply to first page" is the second toggle row that appears once
-    // header is enabled — disambiguate by its label.
-    await checkboxByLabel(page, 'Apply to first page').uncheck()
-
+    await page.locator('[data-testid="page-layout-flyout-header-settings"]').click()
+    await expect(page.locator('[data-testid="band-settings-modal"]')).toBeVisible()
+    // Uncheck "Apply to first page" inside the modal.
+    await page
+      .locator('.tg-toggle-row', { hasText: 'Apply to first page' })
+      .locator('input[type="checkbox"]')
+      .uncheck()
     await expect
       .poll(async () => (await bandObjects(page)).filter((o) => o.isBand).length, {
         timeout: 3000,

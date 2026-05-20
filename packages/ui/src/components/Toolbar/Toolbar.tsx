@@ -35,6 +35,7 @@ export function Toolbar() {
   const showLeftPanel = useUiStore((s) => s.showLeftPanel)
   const setShowLeftPanel = useUiStore((s) => s.setShowLeftPanel)
   const showRightPanelUi = useUiStore((s) => s.showRightPanel)
+  const pageLayoutMenuOpen = useUiStore((s) => s.pageLayoutMenu.kind !== 'closed')
   const setShowRightPanelUi = useUiStore((s) => s.setShowRightPanel)
   // Set of field types present in the current selection — each matching
   // toolbar button gets a ring so the user can see at a glance what types
@@ -375,14 +376,21 @@ export function Toolbar() {
         </button>
         {/* #61 — Insert-style entry-point for the page-wide header / footer
             and page-number settings. Mirrors Google Docs / Word's
-            Insert → Header & Footer pattern. Keeps the per-field property
-            editor in the sidebar free of template-wide concerns. */}
+            Insert → Header & Footer pattern. The button anchors a
+            dropdown menu (`PageLayoutMenu`) rather than launching a
+            centered modal — keeps the editor focus where the user is
+            working and matches every production document tool. */}
         <button
-          className="tg-btn"
-          onClick={() => useUiStore.getState().setShowPageLayoutDialog(true)}
+          className={`tg-btn ${pageLayoutMenuOpen ? 'tg-btn--active' : ''}`}
+          onClick={() =>
+            useUiStore
+              .getState()
+              .setPageLayoutMenu(pageLayoutMenuOpen ? { kind: 'closed' } : { kind: 'main' })
+          }
           disabled={locked || !hasBackground}
           title="Page layout (header, footer, page number)"
           data-testid="toolbar-page-layout"
+          data-page-layout-anchor="true"
         >
           <svg
             width="14"

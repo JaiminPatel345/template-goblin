@@ -1,15 +1,18 @@
 /**
- * HeaderFooterSection — right-panel editor for one page band (#61).
+ * HeaderFooterSection — settings editor for one page band (#61).
  *
  * Shared between header + footer because their controls are identical (the
- * `kind` prop just picks which store slot to write). Renders an enable
- * toggle that creates / clears the band, then height / padding / background
- * / divider / apply-to-first-page controls, plus a `BandFieldList`.
+ * `kind` prop just picks which store slot to write). Renders height /
+ * padding / background / divider / apply-to-first-page controls.
+ *
+ * Field creation lives on the canvas — users draw fields inside the band's
+ * Y-zone and `useFieldCreationPopup` routes them to `addHeaderField` /
+ * `addFooterField`. The settings panel deliberately omits an in-app
+ * "Add text / Add image" list to keep one entry-point per concern.
  */
-import type { PageBand, PageBandDivider, FieldDefinition } from '@template-goblin/types'
+import type { PageBand, PageBandDivider } from '@template-goblin/types'
 import { NumberInput } from '../NumberInput.js'
 import { ColorPickerPopover } from '../ColorPickerPopover.js'
-import { BandFieldList } from './BandFieldList.js'
 
 type BandKind = 'header' | 'footer'
 
@@ -18,8 +21,6 @@ interface Props {
   band: PageBand | undefined
   onSetBand: (band: PageBand | undefined) => void
   onSetStyle: (patch: Partial<PageBand['style']>) => void
-  onAddField: (field: FieldDefinition) => void
-  onRemoveField: (id: string) => void
 }
 
 interface DividerControlsProps {
@@ -64,6 +65,7 @@ function DividerControls({ divider, ariaPrefix, onChange }: DividerControlsProps
 
 function defaultBand(kind: BandKind): PageBand {
   return {
+    enabled: true,
     style: {
       height: kind === 'header' ? 40 : 30,
       backgroundColor: null,
@@ -81,14 +83,7 @@ function defaultBand(kind: BandKind): PageBand {
   }
 }
 
-export function HeaderFooterSection({
-  kind,
-  band,
-  onSetBand,
-  onSetStyle,
-  onAddField,
-  onRemoveField,
-}: Props) {
+export function HeaderFooterSection({ kind, band, onSetBand, onSetStyle }: Props) {
   const enabled = !!band
   const heading = kind === 'header' ? 'Header' : 'Footer'
 
@@ -97,7 +92,7 @@ export function HeaderFooterSection({
       <div className="tg-panel-section-title">{heading}</div>
 
       <div className="tg-toggle-row">
-        <label>Enable {kind}</label>
+        <label>Show {kind}</label>
         <input
           type="checkbox"
           className="tg-checkbox"
@@ -199,14 +194,6 @@ export function HeaderFooterSection({
               onChange={(e) => onSetBand({ ...band, applyToFirstPage: e.target.checked })}
             />
           </div>
-
-          <BandFieldList
-            kind={kind}
-            fields={band.fields}
-            bandHeight={band.style.height}
-            onAdd={onAddField}
-            onRemove={onRemoveField}
-          />
         </>
       )}
     </div>

@@ -77,6 +77,8 @@ function buildManifestWithBands() {
           width: 200,
           height: 20,
           zIndex: 1,
+          enabled: true,
+
           style: {
             fontId: null,
             fontFamily: 'Helvetica',
@@ -99,6 +101,8 @@ function buildManifestWithBands() {
       applyToFirstPage: true,
     },
     footer: {
+      enabled: true,
+
       style: {
         height: 30,
         backgroundColor: null,
@@ -120,6 +124,8 @@ function buildManifestWithBands() {
           width: 20,
           height: 20,
           zIndex: 1,
+          enabled: true,
+
           style: { fit: 'contain' },
           source: { mode: 'static', value: { filename: 'logo.png' } },
         },
@@ -195,6 +201,8 @@ describe('openTemplate — band restoration (#61)', () => {
     // must disappear — otherwise leftover band state from the previous
     // template leaks into the freshly-opened one.
     useTemplateStore.getState().setHeader({
+      enabled: true,
+
       style: {
         height: 30,
         backgroundColor: null,

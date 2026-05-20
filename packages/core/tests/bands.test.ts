@@ -52,6 +52,8 @@ function pages(n: number): PageDefinition[] {
 
 function makeHeader(overrides: Partial<PageBand> = {}): PageBand {
   return {
+    enabled: true,
+
     style: {
       height: 40,
       backgroundColor: null,
@@ -69,6 +71,8 @@ function makeHeader(overrides: Partial<PageBand> = {}): PageBand {
 
 function makeFooter(overrides: Partial<PageBand> = {}): PageBand {
   return {
+    enabled: true,
+
     style: {
       height: 30,
       backgroundColor: null,

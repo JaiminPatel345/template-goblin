@@ -51,8 +51,8 @@ function readPageMeta(): PageMeta {
 function readBandHeights(): { header: number; footer: number } {
   const s = useTemplateStore.getState()
   return {
-    header: s.header?.style.height ?? 0,
-    footer: s.footer?.style.height ?? 0,
+    header: s.header?.enabled ? s.header.style.height : 0,
+    footer: s.footer?.enabled ? s.footer.style.height : 0,
   }
 }
 

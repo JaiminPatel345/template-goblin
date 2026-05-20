@@ -293,6 +293,63 @@ html, body, #root {
 
 .tg-dialog-actions { @apply flex justify-end gap-2 mt-4; }
 
+/* ===== Anchored Popover (Page Layout menu, etc.) ===== */
+/* Vertical menu anchored to a toolbar button. Items stack top→bottom; a
+   flyout sub-menu sits to the right of the main pane. Word / Google Docs
+   "Insert → Header & Footer" pattern (#61 follow-up). */
+.tg-popover {
+  @apply rounded-lg overflow-hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 4px;
+}
+
+.tg-popover-item {
+  @apply text-sm rounded;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 10px;
+  text-align: left;
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tg-popover-item:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+}
+
+.tg-popover-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tg-popover-item--active {
+  background: var(--bg-tertiary);
+}
+
+.tg-popover-section-title {
+  @apply text-xs uppercase tracking-wide;
+  color: var(--text-muted);
+  padding: 6px 10px 2px 10px;
+}
+
+.tg-popover-divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: 4px 0;
+}
+
 /* ===== Lock Overlay ===== */
 .tg-locked-overlay {
   @apply absolute inset-0 flex items-center justify-center cursor-not-allowed z-[100];

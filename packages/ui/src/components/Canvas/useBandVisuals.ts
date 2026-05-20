@@ -1,22 +1,17 @@
 /**
- * useBandVisuals — paint the header / footer / page-number on the canvas
- * so the editor matches the generated PDF (#61).
+ * useBandVisuals — paint the header / footer chrome + page-number stamp
+ * on the canvas (#61).
  *
- * Adds three kinds of non-interactive Fabric objects, each tagged with
- * `__isBand: true` (or `__isBandField: true` for the band-local field
- * groups) so the body-field reconciler in `useFabricSync.ts` doesn't try
- * to manage them.
+ * Renders only the band's NON-INTERACTIVE chrome — background rect,
+ * divider line, and the page-number Textbox. Band-LOCAL FIELD GROUPS are
+ * reconciled through `useFabricSync` (the same diff path body fields
+ * use) so they preserve Fabric identity across store updates. That's
+ * critical: when this effect owned the groups it had to tear down + rebuild
+ * all of them on every band-field edit, which dropped the selection mid-
+ * keystroke and made font-size inputs unusable.
  *
- * Renders:
- *   - Header background rect at y = 0, height = header.style.height
- *   - Footer background rect at y = pageH - footer.style.height
- *   - Divider line for each band when `style.divider` is non-null
- *   - Band-local FieldDefinition groups translated to page coords
- *   - Page-number text in the chosen band (when enabled + visible for the
- *     current page)
- *
- * The effect tears down its own objects on every dependency change so
- * config tweaks don't leave stale visuals behind.
+ * The effect still tears down its own (decorative) objects on dep changes
+ * so config tweaks don't leave stale chrome behind.
  */
 import { useEffect } from 'react'
 import {
@@ -26,9 +21,8 @@ import {
   type Canvas as FabricCanvas,
   type FabricObject,
 } from 'fabric'
-import type { FieldDefinition, PageBand, PageNumberConfig } from '@template-goblin/types'
+import type { PageBand, PageNumberConfig } from '@template-goblin/types'
 import { formatPageNumber } from '@template-goblin/types'
-import { createFieldGroup } from './fabricUtils.js'
 
 export interface BandVisualsDeps {
   fabricRef: React.RefObject<FabricCanvas | null>
@@ -83,6 +77,8 @@ export function useBandVisuals(deps: BandVisualsDeps): void {
 }
 
 function shouldRender(band: PageBand, pageIndex: number): boolean {
+  // #61 follow-up: a hidden band keeps its config but doesn't render.
+  if (band.enabled === false) return false
   if (band.style.height <= 0) return false
   if (pageIndex === 0 && !band.applyToFirstPage) return false
   return true
@@ -111,26 +107,13 @@ function paintBand(
   bg.__isBand = true
   add(bg)
 
-  // Band-local fields, translated into page coords for the canvas. The
-  // `__bandKind` tag lets `clampToPage` keep them inside the band on drag
-  // and lets `wireDragResizeEvents` commit their position back to the
-  // correct store array (header/footer instead of body).
-  const kind: 'header' | 'footer' = isHeader ? 'header' : 'footer'
-  for (const f of band.fields) {
-    const translated: FieldDefinition = {
-      ...f,
-      x: f.x + band.style.paddingLeft,
-      y: bandTop + band.style.paddingTop + f.y,
-    } as FieldDefinition
-    const group = createFieldGroup(translated, () => null, {
-      texts: {},
-      images: {},
-      tables: {},
-    })
-    group.__isBandField = true
-    group.__bandKind = kind
-    add(group)
-  }
+  // Band-LOCAL field groups are NOT rendered here. They flow through
+  // `useFabricSync`'s reconciler (CanvasArea translates band fields into
+  // page coords with a `__bandKind` marker so the reconciler can stamp
+  // them on the Fabric group). This is what keeps band-field identity
+  // stable across store updates — without it, editing a band field's
+  // font size in the right panel re-creates its group on every keystroke
+  // and the selection drops.
 
   // Auto-divider at the body-facing edge.
   if (band.style.divider && band.style.divider.color && band.style.divider.width > 0) {

@@ -114,11 +114,21 @@ export function useFabricSync(deps: SyncDeps) {
 
     sorted.forEach((field) => {
       const g = existing.get(field.id)
+      // #61 — band fields carry a transient `__bandKind` set by
+      // CanvasArea's translation step. We stamp it onto the Fabric group
+      // so `clampToPage` and `wireDragResizeEvents` route band fields
+      // to the right zone / store on drag, while the body reconciler
+      // continues to manage them with identity-preserving diffs.
+      const bandKind = (field as unknown as { __bandKind?: 'header' | 'footer' }).__bandKind
       if (g) {
         applyFieldToGroup(g, field, resolveImage, data)
+        g.__isBandField = !!bandKind
+        g.__bandKind = bandKind
         existing.delete(field.id)
       } else {
         const newGroup = createFieldGroup(field, resolveImage, data)
+        newGroup.__isBandField = !!bandKind
+        newGroup.__bandKind = bandKind
         fc.add(newGroup)
       }
     })
@@ -286,8 +296,10 @@ export function useFabricSync(deps: SyncDeps) {
     fabricInstance,
     meta,
     pageFillColor: currentBgColor,
-    headerHeight: header?.style.height ?? 0,
-    footerHeight: footer?.style.height ?? 0,
+    // Only reserve band Y-zones when the band is actively shown — a hidden
+    // band's config is preserved but it doesn't claim canvas space.
+    headerHeight: header?.enabled ? header.style.height : 0,
+    footerHeight: footer?.enabled ? footer.style.height : 0,
   })
 
   // ═══════════════ Band visuals: header / footer / page number (#61) ══════

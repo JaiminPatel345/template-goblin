@@ -27,6 +27,9 @@ import type { PageContext } from '../utils/errorContext.js'
 
 /** Should this band render on the given page index? */
 function bandRendersOnPage(band: PageBand, pageIndex: number): boolean {
+  // #61 follow-up: `enabled === false` means the user hid the band but
+  // wants to keep its config for later. Treat as not-rendering.
+  if (band.enabled === false) return false
   if (band.style.height <= 0) return false
   if (pageIndex === 0 && !band.applyToFirstPage) return false
   return true
@@ -102,7 +105,9 @@ export function stampBands(
   template: LoadedTemplate,
   resolvedImages: Map<string, Buffer>,
 ): void {
-  if (!manifest.header && !manifest.footer && !manifest.pageNumber?.enabled) return
+  const hasHeader = !!manifest.header?.enabled
+  const hasFooter = !!manifest.footer?.enabled
+  if (!hasHeader && !hasFooter && !manifest.pageNumber?.enabled) return
 
   const { start, count } = doc.bufferedPageRange()
   const pageWidth = manifest.meta.width
