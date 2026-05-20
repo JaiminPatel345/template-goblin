@@ -263,3 +263,9 @@ export const useUiStore = create<UiState>()(
     },
   ),
 )
+
+// Expose for Playwright / dev-mode inspection (mirrors `__fabricCanvas` +
+// `__templateStore`). Lets e2e tests assert UI-store state directly.
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  ;(window as unknown as { __uiStore?: typeof useUiStore }).__uiStore = useUiStore
+}

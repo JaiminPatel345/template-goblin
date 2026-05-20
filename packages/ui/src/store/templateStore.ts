@@ -1131,6 +1131,13 @@ export const useTemplateStore = create<TemplateState>()(
           placeholderBuffers: new Map(),
           staticImageBuffers: new Map(),
           staticImageDataUrls: new Map(),
+          // #61 — bands and the page-number stamp are part of the template
+          // state too; `reset()` returns to the freshly-onboarded shape
+          // (no header / no footer / no page number) so callers (e2e
+          // beforeEach blocks, etc.) don't see leftover band state.
+          header: undefined,
+          footer: undefined,
+          pageNumber: undefined,
           history: [],
           historyIndex: -1,
         }),

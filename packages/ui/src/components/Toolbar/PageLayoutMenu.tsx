@@ -55,11 +55,20 @@ export function PageLayoutMenu() {
 
   // Re-measure the anchor every time the menu opens — the toolbar can
   // reflow between renders (font load, resize), so a cached rect would go
-  // stale. `useLayoutEffect` fires before paint so the menu mounts at
-  // the right coords without a flicker.
+  // stale. `useLayoutEffect` fires before paint so the menu mounts at the
+  // right coords without a flicker. We retry on the next animation frame
+  // when the lookup fails — Playwright + Vite-dev sometimes click before
+  // the toolbar's data-attribute is in the DOM yet (the active state was
+  // mid-update). One extra rAF tick covers it.
   useLayoutEffect(() => {
     if (!open) return
-    setAnchor(findAnchorRect())
+    const measured = findAnchorRect()
+    if (measured) {
+      setAnchor(measured)
+      return
+    }
+    const raf = requestAnimationFrame(() => setAnchor(findAnchorRect()))
+    return () => cancelAnimationFrame(raf)
   }, [open])
 
   // Outside-click + Escape close the menu. The settings modal owns its
