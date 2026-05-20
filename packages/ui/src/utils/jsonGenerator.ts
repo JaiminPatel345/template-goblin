@@ -44,6 +44,7 @@ export function generateExampleJson(
   fields: FieldDefinition[],
   mode: JsonPreviewMode = 'default',
   repeatCount: number = 5,
+  bandFields: { header?: FieldDefinition[]; footer?: FieldDefinition[] } = {},
 ): GeneratedJson {
   const result: GeneratedJson = {
     texts: {},
@@ -52,7 +53,20 @@ export function generateExampleJson(
     links: {},
   }
 
-  for (const field of fields) {
+  // #61 — band fields share the renderer's flat data buckets with body
+  // fields (see `packages/core/src/render/bands.ts` — bands stamp via the
+  // same `renderField` against the same `data.texts[jsonKey]` etc.). So a
+  // header text field with `jsonKey: 'title'` reads from `data.texts.title`
+  // exactly like a body field would, and we surface that key in the JSON
+  // preview alongside body keys instead of inventing a nested
+  // `header.texts` shape the renderer would never read.
+  const all: FieldDefinition[] = [
+    ...fields,
+    ...(bandFields.header ?? []),
+    ...(bandFields.footer ?? []),
+  ]
+
+  for (const field of all) {
     // Defence in depth: skip fields missing `source` (corrupt rehydrated state).
     if (!field.source) continue
     if (field.source.mode === 'dynamic') {

@@ -8,8 +8,31 @@ import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { createDefaultField } from '../../utils/defaults.js'
 import { autoShrinkStaticField } from '../../utils/autoShrinkDispatch.js'
-import type { FieldDefinition } from '@template-goblin/types'
+import type { FieldDefinition, PageBand } from '@template-goblin/types'
 import type { FieldCreationDraft, SourceInputs } from './FieldCreationPopup.js'
+
+/**
+ * Decide whether a freshly drawn rect lands inside the header, the footer,
+ * or the body (#61). We pick the zone the rect's CENTRE Y falls into so
+ * a rect that straddles the band boundary still snaps to whichever side
+ * carries most of its area.
+ */
+function detectDrawZone(
+  rectY: number,
+  rectHeight: number,
+  header: PageBand | undefined,
+  footer: PageBand | undefined,
+  pageHeight: number,
+): 'header' | 'footer' | 'body' {
+  const centerY = rectY + rectHeight / 2
+  if (header?.enabled && header.style.height > 0 && centerY < header.style.height) {
+    return 'header'
+  }
+  if (footer?.enabled && footer.style.height > 0 && centerY > pageHeight - footer.style.height) {
+    return 'footer'
+  }
+  return 'body'
+}
 
 export function useFieldCreationPopup() {
   const addField = useTemplateStore((s) => s.addField)
@@ -64,6 +87,44 @@ export function useFieldCreationPopup() {
           },
         } as FieldDefinition
       })()
+
+      // #61 — route the new field to the band store when the draw rect
+      // landed inside a header / footer band. Body fields keep the legacy
+      // path. Band fields' x/y are stored band-local so the renderer can
+      // re-add the band offset on every paint.
+      const store = useTemplateStore.getState()
+      const zone = detectDrawZone(
+        pendingDraft.y,
+        pendingDraft.height,
+        store.header,
+        store.footer,
+        store.meta.height,
+      )
+
+      if (zone !== 'body') {
+        const band = zone === 'header' ? store.header : store.footer
+        // `band` is non-null here because `zone !== 'body'` only returns
+        // when the corresponding band exists with height > 0.
+        const bandTop = zone === 'header' ? 0 : store.meta.height - (band?.style.height ?? 0)
+        const bandLocalX = pendingDraft.x - (band?.style.paddingLeft ?? 0)
+        const bandLocalY = pendingDraft.y - bandTop - (band?.style.paddingTop ?? 0)
+        const bandField: FieldDefinition = {
+          ...withUserInput,
+          // generate a unique-ish id; store mutations don't auto-id band fields.
+          id: `${zone}-${withUserInput.type}-${Math.random().toString(36).slice(2, 9)}`,
+          x: Math.max(0, bandLocalX),
+          y: Math.max(0, bandLocalY),
+        }
+        if (zone === 'header') store.addHeaderField(bandField)
+        else store.addFooterField(bandField)
+        setTimeout(() => {
+          if (bandField.source?.mode === 'static') {
+            void autoShrinkStaticField(bandField.id)
+          }
+        }, 0)
+        setPendingDraft(null)
+        return
+      }
 
       addField(withUserInput)
       // Selecting the newly-added field has to wait for the store update to

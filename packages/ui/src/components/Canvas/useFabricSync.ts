@@ -25,6 +25,8 @@ import {
   type ImageResolver,
 } from './fabricUtils.js'
 import { usePageBoundsEnforcement } from './usePageBoundsEnforcement.js'
+import { useBandVisuals } from './useBandVisuals.js'
+import { useTemplateStore } from '../../store/templateStore.js'
 
 // Re-export image hooks so existing `import { useBackgroundImage, ... } from './useFabricSync'`
 // callers don't have to update their imports immediately.
@@ -99,6 +101,13 @@ export function useFabricSync(deps: SyncDeps) {
 
     const existing = new Map<string, FabricGroup>()
     fc.getObjects().forEach((o) => {
+      // #61 — band-field groups are now reconciled HERE too (they used to
+      // live under `useBandVisuals` but that caused identity-loss + the
+      // duplicate-on-keystroke bug). Include any group with a `__fieldId`,
+      // whether it currently carries the `__isBandField` tag or not, so a
+      // band → body migration finds the existing group and updates it in
+      // place instead of leaving the band group behind and adding a fresh
+      // body group (the "double render / ghost" symptom).
       if (o.__fieldId && !o.__isGrid && !o.__isPageBounds) {
         existing.set(o.__fieldId, o as FabricGroup)
       }
@@ -108,11 +117,21 @@ export function useFabricSync(deps: SyncDeps) {
 
     sorted.forEach((field) => {
       const g = existing.get(field.id)
+      // #61 — band fields carry a transient `__bandKind` set by
+      // CanvasArea's translation step. We stamp it onto the Fabric group
+      // so `clampToPage` and `wireDragResizeEvents` route band fields
+      // to the right zone / store on drag, while the body reconciler
+      // continues to manage them with identity-preserving diffs.
+      const bandKind = (field as unknown as { __bandKind?: 'header' | 'footer' }).__bandKind
       if (g) {
         applyFieldToGroup(g, field, resolveImage, data)
+        g.__isBandField = !!bandKind
+        g.__bandKind = bandKind
         existing.delete(field.id)
       } else {
         const newGroup = createFieldGroup(field, resolveImage, data)
+        newGroup.__isBandField = !!bandKind
+        newGroup.__bandKind = bandKind
         fc.add(newGroup)
       }
     })
@@ -120,9 +139,17 @@ export function useFabricSync(deps: SyncDeps) {
     existing.forEach((g) => fc.remove(g))
 
     // Enforce z-index ordering (REQ-049). Background-only Fabric objects
-    // (grid lines, page-bounds outline) sit at the bottom of the stack;
-    // field groups slot in above them, preserving their declared zIndex.
-    const ambientCount = fc.getObjects().filter((o) => o.__isGrid || o.__isPageBounds).length
+    // (grid lines, page-bounds outline, and #61 band chrome — the band
+    // background rect, divider line, and page-number Textbox) sit at the
+    // bottom of the stack; field groups slot in above them, preserving
+    // their declared zIndex. Band visuals MUST be included in the ambient
+    // count — this reconciler effect re-runs on every store-driven change,
+    // and without counting them a header `backgroundColor` rect ends up
+    // painted ABOVE its own band field groups (the "header content
+    // hides when I set a background" defect from #61 QA).
+    const ambientCount = fc
+      .getObjects()
+      .filter((o) => o.__isGrid || o.__isPageBounds || o.__isBand).length
     sorted.forEach((field, idx) => {
       const g = fc.getObjects().find((o) => o.__fieldId === field.id)
       if (g) fc.moveObjectTo(g, ambientCount + idx)
@@ -264,6 +291,40 @@ export function useFabricSync(deps: SyncDeps) {
     }
   }, [fabricRef, fabricInstance, isPlacing])
 
-  // ═══════════════ Page bounds: clip + outline + clamp (#46/#47) ═════════
-  usePageBoundsEnforcement({ fabricRef, fabricInstance, meta, pageFillColor: currentBgColor })
+  // ═══════════════ Page bounds: clip + outline + clamp (#46/#47, #61) ════
+  // Body-zone clamp accounts for header/footer band heights (#61). Reading
+  // header / footer / pageNumber directly from the store via selectors so
+  // the effect re-runs when the user changes a band's height.
+  const header = useTemplateStore((s) => s.header)
+  const footer = useTemplateStore((s) => s.footer)
+  const pageNumber = useTemplateStore((s) => s.pageNumber)
+  const pages = useTemplateStore((s) => s.pages)
+  const currentPageIndex = pages.findIndex((p) => p.id === currentPageId)
+  const safeCurrentPageIndex = currentPageIndex >= 0 ? currentPageIndex : 0
+
+  // #61 follow-up (Improvement 5): clamping also has to honour
+  // `applyToFirstPage` — on page 0 with applyToFirstPage=false the band
+  // doesn't render, so the body field shouldn't be clamped out of that
+  // Y-zone either. Mirror `useBandVisuals.shouldRender`.
+  const headerOnPage = !!header?.enabled && (safeCurrentPageIndex > 0 || header.applyToFirstPage)
+  const footerOnPage = !!footer?.enabled && (safeCurrentPageIndex > 0 || footer.applyToFirstPage)
+  usePageBoundsEnforcement({
+    fabricRef,
+    fabricInstance,
+    meta,
+    pageFillColor: currentBgColor,
+    headerHeight: headerOnPage ? header.style.height : 0,
+    footerHeight: footerOnPage ? footer.style.height : 0,
+  })
+
+  // ═══════════════ Band visuals: header / footer / page number (#61) ══════
+  useBandVisuals({
+    fabricRef,
+    fabricInstance,
+    meta,
+    header,
+    footer,
+    pageNumber,
+    currentPageIndex: safeCurrentPageIndex,
+  })
 }

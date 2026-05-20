@@ -92,6 +92,11 @@ export function ColorPickerPopover({
           ref={popoverRef}
           role="dialog"
           aria-label={ariaLabel ?? 'Color picker'}
+          // #61 follow-up: a marker so outer modals can detect "a colour
+          // popover is currently open" and skip their own Escape handler.
+          // Without this, pressing Escape inside the picker closes both
+          // the popover AND the surrounding band-settings modal.
+          data-color-popover="true"
           style={{
             position: 'fixed',
             top: position.top,

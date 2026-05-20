@@ -35,6 +35,8 @@ interface UploadedImage {
 
 export function PreviewDialog({ onClose }: { onClose: () => void }) {
   const fields = useTemplateStore((s) => s.fields)
+  const headerFields = useTemplateStore((s) => s.header?.fields)
+  const footerFields = useTemplateStore((s) => s.footer?.fields)
   const repeatCount = useUiStore((s) => s.maxModeRepeatCount)
   const previewJsonText = useUiStore((s) => s.previewJsonText)
   const setPreviewJsonText = useUiStore((s) => s.setPreviewJsonText)
@@ -42,9 +44,19 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
   // GH #90: there's no longer a Default/Max mode toggle. The default seed
   // is always the Default-mode example; Max Fill (in `JsonPreview`) writes
   // a max snapshot directly into `previewJsonText` if the user wants it.
+  // #61: include header/footer band fields so their dynamic jsonKeys seed
+  // the editor too — the renderer reads them from the same flat buckets.
   const defaultJsonText = useMemo(
-    () => JSON.stringify(generateExampleJson(fields, 'default', repeatCount), null, 2),
-    [fields, repeatCount],
+    () =>
+      JSON.stringify(
+        generateExampleJson(fields, 'default', repeatCount, {
+          header: headerFields,
+          footer: footerFields,
+        }),
+        null,
+        2,
+      ),
+    [fields, headerFields, footerFields, repeatCount],
   )
 
   // Initial editor content prefers the user's pinned text from the right

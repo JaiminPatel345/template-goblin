@@ -241,8 +241,132 @@ function checkDuplicateJsonKeys(fields: FieldDefinition[]): void {
  * @throws {TemplateGoblinError} on the first violation encountered.
  */
 export function validateManifest(manifest: TemplateManifest): void {
+  validatePageDimensions(manifest)
   for (const field of manifest.fields) {
     validateField(field)
   }
   checkDuplicateJsonKeys(manifest.fields)
+  validateBands(manifest)
+}
+
+/**
+ * Defence-in-depth — reject manifests that carry non-positive / non-finite
+ * page dimensions before they ever reach PDFKit. The UI clamps these at
+ * input time, but a hand-edited `.tgbl` or a malicious upload could still
+ * arrive here with `meta.width = -100` or `pages[0].height = NaN`. PDFKit
+ * silently produces a corrupted PDF (or crashes in a worker) on those, so
+ * we surface them as a clean validation error.
+ */
+function validatePageDimensions(manifest: TemplateManifest): void {
+  const checkDim = (value: unknown, where: string): void => {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 1) {
+      fail('INVALID_MANIFEST', `${where} must be a finite number ≥ 1 (got ${String(value)})`, {
+        where,
+        value,
+      })
+    }
+  }
+  checkDim(manifest.meta.width, 'meta.width')
+  checkDim(manifest.meta.height, 'meta.height')
+  for (const page of manifest.pages) {
+    // Per-page width / height are optional; when present they must be valid.
+    if (page.width !== undefined) checkDim(page.width, `pages[${page.id}].width`)
+    if (page.height !== undefined) checkDim(page.height, `pages[${page.id}].height`)
+  }
+}
+
+/**
+ * #61 — gated band validation. Only runs when the manifest opts into a
+ * header / footer / page-number config so legacy templates (where every
+ * field is null on these optional fields) are unaffected.
+ */
+function validateBands(manifest: TemplateManifest): void {
+  if (manifest.header) {
+    for (const f of manifest.header.fields) {
+      rejectTableInBand(f, 'header')
+      validateField(f)
+    }
+    enforceBodyOutsideBand(manifest, 'header')
+  }
+  if (manifest.footer) {
+    for (const f of manifest.footer.fields) {
+      rejectTableInBand(f, 'footer')
+      validateField(f)
+    }
+    enforceBodyOutsideBand(manifest, 'footer')
+  }
+  validatePageNumberPlacement(manifest)
+}
+
+/**
+ * Per decision C, bands accept text + image fields only. Tables in a band
+ * are spec-out-of-scope (no Phase-1 UI to create one, but a hand-edited
+ * manifest could still slip one in). Reject at validation so the renderer
+ * never has to defend against it.
+ */
+function rejectTableInBand(field: FieldDefinition, kind: 'header' | 'footer'): void {
+  if (field.type === 'table') {
+    fail(
+      'INVALID_MANIFEST',
+      `${kind} band cannot contain a 'table' field (id: ${field.id}). Only 'text' and 'image' fields are allowed in bands.`,
+      { fieldId: field.id, kind, fieldType: field.type },
+    )
+  }
+}
+
+/** Reject body fields whose bounding rect intrudes into the band's Y-band. */
+function enforceBodyOutsideBand(manifest: TemplateManifest, kind: 'header' | 'footer'): void {
+  const band = kind === 'header' ? manifest.header : manifest.footer
+  // A disabled band doesn't paint at PDF time, so body fields inhabiting
+  // its former Y-strip are legitimate page content — no overlap to flag.
+  // This pairs with the UI's hide-band flow that migrates band fields
+  // into body with absolute coords (#61 follow-up).
+  if (!band || !band.enabled || band.style.height <= 0) return
+  const pageHeight = manifest.meta.height
+  const minY = kind === 'header' ? band.style.height : 0
+  const maxY = kind === 'header' ? pageHeight : pageHeight - band.style.height
+  for (const f of manifest.fields) {
+    const top = f.y
+    const bottom = f.y + f.height
+    if (kind === 'header' && top < minY) {
+      fail('FIELD_OVERLAPS_BAND', `Field ${f.id} overlaps header band (y < ${minY})`, {
+        fieldId: f.id,
+        kind,
+        minY,
+        actualY: top,
+      })
+    }
+    if (kind === 'footer' && bottom > maxY) {
+      fail('FIELD_OVERLAPS_BAND', `Field ${f.id} overlaps footer band (y + height > ${maxY})`, {
+        fieldId: f.id,
+        kind,
+        maxY,
+        actualBottom: bottom,
+      })
+    }
+  }
+}
+
+/**
+ * `pageNumber.enabled && placement === 'header'` requires `header` to be
+ * defined (and symmetrically for footer). Without the chosen band, the
+ * renderer silently drops the page number — surface the misconfiguration.
+ */
+function validatePageNumberPlacement(manifest: TemplateManifest): void {
+  const cfg = manifest.pageNumber
+  if (!cfg?.enabled) return
+  if (cfg.placement === 'header' && !manifest.header?.enabled) {
+    fail(
+      'PAGE_NUMBER_PLACEMENT_INVALID',
+      `pageNumber.placement = 'header' but manifest has no enabled header band`,
+      { placement: cfg.placement },
+    )
+  }
+  if (cfg.placement === 'footer' && !manifest.footer?.enabled) {
+    fail(
+      'PAGE_NUMBER_PLACEMENT_INVALID',
+      `pageNumber.placement = 'footer' but manifest has no enabled footer band`,
+      { placement: cfg.placement },
+    )
+  }
 }

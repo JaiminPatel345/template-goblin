@@ -18,6 +18,8 @@ export type ErrorCode =
   | 'INVALID_DYNAMIC_SOURCE'
   | 'DUPLICATE_JSON_KEY'
   | 'INVALID_TABLE_ROW'
+  | 'FIELD_OVERLAPS_BAND'
+  | 'PAGE_NUMBER_PLACEMENT_INVALID'
 
 /** Base error class for all TemplateGoblin errors */
 export class TemplateGoblinError extends Error {

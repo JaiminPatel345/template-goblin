@@ -11,6 +11,9 @@ import type {
   ImageFieldStyle,
   TableFieldStyle,
   PageSize,
+  PageBand,
+  PageBandStyle,
+  PageNumberConfig,
 } from '@template-goblin/types'
 
 /** Snapshot of the template state for undo/redo */
@@ -50,6 +53,13 @@ export interface TemplateState {
   staticImageBuffers: Map<string, ArrayBuffer>
   /** Data-URL mirror of staticImageBuffers for canvas preview. */
   staticImageDataUrls: Map<string, string>
+
+  /** #61 — Optional page-wide header. */
+  header?: PageBand
+  /** #61 — Optional page-wide footer. */
+  footer?: PageBand
+  /** #61 — Optional page-number stamp configuration. */
+  pageNumber?: PageNumberConfig
 
   /** Undo/redo history */
   history: HistorySnapshot[]
@@ -96,6 +106,47 @@ export interface TemplateState {
   removeFont: (id: string) => void
 
   addPlaceholder: (filename: string, buffer: ArrayBuffer) => void
+
+  /** #61 — Replace or clear the page-wide header. */
+  setHeader: (header: PageBand | undefined) => void
+  /**
+   * #61 (follow-up) — show / hide the header while preserving its config.
+   *  - Disabling migrates any band fields into `fields` with page-absolute
+   *    coords so the user can keep editing them as normal body elements.
+   *  - Enabling flips the visibility flag back on; the band's style /
+   *    padding / divider come back exactly as the user left them.
+   *  - Calling on a never-configured store creates the default band only
+   *    when `enabled === true`.
+   * Atomic: the body-fields append and the band-fields clear happen in one
+   * `set` so the reconciler never sees the same id in both pools (the
+   * "drag duplicates the element" symptom users reported).
+   */
+  setHeaderEnabled: (enabled: boolean) => void
+  /** #61 — Patch the header's style (height / padding / divider / bg). */
+  setHeaderStyle: (patch: Partial<PageBandStyle>) => void
+  /** #61 — Add a band-local field to the header. */
+  addHeaderField: (field: FieldDefinition) => void
+  /** #61 — Update one of the header's band-local fields. */
+  updateHeaderField: (id: string, updates: Partial<FieldDefinition>) => void
+  /** #61 — Remove a band-local field from the header. */
+  removeHeaderField: (id: string) => void
+  /** #61 — Replace or clear the page-wide footer. */
+  setFooter: (footer: PageBand | undefined) => void
+  /** #61 (follow-up) — show / hide the footer; same semantics as
+   *  `setHeaderEnabled`. */
+  setFooterEnabled: (enabled: boolean) => void
+  /** #61 — Patch the footer's style (height / padding / divider / bg). */
+  setFooterStyle: (patch: Partial<PageBandStyle>) => void
+  /** #61 — Add a band-local field to the footer. */
+  addFooterField: (field: FieldDefinition) => void
+  /** #61 — Update one of the footer's band-local fields. */
+  updateFooterField: (id: string, updates: Partial<FieldDefinition>) => void
+  /** #61 — Remove a band-local field from the footer. */
+  removeFooterField: (id: string) => void
+  /** #61 — Replace or clear the page-number config. */
+  setPageNumber: (config: PageNumberConfig | undefined) => void
+  /** #61 — Patch the page-number config (enabled / placement / etc.). */
+  setPageNumberConfig: (patch: Partial<PageNumberConfig>) => void
 
   /**
    * Register a static image (baked into the template) for a static image
@@ -156,7 +207,73 @@ export interface TemplateState {
     pageBackgroundBuffers?: Map<string, ArrayBuffer>,
     staticImageBuffers?: Map<string, ArrayBuffer>,
     staticImageDataUrls?: Map<string, string>,
+    // #61 — restored from `manifest.header` / `manifest.footer` /
+    // `manifest.pageNumber`. All optional; legacy templates leave them
+    // undefined and the editor behaves exactly as before.
+    header?: PageBand,
+    footer?: PageBand,
+    pageNumber?: PageNumberConfig,
   ) => void
+}
+
+/**
+ * Sanitise an externally-supplied page dimension. Keeps any positive finite
+ * value untouched, otherwise floors at 1pt. Negative / zero / NaN / Infinity
+ * page sizes would blank the canvas + crash the PDFKit renderer, so this is
+ * the defence-in-depth clamp called from `setPageSize` and `updatePage`.
+ */
+function clampPageDimension(value: number): number {
+  if (!Number.isFinite(value) || value < 1) return 1
+  return value
+}
+
+/**
+ * Default `PageBand` config emitted the first time the user enables a
+ * band from the toolbar menu (#61). Divider on by default — the user
+ * specifically asked for this in the right-panel rebuild iteration. Height
+ * differs between header (40pt) and footer (30pt) because footers tend
+ * to be quieter (just a page number / line).
+ */
+/**
+ * Keep `pageNumber` and its placement band consistent. Page numbers stamp
+ * INSIDE the chosen band, so an enabled page-number with `placement: 'footer'`
+ * needs an enabled footer band (and symmetrically for header) — otherwise
+ * the core validator throws `PAGE_NUMBER_PLACEMENT_INVALID` at PDF time.
+ * Returns the band patches the caller should merge with their own state
+ * update so it all lands in one atomic `set()`.
+ */
+function ensureBandForPageNumber(
+  state: { header?: PageBand; footer?: PageBand },
+  config: { enabled?: boolean; placement?: 'header' | 'footer' } | undefined,
+): { header?: PageBand; footer?: PageBand } {
+  if (!config?.enabled) return {}
+  const placement = config.placement
+  if (placement !== 'header' && placement !== 'footer') return {}
+  const current = placement === 'header' ? state.header : state.footer
+  if (current?.enabled) return {}
+  const next: PageBand = current ? { ...current, enabled: true } : defaultBand(placement)
+  return placement === 'header' ? { header: next } : { footer: next }
+}
+
+function defaultBand(kind: 'header' | 'footer'): PageBand {
+  return {
+    enabled: true,
+    style: {
+      height: kind === 'header' ? 40 : 30,
+      backgroundColor: null,
+      // #61 follow-up — dividers default to DISABLED so a freshly-enabled
+      // band is bare colour-fill, no line. Users can opt in via the
+      // band-settings modal; when they do, the default `gap` is 0
+      // (line sits flush against the band edge).
+      divider: null,
+      paddingTop: 4,
+      paddingBottom: 4,
+      paddingLeft: 12,
+      paddingRight: 12,
+    },
+    fields: [],
+    applyToFirstPage: true,
+  }
 }
 
 const defaultMeta: TemplateMeta = {
@@ -272,6 +389,11 @@ interface PersistedState {
   fontBuffers: [string, string][]
   placeholderBuffers: [string, string][]
   staticImageDataUrls?: [string, string][]
+  // #61 — page-wide header / footer / page-number config. Optional so
+  // pre-#61 persisted entries restore cleanly with these undefined.
+  header?: PageBand
+  footer?: PageBand
+  pageNumber?: PageNumberConfig
   // Legacy — still read on rehydration for backwards-compatibility with
   // entries written before #11 landed, but NOT written any more.
   backgroundBuffer?: string | null
@@ -404,9 +526,20 @@ export const useTemplateStore = create<TemplateState>()(
           meta: { ...state.meta, ...updates, updatedAt: new Date().toISOString() },
         })),
 
+      // Defence-in-depth clamp: the page-size UI inputs already enforce
+      // `min="1"` at the HTML level, but a programmatic injection via the
+      // dev console (or a stale persisted blob from a future bug) could
+      // still land negative / zero / NaN values here, blanking the canvas
+      // and crashing the renderer downstream. Pin width + height ≥ 1pt.
       setPageSize: (pageSize, width, height) =>
         set((state) => ({
-          meta: { ...state.meta, pageSize, width, height, updatedAt: new Date().toISOString() },
+          meta: {
+            ...state.meta,
+            pageSize,
+            width: clampPageDimension(width),
+            height: clampPageDimension(height),
+            updatedAt: new Date().toISOString(),
+          },
         })),
 
       setBackground: (dataUrl, buffer) =>
@@ -416,6 +549,246 @@ export const useTemplateStore = create<TemplateState>()(
         set((state) => ({
           meta: { ...state.meta, locked, updatedAt: new Date().toISOString() },
         })),
+
+      // ── #61: header / footer / page number ─────────────────────────────
+      setHeader: (header) =>
+        set((state) => ({
+          header,
+          meta: { ...state.meta, updatedAt: new Date().toISOString() },
+        })),
+
+      setHeaderEnabled: (enabled) =>
+        set((state) => {
+          // First-time enable on a never-configured store: lay down a sensible
+          // default band. First-time disable: nothing to remember; no-op.
+          if (!state.header) {
+            return enabled
+              ? {
+                  header: defaultBand('header'),
+                  meta: { ...state.meta, updatedAt: new Date().toISOString() },
+                }
+              : state
+          }
+          if (state.header.enabled === enabled) return state
+          if (enabled) {
+            // Re-show — preserve every style detail. Inverse of the hide
+            // migration: any body field whose bounding box now sits fully
+            // INSIDE the header strip (because it was migrated there on
+            // the previous hide and the user re-shows the band before
+            // moving anything) gets pulled back into `header.fields` with
+            // its band-local coordinates restored. Without this, the
+            // validator at PDF generation rejects with FIELD_OVERLAPS_BAND
+            // for fields that the user never explicitly moved.
+            const padX = state.header.style.paddingLeft
+            const padY = state.header.style.paddingTop
+            const bandH = state.header.style.height
+            const insideHeader = (f: FieldDefinition): boolean => f.y + f.height <= bandH
+            const reclaim = state.fields.filter(insideHeader)
+            const remaining = state.fields.filter((f) => !insideHeader(f))
+            const restored = reclaim.map(
+              (f) => ({ ...f, x: f.x - padX, y: f.y - padY }) as FieldDefinition,
+            )
+            return {
+              fields: remaining,
+              header: {
+                ...state.header,
+                enabled: true,
+                fields: [...state.header.fields, ...restored],
+              },
+              meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            }
+          }
+          // Hide — migrate band fields to body with page-absolute coords so
+          // the user can continue editing them freely. Done atomically with
+          // clearing band.fields so the reconciler never sees a duplicate id.
+          const bandTop = 0
+          const padX = state.header.style.paddingLeft
+          const padY = state.header.style.paddingTop
+          const migrated = state.header.fields.map(
+            (f) => ({ ...f, x: f.x + padX, y: f.y + bandTop + padY }) as FieldDefinition,
+          )
+          return {
+            fields: [...state.fields, ...migrated],
+            header: { ...state.header, enabled: false, fields: [] },
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+          }
+        }),
+
+      setHeaderStyle: (patch) =>
+        set((state) =>
+          state.header
+            ? {
+                header: { ...state.header, style: { ...state.header.style, ...patch } },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      addHeaderField: (field) =>
+        set((state) =>
+          state.header
+            ? {
+                header: { ...state.header, fields: [...state.header.fields, field] },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      updateHeaderField: (id, updates) =>
+        set((state) =>
+          state.header
+            ? {
+                header: {
+                  ...state.header,
+                  fields: state.header.fields.map((f) =>
+                    f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+                  ),
+                },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      removeHeaderField: (id) =>
+        set((state) =>
+          state.header
+            ? {
+                header: {
+                  ...state.header,
+                  fields: state.header.fields.filter((f) => f.id !== id),
+                },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      setFooter: (footer) =>
+        set((state) => ({
+          footer,
+          meta: { ...state.meta, updatedAt: new Date().toISOString() },
+        })),
+
+      setFooterEnabled: (enabled) =>
+        set((state) => {
+          if (!state.footer) {
+            return enabled
+              ? {
+                  footer: defaultBand('footer'),
+                  meta: { ...state.meta, updatedAt: new Date().toISOString() },
+                }
+              : state
+          }
+          if (state.footer.enabled === enabled) return state
+          if (enabled) {
+            // Inverse of the hide migration — see `setHeaderEnabled`.
+            const bandTop = state.meta.height - state.footer.style.height
+            const padX = state.footer.style.paddingLeft
+            const padY = state.footer.style.paddingTop
+            const insideFooter = (f: FieldDefinition): boolean => f.y >= bandTop
+            const reclaim = state.fields.filter(insideFooter)
+            const remaining = state.fields.filter((f) => !insideFooter(f))
+            const restored = reclaim.map(
+              (f) => ({ ...f, x: f.x - padX, y: f.y - bandTop - padY }) as FieldDefinition,
+            )
+            return {
+              fields: remaining,
+              footer: {
+                ...state.footer,
+                enabled: true,
+                fields: [...state.footer.fields, ...restored],
+              },
+              meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            }
+          }
+          const bandTop = state.meta.height - state.footer.style.height
+          const padX = state.footer.style.paddingLeft
+          const padY = state.footer.style.paddingTop
+          const migrated = state.footer.fields.map(
+            (f) => ({ ...f, x: f.x + padX, y: f.y + bandTop + padY }) as FieldDefinition,
+          )
+          return {
+            fields: [...state.fields, ...migrated],
+            footer: { ...state.footer, enabled: false, fields: [] },
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+          }
+        }),
+
+      setFooterStyle: (patch) =>
+        set((state) =>
+          state.footer
+            ? {
+                footer: { ...state.footer, style: { ...state.footer.style, ...patch } },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      addFooterField: (field) =>
+        set((state) =>
+          state.footer
+            ? {
+                footer: { ...state.footer, fields: [...state.footer.fields, field] },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      updateFooterField: (id, updates) =>
+        set((state) =>
+          state.footer
+            ? {
+                footer: {
+                  ...state.footer,
+                  fields: state.footer.fields.map((f) =>
+                    f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+                  ),
+                },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      removeFooterField: (id) =>
+        set((state) =>
+          state.footer
+            ? {
+                footer: {
+                  ...state.footer,
+                  fields: state.footer.fields.filter((f) => f.id !== id),
+                },
+                meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              }
+            : state,
+        ),
+
+      setPageNumber: (config) =>
+        set((state) => {
+          // #61 follow-up: page number stamps INSIDE its placement band, so
+          // turning page-numbers on with placement='footer' requires the
+          // footer band to exist + be enabled (and symmetrically for
+          // header). Without this the core validator rejects the manifest
+          // at PDF generation with PAGE_NUMBER_PLACEMENT_INVALID. We
+          // atomically enable the target band on the same `set()` so the
+          // user can't land in the inconsistent state.
+          const next = ensureBandForPageNumber(state, config)
+          return {
+            ...next,
+            pageNumber: config,
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+          }
+        }),
+
+      setPageNumberConfig: (patch) =>
+        set((state) => {
+          if (!state.pageNumber) return state
+          const merged = { ...state.pageNumber, ...patch }
+          const next = ensureBandForPageNumber(state, merged)
+          return {
+            ...next,
+            pageNumber: merged,
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+          }
+        }),
 
       addField: (field) =>
         set((state) => {
@@ -428,6 +801,30 @@ export const useTemplateStore = create<TemplateState>()(
 
       updateField: (id, updates) =>
         set((state) => {
+          // #61 — route to whichever pool owns this id (body / header / footer).
+          // Field-props components (TextFieldProps etc.) only know `updateField`;
+          // making the router transparent means they keep working for band fields
+          // without per-callsite knowledge of which pool the field lives in.
+          if (state.header?.fields.some((f) => f.id === id)) {
+            return {
+              header: {
+                ...state.header,
+                fields: state.header.fields.map((f) =>
+                  f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+                ),
+              },
+            }
+          }
+          if (state.footer?.fields.some((f) => f.id === id)) {
+            return {
+              footer: {
+                ...state.footer,
+                fields: state.footer.fields.map((f) =>
+                  f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+                ),
+              },
+            }
+          }
           // `{ ...f, ...updates }` widens the discriminated union — cast back to
           // `FieldDefinition` once the shape is known to match (`type` stays put,
           // style stays wired to its field type). BUG-005 (NIT, Option B): we do
@@ -444,6 +841,31 @@ export const useTemplateStore = create<TemplateState>()(
 
       updateFieldStyle: (id, updates) =>
         set((state) => {
+          // #61 — route through the band pool when the field lives there.
+          if (state.header?.fields.some((f) => f.id === id)) {
+            return {
+              header: {
+                ...state.header,
+                fields: state.header.fields.map((f) =>
+                  f.id === id
+                    ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition)
+                    : f,
+                ),
+              },
+            }
+          }
+          if (state.footer?.fields.some((f) => f.id === id)) {
+            return {
+              footer: {
+                ...state.footer,
+                fields: state.footer.fields.map((f) =>
+                  f.id === id
+                    ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition)
+                    : f,
+                ),
+              },
+            }
+          }
           const fields = state.fields.map((f) =>
             f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
           )
@@ -484,6 +906,23 @@ export const useTemplateStore = create<TemplateState>()(
 
       removeField: (id) =>
         set((state) => {
+          // #61 — band-aware removal.
+          if (state.header?.fields.some((f) => f.id === id)) {
+            return {
+              header: {
+                ...state.header,
+                fields: state.header.fields.filter((f) => f.id !== id),
+              },
+            }
+          }
+          if (state.footer?.fields.some((f) => f.id === id)) {
+            return {
+              footer: {
+                ...state.footer,
+                fields: state.footer.fields.filter((f) => f.id !== id),
+              },
+            }
+          }
           const fields = state.fields.filter((f) => f.id !== id)
           return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
         }),
@@ -665,9 +1104,22 @@ export const useTemplateStore = create<TemplateState>()(
         }),
 
       updatePage: (pageId, updates) =>
-        set((state) => ({
-          pages: state.pages.map((p) => (p.id === pageId ? { ...p, ...updates } : p)),
-        })),
+        set((state) => {
+          // Same defence-in-depth clamp as `setPageSize` — per-page width
+          // / height are reached through this mutation too (e.g. the page
+          // size dialog for an individual page). Sanitise both before
+          // letting them land in the store.
+          const sanitised: Partial<PageDefinition> = { ...updates }
+          if (typeof sanitised.width === 'number') {
+            sanitised.width = clampPageDimension(sanitised.width)
+          }
+          if (typeof sanitised.height === 'number') {
+            sanitised.height = clampPageDimension(sanitised.height)
+          }
+          return {
+            pages: state.pages.map((p) => (p.id === pageId ? { ...p, ...sanitised } : p)),
+          }
+        }),
 
       setPageBackground: (pageId, dataUrl, buffer) =>
         set((state) => {
@@ -787,6 +1239,13 @@ export const useTemplateStore = create<TemplateState>()(
           placeholderBuffers: new Map(),
           staticImageBuffers: new Map(),
           staticImageDataUrls: new Map(),
+          // #61 — bands and the page-number stamp are part of the template
+          // state too; `reset()` returns to the freshly-onboarded shape
+          // (no header / no footer / no page number) so callers (e2e
+          // beforeEach blocks, etc.) don't see leftover band state.
+          header: undefined,
+          footer: undefined,
+          pageNumber: undefined,
           history: [],
           historyIndex: -1,
         }),
@@ -805,6 +1264,9 @@ export const useTemplateStore = create<TemplateState>()(
         pageBackgroundBuffers,
         staticImageBuffers,
         staticImageDataUrls,
+        header,
+        footer,
+        pageNumber,
       ) =>
         set({
           meta,
@@ -820,6 +1282,13 @@ export const useTemplateStore = create<TemplateState>()(
           placeholderBuffers,
           staticImageBuffers: staticImageBuffers ?? new Map(),
           staticImageDataUrls: staticImageDataUrls ?? new Map(),
+          // #61 — restore band + page-number config from the manifest.
+          // Explicitly resetting to `undefined` when omitted so opening a
+          // pre-#61 template wipes any band config left over from a
+          // previous open of a band-using template.
+          header,
+          footer,
+          pageNumber,
           history: [createSnapshot({ fields, groups })],
           historyIndex: 0,
         }),
@@ -842,6 +1311,11 @@ export const useTemplateStore = create<TemplateState>()(
         placeholderBuffers: state.placeholderBuffers,
         staticImageBuffers: state.staticImageBuffers,
         staticImageDataUrls: state.staticImageDataUrls,
+        // #61 — bands + page number. Optional; persists only when present
+        // so legacy templates restore exactly as before.
+        header: state.header,
+        footer: state.footer,
+        pageNumber: state.pageNumber,
       }),
       // Zustand invokes `migrate` when the stored version differs from the
       // current `version`. Pre-Phase-1 entries were written with implicit
@@ -953,6 +1427,14 @@ export const useTemplateStore = create<TemplateState>()(
               ab2b64(v),
             ]),
             staticImageDataUrls: Array.from(state.staticImageDataUrls.entries()),
+            // #61 — write header / footer / pageNumber alongside the rest
+            // so refreshing the editor doesn't lose them. The earlier
+            // `partialize` change was insufficient because this custom
+            // storage adapter builds its own serialised payload and
+            // doesn't honour partialize. Keep both call sites in sync.
+            header: state.header,
+            footer: state.footer,
+            pageNumber: state.pageNumber,
           }
           const payload = JSON.stringify({
             state: serialized,

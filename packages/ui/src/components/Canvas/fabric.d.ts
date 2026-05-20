@@ -23,6 +23,12 @@ declare module 'fabric' {
     __isPageBounds?: boolean
     /** Internal flag: marks transient smart-alignment guide lines (#41). */
     __isSmartGuide?: boolean
+    /** Internal flag: marks header/footer band decoration objects (#61). */
+    __isBand?: boolean
+    /** Internal flag: marks a field group that lives inside a band (#61). */
+    __isBandField?: boolean
+    /** Which band a band-field group belongs to. Set when `__isBandField` is true. */
+    __bandKind?: 'header' | 'footer'
     /** Default (un-selected) fill saved on the field's background Rect. */
     __defaultFill?: string
     /** Default (un-selected) stroke saved on the field's background Rect. */

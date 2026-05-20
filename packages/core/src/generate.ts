@@ -7,12 +7,14 @@ import type {
 } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
 import { validateData } from './validate.js'
+import { validateManifest } from './validateManifest.js'
 import { preflightImages, type PreflightOptions } from './preflight.js'
 import { registerFonts } from './utils/font.js'
 import { type PageContext } from './utils/errorContext.js'
 import { renderBackground } from './render/background.js'
 import { renderField } from './render/field.js'
 import { renderPageBackground, renderPageBackgroundSafely } from './render/page.js'
+import { stampBands } from './render/bands.js'
 
 /** Per-call options for {@link generatePDF}. */
 export type GeneratePDFOptions = PreflightOptions
@@ -41,6 +43,15 @@ export async function generatePDF(
   data: InputJSON,
   options: GeneratePDFOptions = {},
 ): Promise<Buffer> {
+  // Defence-in-depth: run the FULL manifest validator at the renderer
+  // boundary too. `loadTemplate` already calls this on `.tgbl` open, but
+  // SDK consumers that construct a `LoadedTemplate` programmatically (or
+  // a server endpoint that accepts a manifest in the request body) would
+  // otherwise reach PDFKit with malformed input — including the
+  // negative-page-dimension / NaN-page-dimension class of bugs that
+  // silently produce a corrupted PDF.
+  validateManifest(template.manifest)
+
   // REQ: Validate input data
   const validation = validateData(template, data)
   if (!validation.valid) {
@@ -146,6 +157,12 @@ export async function generatePDF(
         }
       }
     }
+
+    // #61 — page-wide header / footer / page-number stamp pass. Runs AFTER
+    // body content for every page is buffered so we know the final pageCount
+    // and can iterate via `bufferedPageRange()`/`switchToPage()`. Safe no-op
+    // when manifest has neither header nor footer nor enabled page number.
+    stampBands(doc, manifest, data, fontMap, template, resolvedImages)
 
     doc.end()
     return await pdfReady

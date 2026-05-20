@@ -37,10 +37,23 @@ export interface PageBoundsDeps {
    * (originally surfaced after save→reopen on a coloured A4 template).
    */
   pageFillColor: string | null
+  /**
+   * #61 — header/footer band heights in points. When > 0 we clamp body
+   * fields out of the band Y-range. Both default to 0 (legacy behaviour).
+   */
+  headerHeight?: number
+  footerHeight?: number
 }
 
 export function usePageBoundsEnforcement(deps: PageBoundsDeps) {
-  const { fabricRef, fabricInstance, meta, pageFillColor } = deps
+  const {
+    fabricRef,
+    fabricInstance,
+    meta,
+    pageFillColor,
+    headerHeight = 0,
+    footerHeight = 0,
+  } = deps
 
   useEffect(() => {
     const fc = fabricRef.current
@@ -64,11 +77,12 @@ export function usePageBoundsEnforcement(deps: PageBoundsDeps) {
     fc.add(outline)
     fc.sendObjectToBack(outline)
 
+    const bandHeights = { header: headerHeight, footer: footerHeight }
     const onMoving = (e: { target?: FabricObject }) => {
-      if (e.target) clampToPage(e.target, meta.width, meta.height)
+      if (e.target) clampToPage(e.target, meta.width, meta.height, bandHeights)
     }
     const onScaling = (e: { target?: FabricObject }) => {
-      if (e.target) clampToPage(e.target, meta.width, meta.height)
+      if (e.target) clampToPage(e.target, meta.width, meta.height, bandHeights)
     }
 
     fc.on('object:moving', onMoving)
@@ -80,7 +94,15 @@ export function usePageBoundsEnforcement(deps: PageBoundsDeps) {
       fc.off('object:moving', onMoving)
       fc.off('object:scaling', onScaling)
     }
-  }, [fabricRef, fabricInstance, meta.width, meta.height, pageFillColor])
+  }, [
+    fabricRef,
+    fabricInstance,
+    meta.width,
+    meta.height,
+    pageFillColor,
+    headerHeight,
+    footerHeight,
+  ])
 }
 
 /**
@@ -113,19 +135,45 @@ export function buildPageBoundsRect(
 }
 
 /**
- * Shift `obj.left`/`obj.top` so the object's bounding rect sits inside
- * `[0, 0, pageW, pageH]`. Mutates the object in place and calls
- * `setCoords()`. Returns whether a clamp was applied.
+ * Shift `obj.left`/`obj.top` so the object's bounding rect sits inside the
+ * Y-zone it belongs to (#61). Three zones:
+ *  - Body fields (`__bandKind` undefined): `[headerH, pageH - footerH]`.
+ *  - Header band fields (`__bandKind === 'header'`): `[0, headerH]`.
+ *  - Footer band fields (`__bandKind === 'footer'`): `[pageH - footerH, pageH]`.
+ *
+ * X is always clamped to `[0, pageW]`. Mutates the object in place and
+ * calls `setCoords()`. Returns whether a clamp was applied.
  */
-export function clampToPage(obj: FabricObject, pageW: number, pageH: number): boolean {
+export function clampToPage(
+  obj: FabricObject,
+  pageW: number,
+  pageH: number,
+  bandHeights: { header?: number; footer?: number } = {},
+): boolean {
   obj.setCoords()
   const r = obj.getBoundingRect()
+  const headerH = Math.max(0, bandHeights.header ?? 0)
+  const footerH = Math.max(0, bandHeights.footer ?? 0)
+
+  let topLimit: number
+  let bottomLimit: number
+  if (obj.__bandKind === 'header') {
+    topLimit = 0
+    bottomLimit = headerH > 0 ? headerH : pageH
+  } else if (obj.__bandKind === 'footer') {
+    topLimit = footerH > 0 ? pageH - footerH : 0
+    bottomLimit = pageH
+  } else {
+    topLimit = headerH
+    bottomLimit = pageH - footerH
+  }
+
   let dx = 0
   let dy = 0
   if (r.left < 0) dx = -r.left
   else if (r.left + r.width > pageW) dx = pageW - (r.left + r.width)
-  if (r.top < 0) dy = -r.top
-  else if (r.top + r.height > pageH) dy = pageH - (r.top + r.height)
+  if (r.top < topLimit) dy = topLimit - r.top
+  else if (r.top + r.height > bottomLimit) dy = bottomLimit - (r.top + r.height)
   if (dx === 0 && dy === 0) return false
   obj.set({ left: (obj.left ?? 0) + dx, top: (obj.top ?? 0) + dy })
   obj.setCoords()
