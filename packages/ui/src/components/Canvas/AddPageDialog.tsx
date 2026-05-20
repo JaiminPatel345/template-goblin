@@ -1,6 +1,11 @@
 import React, { useState, useRef } from 'react'
 import { type PageBackgroundType, type PageSize } from '@template-goblin/types'
-import { PageSizePicker, resolveChoice, type PageSizeChoice } from './PageSizePicker.js'
+import {
+  PageSizePicker,
+  resolveChoice,
+  validateCustomDims,
+  type PageSizeChoice,
+} from './PageSizePicker.js'
 import { ColorPickerPopover } from '../ColorPickerPopover.js'
 
 /**
@@ -278,6 +283,9 @@ export function AddPageDialog({
                 className="tg-btn tg-btn--primary"
                 onClick={commit}
                 data-testid="add-page-confirm"
+                disabled={
+                  sizeChoice === 'custom' && validateCustomDims(customWidth, customHeight).hasError
+                }
               >
                 {mode === 'edit' ? 'Apply' : 'Add Page'}
               </button>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import type { PageSize } from '@template-goblin/types'
+import { validateCustomDims } from '../Canvas/PageSizePicker.js'
 
 interface PageSizeOption {
   label: string
@@ -21,6 +22,12 @@ export function PageSizeDialog() {
   const [selected, setSelected] = useState<string>('match')
   const [customWidth, setCustomWidth] = useState(595)
   const [customHeight, setCustomHeight] = useState(842)
+
+  // #112 — block Apply on a sub-1 / non-finite custom dimension. The store
+  // clamp + manifest validator catch bad values defence-in-depth, but the
+  // user should see WHY their value was rejected before hitting Apply.
+  const customDimValidation = validateCustomDims(customWidth, customHeight)
+  const applyDisabled = selected === 'custom' && customDimValidation.hasError
 
   if (!showDialog || !pendingBackground) return null
 
@@ -122,7 +129,22 @@ export function PageSizeDialog() {
                 min={1}
                 value={customWidth}
                 onChange={(e) => setCustomWidth(Number(e.target.value))}
+                aria-invalid={!!customDimValidation.widthError}
+                aria-describedby={
+                  customDimValidation.widthError ? 'toolbar-page-size-width-error' : undefined
+                }
+                data-testid="toolbar-page-size-custom-width"
               />
+              {customDimValidation.widthError && (
+                <div
+                  id="toolbar-page-size-width-error"
+                  data-testid="toolbar-page-size-width-error"
+                  role="alert"
+                  style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+                >
+                  {customDimValidation.widthError}
+                </div>
+              )}
             </div>
             <div style={{ flex: 1 }}>
               <label
@@ -141,7 +163,22 @@ export function PageSizeDialog() {
                 min={1}
                 value={customHeight}
                 onChange={(e) => setCustomHeight(Number(e.target.value))}
+                aria-invalid={!!customDimValidation.heightError}
+                aria-describedby={
+                  customDimValidation.heightError ? 'toolbar-page-size-height-error' : undefined
+                }
+                data-testid="toolbar-page-size-custom-height"
               />
+              {customDimValidation.heightError && (
+                <div
+                  id="toolbar-page-size-height-error"
+                  data-testid="toolbar-page-size-height-error"
+                  role="alert"
+                  style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+                >
+                  {customDimValidation.heightError}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -150,7 +187,12 @@ export function PageSizeDialog() {
           <button className="tg-btn" onClick={handleCancel}>
             Cancel
           </button>
-          <button className="tg-btn tg-btn--primary" onClick={handleApply}>
+          <button
+            className="tg-btn tg-btn--primary"
+            onClick={handleApply}
+            disabled={applyDisabled}
+            data-testid="toolbar-page-size-apply"
+          >
             Apply
           </button>
         </div>
