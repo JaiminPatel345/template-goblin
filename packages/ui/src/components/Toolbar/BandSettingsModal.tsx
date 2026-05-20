@@ -31,7 +31,13 @@ export function BandSettingsModal() {
   useEffect(() => {
     if (target === null) return
     function onKey(e: KeyboardEvent): void {
-      if (e.key === 'Escape') setTarget(null)
+      if (e.key !== 'Escape') return
+      // Bug fix: if a nested popover (e.g. the colour picker) is open,
+      // let IT handle Escape and stay inside this modal. Without this
+      // gate, pressing Escape inside the colour picker closes both the
+      // popover and the surrounding settings modal in one go.
+      if (document.querySelector('[data-color-popover="true"]')) return
+      setTarget(null)
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)

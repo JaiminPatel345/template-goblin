@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { saveTemplate, openTemplate } from '../../utils/saveOpen.js'
@@ -101,9 +101,15 @@ export function Toolbar() {
     e.target.value = ''
   }
 
+  // Bug 5 (#61 follow-up) — Save was silent: the `.tgbl` downloaded but
+  // the user got no confirmation. Flip the button to a "Saved!" label
+  // for ~1.4s after a successful save so the click feels acknowledged.
+  const [savedFlash, setSavedFlash] = useState(false)
   async function handleSave() {
     try {
       await saveTemplate()
+      setSavedFlash(true)
+      window.setTimeout(() => setSavedFlash(false), 1400)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Save failed')
     }
@@ -249,6 +255,38 @@ export function Toolbar() {
           Open
         </button>
         <input ref={fileInputRef} type="file" accept=".tgbl" hidden onChange={handleOpenFile} />
+        {/* Improvement 1 (#61 follow-up) — Users previously had no way to
+            start over without manually clearing IndexedDB. Confirm before
+            wiping so an accidental click doesn't destroy in-progress work. */}
+        <button
+          className="tg-btn"
+          onClick={() => {
+            const ok = window.confirm(
+              'Start a new template? Your current unsaved work will be lost.',
+            )
+            if (!ok) return
+            useTemplateStore.getState().reset()
+            useUiStore.getState().clearSelection()
+          }}
+          title="Start a new blank template"
+          data-testid="toolbar-new"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="12" y1="18" x2="12" y2="12" />
+            <line x1="9" y1="15" x2="15" y2="15" />
+          </svg>
+          New
+        </button>
         <button
           className="tg-btn"
           onClick={() => useUiStore.getState().setShowChangeBgDialog(true)}
@@ -587,12 +625,18 @@ export function Toolbar() {
 
       <div className="tg-toolbar-separator" />
 
-      {/* Save — last, green */}
+      {/* Save — last, green. Flips to "Saved!" briefly after a successful
+          download so the click has visible feedback (#61 follow-up Bug 5). */}
       <button
         className="tg-btn"
-        style={{ background: '#16a34a', color: '#fff', borderRadius: 6 }}
+        style={{
+          background: savedFlash ? '#0a7a32' : '#16a34a',
+          color: '#fff',
+          borderRadius: 6,
+        }}
         onClick={handleSave}
         title="Save template (Ctrl+S)"
+        data-testid="toolbar-save"
       >
         <svg
           width="14"
@@ -606,7 +650,7 @@ export function Toolbar() {
           <polyline points="17 21 17 13 7 13 7 21" />
           <polyline points="7 3 7 8 15 8" />
         </svg>
-        Save
+        {savedFlash ? 'Saved!' : 'Save'}
       </button>
     </div>
   )

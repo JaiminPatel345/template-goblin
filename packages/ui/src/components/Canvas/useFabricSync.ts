@@ -101,11 +101,14 @@ export function useFabricSync(deps: SyncDeps) {
 
     const existing = new Map<string, FabricGroup>()
     fc.getObjects().forEach((o) => {
-      // #61 — band visuals (rectangles + band-field groups) are managed by
-      // `useBandVisuals`, not this reconciler. Skip them so the body-field
-      // reconciler doesn't strip band-field groups whose ids aren't in
-      // `pageFields`.
-      if (o.__fieldId && !o.__isGrid && !o.__isPageBounds && !o.__isBandField) {
+      // #61 — band-field groups are now reconciled HERE too (they used to
+      // live under `useBandVisuals` but that caused identity-loss + the
+      // duplicate-on-keystroke bug). Include any group with a `__fieldId`,
+      // whether it currently carries the `__isBandField` tag or not, so a
+      // band → body migration finds the existing group and updates it in
+      // place instead of leaving the band group behind and adding a fresh
+      // body group (the "double render / ghost" symptom).
+      if (o.__fieldId && !o.__isGrid && !o.__isPageBounds) {
         existing.set(o.__fieldId, o as FabricGroup)
       }
     })
@@ -291,15 +294,19 @@ export function useFabricSync(deps: SyncDeps) {
   const currentPageIndex = pages.findIndex((p) => p.id === currentPageId)
   const safeCurrentPageIndex = currentPageIndex >= 0 ? currentPageIndex : 0
 
+  // #61 follow-up (Improvement 5): clamping also has to honour
+  // `applyToFirstPage` — on page 0 with applyToFirstPage=false the band
+  // doesn't render, so the body field shouldn't be clamped out of that
+  // Y-zone either. Mirror `useBandVisuals.shouldRender`.
+  const headerOnPage = !!header?.enabled && (safeCurrentPageIndex > 0 || header.applyToFirstPage)
+  const footerOnPage = !!footer?.enabled && (safeCurrentPageIndex > 0 || footer.applyToFirstPage)
   usePageBoundsEnforcement({
     fabricRef,
     fabricInstance,
     meta,
     pageFillColor: currentBgColor,
-    // Only reserve band Y-zones when the band is actively shown — a hidden
-    // band's config is preserved but it doesn't claim canvas space.
-    headerHeight: header?.enabled ? header.style.height : 0,
-    footerHeight: footer?.enabled ? footer.style.height : 0,
+    headerHeight: headerOnPage ? header.style.height : 0,
+    footerHeight: footerOnPage ? footer.style.height : 0,
   })
 
   // ═══════════════ Band visuals: header / footer / page number (#61) ══════

@@ -91,15 +91,22 @@ function paintBand(
   pageWidth: number,
   isHeader: boolean,
 ): void {
-  // Background rect (transparent fill = pointer-events-only; we still mark
-  // it non-interactive so dragging through it doesn't grab the rect).
+  // Background rect. Editor-only: when the band has no explicit
+  // background colour we paint a very faint stroke so the band's bounds
+  // are discoverable. The user otherwise sees nothing if they configured
+  // a tall band but haven't added content yet (Improvement 2 from the
+  // QA pass). `excludeFromExport: true` keeps this hint out of the PDF.
+  const editorOnlyHint = !band.style.backgroundColor
   const bg = new FabricRect({
     left: 0,
     top: bandTop,
     width: pageWidth,
     height: band.style.height,
     fill: band.style.backgroundColor ?? 'rgba(0,0,0,0)',
-    stroke: null,
+    stroke: editorOnlyHint ? 'rgba(100, 130, 200, 0.25)' : null,
+    strokeWidth: editorOnlyHint ? 0.5 : 0,
+    strokeDashArray: editorOnlyHint ? [4, 4] : undefined,
+    strokeUniform: true,
     selectable: false,
     evented: false,
     excludeFromExport: true,

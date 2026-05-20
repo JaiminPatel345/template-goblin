@@ -120,6 +120,8 @@ function GroupSection({
 export function LeftPanel() {
   const fields = useTemplateStore((s) => s.fields)
   const groups = useTemplateStore((s) => s.groups)
+  const header = useTemplateStore((s) => s.header)
+  const footer = useTemplateStore((s) => s.footer)
   const addGroup = useTemplateStore((s) => s.addGroup)
   const updateField = useTemplateStore((s) => s.updateField)
   const selectedFieldIds = useUiStore((s) => s.selectedFieldIds)
@@ -138,6 +140,14 @@ export function LeftPanel() {
       groupedFields.set(key, [field])
     }
   }
+
+  // #61 follow-up — band fields are tracked in their own store arrays so
+  // the FIELDS panel needs to surface them explicitly. We render them as
+  // their own (non-droppable) sections above the body groups so users can
+  // see / select / inspect a header text field the same way they would a
+  // body field.
+  const headerFields = header?.enabled ? header.fields : []
+  const footerFields = footer?.enabled ? footer.fields : []
 
   function handleNewGroup() {
     const name = prompt('Group name:')
@@ -163,6 +173,28 @@ export function LeftPanel() {
       </div>
 
       <div className="tg-field-list">
+        {/* #61 — header / footer fields show as their own sections above
+            the body groups. Drag-out is intentionally disabled (a no-op
+            `onDropField`) — the user moves a band field by hiding the
+            band, which migrates it to the body atomically. */}
+        {headerFields.length > 0 && (
+          <GroupSection
+            group={{ id: '__header__', name: 'Header' }}
+            fields={headerFields}
+            selectedFieldIds={selectedFieldIds}
+            onSelectField={selectField}
+            onDropField={() => undefined}
+          />
+        )}
+        {footerFields.length > 0 && (
+          <GroupSection
+            group={{ id: '__footer__', name: 'Footer' }}
+            fields={footerFields}
+            selectedFieldIds={selectedFieldIds}
+            onSelectField={selectField}
+            onDropField={() => undefined}
+          />
+        )}
         {groups.map((group: GroupDefinition) => {
           const groupFields = groupedFields.get(group.id) ?? []
           return (
