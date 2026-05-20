@@ -34,6 +34,121 @@ beforeEach(() => {
   useTemplateStore.getState().reset()
 })
 
+describe('rehydration — heals poisoned page dimensions (GH #113)', () => {
+  /**
+   * Pre-existing IDB blobs written before the `setPageSize` clamp landed
+   * can carry `width: -100`. Without a hydration-time guard those rehydrate
+   * verbatim and crash the canvas. The healer floors every dimension at 1pt.
+   */
+  it('heals a negative meta.width on read', async () => {
+    const poisoned = {
+      state: {
+        meta: { width: -100, height: 842, name: 'Poison', unit: 'pt' },
+        fields: [],
+        pages: [],
+        groups: [],
+        fonts: [],
+        staticImages: [],
+        backgroundDataUrl: null,
+        pageBackgroundDataUrls: [],
+        fontBuffers: [],
+        placeholderBuffers: [],
+        staticImageBuffers: [],
+        staticImageDataUrls: [],
+      },
+      version: 2,
+    }
+    storage.set('template-goblin-template', JSON.stringify(poisoned))
+    await useTemplateStore.persist.rehydrate()
+    expect(useTemplateStore.getState().meta.width).toBe(1)
+    expect(useTemplateStore.getState().meta.height).toBe(842)
+  })
+
+  it('heals a null meta.height on read (NaN becomes null after JSON round-trip)', async () => {
+    // A pre-fix `Number.NaN` written to IDB serialises to `null` in JSON,
+    // so the realistic poisoned shape is `height: null` — not NaN.
+    const poisoned = {
+      state: {
+        meta: { width: 595, height: null, name: 'Poison', unit: 'pt' },
+        fields: [],
+        pages: [],
+        groups: [],
+        fonts: [],
+        staticImages: [],
+        backgroundDataUrl: null,
+        pageBackgroundDataUrls: [],
+        fontBuffers: [],
+        placeholderBuffers: [],
+        staticImageBuffers: [],
+        staticImageDataUrls: [],
+      },
+      version: 2,
+    }
+    storage.set('template-goblin-template', JSON.stringify(poisoned))
+    await useTemplateStore.persist.rehydrate()
+    expect(useTemplateStore.getState().meta.height).toBe(1)
+  })
+
+  it('heals a negative per-page width on read', async () => {
+    const poisoned = {
+      state: {
+        meta: { width: 595, height: 842, name: 'P', unit: 'pt' },
+        fields: [],
+        pages: [
+          {
+            id: 'p0',
+            index: 0,
+            backgroundType: 'color',
+            backgroundColor: '#fff',
+            backgroundFilename: null,
+            width: -50,
+            height: 100,
+          },
+        ],
+        groups: [],
+        fonts: [],
+        staticImages: [],
+        backgroundDataUrl: null,
+        pageBackgroundDataUrls: [],
+        fontBuffers: [],
+        placeholderBuffers: [],
+        staticImageBuffers: [],
+        staticImageDataUrls: [],
+      },
+      version: 2,
+    }
+    storage.set('template-goblin-template', JSON.stringify(poisoned))
+    await useTemplateStore.persist.rehydrate()
+    const page = useTemplateStore.getState().pages[0]
+    expect(page?.width).toBe(1)
+    expect(page?.height).toBe(100)
+  })
+
+  it('passes valid dimensions through untouched on rehydrate', async () => {
+    const healthy = {
+      state: {
+        meta: { width: 595, height: 842, name: 'P', unit: 'pt' },
+        fields: [],
+        pages: [],
+        groups: [],
+        fonts: [],
+        staticImages: [],
+        backgroundDataUrl: null,
+        pageBackgroundDataUrls: [],
+        fontBuffers: [],
+        placeholderBuffers: [],
+        staticImageBuffers: [],
+        staticImageDataUrls: [],
+      },
+      version: 2,
+    }
+    storage.set('template-goblin-template', JSON.stringify(healthy))
+    await useTemplateStore.persist.rehydrate()
+    expect(useTemplateStore.getState().meta.width).toBe(595)
+    expect(useTemplateStore.getState().meta.height).toBe(842)
+  })
+})
+
 describe('setPageSize — page dimension clamp', () => {
   it('keeps a valid positive dimension untouched', () => {
     useTemplateStore.getState().setPageSize('A4', 595, 842)

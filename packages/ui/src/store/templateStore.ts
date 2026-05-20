@@ -228,6 +228,40 @@ function clampPageDimension(value: number): number {
 }
 
 /**
+ * Heal a persisted state blob in-place: clamp every page dimension at
+ * read time so a pre-existing poisoned IDB entry (written before the
+ * `setPageSize` / `updatePage` clamp landed) can't crash the canvas on
+ * rehydrate. Closes the third gap from GH #113 — the first two were the
+ * write-time clamp and the manifest validator, both already in. This is
+ * the recovery path for users whose IDB still carries `width: -100` from
+ * earlier testing.
+ *
+ * Mutates the passed object. Returns nothing — callers spread `s` after.
+ */
+function clampPersistedPageDimensions(s: {
+  meta?: { width?: unknown; height?: unknown }
+  pages?: Array<{ width?: unknown; height?: unknown }>
+}): void {
+  const heal = (v: unknown): number =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 1 ? v : 1
+  if (s.meta) {
+    // meta.width/height are required `number` per the type, so anything
+    // non-numeric here (null after JSON round-trip, missing) is also
+    // corruption — coerce to 1 just like a negative would.
+    s.meta.width = heal(s.meta.width)
+    s.meta.height = heal(s.meta.height)
+  }
+  if (Array.isArray(s.pages)) {
+    for (const p of s.pages) {
+      // per-page width/height are optional (template-meta fallback applies
+      // when undefined), so only touch them when they're explicitly set.
+      if (p.width !== undefined) p.width = heal(p.width)
+      if (p.height !== undefined) p.height = heal(p.height)
+    }
+  }
+}
+
+/**
  * Default `PageBand` config emitted the first time the user enables a
  * band from the toolbar menu (#61). Divider on by default — the user
  * specifically asked for this in the right-panel rebuild iteration. Height
@@ -1337,6 +1371,13 @@ export const useTemplateStore = create<TemplateState>()(
           try {
             const parsed = JSON.parse(raw) as { state: PersistedState; version?: number }
             const s = parsed.state
+            // GH #113 — heal poisoned page dimensions at rehydrate time.
+            // The `setPageSize` / `updatePage` clamp blocks new bad writes,
+            // but anyone whose IDB carries a pre-fix `width: -100` would
+            // still crash the canvas on next load without this guard.
+            clampPersistedPageDimensions(
+              s as unknown as Parameters<typeof clampPersistedPageDimensions>[0],
+            )
             // Version read — pre-Phase-1 writers used implicit `1`, so
             // default missing/unknown versions to 1 so `migrate` runs.
             const version = typeof parsed.version === 'number' ? parsed.version : 1
