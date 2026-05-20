@@ -133,6 +133,53 @@ describe('validateManifest — bands (gated)', () => {
     )
   })
 
+  it('disabled header band does NOT flag body fields in its former Y-range', () => {
+    // UI hide-band migrates band fields into body with absolute coords;
+    // the band stays in the manifest as `enabled: false` so re-show can
+    // restore it. A disabled band paints nothing at PDF time, so the
+    // body fields it left behind must NOT trip FIELD_OVERLAPS_BAND.
+    const m = bareManifest({
+      fields: [dynText('migrated', 'k', false, { y: 10, height: 20 })],
+      header: {
+        enabled: false,
+        style: {
+          height: 50,
+          backgroundColor: null,
+          divider: null,
+          paddingTop: 0,
+          paddingBottom: 0,
+          paddingLeft: 0,
+          paddingRight: 0,
+        },
+        fields: [],
+        applyToFirstPage: true,
+      },
+    })
+    expect(() => validateManifest(m)).not.toThrow()
+  })
+
+  it('disabled footer band does NOT flag body fields in its former Y-range', () => {
+    const m = bareManifest({
+      meta: { ...makeManifest({}).meta, height: 842 },
+      fields: [dynText('migrated-footer', 'k', false, { y: 820, height: 20 })],
+      footer: {
+        enabled: false,
+        style: {
+          height: 50,
+          backgroundColor: null,
+          divider: null,
+          paddingTop: 0,
+          paddingBottom: 0,
+          paddingLeft: 0,
+          paddingRight: 0,
+        },
+        fields: [],
+        applyToFirstPage: true,
+      },
+    })
+    expect(() => validateManifest(m)).not.toThrow()
+  })
+
   it('pageNumber.enabled = false bypasses placement validation', () => {
     const m = bareManifest({
       fields: [],

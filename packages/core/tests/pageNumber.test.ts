@@ -49,7 +49,7 @@ describe('defaultPageNumberConfig', () => {
     expect(c.placement).toBe('footer')
     expect(c.align).toBe('center')
     expect(c.numeralStyle).toBe('arabic')
-    expect(c.showOnFirstPage).toBe(false)
+    expect(c.showOnFirstPage).toBe(true)
     expect(c.fontFamily).toBeTruthy()
     expect(c.fontSize).toBeGreaterThan(0)
   })

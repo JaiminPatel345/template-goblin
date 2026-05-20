@@ -139,9 +139,17 @@ export function useFabricSync(deps: SyncDeps) {
     existing.forEach((g) => fc.remove(g))
 
     // Enforce z-index ordering (REQ-049). Background-only Fabric objects
-    // (grid lines, page-bounds outline) sit at the bottom of the stack;
-    // field groups slot in above them, preserving their declared zIndex.
-    const ambientCount = fc.getObjects().filter((o) => o.__isGrid || o.__isPageBounds).length
+    // (grid lines, page-bounds outline, and #61 band chrome — the band
+    // background rect, divider line, and page-number Textbox) sit at the
+    // bottom of the stack; field groups slot in above them, preserving
+    // their declared zIndex. Band visuals MUST be included in the ambient
+    // count — this reconciler effect re-runs on every store-driven change,
+    // and without counting them a header `backgroundColor` rect ends up
+    // painted ABOVE its own band field groups (the "header content
+    // hides when I set a background" defect from #61 QA).
+    const ambientCount = fc
+      .getObjects()
+      .filter((o) => o.__isGrid || o.__isPageBounds || o.__isBand).length
     sorted.forEach((field, idx) => {
       const g = fc.getObjects().find((o) => o.__fieldId === field.id)
       if (g) fc.moveObjectTo(g, ambientCount + idx)

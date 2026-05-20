@@ -23,13 +23,19 @@ import { formatJsonString } from './formatJson.js'
  */
 export function JsonPreview() {
   const fields = useTemplateStore((s) => s.fields)
+  const headerFields = useTemplateStore((s) => s.header?.fields)
+  const footerFields = useTemplateStore((s) => s.footer?.fields)
   const maxModeRepeatCount = useUiStore((s) => s.maxModeRepeatCount)
   const previewJsonText = useUiStore((s) => s.previewJsonText)
   const setPreviewJsonText = useUiStore((s) => s.setPreviewJsonText)
 
   const generated = useMemo(
-    () => generateExampleJson(fields, 'default', maxModeRepeatCount),
-    [fields, maxModeRepeatCount],
+    () =>
+      generateExampleJson(fields, 'default', maxModeRepeatCount, {
+        header: headerFields,
+        footer: footerFields,
+      }),
+    [fields, headerFields, footerFields, maxModeRepeatCount],
   )
   const generatedText = useMemo(() => JSON.stringify(generated, null, 2), [generated])
 
@@ -46,9 +52,12 @@ export function JsonPreview() {
   }, [value])
 
   const handleMaxFill = useCallback(() => {
-    const max = generateExampleJson(fields, 'max', maxModeRepeatCount)
+    const max = generateExampleJson(fields, 'max', maxModeRepeatCount, {
+      header: headerFields,
+      footer: footerFields,
+    })
     setPreviewJsonText(JSON.stringify(max, null, 2))
-  }, [fields, maxModeRepeatCount, setPreviewJsonText])
+  }, [fields, headerFields, footerFields, maxModeRepeatCount, setPreviewJsonText])
 
   // GH #85 — Format button. Inline error message lives below the textarea
   // and self-clears after 3s. We intentionally don't disable the button on

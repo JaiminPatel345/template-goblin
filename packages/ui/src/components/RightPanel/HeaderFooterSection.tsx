@@ -69,10 +69,10 @@ function defaultBand(kind: BandKind): PageBand {
     style: {
       height: kind === 'header' ? 40 : 30,
       backgroundColor: null,
-      // #61 (follow-up): divider on by default — the visual separator is
-      // what makes a band feel like a band. User can toggle it off from
-      // the Divider line checkbox below.
-      divider: { color: '#888888', width: 0.5, gap: 4 },
+      // #61 (follow-up): dividers default to DISABLED. When the user
+      // opts in via the Divider line toggle, the line uses gap: 0 so it
+      // sits flush against the band edge by default.
+      divider: null,
       paddingTop: 4,
       paddingBottom: 4,
       paddingLeft: 12,
@@ -171,7 +171,7 @@ export function HeaderFooterSection({ kind, band, onSetBand, onSetStyle }: Props
               checked={!!band.style.divider}
               onChange={(e) =>
                 onSetStyle({
-                  divider: e.target.checked ? { color: '#888888', width: 0.5, gap: 4 } : null,
+                  divider: e.target.checked ? { color: '#888888', width: 0.5, gap: 0 } : null,
                 })
               }
             />

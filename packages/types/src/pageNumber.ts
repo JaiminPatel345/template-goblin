@@ -20,7 +20,10 @@ export function defaultPageNumberConfig(): PageNumberConfig {
     numeralStyle: 'arabic',
     fontFamily: 'Helvetica',
     fontSize: 10,
-    showOnFirstPage: false,
+    // #61 follow-up — default to TRUE so a freshly-enabled page number
+    // is visible on a single-page template (the common first-use case).
+    // Users who want it suppressed on the cover page can turn it off.
+    showOnFirstPage: true,
   }
 }
 

@@ -317,7 +317,11 @@ function rejectTableInBand(field: FieldDefinition, kind: 'header' | 'footer'): v
 /** Reject body fields whose bounding rect intrudes into the band's Y-band. */
 function enforceBodyOutsideBand(manifest: TemplateManifest, kind: 'header' | 'footer'): void {
   const band = kind === 'header' ? manifest.header : manifest.footer
-  if (!band || band.style.height <= 0) return
+  // A disabled band doesn't paint at PDF time, so body fields inhabiting
+  // its former Y-strip are legitimate page content — no overlap to flag.
+  // This pairs with the UI's hide-band flow that migrates band fields
+  // into body with absolute coords (#61 follow-up).
+  if (!band || !band.enabled || band.style.height <= 0) return
   const pageHeight = manifest.meta.height
   const minY = kind === 'header' ? band.style.height : 0
   const maxY = kind === 'header' ? pageHeight : pageHeight - band.style.height

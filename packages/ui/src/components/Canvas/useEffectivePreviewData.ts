@@ -28,6 +28,12 @@ export interface EffectiveDataDeps {
   repeatCount: number
   /** `previewJsonText` from `uiStore` — `null` means "no user pin". */
   previewJsonText: string | null
+  /** #61 — header/footer band fields contribute their dynamic jsonKeys to
+   *  the same flat `texts`/`images`/`tables`/`links` buckets the body fields
+   *  use, since `renderField` reads from those at PDF-stamp time. Optional
+   *  to keep older callers working. */
+  headerFields?: FieldDefinition[]
+  footerFields?: FieldDefinition[]
 }
 
 /**
@@ -37,14 +43,18 @@ export interface EffectiveDataDeps {
  * Max-Fill snapshots flow in through `previewJsonText` instead.
  */
 export function useEffectivePreviewData(deps: EffectiveDataDeps): InputJSON {
-  const { fields, repeatCount, previewJsonText } = deps
+  const { fields, repeatCount, previewJsonText, headerFields, footerFields } = deps
 
   // The auto-generated baseline is always available — used both as the
   // fall-through when there's no pin AND as the seed for the last-good cache
   // so a fresh session never starts with a "blank" reference.
   const generated = useMemo(
-    () => generateExampleJson(fields, 'default', repeatCount) as unknown as InputJSON,
-    [fields, repeatCount],
+    () =>
+      generateExampleJson(fields, 'default', repeatCount, {
+        header: headerFields,
+        footer: footerFields,
+      }) as unknown as InputJSON,
+    [fields, repeatCount, headerFields, footerFields],
   )
 
   // Cache the last successfully-parsed pin so a mid-edit unparseable string

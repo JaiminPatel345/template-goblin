@@ -234,13 +234,38 @@ function clampPageDimension(value: number): number {
  * differs between header (40pt) and footer (30pt) because footers tend
  * to be quieter (just a page number / line).
  */
+/**
+ * Keep `pageNumber` and its placement band consistent. Page numbers stamp
+ * INSIDE the chosen band, so an enabled page-number with `placement: 'footer'`
+ * needs an enabled footer band (and symmetrically for header) — otherwise
+ * the core validator throws `PAGE_NUMBER_PLACEMENT_INVALID` at PDF time.
+ * Returns the band patches the caller should merge with their own state
+ * update so it all lands in one atomic `set()`.
+ */
+function ensureBandForPageNumber(
+  state: { header?: PageBand; footer?: PageBand },
+  config: { enabled?: boolean; placement?: 'header' | 'footer' } | undefined,
+): { header?: PageBand; footer?: PageBand } {
+  if (!config?.enabled) return {}
+  const placement = config.placement
+  if (placement !== 'header' && placement !== 'footer') return {}
+  const current = placement === 'header' ? state.header : state.footer
+  if (current?.enabled) return {}
+  const next: PageBand = current ? { ...current, enabled: true } : defaultBand(placement)
+  return placement === 'header' ? { header: next } : { footer: next }
+}
+
 function defaultBand(kind: 'header' | 'footer'): PageBand {
   return {
     enabled: true,
     style: {
       height: kind === 'header' ? 40 : 30,
       backgroundColor: null,
-      divider: { color: '#888888', width: 0.5, gap: 4 },
+      // #61 follow-up — dividers default to DISABLED so a freshly-enabled
+      // band is bare colour-fill, no line. Users can opt in via the
+      // band-settings modal; when they do, the default `gap` is 0
+      // (line sits flush against the band edge).
+      divider: null,
       paddingTop: 4,
       paddingBottom: 4,
       paddingLeft: 12,
@@ -546,10 +571,30 @@ export const useTemplateStore = create<TemplateState>()(
           }
           if (state.header.enabled === enabled) return state
           if (enabled) {
-            // Re-show — preserve every style detail; fields stay empty
-            // (they were migrated to body on the previous hide).
+            // Re-show — preserve every style detail. Inverse of the hide
+            // migration: any body field whose bounding box now sits fully
+            // INSIDE the header strip (because it was migrated there on
+            // the previous hide and the user re-shows the band before
+            // moving anything) gets pulled back into `header.fields` with
+            // its band-local coordinates restored. Without this, the
+            // validator at PDF generation rejects with FIELD_OVERLAPS_BAND
+            // for fields that the user never explicitly moved.
+            const padX = state.header.style.paddingLeft
+            const padY = state.header.style.paddingTop
+            const bandH = state.header.style.height
+            const insideHeader = (f: FieldDefinition): boolean => f.y + f.height <= bandH
+            const reclaim = state.fields.filter(insideHeader)
+            const remaining = state.fields.filter((f) => !insideHeader(f))
+            const restored = reclaim.map(
+              (f) => ({ ...f, x: f.x - padX, y: f.y - padY }) as FieldDefinition,
+            )
             return {
-              header: { ...state.header, enabled: true },
+              fields: remaining,
+              header: {
+                ...state.header,
+                enabled: true,
+                fields: [...state.header.fields, ...restored],
+              },
               meta: { ...state.meta, updatedAt: new Date().toISOString() },
             }
           }
@@ -635,8 +680,23 @@ export const useTemplateStore = create<TemplateState>()(
           }
           if (state.footer.enabled === enabled) return state
           if (enabled) {
+            // Inverse of the hide migration — see `setHeaderEnabled`.
+            const bandTop = state.meta.height - state.footer.style.height
+            const padX = state.footer.style.paddingLeft
+            const padY = state.footer.style.paddingTop
+            const insideFooter = (f: FieldDefinition): boolean => f.y >= bandTop
+            const reclaim = state.fields.filter(insideFooter)
+            const remaining = state.fields.filter((f) => !insideFooter(f))
+            const restored = reclaim.map(
+              (f) => ({ ...f, x: f.x - padX, y: f.y - bandTop - padY }) as FieldDefinition,
+            )
             return {
-              footer: { ...state.footer, enabled: true },
+              fields: remaining,
+              footer: {
+                ...state.footer,
+                enabled: true,
+                fields: [...state.footer.fields, ...restored],
+              },
               meta: { ...state.meta, updatedAt: new Date().toISOString() },
             }
           }
@@ -702,20 +762,33 @@ export const useTemplateStore = create<TemplateState>()(
         ),
 
       setPageNumber: (config) =>
-        set((state) => ({
-          pageNumber: config,
-          meta: { ...state.meta, updatedAt: new Date().toISOString() },
-        })),
+        set((state) => {
+          // #61 follow-up: page number stamps INSIDE its placement band, so
+          // turning page-numbers on with placement='footer' requires the
+          // footer band to exist + be enabled (and symmetrically for
+          // header). Without this the core validator rejects the manifest
+          // at PDF generation with PAGE_NUMBER_PLACEMENT_INVALID. We
+          // atomically enable the target band on the same `set()` so the
+          // user can't land in the inconsistent state.
+          const next = ensureBandForPageNumber(state, config)
+          return {
+            ...next,
+            pageNumber: config,
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+          }
+        }),
 
       setPageNumberConfig: (patch) =>
-        set((state) =>
-          state.pageNumber
-            ? {
-                pageNumber: { ...state.pageNumber, ...patch },
-                meta: { ...state.meta, updatedAt: new Date().toISOString() },
-              }
-            : state,
-        ),
+        set((state) => {
+          if (!state.pageNumber) return state
+          const merged = { ...state.pageNumber, ...patch }
+          const next = ensureBandForPageNumber(state, merged)
+          return {
+            ...next,
+            pageNumber: merged,
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+          }
+        }),
 
       addField: (field) =>
         set((state) => {

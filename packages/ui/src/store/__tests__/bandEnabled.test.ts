@@ -110,7 +110,7 @@ describe('setHeaderEnabled — first enable / hide / show cycle', () => {
     expect(h).toBeDefined()
     expect(h?.enabled).toBe(true)
     expect(h?.style.height).toBeGreaterThan(0)
-    expect(h?.style.divider).toBeTruthy() // divider on by default
+    expect(h?.style.divider).toBeNull() // divider OFF by default (#61 follow-up)
     expect(h?.fields).toHaveLength(0)
     expect(h?.applyToFirstPage).toBe(true)
   })
@@ -191,15 +191,38 @@ describe('setHeaderEnabled — band-field migration to body', () => {
     expect(migrated.y).toBe(4 + 0 + 6)
   })
 
-  it('re-show after migration does NOT pull migrated fields back into the band', () => {
+  it('re-show pulls back body fields whose bbox sits inside the band Y-range', () => {
+    // Hide migrates the band field into body; show reclaims any body
+    // field still entirely within the band strip so the user does not
+    // hit FIELD_OVERLAPS_BAND on preview without ever having touched it.
     useTemplateStore.getState().setHeader(makeBand({ fields: [bandTextField('h1', 0, 0)] }))
     useTemplateStore.getState().setHeaderEnabled(false)
     useTemplateStore.getState().setHeaderEnabled(true)
 
     const s = useTemplateStore.getState()
     expect(s.header?.enabled).toBe(true)
+    expect(s.header?.fields).toHaveLength(1)
+    expect(s.fields).toHaveLength(0)
+    // Coordinates restored to band-local (inverse of the hide migration).
+    expect(s.header?.fields[0]?.id).toBe('h1')
+    expect(s.header?.fields[0]?.x).toBe(0)
+    expect(s.header?.fields[0]?.y).toBe(0)
+  })
+
+  it('re-show leaves body fields whose bbox extends past the band strip in body', () => {
+    // A field the user explicitly moved below the header (so its bbox no
+    // longer fits inside the band Y-range) stays in body on re-show.
+    useTemplateStore.getState().setHeader(makeBand({ fields: [bandTextField('h1', 0, 0)] }))
+    useTemplateStore.getState().setHeaderEnabled(false)
+    // Move the migrated field down so it now straddles the band edge.
+    const migrated = useTemplateStore.getState().fields[0]!
+    useTemplateStore.getState().updateField(migrated.id, { y: 100 })
+    useTemplateStore.getState().setHeaderEnabled(true)
+
+    const s = useTemplateStore.getState()
     expect(s.header?.fields).toHaveLength(0)
     expect(s.fields).toHaveLength(1)
+    expect(s.fields[0]?.y).toBe(100)
   })
 
   it('migration + clear is atomic — one mutation, no duplicate ids in both pools', () => {
@@ -263,6 +286,6 @@ describe('setFooterEnabled — symmetric with the header but anchored at bottom'
     const f = useTemplateStore.getState().footer
     expect(f?.enabled).toBe(true)
     expect(f?.style.height).toBeGreaterThan(0)
-    expect(f?.style.divider).toBeTruthy()
+    expect(f?.style.divider).toBeNull()
   })
 })

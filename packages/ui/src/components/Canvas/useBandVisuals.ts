@@ -46,6 +46,18 @@ export function useBandVisuals(deps: BandVisualsDeps): void {
     const add = (o: FabricObject): void => {
       added.push(o)
       fc.add(o)
+      // #61 follow-up — band chrome (background rect / divider / page-number
+      // text) is decorative, so it must paint BELOW band field groups.
+      // `fc.add` appends to the top of the stack; without this move a
+      // header `backgroundColor` rect ends up above its own field groups
+      // and hides them. We slot each band visual just above the grid +
+      // page-bounds ambient layer so it stays beneath every field group.
+      // `added.length - 1` preserves the paint order WITHIN the band
+      // layer (bg rect → divider → page-number) so later draws cover
+      // earlier ones — without this the page-number text would slip
+      // under a coloured band background.
+      const ambientCount = fc.getObjects().filter((x) => x.__isGrid || x.__isPageBounds).length
+      fc.moveObjectTo(o, ambientCount + added.length - 1)
     }
 
     if (header && shouldRender(header, currentPageIndex)) {

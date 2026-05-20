@@ -132,14 +132,20 @@ export function CanvasArea() {
   const isPlacing =
     activeTool === 'addText' || activeTool === 'addImage' || activeTool === 'addLoop'
 
+  const headerFieldsForPreview = useTemplateStore((s) => s.header?.fields)
+  const footerFieldsForPreview = useTemplateStore((s) => s.footer?.fields)
+
   // GH #79: the canvas reflects the right-panel JSON. `useEffectivePreviewData`
   // parses `previewJsonText` if pinned, falls back to the auto-gen example,
   // and caches the last-good parse so a mid-edit unparseable string never
-  // blanks the canvas.
+  // blanks the canvas. #61: include header/footer band fields so their
+  // dynamic jsonKeys seed the same flat data buckets the renderer reads.
   const previewData = useEffectivePreviewData({
     fields,
     repeatCount: maxModeRepeatCount,
     previewJsonText,
+    headerFields: headerFieldsForPreview,
+    footerFields: footerFieldsForPreview,
   })
 
   // Resolve the *current page*'s size — drives canvas clipping, page-bounds
