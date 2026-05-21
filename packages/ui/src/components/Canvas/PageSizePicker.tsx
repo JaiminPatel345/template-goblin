@@ -2,6 +2,32 @@ import React from 'react'
 import { PAGE_SIZE_PRESETS, type PageSize } from '@template-goblin/types'
 
 /**
+ * Per-field validation of the custom Width / Height inputs (#112).
+ * Returns the inline error message for each side, or `null` when valid.
+ * `hasError` is a convenience flag callers use to gate the Apply button.
+ *
+ * Note: only consulted when the picker is in `'custom'` mode; preset and
+ * Match/Previous choices have known-good dimensions and never error.
+ */
+export interface CustomDimValidation {
+  widthError: string | null
+  heightError: string | null
+  hasError: boolean
+}
+
+export function validateCustomDims(width: number, height: number): CustomDimValidation {
+  const widthError = checkOne(width, 'Width')
+  const heightError = checkOne(height, 'Height')
+  return { widthError, heightError, hasError: !!(widthError || heightError) }
+}
+
+function checkOne(value: number, label: string): string | null {
+  if (!Number.isFinite(value)) return `${label} must be a number.`
+  if (value < 1) return `${label} must be at least 1 pt.`
+  return null
+}
+
+/**
  * Reusable page-size radio picker. The "Same as previous" option is shown
  * when `previousSize` is supplied (i.e. on second-and-later pages); when
  * onboarding the very first page there is no previous size, so the prop is
@@ -48,6 +74,7 @@ export function PageSizePicker({
   previousSizeLabel = 'Same as previous',
   matchImage,
 }: PageSizePickerProps) {
+  const { widthError, heightError } = validateCustomDims(customWidth, customHeight)
   const presets: { key: PageSize; label: string }[] = [
     { key: 'A4', label: 'A4 (595 × 842 pt)' },
     { key: 'A3', label: 'A3 (842 × 1191 pt)' },
@@ -115,7 +142,22 @@ export function PageSizePicker({
               value={customWidth}
               onChange={(e) => setCustomWidth(Number(e.target.value))}
               tabIndex={value === 'custom' ? 0 : -1}
+              aria-invalid={value === 'custom' && !!widthError}
+              aria-describedby={
+                value === 'custom' && widthError ? 'page-size-width-error' : undefined
+              }
+              data-testid="page-size-custom-width"
             />
+            {value === 'custom' && widthError && (
+              <div
+                id="page-size-width-error"
+                data-testid="page-size-width-error"
+                role="alert"
+                style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+              >
+                {widthError}
+              </div>
+            )}
           </div>
           <div style={{ flex: 1 }}>
             <label
@@ -135,7 +177,22 @@ export function PageSizePicker({
               value={customHeight}
               onChange={(e) => setCustomHeight(Number(e.target.value))}
               tabIndex={value === 'custom' ? 0 : -1}
+              aria-invalid={value === 'custom' && !!heightError}
+              aria-describedby={
+                value === 'custom' && heightError ? 'page-size-height-error' : undefined
+              }
+              data-testid="page-size-custom-height"
             />
+            {value === 'custom' && heightError && (
+              <div
+                id="page-size-height-error"
+                data-testid="page-size-height-error"
+                role="alert"
+                style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+              >
+                {heightError}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,11 @@
 import React, { useState } from 'react'
 import { type PageSize } from '@template-goblin/types'
-import { PageSizePicker, resolveChoice, type PageSizeChoice } from './PageSizePicker.js'
+import {
+  PageSizePicker,
+  resolveChoice,
+  validateCustomDims,
+  type PageSizeChoice,
+} from './PageSizePicker.js'
 import { ColorPickerPopover } from '../ColorPickerPopover.js'
 
 /**
@@ -180,6 +185,9 @@ export function OnboardingPicker({
                   onChooseColor(hex, size)
                 }}
                 data-testid="onboarding-color-apply"
+                disabled={
+                  sizeChoice === 'custom' && validateCustomDims(customWidth, customHeight).hasError
+                }
               >
                 Apply
               </button>
