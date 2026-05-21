@@ -103,6 +103,14 @@ export function OnboardingPicker({
 
         {mode === 'color' && (
           <>
+            {/*
+             * GH #115 — the inner disc reflects the currently-selected color
+             * so the user sees their choice update live as they pick from
+             * the swatch or type a hex. We accept the hex only when it
+             * matches `#RRGGBB` (the same gate the Apply handler uses);
+             * partial typing falls back to the muted theme tint so the icon
+             * doesn't flash arbitrary colors mid-keystroke.
+             */}
             <svg
               width="64"
               height="64"
@@ -110,9 +118,17 @@ export function OnboardingPicker({
               fill="none"
               stroke="var(--text-muted)"
               strokeWidth="1.5"
+              data-testid="onboarding-color-preview-icon"
             >
               <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="12" r="3" fill="currentColor" />
+              <circle
+                cx="12"
+                cy="12"
+                r="6"
+                stroke="none"
+                fill={/^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : 'var(--text-muted)'}
+                data-testid="onboarding-color-preview-disc"
+              />
             </svg>
             <h2 className="tg-upload-title">Pick a background color</h2>
             <div

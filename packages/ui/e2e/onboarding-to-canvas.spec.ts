@@ -65,10 +65,23 @@ async function toScreen(page: Page, ptX: number, ptY: number): Promise<{ x: numb
  * Returns the canvas backgroundColor as reported by the Fabric instance.
  */
 async function getFabricBgColor(page: Page): Promise<string> {
+  // GH #46-era refactor: the page background colour moved off the Fabric
+  // canvas's `backgroundColor` (single-page only) onto the `pages[0]`
+  // PageDefinition (per-page colour). The on-canvas paint is the
+  // page-bounds rect; the source of truth is the store. Falls back to
+  // the Fabric property for ancient pre-refactor templates.
   return await page.evaluate(() => {
+    interface TmplStoreLike {
+      getState(): {
+        pages?: Array<{ index: number; backgroundColor?: string | null }>
+      }
+    }
     interface FabricLike {
       backgroundColor?: string
     }
+    const store = (window as unknown as { __templateStore?: TmplStoreLike }).__templateStore
+    const page0 = store?.getState().pages?.find((p) => p.index === 0)
+    if (page0?.backgroundColor) return page0.backgroundColor
     const fc = (window as unknown as { __fabricCanvas?: FabricLike }).__fabricCanvas
     return fc?.backgroundColor ?? ''
   })
@@ -126,6 +139,9 @@ test.describe('Onboarding → solid colour', () => {
     await hexInput.fill('#00ff00')
 
     // Apply.
+    // Onboarding now has an intermediate "Next: page size" step before Apply
+    // (added in #61 / refined in #112). Click through it with the A4 default.
+    await page.locator('[data-testid="onboarding-color-next"]').click()
     await page.locator('[data-testid="onboarding-color-apply"]').click()
 
     // Onboarding should disappear and the Fabric canvas should mount.
@@ -157,6 +173,9 @@ test.describe('Onboarding → solid colour', () => {
     // Complete onboarding.
     await page.locator('[data-testid="onboarding-solid-color"]').click()
     await page.locator('[data-testid="onboarding-color-hex"]').fill('#ccddee')
+    // Onboarding now has an intermediate "Next: page size" step before Apply
+    // (added in #61 / refined in #112). Click through it with the A4 default.
+    await page.locator('[data-testid="onboarding-color-next"]').click()
     await page.locator('[data-testid="onboarding-color-apply"]').click()
 
     // Wait for canvas.
@@ -216,6 +235,9 @@ test.describe('Onboarding → solid colour', () => {
     // Complete onboarding with solid colour.
     await page.locator('[data-testid="onboarding-solid-color"]').click()
     await page.locator('[data-testid="onboarding-color-hex"]').fill('#123456')
+    // Onboarding now has an intermediate "Next: page size" step before Apply
+    // (added in #61 / refined in #112). Click through it with the A4 default.
+    await page.locator('[data-testid="onboarding-color-next"]').click()
     await page.locator('[data-testid="onboarding-color-apply"]').click()
 
     // Canvas must appear despite the stale currentPageId.
