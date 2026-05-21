@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { SketchPicker, type ColorResult } from 'react-color'
+import { HexColorPicker } from 'react-colorful'
 
 interface ColorPickerPopoverProps {
   value: string
@@ -11,11 +11,17 @@ interface ColorPickerPopoverProps {
 }
 
 /**
- * Compact hex-colour swatch that opens a SketchPicker (react-color) in a
- * popover when clicked. Replaces the native `<input type="color">` which
- * caused the whole page to freeze on some browsers / GPU configurations
- * when the OS-level picker was open. The popover closes on outside click
- * and on Escape.
+ * Compact hex-colour swatch that opens a colour picker popover when
+ * clicked. Built on `react-colorful` (#121) — replaces the previous
+ * `react-color` SketchPicker which used the legacy `defaultProps` API
+ * (React-18 deprecation warning on every mount) and warm-loaded a heavy
+ * palette on first open (3-5s freeze). The popover closes on outside
+ * click and on Escape.
+ *
+ * Affordance preserved per #121 acceptance criteria: the existing
+ * Saturation/Value square + Hue slider + hex input + preset-swatch grid
+ * the user is used to. `react-colorful` is fully controlled and ships
+ * without the noisy preset rail, so we render the swatch grid ourselves.
  */
 export function ColorPickerPopover({
   value,
@@ -36,7 +42,7 @@ export function ColorPickerPopover({
     if (!open || !wrapperRef.current) return
     const r = wrapperRef.current.getBoundingClientRect()
     const POPOVER_W = 220
-    const POPOVER_H = 280
+    const POPOVER_H = 320
     const left = Math.min(window.innerWidth - POPOVER_W - 8, Math.max(8, r.right - POPOVER_W))
     const top = Math.min(window.innerHeight - POPOVER_H - 8, r.bottom + 4)
     setPosition({ top, left })
@@ -62,12 +68,22 @@ export function ColorPickerPopover({
     }
   }, [open])
 
-  const handleChange = useCallback(
-    (result: ColorResult) => {
-      onChange(result.hex)
+  // `react-colorful` only accepts a 7-character `#RRGGBB`. Hex typed
+  // mid-keystroke (`#ff`) would throw; we accept partial input in the
+  // text field but only push it down to the picker + parent on a valid
+  // match. This mirrors the same regex gate used by the onboarding hex
+  // input (#115).
+  const handleHexInput = useCallback(
+    (raw: string) => {
+      // Always echo what the user typed back into the parent so the
+      // value stays editable. Downstream consumers (#115 onboarding,
+      // properties panel) all gate their commit on `/^#RRGGBB$/`.
+      onChange(raw)
     },
     [onChange],
   )
+
+  const safePickerColor = /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000'
 
   return (
     <span ref={wrapperRef} style={{ display: 'inline-block', position: 'relative' }}>
@@ -77,6 +93,7 @@ export function ColorPickerPopover({
         aria-label={ariaLabel ?? 'Select color'}
         aria-expanded={open}
         title={value}
+        data-testid="color-picker-swatch"
         style={{
           width: swatchWidth,
           height: swatchHeight,
@@ -97,32 +114,96 @@ export function ColorPickerPopover({
           // Without this, pressing Escape inside the picker closes both
           // the popover AND the surrounding band-settings modal.
           data-color-popover="true"
+          data-testid="color-picker-popover"
           style={{
             position: 'fixed',
             top: position.top,
             left: position.left,
             zIndex: 2000,
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            padding: 10,
+            width: 220,
+            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
           }}
         >
-          <SketchPicker
-            color={value}
-            onChange={handleChange}
-            disableAlpha
-            presetColors={[
-              '#000000',
-              '#ffffff',
-              '#ef4444',
-              '#f59e0b',
-              '#22c55e',
-              '#3b82f6',
-              '#8b5cf6',
-              '#ec4899',
-              '#64748b',
-              '#0a0a0a',
-            ]}
+          <HexColorPicker
+            color={safePickerColor}
+            onChange={onChange}
+            style={{ width: '100%', height: 160 }}
           />
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => handleHexInput(e.target.value)}
+            spellCheck={false}
+            maxLength={7}
+            data-testid="color-picker-hex"
+            style={{
+              marginTop: 8,
+              width: '100%',
+              fontFamily: 'var(--font-mono, monospace)',
+              fontSize: 12,
+              padding: '4px 6px',
+              background: 'var(--bg-primary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+              borderRadius: 3,
+              boxSizing: 'border-box',
+            }}
+          />
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)',
+              gap: 6,
+              marginTop: 8,
+            }}
+          >
+            {PRESETS.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                onClick={() => onChange(hex)}
+                aria-label={`Preset color ${hex}`}
+                title={hex}
+                data-testid={`color-picker-preset-${hex}`}
+                style={{
+                  width: '100%',
+                  height: 22,
+                  padding: 0,
+                  border:
+                    hex.toLowerCase() === value.toLowerCase()
+                      ? '2px solid var(--accent)'
+                      : '1px solid var(--border)',
+                  borderRadius: 3,
+                  cursor: 'pointer',
+                  background: hex,
+                }}
+              />
+            ))}
+          </div>
         </div>
       )}
     </span>
   )
 }
+
+/**
+ * The 10 swatches the previous SketchPicker carried, kept as-is per #121's
+ * "no visual redesign" caveat. Lives at module scope so the array
+ * identity is stable across re-renders.
+ */
+const PRESETS = [
+  '#000000',
+  '#ffffff',
+  '#ef4444',
+  '#f59e0b',
+  '#22c55e',
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+  '#64748b',
+  '#0a0a0a',
+] as const

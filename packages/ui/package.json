@@ -20,7 +20,7 @@
     "fabric": "^6.9.1",
     "jszip": "^3.10.1",
     "react": "^18.3.1",
-    "react-color": "^2.19.3",
+    "react-colorful": "^5.7.0",
     "react-dom": "^18.3.1",
     "tailwindcss": "^4.2.2",
     "zustand": "^5.0.3"
@@ -30,7 +30,6 @@
     "@template-goblin/types": "workspace:*",
     "@types/pdfkit": "^0.13.5",
     "@types/react": "^18.3.14",
-    "@types/react-color": "^3.0.13",
     "@types/react-dom": "^18.3.3",
     "@vitejs/plugin-react": "^4.3.4",
     "fake-indexeddb": "^6.2.5",
@@ -48,5 +47,5 @@
   "comment:react-konva": "React bindings for Konva — BEING REMOVED in favour of Fabric.js (kept during migration only)",
   "comment:zustand": "Lightweight state management — canvas state, undo/redo, UI state",
   "comment:fake-indexeddb": "Test-only: polyfills IndexedDB in jsdom/Node so the templateStore's IDB-backed persist adapter (GH #11) is exercised by Vitest. Loaded via vite.config `test.setupFiles`.",
-  "comment:react-color": "In-page Sketch colour picker replacing the native `<input type=\"color\">`. The native OS picker froze the whole page on some browser/GPU combos until it was dismissed — react-color renders inline in a popover so the page stays interactive."
+  "comment:react-colorful": "5 KB, zero-dep, maintained colour picker (Hue slider + Saturation/Value square). Replaces react-color's SketchPicker which used the legacy `defaultProps` API (React-18 warning on every mount) and warm-loaded a heavy palette on first open (~3-5s freeze on first mount, GH #121). The picker still renders inline in a popover so the page stays interactive — native OS pickers froze the whole tab on some browser/GPU combos."
 }
