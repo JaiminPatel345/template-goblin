@@ -172,7 +172,7 @@ test.describe('Change Background dialog (#58)', () => {
 
     // Solid color routes through the size step where the radio renders.
     await page.locator('button', { hasText: /Solid color/ }).click()
-    await page.locator('button', { hasText: /Next: page size/ }).click()
+    await page.locator('button', { hasText: /Next →/ }).click()
     await expect(page.locator('text=Page size:')).toBeVisible()
 
     const dialog = page.locator('.tg-dialog')
@@ -228,17 +228,13 @@ test.describe('Change Background dialog (#58)', () => {
 
     await page.locator('button', { hasText: /Solid color/ }).click()
 
-    // Set a non-default colour. React owns the value via a controlled
-    // input, so we call its native setter and dispatch the `input` event
-    // — Playwright's `fill()` doesn't apply to `<input type="color">`,
-    // and a plain `el.value = X` is overwritten by React's next render.
-    await page.locator('input[type="color"]').evaluate((el: HTMLInputElement) => {
-      const proto = Object.getPrototypeOf(el)
-      const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set
-      setter?.call(el, '#ff8800')
-      el.dispatchEvent(new Event('input', { bubbles: true }))
-    })
-    await page.locator('button', { hasText: /Next: page size/ }).click()
+    // Set a non-default colour. The native `<input type="color">` was
+    // replaced by the react-colorful popover (GH #121) — open the swatch
+    // and fill the popover's hex text input, which is a plain `<input>`
+    // that Playwright's `fill()` handles natively.
+    await page.locator('[data-testid="color-picker-swatch"]').click()
+    await page.locator('[data-testid="color-picker-hex"]').fill('#ff8800')
+    await page.locator('button', { hasText: /Next →/ }).click()
     await page.getByRole('button', { name: 'Apply', exact: true }).click()
 
     await expect

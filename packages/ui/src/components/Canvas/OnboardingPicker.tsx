@@ -170,7 +170,13 @@ export function OnboardingPicker({
                 onClick={() => setMode('size')}
                 data-testid="onboarding-color-next"
               >
-                Next: page size
+                {/*
+                 * GH #114 — "Next: page size" overflowed the card on the
+                 * default `max-w-md` width, clipping to "Next: page si...".
+                 * The arrow keeps the call-to-action obvious; the next
+                 * step's "Choose page size" heading carries the context.
+                 */}
+                Next →
               </button>
             </div>
           </>

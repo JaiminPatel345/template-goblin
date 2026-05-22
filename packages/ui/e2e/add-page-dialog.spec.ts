@@ -161,7 +161,7 @@ test.describe('Add Page dialog (#47)', () => {
 
     await page.locator('button', { hasText: /Solid color/ }).click()
     // Color step.
-    await page.locator('button', { hasText: /Next: page size/ }).click()
+    await page.locator('button', { hasText: /Next →/ }).click()
     // Size step is visible.
     await expect(page.locator('text=Page size:')).toBeVisible()
     // "Same as previous (... × ... pt)" radio is the default for "previous".
@@ -176,7 +176,7 @@ test.describe('Add Page dialog (#47)', () => {
     await expect(fabricCanvas(page)).toBeVisible()
     await openAddPage(page)
     await page.locator('button', { hasText: /Solid color/ }).click()
-    await page.locator('button', { hasText: /Next: page size/ }).click()
+    await page.locator('button', { hasText: /Next →/ }).click()
     await expect(page.locator('text=Page size:')).toBeVisible()
 
     const dialog = page.locator('.tg-dialog')
@@ -193,7 +193,7 @@ test.describe('Add Page dialog (#47)', () => {
     await expect(fabricCanvas(page)).toBeVisible()
     await openAddPage(page)
     await page.locator('button', { hasText: /Solid color/ }).click()
-    await page.locator('button', { hasText: /Next: page size/ }).click()
+    await page.locator('button', { hasText: /Next →/ }).click()
     await expect(page.locator('text=Page size:')).toBeVisible()
 
     const dialog = page.locator('.tg-dialog')
@@ -280,7 +280,7 @@ test.describe('Add Page dialog (#47)', () => {
     await expect(fabricCanvas(page)).toBeVisible()
     await openAddPage(page)
     await page.locator('button', { hasText: /Solid color/ }).click()
-    await page.locator('button', { hasText: /Next: page size/ }).click()
+    await page.locator('button', { hasText: /Next →/ }).click()
     await expect(page.locator('text=Page size:')).toBeVisible()
 
     // The custom block is rendered (reserved slot) but `tabIndex={-1}`
