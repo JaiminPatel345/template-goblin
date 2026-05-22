@@ -78,13 +78,14 @@ html, body, #root {
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   line-height: 1;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid transparent;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   cursor: pointer;
   white-space: nowrap;
   transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
 }
 .tg-ribbon-btn svg {
@@ -92,32 +93,38 @@ html, body, #root {
   height: var(--icon-size-md);
   flex-shrink: 0;
 }
-/* Icon-only (no label child) collapses to a perfect square — matches
- * the icon-button conventions in Linear / Figma / Notion. The selector
- * applies when there's no `.tg-ribbon-btn__label` child. */
+/* Icon-only (no label) collapses to a perfect square — matches the
+ * icon-button conventions in Linear / Figma / GitHub. */
 .tg-ribbon-btn--icon-only {
   width: var(--control-height-md);
   padding: 0;
 }
 .tg-ribbon-btn:hover {
   background: var(--bg-tertiary);
-  color: var(--text-primary);
+  border-color: var(--border-strong);
 }
 .tg-ribbon-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.tg-ribbon-btn:disabled:hover { background: transparent; color: var(--text-secondary); }
+.tg-ribbon-btn:disabled:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border);
+}
 
-/* Toggle / active state — subtle background fill + slim accent under-
- * line on the bottom edge (inset shadow so layout doesn't shift). Same
- * idiom Linear / Figma use for "this view is selected". */
+/* Toggle / active — flat "selected" treatment used by Tailwind UI,
+ * shadcn, GitHub's button-groups: filled neutral background + slightly
+ * darker border, no inset shadow / underline (which read as a 3 D
+ * pressed effect rather than a plain selected state). */
 .tg-ribbon-btn--active {
   background: var(--bg-tertiary);
+  border-color: var(--border-strong);
   color: var(--text-primary);
-  box-shadow: inset 0 -2px 0 0 var(--accent);
 }
-.tg-ribbon-btn--active:hover { background: var(--bg-surface); }
+.tg-ribbon-btn--active:hover {
+  background: var(--bg-surface);
+  border-color: var(--border-strong);
+}
 
 /* Primary CTA fill — used by Save / Preview when the action is the
  * "do the thing" moment. Reserve sparingly; over-use erodes contrast. */
