@@ -504,7 +504,12 @@ export function groupToFieldPatch(
  */
 export function buildGridLines(pageWidth: number, pageHeight: number, gridSize: number): Line[] {
   const lines: Line[] = []
-  const gridColor = 'rgba(255,255,255,0.08)'
+  // Mid-grey with low alpha so the grid stays subtle but visible on the
+  // common page backgrounds (white, off-white, light-coloured) where the
+  // previous near-white tone disappeared entirely (#64 — "Snap looks
+  // like it does nothing"). On darker page backgrounds 12% black still
+  // reads as a thin lattice without dominating.
+  const gridColor = 'rgba(0,0,0,0.14)'
   const strokeW = 0.5
 
   for (let x = 0; x <= pageWidth; x += gridSize) {

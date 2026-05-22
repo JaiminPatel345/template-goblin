@@ -83,10 +83,15 @@ html, body, #root {
 .tg-ribbon-btn:hover { background: var(--bg-tertiary); }
 .tg-ribbon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .tg-ribbon-btn:disabled:hover { background: transparent; }
+/* Toggle / active state — accent-tinted so it reads clearly distinct
+ * from neutral hover (which uses --bg-tertiary). Without this, toggle
+ * buttons like Snap looked identical pre- and post-click (#64 polish). */
 .tg-ribbon-btn--active {
-  background: var(--bg-tertiary);
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
-.tg-ribbon-btn--active:hover { background: var(--bg-tertiary); }
+.tg-ribbon-btn--active:hover { background: var(--accent-soft-hover); }
 .tg-ribbon-btn--primary {
   background: var(--accent);
   color: #fff;
@@ -115,7 +120,13 @@ html, body, #root {
 }
 .tg-menu-tab:hover,
 .tg-menu-tab:focus-visible { background: var(--bg-tertiary); }
-.tg-menu-tab--active { background: var(--bg-tertiary); }
+/* Active menu tab — accent-tinted to read as the currently-open ribbon,
+ * not just hover. */
+.tg-menu-tab--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tg-menu-tab--active:hover { background: var(--accent-soft-hover); }
 
 /* ===== Panels ===== */
 .tg-left-panel {
