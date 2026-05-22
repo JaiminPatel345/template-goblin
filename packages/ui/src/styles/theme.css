@@ -1,0 +1,253 @@
+/*
+ * theme.css — v3 design tokens (#64).
+ *
+ * Single source of truth for colour, spacing, typography, radius, shadow,
+ * motion, and z-index scales. Both light and dark themes live here.
+ * Existing class authors keep using `--bg-primary` / `--text-primary` /
+ * `--accent` etc.; the new scaled tokens (`--space-3`, `--radius-md`,
+ * `--shadow-lg`, `--duration-fast`, …) layer on top so the v3 redesign
+ * can compose every surface from the same scale.
+ *
+ * Toggling is data-attribute driven: <html data-theme="dark"> swaps every
+ * colour token. No JS reads tokens directly — only CSS. Light is the
+ * default for users who haven't opted in.
+ */
+
+/* =============================================================
+ * Scale tokens — theme-independent. Defined once on :root.
+ * ============================================================= */
+:root {
+  /* --- Spacing (4-px grid) --- */
+  --space-0: 0;
+  --space-px: 1px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* --- Typography --- */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace,
+    Menlo, Consolas, monospace;
+
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+  --text-3xl: 28px;
+
+  --leading-tight: 1.25;
+  --leading-snug: 1.4;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* --- Radius --- */
+  --radius-none: 0;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* --- Motion --- */
+  --duration-instant: 80ms;
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 280ms;
+  --duration-slower: 420ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* --- Z-index scale --- */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 800;
+  --z-modal: 900;
+  --z-popover: 950;
+  --z-tooltip: 1000;
+  --z-toast: 2000;
+
+  /* --- Focus ring (theme-tinted; colour resolves via --ring-color) --- */
+  --ring-width: 2px;
+  --ring-offset: 2px;
+
+  /* --- Tooltip timing (Radix `delayDuration` default reference) --- */
+  --tooltip-open-delay: 600ms;
+  --tooltip-close-delay: 80ms;
+}
+
+/* =============================================================
+ * Light theme — default. Lives on :root so unscoped consumers
+ * (e.g. portal'd Radix overlays) inherit it.
+ * ============================================================= */
+:root,
+[data-theme='light'] {
+  /* Surfaces (background hierarchy: primary < secondary < tertiary < elevated) */
+  --bg-primary: #f5f5f7;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #ebecf0;
+  --bg-surface: #f0f1f3;
+  --bg-elevated: #ffffff;
+  --bg-overlay: rgba(15, 15, 23, 0.45);
+
+  /* Text */
+  --text-primary: #1a1a2e;
+  --text-secondary: #4a4a5e;
+  --text-muted: #7e7f93;
+  --text-on-accent: #ffffff;
+
+  /* Borders */
+  --border: #dcdde1;
+  --border-light: #e8e8ec;
+  --border-strong: #c2c3c9;
+
+  /* Brand accent */
+  --accent: #e94560;
+  --accent-hover: #d63851;
+  --accent-active: #b62a44;
+  --accent-soft: rgba(233, 69, 96, 0.12);
+  --accent-soft-hover: rgba(233, 69, 96, 0.2);
+
+  /* Semantic */
+  --success: #16a34a;
+  --success-hover: #137d3b;
+  --success-soft: rgba(22, 163, 74, 0.12);
+  --warning: #d97706;
+  --warning-hover: #b3620a;
+  --warning-soft: rgba(217, 119, 6, 0.12);
+  --error: #dc2626;
+  --error-hover: #b81e1e;
+  --error-soft: rgba(220, 38, 38, 0.12);
+  --info: #2563eb;
+  --info-soft: rgba(37, 99, 235, 0.12);
+
+  /* Canvas-specific */
+  --canvas-bg: #e0e0e8;
+  --canvas-grid: rgba(0, 0, 0, 0.04);
+
+  /* Focus ring colour */
+  --ring-color: rgba(233, 69, 96, 0.45);
+
+  /* Shadows — soft, tinted-neutral for light */
+  --shadow-xs: 0 1px 2px rgba(15, 15, 23, 0.06);
+  --shadow-sm: 0 2px 4px rgba(15, 15, 23, 0.08);
+  --shadow-md: 0 4px 12px rgba(15, 15, 23, 0.1);
+  --shadow-lg: 0 8px 24px rgba(15, 15, 23, 0.14);
+  --shadow-xl: 0 16px 48px rgba(15, 15, 23, 0.18);
+  --shadow-popover: 0 8px 24px rgba(15, 15, 23, 0.16);
+  --shadow-modal: 0 24px 64px rgba(15, 15, 23, 0.28);
+
+  color-scheme: light;
+}
+
+/* =============================================================
+ * Dark theme — overrides every colour token. Scales (space /
+ * radius / motion / z) carry over unchanged.
+ * ============================================================= */
+[data-theme='dark'] {
+  --bg-primary: #0f0f17;
+  --bg-secondary: #181825;
+  --bg-tertiary: #252538;
+  --bg-surface: #1e1e30;
+  --bg-elevated: #232338;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+
+  --text-primary: #f0f0f5;
+  --text-secondary: #b6b6c8;
+  --text-muted: #8a8aa6;
+  --text-on-accent: #ffffff;
+
+  --border: #2d2d45;
+  --border-light: #3a3a52;
+  --border-strong: #4a4a66;
+
+  --accent: #ff5e7a;
+  --accent-hover: #ff7a92;
+  --accent-active: #e94560;
+  --accent-soft: rgba(255, 94, 122, 0.18);
+  --accent-soft-hover: rgba(255, 94, 122, 0.28);
+
+  --success: #4ade80;
+  --success-hover: #6ee79a;
+  --success-soft: rgba(74, 222, 128, 0.16);
+  --warning: #fbbf24;
+  --warning-hover: #fcd34d;
+  --warning-soft: rgba(251, 191, 36, 0.16);
+  --error: #f87171;
+  --error-hover: #fca5a5;
+  --error-soft: rgba(248, 113, 113, 0.18);
+  --info: #60a5fa;
+  --info-soft: rgba(96, 165, 250, 0.18);
+
+  --canvas-bg: #0a0a14;
+  --canvas-grid: rgba(255, 255, 255, 0.05);
+
+  --ring-color: rgba(255, 94, 122, 0.55);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.42);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.58);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.66);
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.72);
+
+  color-scheme: dark;
+}
+
+/* =============================================================
+ * Global affordances — apply across the whole app, both themes.
+ * Tightens the v3 polish bar: every focusable thing has a
+ * visible ring; native form controls track the theme; pointer
+ * affordances are explicit.
+ * ============================================================= */
+
+/* Replace the browser's default focus outline with a tokenised ring.
+ * `:focus-visible` keeps mouse clicks free of rings; keyboard / a11y
+ * users still get a strong indicator. */
+*:focus { outline: none; }
+*:focus-visible {
+  outline: var(--ring-width) solid var(--ring-color);
+  outline-offset: var(--ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+/* Native selection colour follows the accent so it reads as branded. */
+::selection {
+  background: var(--accent-soft-hover);
+  color: var(--text-primary);
+}
+
+/* Respect users who ask for reduced motion. Drops every transition /
+ * animation duration to ~0 without changing layout. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
