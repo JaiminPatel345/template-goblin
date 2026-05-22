@@ -122,36 +122,33 @@ test.describe('#61 — Page Layout dialog + band visuals', () => {
     await waitForCanvas(page)
   })
 
-  /** Open the anchored Page Layout menu from the toolbar. */
-  async function openMenu(page: Page): Promise<void> {
-    await page.locator('[data-testid="toolbar-page-layout"]').click()
-    await expect(page.locator('[data-testid="page-layout-menu"]')).toBeVisible({
+  /** Switch to the Insert tab so the Header / Footer / Page Number toggles
+   *  surface in the ribbon. The navbar redesign (#128) replaced the old
+   *  anchored Page Layout menu with three direct toggles + per-band ⚙. */
+  async function openInsertTab(page: Page): Promise<void> {
+    await page.locator('[data-testid="menu-tab-insert"]').click()
+    await expect(page.locator('[data-testid="ribbon-insert-header"]')).toBeVisible({
       timeout: 3000,
     })
   }
 
-  /** Click a top-level item (Header / Footer / Page Number) to open its flyout. */
-  async function openFlyout(page: Page, item: 'header' | 'footer' | 'page-number'): Promise<void> {
-    await page.locator(`[data-testid="page-layout-menu-${item}"]`).click()
-  }
-
-  test('toolbar opens an anchored menu with Header / Footer / Page Number items', async ({
+  test('Insert ribbon surfaces Header / Footer / Page Number as direct toggles', async ({
     page,
   }) => {
-    await openMenu(page)
-    await expect(page.locator('[data-testid="page-layout-menu-header"]')).toBeVisible()
-    await expect(page.locator('[data-testid="page-layout-menu-footer"]')).toBeVisible()
-    await expect(page.locator('[data-testid="page-layout-menu-page-number"]')).toBeVisible()
-    // Sidebar stays in the field-selection placeholder — band controls
-    // are no longer there.
-    await expect(page.locator('text=Select a field to edit its properties')).toBeVisible()
+    await openInsertTab(page)
+    await expect(page.locator('[data-testid="ribbon-insert-header"]')).toBeVisible()
+    await expect(page.locator('[data-testid="ribbon-insert-footer"]')).toBeVisible()
+    await expect(page.locator('[data-testid="ribbon-insert-pagenumber"]')).toBeVisible()
+    // Each toggle has its own ⚙ settings affordance.
+    await expect(page.locator('[data-testid="ribbon-insert-header-settings"]')).toBeVisible()
+    await expect(page.locator('[data-testid="ribbon-insert-footer-settings"]')).toBeVisible()
+    await expect(page.locator('[data-testid="ribbon-insert-pagenumber-settings"]')).toBeVisible()
   })
 
-  test('Header flyout: "Show header" toggle paints a band on the canvas', async ({ page }) => {
+  test('Header toggle paints a band on the canvas in one click', async ({ page }) => {
     expect((await bandObjects(page)).filter((o) => o.isBand)).toHaveLength(0)
-    await openMenu(page)
-    await openFlyout(page, 'header')
-    await page.locator('[data-testid="page-layout-flyout-header-toggle"]').click()
+    await openInsertTab(page)
+    await page.locator('[data-testid="ribbon-insert-header"]').click()
     await expect
       .poll(async () => (await bandObjects(page)).filter((o) => o.isBand).length, {
         timeout: 3000,
@@ -159,34 +156,18 @@ test.describe('#61 — Page Layout dialog + band visuals', () => {
       .toBeGreaterThan(0)
   })
 
-  test('Header settings opens the full configuration modal', async ({ page }) => {
-    await openMenu(page)
-    await openFlyout(page, 'header')
-    await page.locator('[data-testid="page-layout-flyout-header-toggle"]').click()
-    // Header on → Settings… button enables → click → modal opens.
-    await page.locator('[data-testid="page-layout-flyout-header-settings"]').click()
+  test('Header ⚙ opens the full configuration modal', async ({ page }) => {
+    await openInsertTab(page)
+    await page.locator('[data-testid="ribbon-insert-header-settings"]').click()
     await expect(page.locator('[data-testid="band-settings-modal"]')).toBeVisible()
-    // The modal exposes the Apply-to-first-page toggle the user can now
-    // adjust without rummaging through a sidebar.
     await expect(page.locator('text=Apply to first page')).toBeVisible()
   })
 
-  test('Page Number flyout: showing the page number paints a Textbox', async ({ page }) => {
-    // First enable a footer so the page number has a band to live in.
-    await openMenu(page)
-    await openFlyout(page, 'footer')
-    await page.locator('[data-testid="page-layout-flyout-footer-toggle"]').click()
-    await openFlyout(page, 'page-number')
-    await page.locator('[data-testid="page-layout-flyout-pageNumber-toggle"]').click()
-    // Default config has `showOnFirstPage: false`; flip via the store so
-    // the single-page test template renders the number on page 0.
-    await page.evaluate(() => {
-      interface StoreLike {
-        getState(): { setPageNumberConfig: (p: { showOnFirstPage: boolean }) => void }
-      }
-      const store = (window as unknown as { __templateStore?: StoreLike }).__templateStore
-      store?.getState().setPageNumberConfig({ showOnFirstPage: true })
-    })
+  test('Page Number toggle paints a Textbox once enabled', async ({ page }) => {
+    await openInsertTab(page)
+    // Enabling page number with default placement=footer auto-enables
+    // the footer band (#61 follow-up).
+    await page.locator('[data-testid="ribbon-insert-pagenumber"]').click()
     await expect
       .poll(async () => (await bandObjects(page)).filter((o) => o.isBand && o.isTextbox).length, {
         timeout: 3000,
@@ -197,15 +178,14 @@ test.describe('#61 — Page Layout dialog + band visuals', () => {
   test('applyToFirstPage = false (set via Settings modal) removes the band on page 0', async ({
     page,
   }) => {
-    await openMenu(page)
-    await openFlyout(page, 'header')
-    await page.locator('[data-testid="page-layout-flyout-header-toggle"]').click()
+    await openInsertTab(page)
+    await page.locator('[data-testid="ribbon-insert-header"]').click()
     await expect
       .poll(async () => (await bandObjects(page)).filter((o) => o.isBand).length, {
         timeout: 3000,
       })
       .toBeGreaterThan(0)
-    await page.locator('[data-testid="page-layout-flyout-header-settings"]').click()
+    await page.locator('[data-testid="ribbon-insert-header-settings"]').click()
     await expect(page.locator('[data-testid="band-settings-modal"]')).toBeVisible()
     // Uncheck "Apply to first page" inside the modal.
     await page
