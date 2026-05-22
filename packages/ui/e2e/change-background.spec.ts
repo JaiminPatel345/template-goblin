@@ -157,6 +157,9 @@ async function readPageBackgroundDataUrl(page: Page, pageId: string): Promise<st
 }
 
 async function openChangeBgDialog(page: Page): Promise<void> {
+  // #128 — Change Background lives under the File tab in the new menu
+  // bar. Click File first to surface the ribbon button.
+  await page.locator('[data-testid="menu-tab-file"]').click()
   await page.locator('[data-testid="toolbar-change-background"]').click()
   await expect(page.locator('.tg-dialog-title', { hasText: 'Change Background' })).toBeVisible()
 }
@@ -185,10 +188,14 @@ test.describe('Change Background dialog (#58)', () => {
     await seed(page, { multiPage: false })
     await page.goto('/')
     await expect(fabricCanvas(page)).toBeVisible()
+    // #128 — Change Background lives under File now; surface the ribbon first.
+    await page.locator('[data-testid="menu-tab-file"]').click()
     const btn = page.locator('[data-testid="toolbar-change-background"]')
     await expect(btn).toContainText(/Change Background/i)
     // The old "BG" label should not appear in the toolbar text.
-    const toolbarText = (await page.locator('.tg-toolbar').textContent()) ?? ''
+    // #128 — the toolbar wrapper now uses role="region" instead of the
+    // legacy `.tg-toolbar` class.
+    const toolbarText = (await page.getByRole('region', { name: /toolbar/i }).textContent()) ?? ''
     expect(toolbarText).not.toMatch(/^BG$|\bBG\b(?!\.)/)
   })
 

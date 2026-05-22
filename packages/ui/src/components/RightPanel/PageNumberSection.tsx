@@ -14,13 +14,20 @@ import { AlignButtonGroup } from './AlignButtonGroup.js'
 
 interface Props {
   config: PageNumberConfig | undefined
+  /**
+   * Kept on the props for backwards compat with existing call sites, but
+   * the section no longer disables Placement when a band is missing —
+   * the store's `setPageNumber` / `setPageNumberConfig` auto-create the
+   * targeted band, so the user can freely pick Header or Footer without
+   * having to enable the band first.
+   */
   hasHeader: boolean
   hasFooter: boolean
   onSet: (config: PageNumberConfig | undefined) => void
   onPatch: (patch: Partial<PageNumberConfig>) => void
 }
 
-export function PageNumberSection({ config, hasHeader, hasFooter, onSet, onPatch }: Props) {
+export function PageNumberSection({ config, onSet, onPatch }: Props) {
   const enabled = !!config?.enabled
 
   return (
@@ -35,10 +42,11 @@ export function PageNumberSection({ config, hasHeader, hasFooter, onSet, onPatch
           checked={enabled}
           onChange={(e) => {
             if (e.target.checked) {
+              // The store auto-creates the placement band, so we can
+              // honour whatever default the user previously chose (or the
+              // built-in default of 'footer').
               const next = config ?? defaultPageNumberConfig()
-              // Steer placement to whichever band actually exists.
-              const placement = hasFooter ? 'footer' : hasHeader ? 'header' : 'footer'
-              onSet({ ...next, enabled: true, placement })
+              onSet({ ...next, enabled: true })
             } else {
               onPatch({ enabled: false })
             }
@@ -48,26 +56,19 @@ export function PageNumberSection({ config, hasHeader, hasFooter, onSet, onPatch
 
       {enabled && config && (
         <>
-          {!hasHeader && !hasFooter && (
-            <div
-              style={{
-                fontSize: 11,
-                color: 'var(--text-warn, #b04a00)',
-                margin: '4px 0',
-                lineHeight: 1.4,
-              }}
-            >
-              Enable a header or footer first — page number lives inside a band.
-            </div>
-          )}
-
           <div className="tg-form-row">
             <label>Placement</label>
             <div style={{ display: 'flex', gap: 4, flex: 1 }}>
+              {/*
+                Placement buttons are NEVER disabled — picking Header or
+                Footer auto-creates+enables the corresponding band via the
+                store's `ensureBandForPageNumber` helper. Lets the user
+                land page numbers in either band without manually
+                enabling it first.
+              */}
               <button
                 className={`tg-btn ${config.placement === 'header' ? 'tg-btn--active' : ''}`}
                 style={{ flex: 1, fontSize: 11 }}
-                disabled={!hasHeader}
                 onClick={() => onPatch({ placement: 'header' })}
               >
                 Header
@@ -75,7 +76,6 @@ export function PageNumberSection({ config, hasHeader, hasFooter, onSet, onPatch
               <button
                 className={`tg-btn ${config.placement === 'footer' ? 'tg-btn--active' : ''}`}
                 style={{ flex: 1, fontSize: 11 }}
-                disabled={!hasFooter}
                 onClick={() => onPatch({ placement: 'footer' })}
               >
                 Footer
