@@ -122,9 +122,10 @@ test.describe('#61 — Page Layout dialog + band visuals', () => {
     await waitForCanvas(page)
   })
 
-  /** Switch to the Insert tab so the Header / Footer / Page Number toggles
-   *  surface in the ribbon. The navbar redesign (#128) replaced the old
-   *  anchored Page Layout menu with three direct toggles + per-band ⚙. */
+  /** Switch to the Insert tab so the Header / Footer / Page Number
+   *  buttons surface. Each ribbon button opens its settings popup;
+   *  the show/hide toggle and every other option live inside the popup
+   *  (#128 final UX). */
   async function openInsertTab(page: Page): Promise<void> {
     await page.locator('[data-testid="menu-tab-insert"]').click()
     await expect(page.locator('[data-testid="ribbon-insert-header"]')).toBeVisible({
@@ -132,23 +133,22 @@ test.describe('#61 — Page Layout dialog + band visuals', () => {
     })
   }
 
-  test('Insert ribbon surfaces Header / Footer / Page Number as direct toggles', async ({
-    page,
-  }) => {
+  test('Insert ribbon surfaces Header / Footer / Page Number buttons', async ({ page }) => {
     await openInsertTab(page)
     await expect(page.locator('[data-testid="ribbon-insert-header"]')).toBeVisible()
     await expect(page.locator('[data-testid="ribbon-insert-footer"]')).toBeVisible()
     await expect(page.locator('[data-testid="ribbon-insert-pagenumber"]')).toBeVisible()
-    // Each toggle has its own ⚙ settings affordance.
-    await expect(page.locator('[data-testid="ribbon-insert-header-settings"]')).toBeVisible()
-    await expect(page.locator('[data-testid="ribbon-insert-footer-settings"]')).toBeVisible()
-    await expect(page.locator('[data-testid="ribbon-insert-pagenumber-settings"]')).toBeVisible()
   })
 
-  test('Header toggle paints a band on the canvas in one click', async ({ page }) => {
+  test('Header button → popup → Show header paints the band on the canvas', async ({ page }) => {
     expect((await bandObjects(page)).filter((o) => o.isBand)).toHaveLength(0)
     await openInsertTab(page)
     await page.locator('[data-testid="ribbon-insert-header"]').click()
+    await expect(page.locator('[data-testid="band-settings-modal"]')).toBeVisible()
+    await page
+      .locator('.tg-toggle-row', { hasText: 'Show header' })
+      .locator('input[type="checkbox"]')
+      .check()
     await expect
       .poll(async () => (await bandObjects(page)).filter((o) => o.isBand).length, {
         timeout: 3000,
@@ -156,18 +156,23 @@ test.describe('#61 — Page Layout dialog + band visuals', () => {
       .toBeGreaterThan(0)
   })
 
-  test('Header ⚙ opens the full configuration modal', async ({ page }) => {
+  test('Header popup exposes the Apply to first page toggle', async ({ page }) => {
     await openInsertTab(page)
-    await page.locator('[data-testid="ribbon-insert-header-settings"]').click()
-    await expect(page.locator('[data-testid="band-settings-modal"]')).toBeVisible()
+    await page.locator('[data-testid="ribbon-insert-header"]').click()
+    await page
+      .locator('.tg-toggle-row', { hasText: 'Show header' })
+      .locator('input[type="checkbox"]')
+      .check()
     await expect(page.locator('text=Apply to first page')).toBeVisible()
   })
 
-  test('Page Number toggle paints a Textbox once enabled', async ({ page }) => {
+  test('Page Number popup → Show page number paints a Textbox', async ({ page }) => {
     await openInsertTab(page)
-    // Enabling page number with default placement=footer auto-enables
-    // the footer band (#61 follow-up).
     await page.locator('[data-testid="ribbon-insert-pagenumber"]').click()
+    await page
+      .locator('.tg-toggle-row', { hasText: 'Show page number' })
+      .locator('input[type="checkbox"]')
+      .check()
     await expect
       .poll(async () => (await bandObjects(page)).filter((o) => o.isBand && o.isTextbox).length, {
         timeout: 3000,
@@ -175,19 +180,21 @@ test.describe('#61 — Page Layout dialog + band visuals', () => {
       .toBeGreaterThan(0)
   })
 
-  test('applyToFirstPage = false (set via Settings modal) removes the band on page 0', async ({
+  test('applyToFirstPage = false (set via the popup) removes the band on page 0', async ({
     page,
   }) => {
     await openInsertTab(page)
     await page.locator('[data-testid="ribbon-insert-header"]').click()
+    await page
+      .locator('.tg-toggle-row', { hasText: 'Show header' })
+      .locator('input[type="checkbox"]')
+      .check()
     await expect
       .poll(async () => (await bandObjects(page)).filter((o) => o.isBand).length, {
         timeout: 3000,
       })
       .toBeGreaterThan(0)
-    await page.locator('[data-testid="ribbon-insert-header-settings"]').click()
-    await expect(page.locator('[data-testid="band-settings-modal"]')).toBeVisible()
-    // Uncheck "Apply to first page" inside the modal.
+    // The popup is already open from the previous step; uncheck applyToFirstPage.
     await page
       .locator('.tg-toggle-row', { hasText: 'Apply to first page' })
       .locator('input[type="checkbox"]')

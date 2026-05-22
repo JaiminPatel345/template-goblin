@@ -245,32 +245,95 @@ test.describe('#128 — Insert ribbon', () => {
     await page.locator('[data-testid="menu-tab-insert"]').click()
   })
 
-  test('Header toggle paints a band on first click', async ({ page }) => {
-    expect((await ui(page)).headerEnabled).toBe(false)
+  test('Header button opens the band settings popup', async ({ page }) => {
     await page.locator('[data-testid="ribbon-insert-header"]').click()
+    await expect(page.locator('[data-testid="band-settings-modal"]')).toBeVisible()
+    // Show toggle lives inside the popup.
+    await expect(page.locator('text=Show header')).toBeVisible()
+  })
+
+  test('Footer button opens the band settings popup', async ({ page }) => {
+    await page.locator('[data-testid="ribbon-insert-footer"]').click()
+    await expect(page.locator('[data-testid="band-settings-modal"]')).toBeVisible()
+    await expect(page.locator('text=Show footer')).toBeVisible()
+  })
+
+  test('Page Number button opens the page-number settings popup', async ({ page }) => {
+    await page.locator('[data-testid="ribbon-insert-pagenumber"]').click()
+    await expect(page.locator('[data-testid="band-settings-modal"]')).toBeVisible()
+  })
+
+  test('Page Number → pick Header placement auto-creates the header band', async ({ page }) => {
+    // Pre-condition: both bands disabled.
+    expect((await ui(page)).headerEnabled).toBe(false)
+    expect((await ui(page)).footerEnabled).toBe(false)
+    // Open Page Number popup.
+    await page.locator('[data-testid="ribbon-insert-pagenumber"]').click()
+    await expect(page.locator('[data-testid="band-settings-modal"]')).toBeVisible()
+    // Enable page number (defaults to footer placement → footer auto-created).
+    await page
+      .locator('.tg-toggle-row', { hasText: 'Show page number' })
+      .locator('input[type="checkbox"]')
+      .check()
+    expect((await ui(page)).pageNumberEnabled).toBe(true)
+    expect((await ui(page)).footerEnabled).toBe(true)
+    // The Placement buttons MUST be enabled — switch to Header → header auto-creates.
+    const headerPlacementBtn = page.locator('.tg-btn', { hasText: /^Header$/ })
+    await expect(headerPlacementBtn).not.toBeDisabled()
+    await headerPlacementBtn.click()
     expect((await ui(page)).headerEnabled).toBe(true)
   })
 
-  test('Footer toggle paints a band on first click', async ({ page }) => {
+  test('Page Number → pick Footer placement auto-creates the footer band when header was first', async ({
+    page,
+  }) => {
+    // Force header-only path: open page-number popup, enable, then
+    // switch to header first, then back to footer (footer was never on).
+    await page.evaluate(() => {
+      interface T {
+        getState(): { setFooter: (v: undefined) => void }
+      }
+      ;(window as unknown as { __templateStore?: T }).__templateStore
+        ?.getState()
+        .setFooter(undefined)
+    })
+    await page.locator('[data-testid="ribbon-insert-pagenumber"]').click()
+    await page
+      .locator('.tg-toggle-row', { hasText: 'Show page number' })
+      .locator('input[type="checkbox"]')
+      .check()
+    // Manually pick Header first to make footer the "missing" band.
+    await page.locator('.tg-btn', { hasText: /^Header$/ }).click()
+    await page.evaluate(() => {
+      interface T {
+        getState(): { setFooter: (v: undefined) => void }
+      }
+      ;(window as unknown as { __templateStore?: T }).__templateStore
+        ?.getState()
+        .setFooter(undefined)
+    })
     expect((await ui(page)).footerEnabled).toBe(false)
-    await page.locator('[data-testid="ribbon-insert-footer"]').click()
+    // Now click Footer placement — footer band auto-creates.
+    const footerPlacementBtn = page.locator('.tg-btn', { hasText: /^Footer$/ })
+    await expect(footerPlacementBtn).not.toBeDisabled()
+    await footerPlacementBtn.click()
     expect((await ui(page)).footerEnabled).toBe(true)
   })
 
-  test('Page Number toggle auto-enables its default placement band (footer)', async ({ page }) => {
-    expect((await ui(page)).pageNumberEnabled).toBe(false)
-    expect((await ui(page)).footerEnabled).toBe(false)
-    await page.locator('[data-testid="ribbon-insert-pagenumber"]').click()
-    const after = await ui(page)
-    expect(after.pageNumberEnabled).toBe(true)
-    expect(after.footerEnabled).toBe(true)
-  })
-
-  test('Settings ⚙ auto-enables the band AND opens the modal in one click', async ({ page }) => {
-    expect((await ui(page)).headerEnabled).toBe(false)
-    await page.locator('[data-testid="ribbon-insert-header-settings"]').click()
-    expect((await ui(page)).headerEnabled).toBe(true)
-    await expect(page.locator('[data-testid="band-settings-modal"]')).toBeVisible()
+  test('Enabled band shows an active highlight on the ribbon button', async ({ page }) => {
+    // Programmatic enable so we don't depend on the popup's checkbox path.
+    await page.evaluate(() => {
+      interface T {
+        getState(): { setHeaderEnabled: (v: boolean) => void }
+      }
+      ;(window as unknown as { __templateStore?: T }).__templateStore
+        ?.getState()
+        .setHeaderEnabled(true)
+    })
+    await expect(page.locator('[data-testid="ribbon-insert-header"]')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 })
 
@@ -328,7 +391,7 @@ test.describe('#128 — Format ribbon', () => {
     expect((await ui(page)).showLeftPanel).toBe(!before)
   })
 
-  test('Fonts… button opens the font manager dialog', async ({ page }) => {
+  test('Font Manager button opens the font manager dialog', async ({ page }) => {
     await page.locator('[data-testid="ribbon-fonts"]').click()
     await expect(page.locator('.tg-dialog-title', { hasText: 'Font Manager' })).toBeVisible({
       timeout: 3000,

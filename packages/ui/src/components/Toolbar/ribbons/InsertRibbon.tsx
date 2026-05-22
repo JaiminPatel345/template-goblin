@@ -1,27 +1,24 @@
 import { useTemplateStore } from '../../../store/templateStore.js'
 import { useUiStore } from '../../../store/uiStore.js'
-import { defaultPageNumberConfig } from '@template-goblin/types'
 import { RibbonGroup } from '../primitives/RibbonGroup.js'
 import { RibbonButton } from '../primitives/RibbonButton.js'
 import { PageLayoutIcon } from '../icons.js'
 
 /**
- * Insert ribbon (#128, follow-up). The most-used insert tools (Text /
- * Image / Table) live in the pinned slot on the menu bar so they're one
- * click away from every tab. This ribbon exposes Header / Footer /
- * Page Number as three FIRST-CLASS toggles — one click to turn on, one
- * click on the ⚙ to open detailed settings. Replaces the previous
- * single "Page Layout" button that required three clicks to enable a
- * header (open menu → pick Header → click Show).
+ * Insert ribbon (#128). Three first-class buttons: Header / Footer /
+ * Page Number. Clicking any of them opens the settings popup
+ * (`BandSettingsModal`) — the Show/Hide toggle lives inside the popup
+ * as the first row, alongside the rest of that band's configuration.
+ * One click, one place, no extra affordances.
+ *
+ * The pinned Text / Image / Table tools live on the menu bar above and
+ * are always reachable regardless of which tab is active.
  */
 export function InsertRibbon() {
   const locked = useTemplateStore((s) => s.meta.locked)
   const headerEnabled = useTemplateStore((s) => !!s.header?.enabled)
   const footerEnabled = useTemplateStore((s) => !!s.footer?.enabled)
   const pageNumberEnabled = useTemplateStore((s) => !!s.pageNumber?.enabled)
-  const setHeaderEnabled = useTemplateStore((s) => s.setHeaderEnabled)
-  const setFooterEnabled = useTemplateStore((s) => s.setFooterEnabled)
-  const setPageNumber = useTemplateStore((s) => s.setPageNumber)
   const setPageLayoutSettings = useUiStore((s) => s.setPageLayoutSettings)
   const hasBackground = useTemplateStore(
     (s) =>
@@ -32,85 +29,39 @@ export function InsertRibbon() {
   )
   const disabled = locked || !hasBackground
 
-  /**
-   * Tiny gear button rendered next to each band toggle. Opens the full
-   * settings modal (`BandSettingsModal`) for that target. If the band is
-   * currently disabled, also enables it so the user gets settings on a
-   * live band in one click rather than two.
-   */
-  function SettingsButton({
-    target,
-    testid,
-  }: {
-    target: 'header' | 'footer' | 'pageNumber'
-    testid: string
-  }) {
-    function handleClick(): void {
-      if (target === 'header' && !headerEnabled) setHeaderEnabled(true)
-      else if (target === 'footer' && !footerEnabled) setFooterEnabled(true)
-      else if (target === 'pageNumber' && !pageNumberEnabled)
-        setPageNumber(defaultPageNumberConfig())
-      setPageLayoutSettings(target)
-    }
-    return (
-      <RibbonButton
-        label="⚙"
-        onClick={handleClick}
-        disabled={disabled}
-        compact
-        title={`Open ${target} settings`}
-        testid={testid}
-        ariaLabel={`${target} settings`}
-        style={{
-          fontSize: 14,
-          minWidth: 26,
-          padding: '4px 6px',
-          color: 'var(--text-muted)',
-        }}
-      />
-    )
-  }
-
   return (
     <div style={{ display: 'flex' }}>
-      <RibbonGroup label="Header">
+      <RibbonGroup label="Page elements">
         <RibbonButton
           icon={<PageLayoutIcon />}
-          label={headerEnabled ? 'On' : 'Off'}
-          onClick={() => setHeaderEnabled(!headerEnabled)}
+          label="Header"
+          onClick={() => setPageLayoutSettings('header')}
           active={headerEnabled}
-          variant="toggle"
+          variant={headerEnabled ? 'toggle' : 'default'}
           disabled={disabled}
-          title={headerEnabled ? 'Hide page-wide header' : 'Show a page-wide header'}
+          title="Configure the page-wide header"
           testid="ribbon-insert-header"
         />
-        <SettingsButton target="header" testid="ribbon-insert-header-settings" />
-      </RibbonGroup>
-      <RibbonGroup label="Footer">
         <RibbonButton
           icon={<PageLayoutIcon />}
-          label={footerEnabled ? 'On' : 'Off'}
-          onClick={() => setFooterEnabled(!footerEnabled)}
+          label="Footer"
+          onClick={() => setPageLayoutSettings('footer')}
           active={footerEnabled}
-          variant="toggle"
+          variant={footerEnabled ? 'toggle' : 'default'}
           disabled={disabled}
-          title={footerEnabled ? 'Hide page-wide footer' : 'Show a page-wide footer'}
+          title="Configure the page-wide footer"
           testid="ribbon-insert-footer"
         />
-        <SettingsButton target="footer" testid="ribbon-insert-footer-settings" />
-      </RibbonGroup>
-      <RibbonGroup label="Page number">
         <RibbonButton
           icon={<PageLayoutIcon />}
-          label={pageNumberEnabled ? 'On' : 'Off'}
-          onClick={() => setPageNumber(pageNumberEnabled ? undefined : defaultPageNumberConfig())}
+          label="Page Number"
+          onClick={() => setPageLayoutSettings('pageNumber')}
           active={pageNumberEnabled}
-          variant="toggle"
+          variant={pageNumberEnabled ? 'toggle' : 'default'}
           disabled={disabled}
-          title={pageNumberEnabled ? 'Remove page numbers' : 'Add page numbers'}
+          title="Configure page numbers"
           testid="ribbon-insert-pagenumber"
         />
-        <SettingsButton target="pageNumber" testid="ribbon-insert-pagenumber-settings" />
       </RibbonGroup>
     </div>
   )

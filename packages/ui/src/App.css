@@ -126,6 +126,68 @@ html, body, #root {
 .tg-btn--primary { background: var(--accent); color: #fff; border: none; }
 .tg-btn--primary:hover { background: var(--accent-hover); }
 
+/* === Ribbon buttons (#128 navbar redesign) =================================
+ * Tailwind v4 preflight applies `background-color: transparent` to every
+ * `<button>` via the base layer — inline style won't override it without
+ * `!important`. Stylesheet classes WILL because they outrank the base
+ * layer on selector match. Hence the dedicated `.tg-ribbon-btn` family.
+ */
+.tg-ribbon-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 48px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.tg-ribbon-btn--compact { flex-direction: row; gap: 4px; min-width: 28px; }
+.tg-ribbon-btn:hover { background: var(--bg-tertiary); }
+.tg-ribbon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.tg-ribbon-btn:disabled:hover { background: transparent; }
+.tg-ribbon-btn--active {
+  background: var(--bg-tertiary);
+}
+.tg-ribbon-btn--active:hover { background: var(--bg-tertiary); }
+.tg-ribbon-btn--primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+}
+.tg-ribbon-btn--primary:hover { background: var(--accent-hover); }
+.tg-ribbon-btn--success {
+  background: #16a34a;
+  color: #fff;
+  border: none;
+}
+.tg-ribbon-btn--success:hover { background: #0a7a32; }
+
+/* Row-1 menu-tab buttons — text-only triggers along the top strip. */
+.tg-menu-tab {
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  outline: none;
+  transition: background 0.12s ease;
+}
+.tg-menu-tab:hover,
+.tg-menu-tab:focus-visible { background: var(--bg-tertiary); }
+.tg-menu-tab--active { background: var(--bg-tertiary); }
+
 /* ===== Panels ===== */
 .tg-left-panel {
   /* `overflow: hidden` on the OUTER panel prevents the browser scrollbar

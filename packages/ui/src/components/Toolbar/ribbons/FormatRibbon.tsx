@@ -33,9 +33,9 @@ export function FormatRibbon() {
       </RibbonGroup>
       <RibbonGroup label="Typography">
         <RibbonButton
-          label="Fonts…"
+          label="Font Manager"
           onClick={() => setShowFontManager(true)}
-          title="Open the fonts manager"
+          title="Open the font manager"
           testid="ribbon-fonts"
         />
       </RibbonGroup>
