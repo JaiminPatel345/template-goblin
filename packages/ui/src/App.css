@@ -145,9 +145,10 @@ html, body, #root {
 .tg-ribbon-btn--success:hover { background: var(--success-hover); color: var(--text-on-accent); }
 
 /* === Menu tabs (row 1: File / Edit / Insert / Format / View / Help) ====
- * Lower-case text feel that scrolls flat into the ribbon, with the
- * active tab carrying the same 2 px accent underline as the ribbon
- * active-state — visually "this tab opens the ribbon below". */
+ * Same outlined-button idiom as ribbon controls so the whole nav bar
+ * reads as one consistent system — thin border at rest, fills on
+ * hover, becomes the accent fill when active so the current tab
+ * pops without needing the 3 D inset underline trick. */
 .tg-menu-tab {
   display: inline-flex;
   align-items: center;
@@ -155,22 +156,30 @@ html, body, #root {
   padding: 0 var(--space-3);
   font-size: var(--text-base);
   font-weight: var(--font-weight-medium);
-  color: var(--text-secondary);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   cursor: pointer;
   outline: none;
   transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
 }
-.tg-menu-tab:hover { background: var(--bg-tertiary); color: var(--text-primary); }
-.tg-menu-tab--active {
-  color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
-  box-shadow: inset 0 -2px 0 0 var(--accent);
+.tg-menu-tab:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-strong);
 }
-.tg-menu-tab--active:hover { background: var(--bg-tertiary); }
+.tg-menu-tab--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: var(--font-weight-semibold);
+}
+.tg-menu-tab--active:hover {
+  background: var(--accent-soft-hover);
+  border-color: var(--accent);
+}
 
 /* ===== Panels ===== */
 .tg-left-panel {
