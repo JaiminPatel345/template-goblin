@@ -55,82 +55,113 @@ html, body, #root {
 .tg-btn--primary { background: var(--accent); color: #fff; border: none; }
 .tg-btn--primary:hover { background: var(--accent-hover); }
 
-/* === Ribbon buttons (#128 navbar redesign) =================================
- * Tailwind v4 preflight applies `background-color: transparent` to every
- * `<button>` via the base layer — inline style won't override it without
- * `!important`. Stylesheet classes WILL because they outrank the base
- * layer on selector match. Hence the dedicated `.tg-ribbon-btn` family.
+/* === Ribbon buttons (v3 redesign #64) ======================================
+ * Single horizontal layout — icon on the left, label on the right —
+ * sharing one control height across the whole ribbon. This kills the
+ * column-vs-row mismatch that made the old ribbon look unsorted
+ * (Left/Right column-stacked, Snap label-only, Zoom row-compact, etc.).
+ *
+ * Sizing comes from `--control-height-md` / `--icon-size-md` so the
+ * toolbar/ribbon/form-inputs all share the same scale.
+ *
+ * Tailwind v4 preflight applies `background-color: transparent` via
+ * the base layer; CSS-class rules outrank that on selector match, so
+ * we don't need `!important` anywhere.
  */
 .tg-ribbon-btn {
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  min-width: 48px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-primary);
+  gap: var(--space-2);
+  height: var(--control-height-md);
+  padding: 0 var(--control-padding-x);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  color: var(--text-secondary);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
-.tg-ribbon-btn--compact { flex-direction: row; gap: 4px; min-width: 28px; }
-.tg-ribbon-btn:hover { background: var(--bg-tertiary); }
-.tg-ribbon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.tg-ribbon-btn:disabled:hover { background: transparent; }
-/* Toggle / active state — Word/Docs convention: neutral background +
- * thin 2 px accent underline. Reads clearly as "engaged" without
- * staining the whole button in the brand colour (which felt like a
- * warning state — #64 polish). The 2 px is subtracted from the bottom
- * padding so layout doesn't shift between inactive and active. */
+.tg-ribbon-btn svg {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+  flex-shrink: 0;
+}
+/* Icon-only (no label child) collapses to a perfect square — matches
+ * the icon-button conventions in Linear / Figma / Notion. The selector
+ * applies when there's no `.tg-ribbon-btn__label` child. */
+.tg-ribbon-btn--icon-only {
+  width: var(--control-height-md);
+  padding: 0;
+}
+.tg-ribbon-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.tg-ribbon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.tg-ribbon-btn:disabled:hover { background: transparent; color: var(--text-secondary); }
+
+/* Toggle / active state — subtle background fill + slim accent under-
+ * line on the bottom edge (inset shadow so layout doesn't shift). Same
+ * idiom Linear / Figma use for "this view is selected". */
 .tg-ribbon-btn--active {
   background: var(--bg-tertiary);
   color: var(--text-primary);
   box-shadow: inset 0 -2px 0 0 var(--accent);
 }
 .tg-ribbon-btn--active:hover { background: var(--bg-surface); }
+
+/* Primary CTA fill — used by Save / Preview when the action is the
+ * "do the thing" moment. Reserve sparingly; over-use erodes contrast. */
 .tg-ribbon-btn--primary {
   background: var(--accent);
-  color: #fff;
-  border: none;
+  color: var(--text-on-accent);
+  border-color: transparent;
 }
-.tg-ribbon-btn--primary:hover { background: var(--accent-hover); }
-.tg-ribbon-btn--success {
-  background: #16a34a;
-  color: #fff;
-  border: none;
-}
-.tg-ribbon-btn--success:hover { background: #0a7a32; }
+.tg-ribbon-btn--primary:hover { background: var(--accent-hover); color: var(--text-on-accent); }
+.tg-ribbon-btn--primary:disabled:hover { background: var(--accent); }
 
-/* Row-1 menu-tab buttons — text-only triggers along the top strip. */
-.tg-menu-tab {
-  background: transparent;
-  color: var(--text-primary);
-  border: none;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border-radius: 4px;
-  outline: none;
-  transition: background 0.12s ease;
+/* Success fill — Save action, reads as "this commits something". */
+.tg-ribbon-btn--success {
+  background: var(--success);
+  color: var(--text-on-accent);
+  border-color: transparent;
 }
-.tg-menu-tab:hover,
-.tg-menu-tab:focus-visible { background: var(--bg-tertiary); }
-/* Active menu tab — Word/Docs convention: thin 2 px accent underline
- * sitting flush with the ribbon row below. Neutral text colour, no
- * background stain. The underline visually "tabs into" the ribbon. */
-.tg-menu-tab--active {
+.tg-ribbon-btn--success:hover { background: var(--success-hover); color: var(--text-on-accent); }
+
+/* === Menu tabs (row 1: File / Edit / Insert / Format / View / Help) ====
+ * Lower-case text feel that scrolls flat into the ribbon, with the
+ * active tab carrying the same 2 px accent underline as the ribbon
+ * active-state — visually "this tab opens the ribbon below". */
+.tg-menu-tab {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
   background: transparent;
+  border: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  cursor: pointer;
+  outline: none;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+.tg-menu-tab:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+.tg-menu-tab--active {
   color: var(--text-primary);
   font-weight: var(--font-weight-semibold);
   box-shadow: inset 0 -2px 0 0 var(--accent);
-  border-radius: 4px 4px 0 0;
 }
 .tg-menu-tab--active:hover { background: var(--bg-tertiary); }
 
@@ -417,6 +448,13 @@ html, body, #root {
 @keyframes tg-slide-up {
   from { transform: translateY(12px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* Tooltip entry — quick fade + tiny lift so the hover label feels
+ * snappy rather than abrupt. Used by the Radix-backed Tooltip primitive. */
+@keyframes tg-tooltip-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ===== Left panel group sections ===== */
