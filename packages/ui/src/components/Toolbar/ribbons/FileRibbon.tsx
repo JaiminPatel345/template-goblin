@@ -1,0 +1,67 @@
+import { useRef } from 'react'
+import { useTemplateStore } from '../../../store/templateStore.js'
+import { useUiStore } from '../../../store/uiStore.js'
+import { openTemplate } from '../../../utils/saveOpen.js'
+import { RibbonGroup } from '../primitives/RibbonGroup.js'
+import { RibbonButton } from '../primitives/RibbonButton.js'
+import { NewIcon, OpenIcon, BackgroundIcon } from '../icons.js'
+
+/**
+ * File ribbon (#128). Save lives in the pinned-CTA slot at the far right
+ * of the menu bar, not here — but New / Open / Change Background belong
+ * to the File category and live here so users can find them by clicking
+ * the File tab even though they're not visible on the pinned strip.
+ */
+export function FileRibbon() {
+  const openInputRef = useRef<HTMLInputElement>(null)
+  const setShowChangeBgDialog = useUiStore((s) => s.setShowChangeBgDialog)
+
+  async function handleOpenFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      await openTemplate(file)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to open file')
+    }
+    e.target.value = ''
+  }
+
+  function handleNew() {
+    const ok = window.confirm('Start a new template? Your current unsaved work will be lost.')
+    if (!ok) return
+    useTemplateStore.getState().reset()
+    useUiStore.getState().clearSelection()
+  }
+
+  return (
+    <div style={{ display: 'flex' }}>
+      <RibbonGroup label="Document">
+        <RibbonButton
+          icon={<NewIcon />}
+          label="New"
+          onClick={handleNew}
+          title="Start a new blank template"
+          testid="toolbar-new"
+        />
+        <RibbonButton
+          icon={<OpenIcon />}
+          label="Open"
+          onClick={() => openInputRef.current?.click()}
+          title="Open a .tgbl template"
+          testid="toolbar-open"
+        />
+        <input ref={openInputRef} type="file" accept=".tgbl" hidden onChange={handleOpenFile} />
+      </RibbonGroup>
+      <RibbonGroup label="Page background">
+        <RibbonButton
+          icon={<BackgroundIcon />}
+          label="Change Background"
+          onClick={() => setShowChangeBgDialog(true)}
+          title="Change the current page's background"
+          testid="toolbar-change-background"
+        />
+      </RibbonGroup>
+    </div>
+  )
+}

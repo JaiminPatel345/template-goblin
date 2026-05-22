@@ -1,18 +1,27 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
-import { saveTemplate, openTemplate } from '../../utils/saveOpen.js'
-import { FIELD_COLORS } from '../../theme/fieldColors.js'
+import { openTemplate } from '../../utils/saveOpen.js'
+import { MenuTabBar } from './MenuTabBar.js'
+import { RibbonBar } from './RibbonBar.js'
+import { RibbonButton } from './primitives/RibbonButton.js'
+import { MoonIcon, SunIcon, OpenIcon, BackgroundIcon } from './icons.js'
 
+/**
+ * Top-of-app toolbar (#128 redesign).
+ *
+ * Two shells:
+ *   1. Empty-state — the user has no background yet. Show the same
+ *      tight call-to-action card the onboarding flow renders, so we
+ *      don't ship a half-empty Word ribbon over a blank canvas.
+ *   2. Editor shell — `MenuTabBar` (row 1: tabs + pinned tools + CTAs)
+ *      + `RibbonBar` (row 2: active tab's controls). Each row is its
+ *      own component; this file stays under 100 lines.
+ */
 export function Toolbar() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bgInputRef = useRef<HTMLInputElement>(null)
 
-  const meta = useTemplateStore((s) => s.meta)
-  const locked = meta.locked
-  // Page 0 has a "background" when either the legacy image data URL is set
-  // OR when the user chose a solid color during onboarding (stored as a
-  // `color` PageDefinition at index 0).
   const hasBackground = useTemplateStore(
     (s) =>
       s.backgroundDataUrl !== null ||
@@ -20,69 +29,31 @@ export function Toolbar() {
         (p) => p.index === 0 && (p.backgroundType === 'color' || p.backgroundType === 'image'),
       ),
   )
-  const canUndo = useTemplateStore((s) => s.canUndo())
-  const canRedo = useTemplateStore((s) => s.canRedo())
-  const undo = useTemplateStore((s) => s.undo)
-  const redo = useTemplateStore((s) => s.redo)
-  const setLocked = useTemplateStore((s) => s.setLocked)
-
   const theme = useUiStore((s) => s.theme)
   const toggleTheme = useUiStore((s) => s.toggleTheme)
-  const activeTool = useUiStore((s) => s.activeTool)
-  const setActiveTool = useUiStore((s) => s.setActiveTool)
-  const selectedFieldIds = useUiStore((s) => s.selectedFieldIds)
-  const fields = useTemplateStore((s) => s.fields)
-  const showLeftPanel = useUiStore((s) => s.showLeftPanel)
-  const setShowLeftPanel = useUiStore((s) => s.setShowLeftPanel)
-  const showRightPanelUi = useUiStore((s) => s.showRightPanel)
-  const pageLayoutMenuOpen = useUiStore((s) => s.pageLayoutMenu.kind !== 'closed')
-  const setShowRightPanelUi = useUiStore((s) => s.setShowRightPanel)
-  // Set of field types present in the current selection — each matching
-  // toolbar button gets a ring so the user can see at a glance what types
-  // they have selected on the canvas.
-  const selectedFieldTypes = new Set(
-    fields.filter((f) => selectedFieldIds.includes(f.id)).map((f) => f.type),
-  )
-  const showGrid = useUiStore((s) => s.showGrid)
-  const setShowGrid = useUiStore((s) => s.setShowGrid)
-  const showPreview = useUiStore((s) => s.showPreview)
-  const setShowPreview = useUiStore((s) => s.setShowPreview)
-  const setShowFontManager = useUiStore((s) => s.setShowFontManager)
-  const zoom = useUiStore((s) => s.zoom)
-  const zoomIn = useUiStore((s) => s.zoomIn)
-  const zoomOut = useUiStore((s) => s.zoomOut)
-  const resetZoom = useUiStore((s) => s.resetZoom)
 
   function handleBgUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-
-    // Validate file size (20 MB max)
     if (file.size > 20 * 1024 * 1024) {
       alert('Image too large. Maximum size is 20 MB.')
       e.target.value = ''
       return
     }
-
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file.')
       e.target.value = ''
       return
     }
-
     const reader = new FileReader()
     reader.onload = () => {
       const dataUrl = reader.result as string
-
       const img = new Image()
       img.onload = () => {
-        // Validate dimensions
         if (img.naturalWidth > 10000 || img.naturalHeight > 10000) {
           alert('Image dimensions too large. Maximum is 10000x10000 pixels.')
           return
         }
-
         const bufReader = new FileReader()
         bufReader.onload = () => {
           useUiStore.getState().setPendingBackground({
@@ -101,24 +72,6 @@ export function Toolbar() {
     e.target.value = ''
   }
 
-  // Bug 5 (#61 follow-up) — Save was silent: the `.tgbl` downloaded but
-  // the user got no confirmation. Flip the button to a "Saved!" label
-  // for ~1.4s after a successful save so the click feels acknowledged.
-  const [savedFlash, setSavedFlash] = useState(false)
-  async function handleSave() {
-    try {
-      await saveTemplate()
-      setSavedFlash(true)
-      window.setTimeout(() => setSavedFlash(false), 1400)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Save failed')
-    }
-  }
-
-  function handleOpen() {
-    fileInputRef.current?.click()
-  }
-
   async function handleOpenFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -130,79 +83,45 @@ export function Toolbar() {
     e.target.value = ''
   }
 
-  // When no background, show minimal toolbar
+  // ── Empty state: render a minimal top strip with Upload + Open + theme.
+  //    The onboarding picker fills the canvas — this just frames the page.
   if (!hasBackground) {
     return (
-      <div className="tg-toolbar">
-        <div className="tg-toolbar-group">
-          <button className="tg-btn tg-btn--primary" onClick={() => bgInputRef.current?.click()}>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <polyline points="21 15 16 10 5 21" />
-            </svg>
-            Upload Background
-          </button>
-          <input ref={bgInputRef} type="file" accept="image/*" hidden onChange={handleBgUpload} />
-        </div>
-        <div className="tg-toolbar-separator" />
-        <div className="tg-toolbar-group">
-          <button className="tg-btn" onClick={handleOpen}>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-            </svg>
-            Open .tgbl
-          </button>
-          <input ref={fileInputRef} type="file" accept=".tgbl" hidden onChange={handleOpenFile} />
-        </div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 12px',
+          background: 'var(--bg-secondary)',
+          borderBottom: '1px solid var(--border-light)',
+        }}
+      >
+        <RibbonButton
+          icon={<BackgroundIcon />}
+          label="Upload Background"
+          onClick={() => bgInputRef.current?.click()}
+          variant="primary"
+          compact
+          testid="toolbar-upload-background"
+        />
+        <input ref={bgInputRef} type="file" accept="image/*" hidden onChange={handleBgUpload} />
+        <RibbonButton
+          icon={<OpenIcon />}
+          label="Open .tgbl"
+          onClick={() => fileInputRef.current?.click()}
+          compact
+          testid="toolbar-open"
+        />
+        <input ref={fileInputRef} type="file" accept=".tgbl" hidden onChange={handleOpenFile} />
         <div style={{ flex: 1 }} />
-        <button className="tg-btn" onClick={toggleTheme} title="Toggle theme">
-          {theme === 'light' ? (
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
-          ) : (
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="12" r="5" />
-              <line x1="12" y1="1" x2="12" y2="3" />
-              <line x1="12" y1="21" x2="12" y2="23" />
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-              <line x1="1" y1="12" x2="3" y2="12" />
-              <line x1="21" y1="12" x2="23" y2="12" />
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-            </svg>
-          )}
-        </button>
+        <RibbonButton
+          icon={theme === 'light' ? <MoonIcon /> : <SunIcon />}
+          onClick={toggleTheme}
+          compact
+          title="Toggle theme"
+          ariaLabel="Toggle theme"
+        />
         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
           TemplateGoblin
         </span>
@@ -210,448 +129,11 @@ export function Toolbar() {
     )
   }
 
+  // ── Editor shell: menu tab strip + active-tab ribbon.
   return (
-    <div className="tg-toolbar">
-      {/* Left-sidebar hamburger — toggles the styling / properties panel. */}
-      <div className="tg-toolbar-group">
-        <button
-          className={`tg-btn ${showLeftPanel ? 'tg-btn--active' : ''}`}
-          onClick={() => setShowLeftPanel(!showLeftPanel)}
-          title={showLeftPanel ? 'Hide properties panel' : 'Show properties panel'}
-          data-testid="toolbar-toggle-left-panel"
-          aria-pressed={showLeftPanel}
-          aria-label="Toggle properties panel"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="tg-toolbar-separator" />
-
-      {/* Open / Upload — leftmost of the action groups */}
-      <div className="tg-toolbar-group">
-        <button className="tg-btn" onClick={handleOpen}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
-          Open
-        </button>
-        <input ref={fileInputRef} type="file" accept=".tgbl" hidden onChange={handleOpenFile} />
-        {/* Improvement 1 (#61 follow-up) — Users previously had no way to
-            start over without manually clearing IndexedDB. Confirm before
-            wiping so an accidental click doesn't destroy in-progress work. */}
-        <button
-          className="tg-btn"
-          onClick={() => {
-            const ok = window.confirm(
-              'Start a new template? Your current unsaved work will be lost.',
-            )
-            if (!ok) return
-            useTemplateStore.getState().reset()
-            useUiStore.getState().clearSelection()
-          }}
-          title="Start a new blank template"
-          data-testid="toolbar-new"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="12" y1="18" x2="12" y2="12" />
-            <line x1="9" y1="15" x2="15" y2="15" />
-          </svg>
-          New
-        </button>
-        <button
-          className="tg-btn"
-          onClick={() => useUiStore.getState().setShowChangeBgDialog(true)}
-          title="Change the current page's background"
-          data-testid="toolbar-change-background"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-          Change Background
-        </button>
-        <input ref={bgInputRef} type="file" accept="image/*" hidden onChange={handleBgUpload} />
-      </div>
-
-      <div className="tg-toolbar-separator" />
-
-      {/* Field tools */}
-      <div className="tg-toolbar-group">
-        <button
-          className={`tg-btn ${activeTool === 'addText' || selectedFieldTypes.has('text') ? 'tg-btn--active' : ''}`}
-          onClick={() => setActiveTool(activeTool === 'addText' ? 'select' : 'addText')}
-          disabled={locked || !hasBackground}
-          style={
-            activeTool === 'addText' || selectedFieldTypes.has('text')
-              ? {
-                  background: FIELD_COLORS.text.stroke,
-                  color: '#fff',
-                  borderColor: FIELD_COLORS.text.stroke,
-                }
-              : {
-                  background: FIELD_COLORS.text.toolbarBg,
-                  color: FIELD_COLORS.text.toolbarFg,
-                  borderColor: FIELD_COLORS.text.stroke,
-                }
-          }
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <polyline points="4 7 4 4 20 4 20 7" />
-            <line x1="9" y1="20" x2="15" y2="20" />
-            <line x1="12" y1="4" x2="12" y2="20" />
-          </svg>
-          Text
-        </button>
-        <button
-          className={`tg-btn ${activeTool === 'addImage' || selectedFieldTypes.has('image') ? 'tg-btn--active' : ''}`}
-          onClick={() => setActiveTool(activeTool === 'addImage' ? 'select' : 'addImage')}
-          disabled={locked || !hasBackground}
-          style={
-            activeTool === 'addImage' || selectedFieldTypes.has('image')
-              ? {
-                  background: FIELD_COLORS.image.stroke,
-                  color: '#fff',
-                  borderColor: FIELD_COLORS.image.stroke,
-                }
-              : {
-                  background: FIELD_COLORS.image.toolbarBg,
-                  color: FIELD_COLORS.image.toolbarFg,
-                  borderColor: FIELD_COLORS.image.stroke,
-                }
-          }
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-          Image
-        </button>
-        <button
-          className={`tg-btn ${activeTool === 'addLoop' || selectedFieldTypes.has('table') ? 'tg-btn--active' : ''}`}
-          onClick={() => setActiveTool(activeTool === 'addLoop' ? 'select' : 'addLoop')}
-          disabled={locked || !hasBackground}
-          style={
-            activeTool === 'addLoop' || selectedFieldTypes.has('table')
-              ? {
-                  background: FIELD_COLORS.table.stroke,
-                  color: '#fff',
-                  borderColor: FIELD_COLORS.table.stroke,
-                }
-              : {
-                  background: FIELD_COLORS.table.toolbarBg,
-                  color: FIELD_COLORS.table.toolbarFg,
-                  borderColor: FIELD_COLORS.table.stroke,
-                }
-          }
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="3" y1="9" x2="21" y2="9" />
-            <line x1="3" y1="15" x2="21" y2="15" />
-            <line x1="9" y1="3" x2="9" y2="21" />
-            <line x1="15" y1="3" x2="15" y2="21" />
-          </svg>
-          Table
-        </button>
-        {/* #61 — Insert-style entry-point for the page-wide header / footer
-            and page-number settings. Mirrors Google Docs / Word's
-            Insert → Header & Footer pattern. The button anchors a
-            dropdown menu (`PageLayoutMenu`) rather than launching a
-            centered modal — keeps the editor focus where the user is
-            working and matches every production document tool. */}
-        <button
-          className={`tg-btn ${pageLayoutMenuOpen ? 'tg-btn--active' : ''}`}
-          onClick={() =>
-            useUiStore
-              .getState()
-              .setPageLayoutMenu(pageLayoutMenuOpen ? { kind: 'closed' } : { kind: 'main' })
-          }
-          disabled={locked || !hasBackground}
-          title="Page layout (header, footer, page number)"
-          data-testid="toolbar-page-layout"
-          data-page-layout-anchor="true"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <rect x="3" y="3" width="18" height="18" rx="1" />
-            <line x1="3" y1="8" x2="21" y2="8" />
-            <line x1="3" y1="16" x2="21" y2="16" />
-          </svg>
-          Page Layout
-        </button>
-      </div>
-
-      <div className="tg-toolbar-separator" />
-
-      {/* Undo/Redo */}
-      <div className="tg-toolbar-group">
-        <button className="tg-btn" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <polyline points="1 4 1 10 7 10" />
-            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-          </svg>
-        </button>
-        <button className="tg-btn" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="tg-toolbar-separator" />
-
-      {/* View controls */}
-      <div className="tg-toolbar-group">
-        <button
-          className={`tg-btn ${showGrid ? 'tg-btn--active' : ''}`}
-          onClick={() => setShowGrid(!showGrid)}
-        >
-          Snap
-        </button>
-        <button className="tg-btn" onClick={zoomOut} title="Zoom out">
-          -
-        </button>
-        <button
-          className="tg-btn"
-          onClick={resetZoom}
-          style={{ minWidth: 48, justifyContent: 'center' }}
-        >
-          {Math.round(zoom * 100)}%
-        </button>
-        <button className="tg-btn" onClick={zoomIn} title="Zoom in">
-          +
-        </button>
-      </div>
-
-      {/* Spacer pushes remaining buttons to far right */}
-      <div style={{ flex: 1 }} />
-
-      {/* Fonts & Theme */}
-      <div className="tg-toolbar-group">
-        <button className="tg-btn" onClick={() => setShowFontManager(true)}>
-          Fonts
-        </button>
-        <button className="tg-btn" onClick={toggleTheme} title="Toggle theme">
-          {theme === 'light' ? (
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
-          ) : (
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="12" r="5" />
-              <line x1="12" y1="1" x2="12" y2="3" />
-              <line x1="12" y1="21" x2="12" y2="23" />
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-              <line x1="1" y1="12" x2="3" y2="12" />
-              <line x1="21" y1="12" x2="23" y2="12" />
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-            </svg>
-          )}
-        </button>
-      </div>
-
-      <div className="tg-toolbar-separator" />
-
-      {/* Preview — end group */}
-      <button
-        className="tg-btn"
-        onClick={() => setShowPreview(!showPreview)}
-        disabled={!hasBackground}
-        title="Preview template"
-        data-testid="toolbar-preview"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-          <circle cx="12" cy="12" r="3" />
-        </svg>
-        Preview
-      </button>
-
-      {/* Lock */}
-      <button
-        className={`tg-btn ${locked ? 'tg-btn--active' : ''}`}
-        onClick={() => setLocked(!locked)}
-        title={locked ? 'Unlock template' : 'Lock template'}
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          {locked ? (
-            <>
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </>
-          ) : (
-            <>
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 9.9-1" />
-            </>
-          )}
-        </svg>
-        {locked ? 'Unlock' : 'Lock'}
-      </button>
-
-      {/* Right-sidebar hamburger — toggles the structure / JSON panel. */}
-      <button
-        className={`tg-btn ${showRightPanelUi ? 'tg-btn--active' : ''}`}
-        onClick={() => setShowRightPanelUi(!showRightPanelUi)}
-        title={showRightPanelUi ? 'Hide structure panel' : 'Show structure panel'}
-        data-testid="toolbar-toggle-right-panel"
-        aria-pressed={showRightPanelUi}
-        aria-label="Toggle structure panel"
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-      </button>
-
-      <div className="tg-toolbar-separator" />
-
-      {/* Save — last, green. Flips to "Saved!" briefly after a successful
-          download so the click has visible feedback (#61 follow-up Bug 5). */}
-      <button
-        className="tg-btn"
-        style={{
-          background: savedFlash ? '#0a7a32' : '#16a34a',
-          color: '#fff',
-          borderRadius: 6,
-        }}
-        onClick={handleSave}
-        title="Save template (Ctrl+S)"
-        data-testid="toolbar-save"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-          <polyline points="17 21 17 13 7 13 7 21" />
-          <polyline points="7 3 7 8 15 8" />
-        </svg>
-        {savedFlash ? 'Saved!' : 'Save'}
-      </button>
+    <div role="region" aria-label="Application toolbar">
+      <MenuTabBar />
+      <RibbonBar />
     </div>
   )
 }

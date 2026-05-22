@@ -49,6 +49,12 @@ export interface UiState {
   /** Whether the font manager dialog is open */
   showFontManager: boolean
   /**
+   * Which top-level tab is active in the menu bar (#128). The ribbon below
+   * the tab strip shows that tab's controls. Defaults to `'insert'` —
+   * empty canvases bias toward "add something next".
+   */
+  activeMenuTab: 'file' | 'edit' | 'insert' | 'format' | 'view' | 'help'
+  /**
    * Anchored Page Layout menu state (#61, follow-up).
    *
    * Mirrors the Word / Google Docs Insert → Header & Footer pattern:
@@ -125,6 +131,8 @@ export interface UiState {
   setShowPageSizeDialog: (show: boolean) => void
   setShowChangeBgDialog: (show: boolean) => void
   setShowFontManager: (show: boolean) => void
+  /** Switch the top-level menu tab (#128). The ribbon swaps to match. */
+  setActiveMenuTab: (tab: UiState['activeMenuTab']) => void
   /** Update the Page Layout menu state (toolbar-anchored dropdown). */
   setPageLayoutMenu: (
     next:
@@ -166,6 +174,7 @@ export const useUiStore = create<UiState>()(
       showPageSizeDialog: false,
       showChangeBgDialog: false,
       showFontManager: false,
+      activeMenuTab: 'insert' as const,
       pageLayoutMenu: { kind: 'closed' },
       pageLayoutSettings: null,
       pendingBackground: null,
@@ -214,6 +223,7 @@ export const useUiStore = create<UiState>()(
       setShowPageSizeDialog: (show) => set({ showPageSizeDialog: show }),
       setShowChangeBgDialog: (show) => set({ showChangeBgDialog: show }),
       setShowFontManager: (show) => set({ showFontManager: show }),
+      setActiveMenuTab: (tab) => set({ activeMenuTab: tab }),
       setPageLayoutMenu: (next) => set({ pageLayoutMenu: next }),
       setPageLayoutSettings: (target) =>
         set((state) => ({
