@@ -246,7 +246,8 @@ export function AddPageDialog({
                 className="tg-btn tg-btn--primary"
                 onClick={() => gotoSize({ kind: 'color', color })}
               >
-                Next: page size
+                {/* GH #114 — same shortening as OnboardingPicker. */}
+                Next →
               </button>
             </div>
           </div>

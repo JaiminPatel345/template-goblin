@@ -46,7 +46,7 @@ async function clearStorage(page: Page): Promise<void> {
 
 async function completeOnboarding(page: Page): Promise<void> {
   await page.locator('button', { hasText: /^Solid color$/ }).click()
-  await page.locator('button', { hasText: /^Next: page size$/ }).click()
+  await page.locator('button', { hasText: /^Next →$/ }).click()
   await expect(page.getByRole('heading', { name: /choose page size/i })).toBeVisible({
     timeout: 5000,
   })

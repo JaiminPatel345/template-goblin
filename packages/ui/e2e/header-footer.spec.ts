@@ -48,7 +48,7 @@ async function clearStorage(page: Page): Promise<void> {
 async function completeOnboarding(page: Page): Promise<void> {
   await page.locator('button', { hasText: /^Solid color$/ }).click()
   // The color picker reveals a hex textbox. Accept the default white.
-  await page.locator('button', { hasText: /^Next: page size$/ }).click()
+  await page.locator('button', { hasText: /^Next →$/ }).click()
   // Page size dialog auto-selects A4 by default → click Apply / Continue.
   await expect(page.getByRole('heading', { name: /choose page size/i })).toBeVisible({
     timeout: 5000,
