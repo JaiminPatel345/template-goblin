@@ -83,15 +83,17 @@ html, body, #root {
 .tg-ribbon-btn:hover { background: var(--bg-tertiary); }
 .tg-ribbon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .tg-ribbon-btn:disabled:hover { background: transparent; }
-/* Toggle / active state — accent-tinted so it reads clearly distinct
- * from neutral hover (which uses --bg-tertiary). Without this, toggle
- * buttons like Snap looked identical pre- and post-click (#64 polish). */
+/* Toggle / active state — Word/Docs convention: neutral background +
+ * thin 2 px accent underline. Reads clearly as "engaged" without
+ * staining the whole button in the brand colour (which felt like a
+ * warning state — #64 polish). The 2 px is subtracted from the bottom
+ * padding so layout doesn't shift between inactive and active. */
 .tg-ribbon-btn--active {
-  background: var(--accent-soft);
-  color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  box-shadow: inset 0 -2px 0 0 var(--accent);
 }
-.tg-ribbon-btn--active:hover { background: var(--accent-soft-hover); }
+.tg-ribbon-btn--active:hover { background: var(--bg-surface); }
 .tg-ribbon-btn--primary {
   background: var(--accent);
   color: #fff;
@@ -120,13 +122,17 @@ html, body, #root {
 }
 .tg-menu-tab:hover,
 .tg-menu-tab:focus-visible { background: var(--bg-tertiary); }
-/* Active menu tab — accent-tinted to read as the currently-open ribbon,
- * not just hover. */
+/* Active menu tab — Word/Docs convention: thin 2 px accent underline
+ * sitting flush with the ribbon row below. Neutral text colour, no
+ * background stain. The underline visually "tabs into" the ribbon. */
 .tg-menu-tab--active {
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+  border-radius: 4px 4px 0 0;
 }
-.tg-menu-tab--active:hover { background: var(--accent-soft-hover); }
+.tg-menu-tab--active:hover { background: var(--bg-tertiary); }
 
 /* ===== Panels ===== */
 .tg-left-panel {

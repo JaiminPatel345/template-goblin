@@ -2,7 +2,7 @@ import { useTemplateStore } from '../../../store/templateStore.js'
 import { useUiStore } from '../../../store/uiStore.js'
 import { RibbonGroup } from '../primitives/RibbonGroup.js'
 import { RibbonButton } from '../primitives/RibbonButton.js'
-import { PageLayoutIcon } from '../icons.js'
+import { HeaderIcon, FooterIcon, PageNumberIcon } from '../icons.js'
 
 /**
  * Insert ribbon (#128). Three first-class buttons: Header / Footer /
@@ -33,7 +33,7 @@ export function InsertRibbon() {
     <div style={{ display: 'flex' }}>
       <RibbonGroup label="Page elements">
         <RibbonButton
-          icon={<PageLayoutIcon />}
+          icon={<HeaderIcon />}
           label="Header"
           onClick={() => setPageLayoutSettings('header')}
           active={headerEnabled}
@@ -43,7 +43,7 @@ export function InsertRibbon() {
           testid="ribbon-insert-header"
         />
         <RibbonButton
-          icon={<PageLayoutIcon />}
+          icon={<FooterIcon />}
           label="Footer"
           onClick={() => setPageLayoutSettings('footer')}
           active={footerEnabled}
@@ -53,7 +53,7 @@ export function InsertRibbon() {
           testid="ribbon-insert-footer"
         />
         <RibbonButton
-          icon={<PageLayoutIcon />}
+          icon={<PageNumberIcon />}
           label="Page Number"
           onClick={() => setPageLayoutSettings('pageNumber')}
           active={pageNumberEnabled}
