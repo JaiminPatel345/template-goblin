@@ -305,7 +305,14 @@ export function MenuTabBar() {
           icon={locked ? <LockedIcon /> : <UnlockedIcon />}
           label={locked ? 'Unlock' : 'Lock'}
           onClick={() => setLocked(!locked)}
-          title={locked ? 'Unlock template' : 'Lock template'}
+          // UX-05: a richer tooltip telling the user exactly what
+          // Lock does, so they're not surprised by the modal-style
+          // overlay that lands the moment they click it.
+          title={
+            locked
+              ? 'Click to unlock — restores all editing controls.'
+              : 'Lock template — disables every edit until you click Unlock. Useful before exporting to PDF.'
+          }
           variant={locked ? 'toggle' : 'default'}
           active={locked}
           testid="toolbar-lock"
