@@ -21,14 +21,33 @@ export function ImageFieldProps({ field }: Props) {
   const staticFileInputRef = useRef<HTMLInputElement>(null)
   const dynamicFileInputRef = useRef<HTMLInputElement>(null)
 
-  // Defensive fallback for fields rehydrated without a `source` object.
+  // QA BUG-08: surface a one-click upgrade for fields rehydrated
+  // without a source object.
   if (!field.source) {
     return (
-      <div className="tg-panel-section">
+      <div className="tg-panel-section" data-testid="legacy-field-upgrade">
         <div className="tg-panel-section-title">Legacy field</div>
-        <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-          This image field was saved in an older format and cannot be edited. Please recreate it.
+        <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 8 }}>
+          This image field was saved in an older format. Click below to convert it to the new
+          editable format.
         </p>
+        <button
+          type="button"
+          className="tg-btn tg-btn--primary"
+          data-testid="legacy-field-upgrade-image"
+          onClick={() =>
+            updateField(field.id, {
+              source: {
+                mode: 'dynamic',
+                jsonKey: '',
+                required: false,
+                placeholder: null,
+              },
+            } as Partial<FieldDefinition>)
+          }
+        >
+          Convert to new format
+        </button>
       </div>
     )
   }
