@@ -10,6 +10,7 @@ import { useUiStore } from '../../store/uiStore.js'
 import { snapshotSameAsPrevious } from '../../utils/pageSnapshot.js'
 import { type PageDefinition, type PageBackgroundType, type PageSize } from '@template-goblin/types'
 import { useFieldCreationPopup } from './useFieldCreationPopup.js'
+import { useDialogs } from '../Dialogs/index.js'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ export function usePageHandlers() {
   const setPendingBackground = useUiStore((s) => s.setPendingBackground)
   const setShowPageSizeDialog = useUiStore((s) => s.setShowPageSizeDialog)
   const currentPageId = useUiStore((s) => s.currentPageId)
+  const { confirm: showConfirm } = useDialogs()
 
   const [showAddPageDialog, setShowAddPageDialog] = useState(false)
   // The Change Background dialog is global (uiStore) so the Toolbar
@@ -252,16 +254,19 @@ export function usePageHandlers() {
   // ── Remove page ────────────────────────────────────────────────────────
 
   const handleRemovePage = useCallback(
-    (pageId: string | null) => {
+    async (pageId: string | null) => {
       // Mirror what PageBar renders: every explicit page gets a tab, plus
       // one implicit tab when no explicit page sits at index 0.
       const page0IsExplicit = pages.some((p) => p.index === 0)
       const visiblePageCount = pages.length + (page0IsExplicit ? 0 : 1)
 
       if (visiblePageCount <= 1) {
-        const ok = window.confirm(
-          'Deleting the last page will clear all fields and settings. Continue?',
-        )
+        const ok = await showConfirm({
+          title: 'Delete the last page?',
+          message: 'This will clear all fields and settings. The template returns to onboarding.',
+          confirmLabel: 'Delete page',
+          destructive: true,
+        })
         if (!ok) return
         reset()
         setCurrentPage(null)
@@ -303,7 +308,7 @@ export function usePageHandlers() {
       setCurrentPage(nextFirst?.id ?? null)
       clearSelection()
     },
-    [pages, reset, removePage, setCurrentPage, clearSelection],
+    [pages, reset, removePage, setCurrentPage, clearSelection, showConfirm],
   )
 
   return {

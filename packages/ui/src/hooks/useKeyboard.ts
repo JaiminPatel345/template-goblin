@@ -3,6 +3,7 @@ import { getPageSize } from '@template-goblin/types'
 import { useTemplateStore } from '../store/templateStore.js'
 import { useUiStore } from '../store/uiStore.js'
 import { saveTemplate, openTemplate } from '../utils/saveOpen.js'
+import { useDialogs } from '../components/Dialogs/index.js'
 
 /**
  * Global keyboard shortcuts handler.
@@ -17,6 +18,7 @@ import { saveTemplate, openTemplate } from '../utils/saveOpen.js'
  * - Escape: Deselect / cancel tool
  */
 export function useKeyboard(): void {
+  const { alert: showAlert } = useDialogs()
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const isMod = e.metaKey || e.ctrlKey
@@ -26,7 +28,11 @@ export function useKeyboard(): void {
       if (isMod && e.key === 's') {
         e.preventDefault()
         saveTemplate().catch((err) => {
-          alert(err instanceof Error ? err.message : 'Save failed')
+          void showAlert({
+            title: 'Save failed',
+            message: err instanceof Error ? err.message : 'Save failed',
+            variant: 'danger',
+          })
         })
         return
       }
@@ -41,7 +47,11 @@ export function useKeyboard(): void {
           const file = input.files?.[0]
           if (file) {
             openTemplate(file).catch((err) => {
-              alert(err instanceof Error ? err.message : 'Failed to open file')
+              void showAlert({
+                title: 'Failed to open file',
+                message: err instanceof Error ? err.message : 'Failed to open file',
+                variant: 'danger',
+              })
             })
           }
         }
@@ -167,5 +177,5 @@ export function useKeyboard(): void {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [showAlert])
 }

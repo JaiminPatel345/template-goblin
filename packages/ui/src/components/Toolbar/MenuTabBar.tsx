@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { saveTemplate } from '../../utils/saveOpen.js'
+import { useDialogs } from '../Dialogs/index.js'
 import { FIELD_COLORS } from '../../theme/fieldColors.js'
 import { MenuButton, MenuSeparator } from './primitives/MenuButton.js'
 import { RibbonButton } from './primitives/RibbonButton.js'
@@ -178,25 +179,29 @@ export function MenuTabBar() {
   )
 
   const [savedFlash, setSavedFlash] = useState(false)
+  const { alert: showAlert } = useDialogs()
   async function handleSave() {
     try {
       const result = await saveTemplate()
       setSavedFlash(true)
       window.setTimeout(() => setSavedFlash(false), 1400)
-      // QA BUG-09: previously the silently-dropped fields just hit
-      // console.warn — invisible to non-technical users. Surface the
-      // count + ids so they can recover (Convert to new format, then
-      // re-save).
       if (result.droppedFieldIds.length > 0) {
         const n = result.droppedFieldIds.length
-        alert(
-          `Saved — but ${n} field${n === 1 ? '' : 's'} could not be written to the .tgbl file because they're in an outdated format. ` +
+        await showAlert({
+          title: `Saved — ${n} field${n === 1 ? '' : 's'} skipped`,
+          message:
+            `${n} field${n === 1 ? '' : 's'} could not be written to the .tgbl because they're in an outdated format. ` +
             `Open each affected field in the right panel and click 'Convert to new format', then save again.\n\n` +
             `Affected field id${n === 1 ? '' : 's'}: ${result.droppedFieldIds.join(', ')}`,
-        )
+          variant: 'warning',
+        })
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Save failed')
+      await showAlert({
+        title: 'Save failed',
+        message: err instanceof Error ? err.message : 'Save failed',
+        variant: 'danger',
+      })
     }
   }
 

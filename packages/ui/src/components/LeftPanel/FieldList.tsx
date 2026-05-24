@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
+import { useDialogs } from '../Dialogs/index.js'
 import type { FieldDefinition, GroupDefinition } from '@template-goblin/types'
 
 const TYPE_LABELS: Record<string, string> = {
@@ -139,6 +140,7 @@ export function LeftPanel() {
   const header = useTemplateStore((s) => s.header)
   const footer = useTemplateStore((s) => s.footer)
   const addGroup = useTemplateStore((s) => s.addGroup)
+  const { prompt: promptDialog } = useDialogs()
   const updateField = useTemplateStore((s) => s.updateField)
   const selectedFieldIds = useUiStore((s) => s.selectedFieldIds)
   // Clicking a row in the left panel is equivalent to picking the element
@@ -165,11 +167,18 @@ export function LeftPanel() {
   const headerFields = header?.enabled ? header.fields : []
   const footerFields = footer?.enabled ? footer.fields : []
 
-  function handleNewGroup() {
-    const name = prompt('Group name:')
-    if (!name || !name.trim()) return
+  async function handleNewGroup() {
+    const name = await promptDialog({
+      title: 'New field group',
+      label: 'Group name',
+      placeholder: 'e.g. Header content',
+      validate: (v) => (v.trim().length === 0 ? 'Group name cannot be empty.' : null),
+    })
+    if (name === null) return
+    const trimmed = name.trim()
+    if (trimmed.length === 0) return
     const id = `group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    addGroup({ id, name: name.trim() })
+    addGroup({ id, name: trimmed })
   }
 
   function handleDropField(fieldId: string, groupId: string | null) {

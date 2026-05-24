@@ -1,5 +1,6 @@
 import { RibbonGroup } from '../primitives/RibbonGroup.js'
 import { RibbonButton } from '../primitives/RibbonButton.js'
+import { useDialogs } from '../../Dialogs/index.js'
 
 /**
  * Help ribbon (#128). Lightweight today — repo link + a stub for the
@@ -7,6 +8,7 @@ import { RibbonButton } from '../primitives/RibbonButton.js'
  * can find these without crowding the everyday tabs.
  */
 export function HelpRibbon() {
+  const { alert: showAlert } = useDialogs()
   return (
     <div style={{ display: 'flex' }}>
       <RibbonGroup label="Resources">
@@ -21,9 +23,11 @@ export function HelpRibbon() {
         <RibbonButton
           label="Shortcuts"
           onClick={() =>
-            alert(
-              'Keyboard shortcuts:\n  Ctrl+Z — Undo\n  Ctrl+Shift+Z — Redo\n  Ctrl+S — Save\n  Delete / Backspace — Remove selected field\n  Esc — Deselect',
-            )
+            void showAlert({
+              title: 'Keyboard shortcuts',
+              message:
+                'Ctrl+Z — Undo\nCtrl+Shift+Z — Redo\nCtrl+S — Save\nCtrl+O — Open\nCtrl+0 — Reset zoom\nCtrl+Plus / Ctrl+Minus — Zoom in / out\nDelete / Backspace — Remove selected field\nEsc — Deselect / collapse ribbon',
+            })
           }
           title="View keyboard shortcuts"
           testid="ribbon-help-shortcuts"
