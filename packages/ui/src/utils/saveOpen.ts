@@ -51,11 +51,17 @@ function sanitizeJson(obj: unknown): unknown {
   return clean
 }
 
+/** Outcome of a save — surfaces silently-dropped fields so callers can
+ *  warn the user (QA BUG-09). */
+export interface SaveResult {
+  droppedFieldIds: string[]
+}
+
 /**
  * Save the current template as a .tgbl file (ZIP archive).
  * Triggers a browser download.
  */
-export async function saveTemplate(): Promise<void> {
+export async function saveTemplate(): Promise<SaveResult> {
   const state = useTemplateStore.getState()
   const {
     meta,
@@ -77,23 +83,26 @@ export async function saveTemplate(): Promise<void> {
 
   // Defence in depth: filter out fields missing `source` before serialising.
   // These can only originate from a stale localStorage rehydration and would
-  // make the saved `.tgbl` fail `validateManifest` on reload.
+  // make the saved `.tgbl` fail `validateManifest` on reload. We now also
+  // record the dropped ids so the caller can surface a UI warning instead
+  // of relying on console output the user never sees (QA BUG-09).
+  const droppedFieldIds: string[] = []
   const sanitizedFields = fields.filter((f) => {
     if (!f.source) {
+      droppedFieldIds.push(f.id)
       console.warn('[saveTemplate] dropping field with missing source:', f.id)
       return false
     }
     return true
   })
 
-  // Apply the same source-missing guard to band fields so a malformed band
-  // can't poison the saved manifest either (#61).
   const sanitizeBand = (band: typeof header): typeof header =>
     band
       ? {
           ...band,
           fields: band.fields.filter((f) => {
             if (!f.source) {
+              droppedFieldIds.push(f.id)
               console.warn('[saveTemplate] dropping band field with missing source:', f.id)
               return false
             }
@@ -164,6 +173,7 @@ export async function saveTemplate(): Promise<void> {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+  return { droppedFieldIds }
 }
 
 /**

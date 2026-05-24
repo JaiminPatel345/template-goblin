@@ -69,9 +69,21 @@ export function MenuTabBar() {
   const [savedFlash, setSavedFlash] = useState(false)
   async function handleSave() {
     try {
-      await saveTemplate()
+      const result = await saveTemplate()
       setSavedFlash(true)
       window.setTimeout(() => setSavedFlash(false), 1400)
+      // QA BUG-09: previously the silently-dropped fields just hit
+      // console.warn — invisible to non-technical users. Surface the
+      // count + ids so they can recover (Convert to new format, then
+      // re-save).
+      if (result.droppedFieldIds.length > 0) {
+        const n = result.droppedFieldIds.length
+        alert(
+          `Saved — but ${n} field${n === 1 ? '' : 's'} could not be written to the .tgbl file because they're in an outdated format. ` +
+            `Open each affected field in the right panel and click 'Convert to new format', then save again.\n\n` +
+            `Affected field id${n === 1 ? '' : 's'}: ${result.droppedFieldIds.join(', ')}`,
+        )
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Save failed')
     }
