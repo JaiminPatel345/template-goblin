@@ -116,6 +116,23 @@ export function JsonPreview() {
       >
         <div className="tg-panel-section-title" style={{ marginBottom: 0 }}>
           JSON Preview
+          {/* UX-07: the values shown below are the placeholder strings
+              the user typed during field creation, not data that will
+              be served at runtime. Make this explicit so developers
+              reading the panel for the schema shape aren't misled. */}
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 'normal',
+              color: 'var(--text-muted)',
+              marginLeft: 8,
+              textTransform: 'none',
+              letterSpacing: 0,
+            }}
+            data-testid="json-preview-placeholder-note"
+          >
+            (sample / placeholder values)
+          </span>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           {isPinned && (
