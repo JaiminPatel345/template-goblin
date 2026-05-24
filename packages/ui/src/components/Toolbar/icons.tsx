@@ -92,6 +92,69 @@ export const PageLayoutIcon = ({ size }: { size?: number }) => (
   </IconBox>
 )
 
+/** Page with a filled bar at the TOP — the header strip. */
+export const HeaderIcon = ({ size }: { size?: number }) => (
+  <svg width={size ?? 16} height={size ?? 16} viewBox="0 0 24 24" aria-hidden="true">
+    <rect
+      x="3"
+      y="3"
+      width="18"
+      height="18"
+      rx="1.5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    />
+    <rect x="3" y="3" width="18" height="5" fill="currentColor" rx="1.5" />
+  </svg>
+)
+
+/** Page with a filled bar at the BOTTOM — the footer strip. */
+export const FooterIcon = ({ size }: { size?: number }) => (
+  <svg width={size ?? 16} height={size ?? 16} viewBox="0 0 24 24" aria-hidden="true">
+    <rect
+      x="3"
+      y="3"
+      width="18"
+      height="18"
+      rx="1.5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    />
+    <rect x="3" y="16" width="18" height="5" fill="currentColor" rx="1.5" />
+  </svg>
+)
+
+/** Page with a small "#" in the corner — page numbering. */
+export const PageNumberIcon = ({ size }: { size?: number }) => (
+  <svg
+    width={size ?? 16}
+    height={size ?? 16}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="3" y="3" width="18" height="18" rx="1.5" />
+    <text
+      x="12"
+      y="16.5"
+      textAnchor="middle"
+      fontSize="11"
+      fontFamily="-apple-system, sans-serif"
+      fontWeight="700"
+      fill="currentColor"
+      stroke="none"
+    >
+      #
+    </text>
+  </svg>
+)
+
 export const UndoIcon = ({ size }: { size?: number }) => (
   <IconBox size={size}>
     <polyline points="1 4 1 10 7 10" />

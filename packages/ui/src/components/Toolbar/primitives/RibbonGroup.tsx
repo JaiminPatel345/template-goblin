@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
 
 /**
- * Visual cluster inside the row-2 ribbon (#128). Mirrors Word's ribbon
- * groups — a labelled box of related controls, separated from siblings
- * by a subtle vertical divider. Label shrinks to the bottom so the
- * cluster's primary controls dominate the eye.
+ * Visual cluster of related controls inside row-2 of the toolbar
+ * (#64 v3). Mirrors Linear/Figma/Word groupings — a row of controls
+ * with an uppercase label under it and a hairline divider on the
+ * right. Sizing is driven by tokens so every group reads as the same
+ * size regardless of how many controls it carries.
  */
 export interface RibbonGroupProps {
   label?: string
@@ -20,20 +21,23 @@ export function RibbonGroup({ label, children, testid }: RibbonGroupProps) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 4,
-        padding: '4px 10px',
+        justifyContent: 'center',
+        gap: 6,
+        padding: '6px 12px',
         borderRight: '1px solid var(--border-light)',
-        minHeight: 56,
+        minHeight: 64,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{children}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>{children}</div>
       {label && (
         <div
           style={{
-            fontSize: 10,
+            fontSize: 'var(--text-2xs)',
+            fontWeight: 'var(--font-weight-medium)',
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
-            letterSpacing: 0.4,
+            letterSpacing: '0.06em',
+            lineHeight: 1,
           }}
         >
           {label}

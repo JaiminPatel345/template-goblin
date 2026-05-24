@@ -77,10 +77,11 @@ export function MenuTabBar() {
     }
   }
 
-  // Type-coloured pinned tool button. Reuses the field-colour theme so
-  // the visual match between toolbar button and on-canvas field stays
-  // consistent. Active when the tool is selected OR a matching field is
-  // currently in the selection — the existing UX cue from the old bar.
+  // Pinned tool: neutral button with the field-type colour applied to
+  // the icon only — same visual idiom as Figma's left-rail tool buttons.
+  // Active state uses the standard ribbon active treatment so the
+  // pinned tools read as part of the toolbar system rather than
+  // candy-coloured outliers.
   function PinnedTool({
     tool,
     label,
@@ -90,30 +91,20 @@ export function MenuTabBar() {
     tool: 'addText' | 'addImage' | 'addLoop'
     label: string
     icon: React.ReactNode
-    colour: { stroke: string; toolbarBg: string; toolbarFg: string }
+    colour: { stroke: string }
   }) {
     const fieldType = tool === 'addText' ? 'text' : tool === 'addImage' ? 'image' : 'table'
     const isActive = activeTool === tool || selectedFieldTypes.has(fieldType)
     return (
       <RibbonButton
         label={label}
-        icon={icon}
+        icon={<span style={{ color: colour.stroke, display: 'inline-flex' }}>{icon}</span>}
         onClick={() => setActiveTool(activeTool === tool ? 'select' : tool)}
         disabled={locked || !hasBackground}
-        compact
         title={`Insert ${label.toLowerCase()}`}
         testid={`toolbar-tool-${fieldType}`}
-        style={
-          isActive
-            ? { background: colour.stroke, color: '#fff', borderColor: colour.stroke }
-            : {
-                background: colour.toolbarBg,
-                color: colour.toolbarFg,
-                borderColor: colour.stroke,
-                borderStyle: 'solid',
-                borderWidth: 1,
-              }
-        }
+        variant={isActive ? 'toggle' : 'default'}
+        active={isActive}
       />
     )
   }
@@ -125,8 +116,8 @@ export function MenuTabBar() {
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 2,
-        padding: '6px 10px',
+        gap: 4,
+        padding: '6px 12px',
         background: 'var(--bg-secondary)',
         borderBottom: '1px solid var(--border-light)',
       }}
@@ -147,7 +138,7 @@ export function MenuTabBar() {
       <MenuSeparator />
 
       {/* Pinned insert tools — always one click away */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <PinnedTool tool="addText" label="Text" icon={<TextIcon />} colour={FIELD_COLORS.text} />
         <PinnedTool
           tool="addImage"
@@ -167,7 +158,6 @@ export function MenuTabBar() {
           label="Preview"
           onClick={() => setShowPreview(!showPreview)}
           disabled={!hasBackground}
-          compact
           title="Preview template"
           variant={showPreview ? 'toggle' : 'default'}
           active={showPreview}
@@ -177,7 +167,6 @@ export function MenuTabBar() {
           icon={<SaveIcon />}
           label={savedFlash ? 'Saved!' : 'Save'}
           onClick={handleSave}
-          compact
           title="Save template (Ctrl+S)"
           variant="success"
           testid="toolbar-save"
@@ -186,7 +175,6 @@ export function MenuTabBar() {
           icon={locked ? <LockedIcon /> : <UnlockedIcon />}
           label={locked ? 'Unlock' : 'Lock'}
           onClick={() => setLocked(!locked)}
-          compact
           title={locked ? 'Unlock template' : 'Lock template'}
           variant={locked ? 'toggle' : 'default'}
           active={locked}

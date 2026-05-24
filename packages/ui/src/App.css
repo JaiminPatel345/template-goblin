@@ -1,80 +1,9 @@
 @import "tailwindcss";
+@import "./styles/theme.css";
 
-/* ===== Theme Variables ===== */
-@theme {
-  --color-bg-primary: #f5f5f7;
-  --color-bg-secondary: #ffffff;
-  --color-bg-tertiary: #e8eaed;
-  --color-bg-surface: #f0f1f3;
-  --color-text-primary: #1a1a2e;
-  --color-text-secondary: #555566;
-  --color-text-muted: #999aab;
-  --color-accent: #e94560;
-  --color-accent-hover: #d63851;
-  --color-border: #dcdde1;
-  --color-border-light: #e8e8ec;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-error: #dc2626;
-  --color-canvas-bg: #e0e0e8;
-}
-
-/* Dark Theme Override */
-[data-theme='dark'] {
-  --color-bg-primary: #0f0f17;
-  --color-bg-secondary: #181825;
-  --color-bg-tertiary: #252538;
-  --color-bg-surface: #1e1e30;
-  --color-text-primary: #f0f0f5;
-  --color-text-secondary: #b0b0c0;
-  --color-text-muted: #7878a0;
-  --color-accent: #e94560;
-  --color-accent-hover: #ff6b81;
-  --color-border: #2d2d45;
-  --color-border-light: #3a3a52;
-  --color-success: #4ade80;
-  --color-warning: #fbbf24;
-  --color-error: #ef4444;
-  --color-canvas-bg: #0a0a14;
-}
-
-/* Legacy CSS variable bridge — components still using var(--xxx) */
-:root,
-[data-theme='light'] {
-  --bg-primary: var(--color-bg-primary);
-  --bg-secondary: var(--color-bg-secondary);
-  --bg-tertiary: var(--color-bg-tertiary);
-  --bg-surface: var(--color-bg-surface);
-  --text-primary: var(--color-text-primary);
-  --text-secondary: var(--color-text-secondary);
-  --text-muted: var(--color-text-muted);
-  --accent: var(--color-accent);
-  --accent-hover: var(--color-accent-hover);
-  --border: var(--color-border);
-  --border-light: var(--color-border-light);
-  --success: var(--color-success);
-  --warning: var(--color-warning);
-  --error: var(--color-error);
-  --canvas-bg: var(--color-canvas-bg);
-}
-
-[data-theme='dark'] {
-  --bg-primary: var(--color-bg-primary);
-  --bg-secondary: var(--color-bg-secondary);
-  --bg-tertiary: var(--color-bg-tertiary);
-  --bg-surface: var(--color-bg-surface);
-  --text-primary: var(--color-text-primary);
-  --text-secondary: var(--color-text-secondary);
-  --text-muted: var(--color-text-muted);
-  --accent: var(--color-accent);
-  --accent-hover: var(--color-accent-hover);
-  --border: var(--color-border);
-  --border-light: var(--color-border-light);
-  --success: var(--color-success);
-  --warning: var(--color-warning);
-  --error: var(--color-error);
-  --canvas-bg: var(--color-canvas-bg);
-}
+/* All design tokens (colour, spacing, type, radius, shadow, motion,
+ * z-index, focus ring) now live in `styles/theme.css` — single source
+ * of truth across both themes. See that file for the full scale. */
 
 /* ===== Base ===== */
 html, body, #root {
@@ -126,67 +55,131 @@ html, body, #root {
 .tg-btn--primary { background: var(--accent); color: #fff; border: none; }
 .tg-btn--primary:hover { background: var(--accent-hover); }
 
-/* === Ribbon buttons (#128 navbar redesign) =================================
- * Tailwind v4 preflight applies `background-color: transparent` to every
- * `<button>` via the base layer — inline style won't override it without
- * `!important`. Stylesheet classes WILL because they outrank the base
- * layer on selector match. Hence the dedicated `.tg-ribbon-btn` family.
+/* === Ribbon buttons (v3 redesign #64) ======================================
+ * Single horizontal layout — icon on the left, label on the right —
+ * sharing one control height across the whole ribbon. This kills the
+ * column-vs-row mismatch that made the old ribbon look unsorted
+ * (Left/Right column-stacked, Snap label-only, Zoom row-compact, etc.).
+ *
+ * Sizing comes from `--control-height-md` / `--icon-size-md` so the
+ * toolbar/ribbon/form-inputs all share the same scale.
+ *
+ * Tailwind v4 preflight applies `background-color: transparent` via
+ * the base layer; CSS-class rules outrank that on selector match, so
+ * we don't need `!important` anywhere.
  */
 .tg-ribbon-btn {
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  min-width: 48px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 500;
+  gap: var(--space-2);
+  height: var(--control-height-md);
+  padding: 0 var(--control-padding-x);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
   color: var(--text-primary);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
-.tg-ribbon-btn--compact { flex-direction: row; gap: 4px; min-width: 28px; }
-.tg-ribbon-btn:hover { background: var(--bg-tertiary); }
-.tg-ribbon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.tg-ribbon-btn:disabled:hover { background: transparent; }
+.tg-ribbon-btn svg {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+  flex-shrink: 0;
+}
+/* Icon-only (no label) collapses to a perfect square — matches the
+ * icon-button conventions in Linear / Figma / GitHub. */
+.tg-ribbon-btn--icon-only {
+  width: var(--control-height-md);
+  padding: 0;
+}
+.tg-ribbon-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-strong);
+}
+.tg-ribbon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.tg-ribbon-btn:disabled:hover {
+  background: var(--bg-secondary);
+  border-color: var(--border);
+}
+
+/* Toggle / active — flat "selected" treatment used by Tailwind UI,
+ * shadcn, GitHub's button-groups: filled neutral background + slightly
+ * darker border, no inset shadow / underline (which read as a 3 D
+ * pressed effect rather than a plain selected state). */
 .tg-ribbon-btn--active {
   background: var(--bg-tertiary);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
-.tg-ribbon-btn--active:hover { background: var(--bg-tertiary); }
+.tg-ribbon-btn--active:hover {
+  background: var(--bg-surface);
+  border-color: var(--border-strong);
+}
+
+/* Primary CTA fill — used by Save / Preview when the action is the
+ * "do the thing" moment. Reserve sparingly; over-use erodes contrast. */
 .tg-ribbon-btn--primary {
   background: var(--accent);
-  color: #fff;
-  border: none;
+  color: var(--text-on-accent);
+  border-color: transparent;
 }
-.tg-ribbon-btn--primary:hover { background: var(--accent-hover); }
-.tg-ribbon-btn--success {
-  background: #16a34a;
-  color: #fff;
-  border: none;
-}
-.tg-ribbon-btn--success:hover { background: #0a7a32; }
+.tg-ribbon-btn--primary:hover { background: var(--accent-hover); color: var(--text-on-accent); }
+.tg-ribbon-btn--primary:disabled:hover { background: var(--accent); }
 
-/* Row-1 menu-tab buttons — text-only triggers along the top strip. */
-.tg-menu-tab {
-  background: transparent;
-  color: var(--text-primary);
-  border: none;
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border-radius: 4px;
-  outline: none;
-  transition: background 0.12s ease;
+/* Success fill — Save action, reads as "this commits something". */
+.tg-ribbon-btn--success {
+  background: var(--success);
+  color: var(--text-on-accent);
+  border-color: transparent;
 }
-.tg-menu-tab:hover,
-.tg-menu-tab:focus-visible { background: var(--bg-tertiary); }
-.tg-menu-tab--active { background: var(--bg-tertiary); }
+.tg-ribbon-btn--success:hover { background: var(--success-hover); color: var(--text-on-accent); }
+
+/* === Menu tabs (row 1: File / Edit / Insert / Format / View / Help) ====
+ * Same outlined-button idiom as ribbon controls so the whole nav bar
+ * reads as one consistent system — thin border at rest, fills on
+ * hover, becomes the accent fill when active so the current tab
+ * pops without needing the 3 D inset underline trick. */
+.tg-menu-tab {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  outline: none;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+.tg-menu-tab:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-strong);
+}
+.tg-menu-tab--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: var(--font-weight-semibold);
+}
+.tg-menu-tab--active:hover {
+  background: var(--accent-soft-hover);
+  border-color: var(--accent);
+}
 
 /* ===== Panels ===== */
 .tg-left-panel {
@@ -432,11 +425,18 @@ html, body, #root {
 }
 
 /* ===== JSON Preview ===== */
+/* Code block sits on `--bg-tertiary` so it reads as a raised card on
+ * the panel (`--bg-secondary`) in both themes — was previously using
+ * `--bg-primary` which is the DEEPEST surface in dark mode, making
+ * the block recede into the panel rather than stand out. */
 .tg-json-preview {
-  @apply text-xs rounded p-2 overflow-x-auto overflow-y-auto whitespace-pre leading-snug;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
+  @apply text-xs overflow-x-auto overflow-y-auto whitespace-pre leading-snug;
+  font-family: var(--font-mono);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
   max-height: 300px;
 }
 
@@ -444,10 +444,22 @@ html, body, #root {
 .tg-json-mode-btn {
   @apply flex-1 px-2 py-1 rounded text-xs cursor-pointer transition-all;
   border: 1px solid var(--border);
-  background: transparent;
+  background: var(--bg-secondary);
   color: var(--text-secondary);
 }
-.tg-json-mode-btn--active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.tg-json-mode-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+/* Active = outlined-button selected treatment (same idiom as ribbon
+ * buttons) — was solid accent fill which fought the new restrained
+ * accent usage. */
+.tg-json-mode-btn--active {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
 
 /* ===== Resize Handle ===== */
 .tg-resize-handle {
@@ -471,6 +483,13 @@ html, body, #root {
 @keyframes tg-slide-up {
   from { transform: translateY(12px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* Tooltip entry — quick fade + tiny lift so the hover label feels
+ * snappy rather than abrupt. Used by the Radix-backed Tooltip primitive. */
+@keyframes tg-tooltip-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ===== Left panel group sections ===== */
