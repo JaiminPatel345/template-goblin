@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { TableColumn, TableField, TextAlign } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { NumberInput } from '../NumberInput.js'
+import { InfoTip } from './InfoTip.js'
 
 interface Props {
   field: TableField
@@ -149,7 +150,10 @@ export function TableColumnsSection({ field }: Props) {
             </div>
 
             <div className="tg-form-row">
-              <label>Key</label>
+              <label data-testid="col-key-label">
+                Key
+                <InfoTip text="The data binding — must match the JSON property name your application supplies (e.g. 'product_name'). Used by the SDK to look up each cell's value." />
+              </label>
               <input
                 className="tg-input"
                 value={col.key}
@@ -158,7 +162,10 @@ export function TableColumnsSection({ field }: Props) {
             </div>
 
             <div className="tg-form-row">
-              <label>Label</label>
+              <label data-testid="col-label-label">
+                Label
+                <InfoTip text="The display name shown in the column header on the rendered PDF (e.g. 'Product Name'). Purely visual — has no effect on the data binding." />
+              </label>
               <input
                 className="tg-input"
                 value={col.label}
