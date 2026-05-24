@@ -294,7 +294,11 @@ html, body, #root {
 .tg-field-type-badge { @apply text-[10px] px-1.5 py-0.5 rounded font-bold uppercase; }
 .tg-field-type-badge--text { background: rgba(37,99,235,0.15); color: #60a5fa; }
 .tg-field-type-badge--image { background: rgba(22,163,74,0.15); color: #4ade80; }
-.tg-field-type-badge--loop { background: rgba(217,119,6,0.15); color: #fb923c; }
+/* `--loop` is the pre-2.x type-name; `--table` is the post-rename. Both
+ * map to the same orange badge so existing field-list rows that resolve
+ * to either class read consistently (#152). */
+.tg-field-type-badge--loop,
+.tg-field-type-badge--table { background: rgba(217,119,6,0.15); color: #fb923c; }
 
 /* ===== Upload Zone ===== */
 .tg-upload-zone {
