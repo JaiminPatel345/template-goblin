@@ -199,7 +199,11 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
       >
         <PreviewDialogHeader onClose={onClose} />
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
-          Edit the JSON below and (optionally) upload images, then click Render.
+          Edit the JSON below and (optionally) upload images, then click Render.{' '}
+          <span style={{ color: 'var(--text-muted)' }}>
+            Images supplied as <code>data:</code> URLs inside the JSON are honoured — uploaded files
+            take precedence over the JSON entries (#140).
+          </span>
         </p>
 
         <label
