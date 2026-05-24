@@ -106,7 +106,7 @@ test.describe('#158 — custom Radix dialog primitives replace native alert/conf
 
     const dialog = page.locator('[data-testid="dialog-alert"]')
     await expect(dialog).toBeVisible({ timeout: 5000 })
-    await expect(dialog).toContainText(/Ctrl\+Z/i)
+    await expect(dialog).toContainText(/Ctrl\s*\+\s*Z/i)
     await page.locator('[data-testid="dialog-alert-ok"]').click()
     await expect(dialog).toHaveCount(0)
   })

@@ -25,8 +25,16 @@ export function HelpRibbon() {
           onClick={() =>
             void showAlert({
               title: 'Keyboard shortcuts',
-              message:
-                'Ctrl+Z — Undo\nCtrl+Shift+Z — Redo\nCtrl+S — Save\nCtrl+O — Open\nCtrl+0 — Reset zoom\nCtrl+Plus / Ctrl+Minus — Zoom in / out\nDelete / Backspace — Remove selected field\nEsc — Deselect / collapse ribbon',
+              message: [
+                'Ctrl + Z   —  Undo',
+                'Ctrl + Shift + Z   —  Redo',
+                'Ctrl + S   —  Save',
+                'Ctrl + O   —  Open',
+                'Ctrl + 0   —  Reset zoom',
+                'Ctrl + Plus / Minus   —  Zoom in / out',
+                'Delete / Backspace   —  Remove selected field',
+                'Esc   —  Deselect / collapse ribbon',
+              ].join('\n'),
             })
           }
           title="View keyboard shortcuts"

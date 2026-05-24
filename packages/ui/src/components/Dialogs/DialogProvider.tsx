@@ -85,7 +85,18 @@ function AlertView({ state, onClose }: { state: AlertState; onClose: () => void 
         </DialogButton>
       }
     >
-      <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-secondary)' }}>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 'var(--text-md)',
+          lineHeight: 'var(--leading-relaxed)',
+          color: 'var(--text-secondary)',
+          // `pre-line` honours `\n` in the message string (so the
+          // keyboard-shortcut dump renders one line per binding) and
+          // still wraps long lines.
+          whiteSpace: 'pre-line',
+        }}
+      >
         {opts.message}
       </p>
     </DialogShell>
@@ -123,7 +134,18 @@ function ConfirmView({ state, onClose }: { state: ConfirmState; onClose: () => v
         </>
       }
     >
-      <p style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text-secondary)' }}>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 'var(--text-md)',
+          lineHeight: 'var(--leading-relaxed)',
+          color: 'var(--text-secondary)',
+          // `pre-line` honours `\n` in the message string (so the
+          // keyboard-shortcut dump renders one line per binding) and
+          // still wraps long lines.
+          whiteSpace: 'pre-line',
+        }}
+      >
         {opts.message}
       </p>
     </DialogShell>
