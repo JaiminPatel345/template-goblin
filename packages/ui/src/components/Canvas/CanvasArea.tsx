@@ -9,7 +9,7 @@
  *   - OnboardingPicker → empty-state onboarding
  *   - AddPageDialog    → add-page dialog
  */
-import React, { useRef, useCallback } from 'react'
+import React, { useRef, useCallback, useEffect } from 'react'
 import { getPageSize } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
@@ -131,6 +131,18 @@ export function CanvasArea() {
 
   const isPlacing =
     activeTool === 'addText' || activeTool === 'addImage' || activeTool === 'addLoop'
+
+  // QA BUG-02: `currentPageId` defaults to null. Most code paths already
+  // fall back to the implicit page-0, but leaving the UI state null is a
+  // footgun — users could click the canvas in a state where the active
+  // tab and the stamped pageId disagree. On editor mount, if pages exist
+  // and currentPageId is null, snap to the first page so the UI state is
+  // consistent from the first paint.
+  useEffect(() => {
+    if (currentPageId === null && pages.length > 0) {
+      setCurrentPage(pages[0].id)
+    }
+  }, [currentPageId, pages, setCurrentPage])
 
   const headerFieldsForPreview = useTemplateStore((s) => s.header?.fields)
   const footerFieldsForPreview = useTemplateStore((s) => s.footer?.fields)
