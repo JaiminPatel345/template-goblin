@@ -35,7 +35,7 @@
  *  box math stays in sync.
  */
 
-import { Group, Point, Line } from 'fabric'
+import { Group, Point, Rect as FabricRect, Pattern } from 'fabric'
 import type { FabricObject, FabricImage, Rect } from 'fabric'
 import type { FieldDefinition, InputJSON } from '@template-goblin/types'
 import { FIELD_COLORS, SELECTED_STROKE_WIDTH } from '../../theme/fieldColors.js'
@@ -490,51 +490,54 @@ export function groupToFieldPatch(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Build an array of Fabric `Line` objects representing a grid overlay.
+ * Build a single Fabric Rect filled with a tiled grid Pattern.
  *
- * GRID_CHOICE: Fabric objects (not CSS) so the grid pans and zooms with the
- * viewport transform.  Each line is marked `selectable: false, evented: false,
- * excludeFromExport: true` and carries `__isGrid: true` for easy removal during
- * reconciliation.
+ * QA BUG-03: the old implementation built one Line object per grid step
+ * — at gridSize=5 on an A4 page that's ~289 objects. Every React state
+ * change re-renders Fabric, which re-draws every object synchronously,
+ * blocking the main thread for tens of seconds. Replacing them with a
+ * single Rect filled with a `Pattern` (a 5×5 tile drawn once on an
+ * HTMLCanvas and repeated by the browser's native pattern engine)
+ * collapses 289 objects to 1 with no visual change.
  *
- * @param pageWidth  - Width of the page in pt.
- * @param pageHeight - Height of the page in pt.
- * @param gridSize   - Grid cell size in pt (e.g. 5).
- * @returns Array of configured Line objects.
+ * Still flagged `selectable: false, evented: false, excludeFromExport:
+ * true` and carries `__isGrid: true` for reconciliation.
  */
-export function buildGridLines(pageWidth: number, pageHeight: number, gridSize: number): Line[] {
-  const lines: Line[] = []
-  // Mid-grey with low alpha so the grid stays subtle but visible on the
-  // common page backgrounds (white, off-white, light-coloured) where the
-  // previous near-white tone disappeared entirely (#64 — "Snap looks
-  // like it does nothing"). On darker page backgrounds 12% black still
-  // reads as a thin lattice without dominating.
-  const gridColor = 'rgba(0,0,0,0.14)'
-  const strokeW = 0.5
-
-  for (let x = 0; x <= pageWidth; x += gridSize) {
-    const l = new Line([x, 0, x, pageHeight], {
-      stroke: gridColor,
-      strokeWidth: strokeW,
-      selectable: false,
-      evented: false,
-      excludeFromExport: true,
-    })
-    l.__isGrid = true
-    lines.push(l)
+export function buildGridLines(
+  pageWidth: number,
+  pageHeight: number,
+  gridSize: number,
+): FabricObject[] {
+  // Build the repeating tile on an offscreen HTMLCanvas. Drawing on the
+  // tile's outer edges (0.25 px offset) gives crisp 0.5 px lines.
+  const tile = document.createElement('canvas')
+  tile.width = gridSize
+  tile.height = gridSize
+  const ctx = tile.getContext('2d')
+  if (ctx) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.14)'
+    ctx.lineWidth = 0.5
+    ctx.beginPath()
+    ctx.moveTo(0.25, 0)
+    ctx.lineTo(0.25, gridSize)
+    ctx.moveTo(0, 0.25)
+    ctx.lineTo(gridSize, 0.25)
+    ctx.stroke()
   }
-  for (let y = 0; y <= pageHeight; y += gridSize) {
-    const l = new Line([0, y, pageWidth, y], {
-      stroke: gridColor,
-      strokeWidth: strokeW,
-      selectable: false,
-      evented: false,
-      excludeFromExport: true,
-    })
-    l.__isGrid = true
-    lines.push(l)
-  }
-  return lines
+  const rect = new FabricRect({
+    left: 0,
+    top: 0,
+    width: pageWidth,
+    height: pageHeight,
+    fill: new Pattern({ source: tile, repeat: 'repeat' }),
+    selectable: false,
+    evented: false,
+    excludeFromExport: true,
+    objectCaching: false,
+    hoverCursor: 'default',
+  })
+  rect.__isGrid = true
+  return [rect]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
