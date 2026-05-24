@@ -104,20 +104,22 @@ function paintBand(
   isHeader: boolean,
 ): void {
   // Background rect. Editor-only: when the band has no explicit
-  // background colour we paint a very faint stroke so the band's bounds
-  // are discoverable. The user otherwise sees nothing if they configured
-  // a tall band but haven't added content yet (Improvement 2 from the
-  // QA pass). `excludeFromExport: true` keeps this hint out of the PDF.
+  // background colour we paint a visibly tinted zone with a dashed
+  // border so the user can SEE the band area they just enabled. The
+  // previous near-invisible hint led QA to report the band as
+  // 'enabled in store but not rendered' (#136). `excludeFromExport`
+  // strips the tint + stroke at PDF generation.
   const editorOnlyHint = !band.style.backgroundColor
   const bg = new FabricRect({
     left: 0,
     top: bandTop,
     width: pageWidth,
     height: band.style.height,
-    fill: band.style.backgroundColor ?? 'rgba(0,0,0,0)',
-    stroke: editorOnlyHint ? 'rgba(100, 130, 200, 0.25)' : null,
-    strokeWidth: editorOnlyHint ? 0.5 : 0,
-    strokeDashArray: editorOnlyHint ? [4, 4] : undefined,
+    fill:
+      band.style.backgroundColor ?? (editorOnlyHint ? 'rgba(94, 106, 210, 0.08)' : 'rgba(0,0,0,0)'),
+    stroke: editorOnlyHint ? 'rgba(94, 106, 210, 0.6)' : null,
+    strokeWidth: editorOnlyHint ? 1 : 0,
+    strokeDashArray: editorOnlyHint ? [6, 4] : undefined,
     strokeUniform: true,
     selectable: false,
     evented: false,
