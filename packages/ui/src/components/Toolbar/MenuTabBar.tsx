@@ -138,6 +138,23 @@ function TemplateNameField() {
 export function MenuTabBar() {
   const activeTab = useUiStore((s) => s.activeMenuTab)
   const setActiveMenuTab = useUiStore((s) => s.setActiveMenuTab)
+  const ribbonCollapsed = useUiStore((s) => s.ribbonCollapsed)
+  const setRibbonCollapsed = useUiStore((s) => s.setRibbonCollapsed)
+
+  // QA BUG-16: Escape collapses the ribbon when no other dismissible
+  // surface (dialog, popover, etc.) is in front. We listen on `window`
+  // and check for visible dialogs first — if any are open they handle
+  // their own Escape and we no-op.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      const dialogOpen = document.querySelector('[data-testid$="-dialog"], [role="dialog"]')
+      if (dialogOpen) return
+      if (!ribbonCollapsed) setRibbonCollapsed(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [ribbonCollapsed, setRibbonCollapsed])
 
   const meta = useTemplateStore((s) => s.meta)
   const locked = meta.locked
