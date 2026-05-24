@@ -21,7 +21,23 @@ function fieldDisplayKey(field: FieldDefinition): string {
   if (!field.source) {
     return `<legacy ${field.type}>`
   }
+  // QA BUG-11: for static fields show the actual content (truncated)
+  // so each row distinguishes itself in the list, instead of every
+  // static text item reading 'static text'.
   if (field.source.mode !== 'dynamic') {
+    const raw = (field.source as { value?: unknown }).value
+    if (field.type === 'text' && typeof raw === 'string' && raw.trim().length > 0) {
+      const trimmed = raw.trim()
+      return trimmed.length > 32 ? `${trimmed.slice(0, 30)}…` : trimmed
+    }
+    if (field.type === 'image' && raw && typeof raw === 'object') {
+      const r = raw as { filename?: string; color?: string }
+      if (r.filename) return r.filename
+      if (r.color) return `color ${r.color}`
+    }
+    if (field.type === 'table' && Array.isArray(raw)) {
+      return `static table · ${raw.length} row${raw.length === 1 ? '' : 's'}`
+    }
     return `<static ${field.type}>`
   }
   const prefix = field.type === 'text' ? 'texts.' : field.type === 'image' ? 'images.' : 'tables.'
