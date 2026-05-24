@@ -1109,6 +1109,15 @@ export const useTemplateStore = create<TemplateState>()(
 
       addPage: (page, bgDataUrl, bgBuffer) =>
         set((state) => {
+          // Guard against accidental calls with no argument or a malformed
+          // page — pushing `undefined` (or any object without an `id`) into
+          // pages[] silently corrupts the array AND breaks IDB persistence
+          // (undefined is not JSON-serializable), wiping the template on
+          // next reload. See QA BUG-01.
+          if (!page || typeof page !== 'object' || typeof page.id !== 'string') {
+            console.warn('[templateStore.addPage] ignored: missing or invalid page argument', page)
+            return {}
+          }
           const pages = [...state.pages, page]
           const pageBackgroundDataUrls = new Map(state.pageBackgroundDataUrls)
           const pageBackgroundBuffers = new Map(state.pageBackgroundBuffers)
