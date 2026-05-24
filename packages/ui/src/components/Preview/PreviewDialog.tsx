@@ -70,6 +70,31 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
 
   const parseResult = useMemo(() => parseInputJson(jsonText), [jsonText])
 
+  // UX-02: required dynamic fields that aren't supplied in the JSON or
+  // (for images) via the upload widget block the Render button. Without
+  // this gate the user clicked Render and got a runtime SDK error —
+  // not an obvious failure mode.
+  const missingRequired = useMemo<string[]>(() => {
+    if (!parseResult.ok) return []
+    const parsed = parseResult.data
+    const out: string[] = []
+    for (const f of fields) {
+      if (!f.source || f.source.mode !== 'dynamic') continue
+      if (!f.source.required) continue
+      const bucket =
+        f.type === 'text'
+          ? (parsed.texts as Record<string, unknown> | undefined)
+          : f.type === 'image'
+            ? (parsed.images as Record<string, unknown> | undefined)
+            : (parsed.tables as Record<string, unknown> | undefined)
+      const v = bucket?.[f.source.jsonKey]
+      const hasJson = v !== undefined && v !== null && v !== ''
+      const hasUpload = f.type === 'image' && imageOverrides.has(f.source.jsonKey)
+      if (!hasJson && !hasUpload) out.push(f.source.jsonKey)
+    }
+    return out
+  }, [fields, parseResult, imageOverrides])
+
   const dynamicImageFields = useMemo(
     () =>
       fields.filter(
@@ -199,7 +224,11 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
       >
         <PreviewDialogHeader onClose={onClose} />
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
-          Edit the JSON below and (optionally) upload images, then click Render.
+          Edit the JSON below and (optionally) upload images, then click Render.{' '}
+          <span style={{ color: 'var(--text-muted)' }}>
+            Images supplied as <code>data:</code> URLs inside the JSON are honoured — uploaded files
+            take precedence over the JSON entries (#140).
+          </span>
         </p>
 
         <label
@@ -298,8 +327,13 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
           <button
             className="tg-btn tg-btn--primary"
             onClick={handleRender}
-            disabled={!parseResult.ok || isRendering}
+            disabled={!parseResult.ok || isRendering || missingRequired.length > 0}
             data-testid="preview-render"
+            title={
+              missingRequired.length > 0
+                ? `Required field${missingRequired.length === 1 ? '' : 's'} not supplied: ${missingRequired.join(', ')}`
+                : undefined
+            }
           >
             {isRendering ? 'Rendering…' : 'Render'}
           </button>

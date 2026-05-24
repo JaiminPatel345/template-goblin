@@ -48,7 +48,7 @@ export function FileRibbon() {
           icon={<OpenIcon />}
           label="Open"
           onClick={() => openInputRef.current?.click()}
-          title="Open a .tgbl template"
+          title="Open a .tgbl template (Ctrl+O)"
           testid="toolbar-open"
         />
         <input ref={openInputRef} type="file" accept=".tgbl" hidden onChange={handleOpenFile} />

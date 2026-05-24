@@ -55,6 +55,15 @@ export interface UiState {
    */
   activeMenuTab: 'file' | 'edit' | 'insert' | 'format' | 'view' | 'help'
   /**
+   * Whether the ribbon row below the menu tabs is collapsed (QA BUG-16).
+   * Defaults to false — the ribbon is visible. Toggled by:
+   *  - clicking the currently-active menu tab (Office Online "double-
+   *    click to hide ribbon" convention),
+   *  - pressing Escape with no other dismissible target focused.
+   * Clicking a NON-active tab always re-expands the ribbon.
+   */
+  ribbonCollapsed: boolean
+  /**
    * Anchored Page Layout menu state (#61, follow-up).
    *
    * Mirrors the Word / Google Docs Insert → Header & Footer pattern:
@@ -133,6 +142,7 @@ export interface UiState {
   setShowFontManager: (show: boolean) => void
   /** Switch the top-level menu tab (#128). The ribbon swaps to match. */
   setActiveMenuTab: (tab: UiState['activeMenuTab']) => void
+  setRibbonCollapsed: (collapsed: boolean) => void
   /** Update the Page Layout menu state (toolbar-anchored dropdown). */
   setPageLayoutMenu: (
     next:
@@ -175,6 +185,7 @@ export const useUiStore = create<UiState>()(
       showChangeBgDialog: false,
       showFontManager: false,
       activeMenuTab: 'insert' as const,
+      ribbonCollapsed: false,
       pageLayoutMenu: { kind: 'closed' },
       pageLayoutSettings: null,
       pendingBackground: null,
@@ -223,7 +234,17 @@ export const useUiStore = create<UiState>()(
       setShowPageSizeDialog: (show) => set({ showPageSizeDialog: show }),
       setShowChangeBgDialog: (show) => set({ showChangeBgDialog: show }),
       setShowFontManager: (show) => set({ showFontManager: show }),
-      setActiveMenuTab: (tab) => set({ activeMenuTab: tab }),
+      setActiveMenuTab: (tab) =>
+        set((s) => {
+          // QA BUG-16: clicking the already-active tab collapses the
+          // ribbon (Office Online convention). Clicking a different tab
+          // re-expands.
+          if (s.activeMenuTab === tab) {
+            return { ribbonCollapsed: !s.ribbonCollapsed }
+          }
+          return { activeMenuTab: tab, ribbonCollapsed: false }
+        }),
+      setRibbonCollapsed: (ribbonCollapsed) => set({ ribbonCollapsed }),
       setPageLayoutMenu: (next) => set({ pageLayoutMenu: next }),
       setPageLayoutSettings: (target) =>
         set((state) => ({

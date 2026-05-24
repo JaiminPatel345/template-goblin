@@ -17,6 +17,9 @@ import { HelpRibbon } from './ribbons/HelpRibbon.js'
  */
 export function RibbonBar() {
   const activeTab = useUiStore((s) => s.activeMenuTab)
+  const collapsed = useUiStore((s) => s.ribbonCollapsed)
+
+  if (collapsed) return null
 
   return (
     <div

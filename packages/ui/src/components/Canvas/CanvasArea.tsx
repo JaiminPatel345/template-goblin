@@ -9,7 +9,7 @@
  *   - OnboardingPicker → empty-state onboarding
  *   - AddPageDialog    → add-page dialog
  */
-import React, { useRef, useCallback } from 'react'
+import React, { useRef, useCallback, useEffect } from 'react'
 import { getPageSize } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
@@ -131,6 +131,19 @@ export function CanvasArea() {
 
   const isPlacing =
     activeTool === 'addText' || activeTool === 'addImage' || activeTool === 'addLoop'
+
+  // QA BUG-02: `currentPageId` defaults to null. Most code paths already
+  // fall back to the implicit page-0, but leaving the UI state null is a
+  // footgun — users could click the canvas in a state where the active
+  // tab and the stamped pageId disagree. On editor mount, if pages exist
+  // and currentPageId is null, snap to the first page so the UI state is
+  // consistent from the first paint.
+  useEffect(() => {
+    if (currentPageId === null && pages.length > 0) {
+      const first = pages[0]
+      if (first) setCurrentPage(first.id)
+    }
+  }, [currentPageId, pages, setCurrentPage])
 
   const headerFieldsForPreview = useTemplateStore((s) => s.header?.fields)
   const footerFieldsForPreview = useTemplateStore((s) => s.footer?.fields)
@@ -283,6 +296,36 @@ export function CanvasArea() {
         }}
         onContextMenu={(e) => e.preventDefault()}
       >
+        {isPlacing && (
+          // QA BUG-05: Text / Image / Table tools require a drag to place,
+          // but a single click silently resets to select with no
+          // feedback. A floating hint banner at the top of the canvas
+          // tells non-technical users what to do.
+          <div
+            data-testid="canvas-place-hint"
+            style={{
+              position: 'absolute',
+              top: 12,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              padding: '6px 12px',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--accent)',
+              color: 'var(--text-on-accent)',
+              fontSize: 'var(--text-sm)',
+              fontWeight: 'var(--font-weight-medium)',
+              boxShadow: 'var(--shadow-md)',
+              zIndex: 'var(--z-sticky)' as unknown as number,
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Click and drag on the page to place
+            {activeTool === 'addText' ? ' a text field' : ''}
+            {activeTool === 'addImage' ? ' an image' : ''}
+            {activeTool === 'addLoop' ? ' a table' : ''}
+          </div>
+        )}
         <div data-testid="canvas-stage-wrapper" style={{ flex: 'none', margin: 'auto' }}>
           <canvas key="fabric-canvas" ref={setCanvasEl} />
         </div>

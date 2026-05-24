@@ -351,6 +351,18 @@ function pushHistory(state: TemplateState): Partial<TemplateState> {
 let fieldCounter = 0
 
 /**
+ * Module-scoped memo of each field's dynamic-side metadata (jsonKey +
+ * required flag) the last time it was in dynamic mode. Persisted only
+ * for the lifetime of the tab — the user's session-local round-trip
+ * Dynamic → Static → Dynamic must restore the original jsonKey instead
+ * of regenerating a fresh `text_N` (QA BUG-06).
+ *
+ * Not part of `PersistedState` on purpose; once the tab reloads the
+ * fields' actual on-disk source is authoritative.
+ */
+let fieldDynamicMemo: Map<string, { jsonKey: string; required: boolean }> = new Map()
+
+/**
  * Pick a `jsonKey` for a newly-flipped-to-dynamic field that doesn't collide
  * with any existing dynamic field's key (within the same type bucket — text,
  * image, table). Used by `setFieldMode` (GH #26).
@@ -908,23 +920,31 @@ export const useTemplateStore = create<TemplateState>()(
 
       setFieldMode: (id, mode) =>
         set((state) => {
+          // QA BUG-06: flipping Dynamic → Static used to discard the user's
+          // jsonKey and required flag, and the next Static → Dynamic flip
+          // regenerated a fresh `text_N`. Cache the dynamic-side metadata on
+          // the previous flip so we can restore it on the next round-trip.
+          const dynMemo = new Map(fieldDynamicMemo)
           const fields = state.fields.map((f) => {
             if (f.id !== id) return f
             if (!f.source || f.source.mode === mode) return f
-            // Pre-flip content carrier (`value` from static or `placeholder`
-            // from dynamic) is migrated across in BOTH directions so the
-            // user never silently loses their current input. The unified
-            // generic shape lets us share one branch per direction across
-            // the three field types.
             if (f.source.mode === 'static' && mode === 'dynamic') {
               const placeholder = f.source.value as unknown
-              const jsonKey = generateDefaultJsonKey(f.type, state.fields, id)
+              const restored = dynMemo.get(id)
+              const jsonKey = restored?.jsonKey ?? generateDefaultJsonKey(f.type, state.fields, id)
+              const required = restored?.required ?? false
               return {
                 ...f,
-                source: { mode: 'dynamic', jsonKey, required: false, placeholder },
+                source: { mode: 'dynamic', jsonKey, required, placeholder },
               } as FieldDefinition
             }
             if (f.source.mode === 'dynamic' && mode === 'static') {
+              // Remember this flip's jsonKey + required so coming back to
+              // dynamic restores the user's choices.
+              dynMemo.set(id, {
+                jsonKey: f.source.jsonKey,
+                required: f.source.required,
+              })
               const carried = f.source.placeholder
               const value =
                 carried !== null && carried !== undefined ? carried : emptyStaticValue(f.type)
@@ -935,6 +955,7 @@ export const useTemplateStore = create<TemplateState>()(
             }
             return f
           })
+          fieldDynamicMemo = dynMemo
           return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
         }),
 
@@ -1109,6 +1130,15 @@ export const useTemplateStore = create<TemplateState>()(
 
       addPage: (page, bgDataUrl, bgBuffer) =>
         set((state) => {
+          // Guard against accidental calls with no argument or a malformed
+          // page — pushing `undefined` (or any object without an `id`) into
+          // pages[] silently corrupts the array AND breaks IDB persistence
+          // (undefined is not JSON-serializable), wiping the template on
+          // next reload. See QA BUG-01.
+          if (!page || typeof page !== 'object' || typeof page.id !== 'string') {
+            console.warn('[templateStore.addPage] ignored: missing or invalid page argument', page)
+            return {}
+          }
           const pages = [...state.pages, page]
           const pageBackgroundDataUrls = new Map(state.pageBackgroundDataUrls)
           const pageBackgroundBuffers = new Map(state.pageBackgroundBuffers)

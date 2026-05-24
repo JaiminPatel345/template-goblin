@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { saveTemplate } from '../../utils/saveOpen.js'
@@ -41,9 +41,120 @@ const TABS: Array<{ id: MenuTab; label: string }> = [
   { id: 'help', label: 'Help' },
 ]
 
+/**
+ * Inline template-name editor (#144). Click the title to edit; Enter or
+ * blur commits, Esc reverts. Empty strings fall back to the default
+ * 'Untitled Template' so a save always has a usable filename.
+ */
+function TemplateNameField() {
+  const name = useTemplateStore((s) => s.meta.name)
+  const setMeta = useTemplateStore((s) => s.setMeta)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(name)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editing])
+
+  useEffect(() => {
+    if (!editing) setDraft(name)
+  }, [name, editing])
+
+  function commit() {
+    const trimmed = draft.trim()
+    setMeta({ name: trimmed.length > 0 ? trimmed : 'Untitled Template' })
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        data-testid="template-name-input"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+          else if (e.key === 'Escape') {
+            setDraft(name)
+            setEditing(false)
+          }
+        }}
+        onBlur={commit}
+        style={{
+          height: 'var(--control-height-md)',
+          padding: '0 8px',
+          border: '1px solid var(--border-strong)',
+          borderRadius: 'var(--radius-md)',
+          background: 'var(--bg-secondary)',
+          color: 'var(--text-primary)',
+          fontSize: 'var(--text-base)',
+          fontWeight: 'var(--font-weight-medium)',
+          minWidth: 180,
+          outline: 'none',
+        }}
+        maxLength={80}
+      />
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      data-testid="template-name-button"
+      onClick={() => setEditing(true)}
+      title="Click to rename"
+      style={{
+        height: 'var(--control-height-md)',
+        padding: '0 10px',
+        background: 'transparent',
+        border: '1px dashed transparent',
+        borderRadius: 'var(--radius-md)',
+        color: 'var(--text-secondary)',
+        fontSize: 'var(--text-base)',
+        fontWeight: 'var(--font-weight-medium)',
+        cursor: 'text',
+        whiteSpace: 'nowrap',
+        maxWidth: 220,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+      onMouseEnter={(e) => {
+        ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'
+      }}
+      onMouseLeave={(e) => {
+        ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'transparent'
+      }}
+    >
+      {name || 'Untitled Template'}
+    </button>
+  )
+}
+
 export function MenuTabBar() {
   const activeTab = useUiStore((s) => s.activeMenuTab)
   const setActiveMenuTab = useUiStore((s) => s.setActiveMenuTab)
+  const ribbonCollapsed = useUiStore((s) => s.ribbonCollapsed)
+  const setRibbonCollapsed = useUiStore((s) => s.setRibbonCollapsed)
+
+  // QA BUG-16: Escape collapses the ribbon when no other dismissible
+  // surface (dialog, popover, etc.) is in front. We listen on `window`
+  // and check for visible dialogs first — if any are open they handle
+  // their own Escape and we no-op.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      const dialogOpen = document.querySelector('[data-testid$="-dialog"], [role="dialog"]')
+      if (dialogOpen) return
+      if (!ribbonCollapsed) setRibbonCollapsed(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [ribbonCollapsed, setRibbonCollapsed])
 
   const meta = useTemplateStore((s) => s.meta)
   const locked = meta.locked
@@ -69,9 +180,21 @@ export function MenuTabBar() {
   const [savedFlash, setSavedFlash] = useState(false)
   async function handleSave() {
     try {
-      await saveTemplate()
+      const result = await saveTemplate()
       setSavedFlash(true)
       window.setTimeout(() => setSavedFlash(false), 1400)
+      // QA BUG-09: previously the silently-dropped fields just hit
+      // console.warn — invisible to non-technical users. Surface the
+      // count + ids so they can recover (Convert to new format, then
+      // re-save).
+      if (result.droppedFieldIds.length > 0) {
+        const n = result.droppedFieldIds.length
+        alert(
+          `Saved — but ${n} field${n === 1 ? '' : 's'} could not be written to the .tgbl file because they're in an outdated format. ` +
+            `Open each affected field in the right panel and click 'Convert to new format', then save again.\n\n` +
+            `Affected field id${n === 1 ? '' : 's'}: ${result.droppedFieldIds.join(', ')}`,
+        )
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Save failed')
     }
@@ -137,6 +260,13 @@ export function MenuTabBar() {
 
       <MenuSeparator />
 
+      {/* QA BUG-15: an inline template-name editor lives between the menu
+       *  tabs and the pinned tools. Click → edit; Enter / blur → commit;
+       *  Esc → cancel. Empty → falls back to 'Untitled Template'. */}
+      <TemplateNameField />
+
+      <MenuSeparator />
+
       {/* Pinned insert tools — always one click away */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <PinnedTool tool="addText" label="Text" icon={<TextIcon />} colour={FIELD_COLORS.text} />
@@ -175,7 +305,14 @@ export function MenuTabBar() {
           icon={locked ? <LockedIcon /> : <UnlockedIcon />}
           label={locked ? 'Unlock' : 'Lock'}
           onClick={() => setLocked(!locked)}
-          title={locked ? 'Unlock template' : 'Lock template'}
+          // UX-05: a richer tooltip telling the user exactly what
+          // Lock does, so they're not surprised by the modal-style
+          // overlay that lands the moment they click it.
+          title={
+            locked
+              ? 'Click to unlock — restores all editing controls.'
+              : 'Lock template — disables every edit until you click Unlock. Useful before exporting to PDF.'
+          }
           variant={locked ? 'toggle' : 'default'}
           active={locked}
           testid="toolbar-lock"

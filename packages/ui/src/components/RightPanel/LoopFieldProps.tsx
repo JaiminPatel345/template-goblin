@@ -29,14 +29,33 @@ export function LoopFieldProps({ field }: Props) {
   const updateFieldStyle = useTemplateStore((s) => s.updateFieldStyle)
   const fonts = useTemplateStore((s) => s.fonts)
 
-  // Defensive fallback for fields rehydrated without a `source` object.
+  // QA BUG-08: surface a one-click upgrade for fields rehydrated
+  // without a source object.
   if (!field.source) {
     return (
-      <div className="tg-panel-section">
+      <div className="tg-panel-section" data-testid="legacy-field-upgrade">
         <div className="tg-panel-section-title">Legacy field</div>
-        <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-          This table field was saved in an older format and cannot be edited. Please recreate it.
+        <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 8 }}>
+          This table field was saved in an older format. Click below to convert it to the new
+          editable format.
         </p>
+        <button
+          type="button"
+          className="tg-btn tg-btn--primary"
+          data-testid="legacy-field-upgrade-table"
+          onClick={() =>
+            updateField(field.id, {
+              source: {
+                mode: 'dynamic',
+                jsonKey: '',
+                required: false,
+                placeholder: [],
+              },
+            } as Partial<FieldDefinition>)
+          }
+        >
+          Convert to new format
+        </button>
       </div>
     )
   }
