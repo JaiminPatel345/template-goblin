@@ -59,7 +59,7 @@ export function ViewRibbon() {
           icon={<ZoomOutIcon />}
           onClick={zoomOut}
           compact
-          title="Zoom out"
+          title="Zoom out (Ctrl+Minus)"
           testid="ribbon-zoom-out"
           ariaLabel="Zoom out"
         />
@@ -67,14 +67,14 @@ export function ViewRibbon() {
           label={`${Math.round(zoom * 100)}%`}
           onClick={resetZoom}
           compact
-          title="Reset zoom to 100%"
+          title="Reset zoom to 100% (Ctrl+0)"
           testid="ribbon-zoom-reset"
         />
         <RibbonButton
           icon={<ZoomInIcon />}
           onClick={zoomIn}
           compact
-          title="Zoom in"
+          title="Zoom in (Ctrl+Plus)"
           testid="ribbon-zoom-in"
           ariaLabel="Zoom in"
         />
