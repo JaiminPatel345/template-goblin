@@ -425,11 +425,18 @@ html, body, #root {
 }
 
 /* ===== JSON Preview ===== */
+/* Code block sits on `--bg-tertiary` so it reads as a raised card on
+ * the panel (`--bg-secondary`) in both themes — was previously using
+ * `--bg-primary` which is the DEEPEST surface in dark mode, making
+ * the block recede into the panel rather than stand out. */
 .tg-json-preview {
-  @apply text-xs rounded p-2 overflow-x-auto overflow-y-auto whitespace-pre leading-snug;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
+  @apply text-xs overflow-x-auto overflow-y-auto whitespace-pre leading-snug;
+  font-family: var(--font-mono);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
   max-height: 300px;
 }
 
@@ -437,10 +444,22 @@ html, body, #root {
 .tg-json-mode-btn {
   @apply flex-1 px-2 py-1 rounded text-xs cursor-pointer transition-all;
   border: 1px solid var(--border);
-  background: transparent;
+  background: var(--bg-secondary);
   color: var(--text-secondary);
 }
-.tg-json-mode-btn--active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.tg-json-mode-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+/* Active = outlined-button selected treatment (same idiom as ribbon
+ * buttons) — was solid accent fill which fought the new restrained
+ * accent usage. */
+.tg-json-mode-btn--active {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
 
 /* ===== Resize Handle ===== */
 .tg-resize-handle {

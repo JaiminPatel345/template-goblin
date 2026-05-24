@@ -172,18 +172,7 @@ export function JsonPreview() {
             onChange={(e) => setPreviewJsonText(e.target.value)}
             onKeyDown={handleTextareaKeyDown}
             style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 11,
-              background: 'var(--bg-primary)',
-              border: '1px solid var(--border)',
-              borderRadius: 4,
-              padding: 10,
               minHeight: 120,
-              maxHeight: 300,
-              overflowY: 'auto',
-              whiteSpace: 'pre',
-              lineHeight: 1.4,
-              color: 'var(--text-primary)',
               width: '100%',
               resize: 'vertical',
               outline: 'none',
