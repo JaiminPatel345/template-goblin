@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { saveTemplate } from '../../utils/saveOpen.js'
@@ -40,6 +40,100 @@ const TABS: Array<{ id: MenuTab; label: string }> = [
   { id: 'view', label: 'View' },
   { id: 'help', label: 'Help' },
 ]
+
+/**
+ * Inline template-name editor (#144). Click the title to edit; Enter or
+ * blur commits, Esc reverts. Empty strings fall back to the default
+ * 'Untitled Template' so a save always has a usable filename.
+ */
+function TemplateNameField() {
+  const name = useTemplateStore((s) => s.meta.name)
+  const setMeta = useTemplateStore((s) => s.setMeta)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(name)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editing])
+
+  useEffect(() => {
+    if (!editing) setDraft(name)
+  }, [name, editing])
+
+  function commit() {
+    const trimmed = draft.trim()
+    setMeta({ name: trimmed.length > 0 ? trimmed : 'Untitled Template' })
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        data-testid="template-name-input"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+          else if (e.key === 'Escape') {
+            setDraft(name)
+            setEditing(false)
+          }
+        }}
+        onBlur={commit}
+        style={{
+          height: 'var(--control-height-md)',
+          padding: '0 8px',
+          border: '1px solid var(--border-strong)',
+          borderRadius: 'var(--radius-md)',
+          background: 'var(--bg-secondary)',
+          color: 'var(--text-primary)',
+          fontSize: 'var(--text-base)',
+          fontWeight: 'var(--font-weight-medium)',
+          minWidth: 180,
+          outline: 'none',
+        }}
+        maxLength={80}
+      />
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      data-testid="template-name-button"
+      onClick={() => setEditing(true)}
+      title="Click to rename"
+      style={{
+        height: 'var(--control-height-md)',
+        padding: '0 10px',
+        background: 'transparent',
+        border: '1px dashed transparent',
+        borderRadius: 'var(--radius-md)',
+        color: 'var(--text-secondary)',
+        fontSize: 'var(--text-base)',
+        fontWeight: 'var(--font-weight-medium)',
+        cursor: 'text',
+        whiteSpace: 'nowrap',
+        maxWidth: 220,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+      onMouseEnter={(e) => {
+        ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'
+      }}
+      onMouseLeave={(e) => {
+        ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'transparent'
+      }}
+    >
+      {name || 'Untitled Template'}
+    </button>
+  )
+}
 
 export function MenuTabBar() {
   const activeTab = useUiStore((s) => s.activeMenuTab)
@@ -146,6 +240,13 @@ export function MenuTabBar() {
           />
         ))}
       </div>
+
+      <MenuSeparator />
+
+      {/* QA BUG-15: an inline template-name editor lives between the menu
+       *  tabs and the pinned tools. Click → edit; Enter / blur → commit;
+       *  Esc → cancel. Empty → falls back to 'Untitled Template'. */}
+      <TemplateNameField />
 
       <MenuSeparator />
 
