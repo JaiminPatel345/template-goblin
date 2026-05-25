@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTemplateStore } from '../../store/templateStore.js'
+import { useTemplateStore, getFieldDynamicMemo } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { useDialogs } from '../Dialogs/index.js'
 import type { FieldDefinition, GroupDefinition } from '@template-goblin/types'
@@ -38,6 +38,16 @@ function fieldDisplayKey(field: FieldDefinition): string {
     }
     if (field.type === 'table' && Array.isArray(raw)) {
       return `static table · ${raw.length} row${raw.length === 1 ? '' : 's'}`
+    }
+    // BUG-11 continued: if the field was once Dynamic, fall back to
+    // the memo'd jsonKey so the user still has a recognisable label
+    // (e.g. 'texts.student_name') instead of '<static text>'. Memo
+    // is session-local — see fieldDynamicMemo in templateStore.
+    const memo = getFieldDynamicMemo(field.id)
+    if (memo?.jsonKey) {
+      const prefix =
+        field.type === 'text' ? 'texts.' : field.type === 'image' ? 'images.' : 'tables.'
+      return prefix + memo.jsonKey
     }
     return `<static ${field.type}>`
   }
