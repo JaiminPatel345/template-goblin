@@ -16,7 +16,7 @@ import { useState, useMemo, useEffect } from 'react'
 import type { ImageField } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
-import { generateExampleJson } from '../../utils/jsonGenerator.js'
+import { generateExampleJson, isPlaceholderImageSentinel } from '../../utils/jsonGenerator.js'
 import { runCorePreview, openPdfInNewTab } from '../../utils/runCorePreview.js'
 import {
   parseInputJson,
@@ -46,17 +46,35 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
   // a max snapshot directly into `previewJsonText` if the user wants it.
   // #61: include header/footer band fields so their dynamic jsonKeys seed
   // the editor too — the renderer reads them from the same flat buckets.
+  // Thumbnail data-URL map for the image-upload rows. Drawn from the user's
+  // already-loaded placeholder bitmaps + static images in the store; the
+  // PDF render path still gets bytes from the store via `templateToLoaded`.
+  const placeholderBuffers = useTemplateStore((s) => s.placeholderBuffers)
+  const staticImageDataUrls = useTemplateStore((s) => s.staticImageDataUrls)
+  const baseImageDataUrls = useMemo(
+    () => buildImageDataUrlMap(staticImageDataUrls, placeholderBuffers),
+    [staticImageDataUrls, placeholderBuffers],
+  )
+
   const defaultJsonText = useMemo(
     () =>
       JSON.stringify(
-        generateExampleJson(fields, 'default', repeatCount, {
-          header: headerFields,
-          footer: footerFields,
-        }),
+        generateExampleJson(
+          fields,
+          'default',
+          repeatCount,
+          {
+            header: headerFields,
+            footer: footerFields,
+          },
+          // #165: emit truncated base64 for each placeholder bitmap so
+          // the dialog opens with a JSON shape that reads as 'real' data.
+          baseImageDataUrls,
+        ),
         null,
         2,
       ),
-    [fields, headerFields, footerFields, repeatCount],
+    [fields, headerFields, footerFields, repeatCount, baseImageDataUrls],
   )
 
   // Initial editor content prefers the user's pinned text from the right
@@ -101,16 +119,6 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
         (f): f is ImageField => f.type === 'image' && !!f.source && f.source.mode === 'dynamic',
       ),
     [fields],
-  )
-
-  // Thumbnail data-URL map for the image-upload rows. Drawn from the user's
-  // already-loaded placeholder bitmaps + static images in the store; the
-  // PDF render path still gets bytes from the store via `templateToLoaded`.
-  const placeholderBuffers = useTemplateStore((s) => s.placeholderBuffers)
-  const staticImageDataUrls = useTemplateStore((s) => s.staticImageDataUrls)
-  const baseImageDataUrls = useMemo(
-    () => buildImageDataUrlMap(staticImageDataUrls, placeholderBuffers),
-    [staticImageDataUrls, placeholderBuffers],
   )
 
   // ESC dismiss.
@@ -190,17 +198,34 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
         // the PDF byte stream.
         links: (parsed.links ?? {}) as Record<string, string>,
       }
+      // Seed every dynamic image field with its placeholder as a
+      // FULL data URL. Core's resolveImageInput accepts data URLs
+      // directly (it does NOT consult template.placeholders for
+      // dynamic fields — preflightImages reads bytes only from
+      // data.images[jsonKey]), so a bare filename here would fail
+      // the format sniff with 'not a valid PNG / JPEG'. The data URL
+      // round-trips through Buffer.from(b64) cleanly when the
+      // underlying bitmap is real (any genuine PNG / JPEG bytes
+      // produced by the upload pipeline).
       for (const field of dynamicImageFields) {
         if (field.source.mode !== 'dynamic') continue
         const ph = field.source.placeholder
         if (ph && typeof ph === 'object' && 'filename' in ph) {
-          const buf = state.placeholderBuffers.get(ph.filename as string)
-          if (buf) data.images[field.source.jsonKey] = buf
+          const fullDataUrl = baseImageDataUrls.get(ph.filename as string)
+          if (fullDataUrl) data.images[field.source.jsonKey] = fullDataUrl
         }
       }
       // User-edited JSON.images takes precedence over the placeholder
-      // defaults; explicit uploads take precedence over both.
-      Object.assign(data.images, (parsed.images ?? {}) as Record<string, string>)
+      // defaults; explicit uploads take precedence over both. Values
+      // that came from the auto-generated example (truncated base64
+      // ending in IMAGE_PLACEHOLDER_SENTINEL — see #165) are skipped
+      // so the placeholder filename set above wins when the user
+      // clicks Render without editing the JSON.
+      const parsedImages = (parsed.images ?? {}) as Record<string, unknown>
+      for (const [k, v] of Object.entries(parsedImages)) {
+        if (isPlaceholderImageSentinel(v)) continue
+        data.images[k] = v as string | ArrayBuffer
+      }
       for (const [jsonKey, upload] of imageOverrides) {
         data.images[jsonKey] = upload.dataUrl
       }

@@ -40,11 +40,32 @@ interface GeneratedJson {
  * @param mode - `'default'` (panel display) or `'max'` (Max-Fill button)
  * @param repeatCount - How many times to repeat text in max mode
  */
+/**
+ * Sentinel suffix appended to placeholder image data URLs so the
+ * Preview-dialog merge code can detect 'this came from the auto-
+ * generated example, don't overlay it onto the real buffer'. See
+ * `PreviewDialog.handleRender` (#165).
+ */
+export const IMAGE_PLACEHOLDER_SENTINEL = '...<placeholder>'
+
+/** Max length of the visible base64 head before the sentinel suffix. */
+const IMAGE_PLACEHOLDER_HEAD = 80
+
 export function generateExampleJson(
   fields: FieldDefinition[],
   mode: JsonPreviewMode = 'default',
   repeatCount: number = 5,
   bandFields: { header?: FieldDefinition[]; footer?: FieldDefinition[] } = {},
+  /**
+   * Optional filename → data URL map for resolved placeholder bitmaps
+   * (passed in by the JSON Preview panel + the Preview dialog). When
+   * a dynamic image field's placeholder is in the map, the emitted
+   * JSON value is the data URL's first 80 chars + IMAGE_PLACEHOLDER_
+   * SENTINEL so the panel reads as real data without flooding the
+   * editor with multi-KB base64 blobs. The Preview dialog detects the
+   * sentinel and falls back to the full buffer when rendering.
+   */
+  imageDataUrls?: Map<string, string>,
 ): GeneratedJson {
   const result: GeneratedJson = {
     texts: {},
@@ -79,7 +100,7 @@ export function generateExampleJson(
             result.texts[name] = getTextValue(mode, required, repeatCount, placeholder)
             break
           case 'image':
-            result.images[name] = getImageValue(mode, required, placeholder)
+            result.images[name] = getImageValue(mode, required, placeholder, imageDataUrls)
             break
           case 'table':
             result.tables[name] = getTableValue(field, mode, required, repeatCount, placeholder)
@@ -135,16 +156,36 @@ function getImageValue(
   mode: JsonPreviewMode,
   required: boolean,
   placeholder: unknown,
+  imageDataUrls?: Map<string, string>,
 ): string | null {
   if (mode === 'max') {
     return '<base64-image-data>'
   }
-  // GH #25: surface the user's placeholder filename as the JSON value when set.
+  // #165: when the field's placeholder bitmap resolves to a stored
+  // data URL, emit the first chunk + a sentinel suffix so the JSON
+  // panel reads as 'real' data without printing the full base64.
   if (placeholder && typeof placeholder === 'object' && 'filename' in placeholder) {
     const filename = (placeholder as { filename: unknown }).filename
-    if (typeof filename === 'string' && filename.length > 0) return filename
+    if (typeof filename === 'string' && filename.length > 0) {
+      const dataUrl = imageDataUrls?.get(filename)
+      if (dataUrl) {
+        return dataUrl.slice(0, IMAGE_PLACEHOLDER_HEAD) + IMAGE_PLACEHOLDER_SENTINEL
+      }
+      // No bitmap in the map — fall back to the bare filename (pre-#165 behaviour).
+      return filename
+    }
   }
   return required ? '<base64-image-data>' : null
+}
+
+/**
+ * Detect a JSON-preview image value that came from
+ * `IMAGE_PLACEHOLDER_SENTINEL` — used by `PreviewDialog.handleRender`
+ * to skip overlaying the truncated string onto the placeholder
+ * buffer when the user clicks Render without editing the JSON.
+ */
+export function isPlaceholderImageSentinel(value: unknown): boolean {
+  return typeof value === 'string' && value.endsWith(IMAGE_PLACEHOLDER_SENTINEL)
 }
 
 function getTableValue(
