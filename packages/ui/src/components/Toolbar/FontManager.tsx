@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { processFontFiles } from './fontUpload.js'
+import { useDialogs } from '../Dialogs/index.js'
 
 export function FontManager() {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -9,26 +10,32 @@ export function FontManager() {
   const fields = useTemplateStore((s) => s.fields)
   const removeFont = useTemplateStore((s) => s.removeFont)
   const setShowFontManager = useUiStore((s) => s.setShowFontManager)
+  const { alert: showAlert, confirm: showConfirm } = useDialogs()
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
     if (!files || files.length === 0) return
     const results = await processFontFiles(files)
-    // Surface meaningful failures to the user. Extension rejections are
-    // silent because the `accept=".ttf"` attribute already filters the
-    // picker; magic-byte / size / duplicate failures are worth flagging.
     for (const r of results) {
       if (r.ok) continue
       if (r.reason === 'size') {
-        alert(`Font file too large: ${r.filename}. Maximum size is 10 MB.`)
+        await showAlert({
+          title: 'Font too large',
+          message: `Font file too large: ${r.filename}. Maximum size is 10 MB.`,
+          variant: 'danger',
+        })
       } else if (r.reason === 'magic') {
-        alert(`Invalid font file: ${r.filename}. Please select a valid .ttf file.`)
+        await showAlert({
+          title: 'Invalid font file',
+          message: `Invalid font file: ${r.filename}. Please select a valid .ttf file.`,
+          variant: 'danger',
+        })
       }
     }
     e.target.value = ''
   }
 
-  function handleRemove(fontId: string) {
+  async function handleRemove(fontId: string) {
     const usedByFields = fields.filter((f) => {
       if (f.type === 'text') {
         const style = f.style as { fontId?: string | null }
@@ -45,9 +52,13 @@ export function FontManager() {
           return `<static ${f.type}> (${f.id})`
         })
         .join(', ')
-      if (!window.confirm(`This font is used by fields: ${names}. Remove anyway?`)) {
-        return
-      }
+      const ok = await showConfirm({
+        title: 'Remove font in use?',
+        message: `This font is used by fields: ${names}. Remove anyway?`,
+        confirmLabel: 'Remove font',
+        destructive: true,
+      })
+      if (!ok) return
     }
 
     removeFont(fontId)

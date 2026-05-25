@@ -363,6 +363,19 @@ let fieldCounter = 0
 let fieldDynamicMemo: Map<string, { jsonKey: string; required: boolean }> = new Map()
 
 /**
+ * Read-side accessor for the dynamic memo so UI surfaces (e.g. the
+ * FIELDS list) can show the most recent dynamic-side label for a
+ * field that has since been flipped to Static — instead of falling
+ * back to a generic `<static text>` placeholder when the static
+ * value is empty (QA BUG-11).
+ */
+export function getFieldDynamicMemo(
+  id: string,
+): { jsonKey: string; required: boolean } | undefined {
+  return fieldDynamicMemo.get(id)
+}
+
+/**
  * Pick a `jsonKey` for a newly-flipped-to-dynamic field that doesn't collide
  * with any existing dynamic field's key (within the same type bucket — text,
  * image, table). Used by `setFieldMode` (GH #26).

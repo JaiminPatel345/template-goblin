@@ -1,10 +1,8 @@
 /**
- * UX-04 — Regression test (#150).
+ * UX-04 — Regression test (#150), updated for #158.
  *
- * Clicking File → New must prompt for confirmation before wiping the
- * current template. The handler in FileRibbon already calls
- * `window.confirm(...)`; this test stubs confirm to return false and
- * asserts the template state is left untouched.
+ * File → New now uses the custom ConfirmDialog primitive. Clicking
+ * Cancel must leave the template state untouched.
  */
 import type { Page } from '@playwright/test'
 import { test, expect } from '@playwright/test'
@@ -27,13 +25,12 @@ async function onboardSolidColor(page: Page): Promise<void> {
   await page.getByRole('button', { name: /Apply/i }).click()
 }
 
-test('UX-04: File → New is guarded by a confirm prompt', async ({ page }) => {
+test('UX-04: File → New shows a confirm dialog; Cancel preserves state', async ({ page }) => {
   await clearStorage(page)
   await page.goto('/')
   await onboardSolidColor(page)
   await expect(page.locator('canvas').first()).toBeVisible({ timeout: 5000 })
 
-  // Seed a field so we can prove state survived.
   await page.evaluate(() => {
     type W = Window & {
       __templateStore?: { getState: () => { addField: (f: unknown) => void } }
@@ -54,14 +51,13 @@ test('UX-04: File → New is guarded by a confirm prompt', async ({ page }) => {
     })
   })
 
-  // Stub confirm() to decline. The handler in FileRibbon must early-
-  // return without touching the store.
-  await page.evaluate(() => {
-    window.confirm = () => false
-  })
-
   await page.locator('[data-testid="menu-tab-file"]').click()
   await page.locator('[data-testid="toolbar-new"]').click()
+
+  const dialog = page.locator('[data-testid="dialog-confirm"]')
+  await expect(dialog).toBeVisible({ timeout: 5000 })
+  await page.locator('[data-testid="dialog-confirm-cancel"]').click()
+  await expect(dialog).toHaveCount(0)
 
   const survives = await page.evaluate(() => {
     type W = Window & {

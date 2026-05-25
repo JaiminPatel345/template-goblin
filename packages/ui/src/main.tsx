@@ -2,6 +2,7 @@ import { Buffer } from 'buffer'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from './App.js'
+import { DialogProvider } from './components/Dialogs/index.js'
 
 // GH #86 — `template-goblin/browser` and PDFKit's standalone build reach
 // for `globalThis.Buffer` at module-init. `vite-plugin-node-polyfills`
@@ -18,6 +19,8 @@ if (!rootEl) throw new Error('Root element not found')
 
 ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
-    <App />
+    <DialogProvider>
+      <App />
+    </DialogProvider>
   </React.StrictMode>,
 )

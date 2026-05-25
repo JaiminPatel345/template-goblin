@@ -4,6 +4,7 @@ import { useUiStore } from '../../../store/uiStore.js'
 import { openTemplate } from '../../../utils/saveOpen.js'
 import { RibbonGroup } from '../primitives/RibbonGroup.js'
 import { RibbonButton } from '../primitives/RibbonButton.js'
+import { useDialogs } from '../../Dialogs/index.js'
 import { NewIcon, OpenIcon, BackgroundIcon } from '../icons.js'
 
 /**
@@ -15,6 +16,7 @@ import { NewIcon, OpenIcon, BackgroundIcon } from '../icons.js'
 export function FileRibbon() {
   const openInputRef = useRef<HTMLInputElement>(null)
   const setShowChangeBgDialog = useUiStore((s) => s.setShowChangeBgDialog)
+  const { alert: showAlert, confirm: showConfirm } = useDialogs()
 
   async function handleOpenFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -22,13 +24,22 @@ export function FileRibbon() {
     try {
       await openTemplate(file)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to open file')
+      await showAlert({
+        title: 'Failed to open file',
+        message: err instanceof Error ? err.message : 'Failed to open file',
+        variant: 'danger',
+      })
     }
     e.target.value = ''
   }
 
-  function handleNew() {
-    const ok = window.confirm('Start a new template? Your current unsaved work will be lost.')
+  async function handleNew() {
+    const ok = await showConfirm({
+      title: 'Start a new template?',
+      message: 'Your current unsaved work will be lost.',
+      confirmLabel: 'Start new',
+      destructive: true,
+    })
     if (!ok) return
     useTemplateStore.getState().reset()
     useUiStore.getState().clearSelection()

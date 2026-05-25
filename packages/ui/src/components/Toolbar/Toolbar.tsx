@@ -5,6 +5,7 @@ import { openTemplate } from '../../utils/saveOpen.js'
 import { MenuTabBar } from './MenuTabBar.js'
 import { RibbonBar } from './RibbonBar.js'
 import { RibbonButton } from './primitives/RibbonButton.js'
+import { useDialogs } from '../Dialogs/index.js'
 import { MoonIcon, SunIcon, OpenIcon, BackgroundIcon } from './icons.js'
 
 /**
@@ -31,17 +32,26 @@ export function Toolbar() {
   )
   const theme = useUiStore((s) => s.theme)
   const toggleTheme = useUiStore((s) => s.toggleTheme)
+  const { alert: showAlert } = useDialogs()
 
   function handleBgUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 20 * 1024 * 1024) {
-      alert('Image too large. Maximum size is 20 MB.')
+      void showAlert({
+        title: 'Image too large',
+        message: 'Maximum size is 20 MB.',
+        variant: 'danger',
+      })
       e.target.value = ''
       return
     }
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file.')
+      void showAlert({
+        title: 'Not an image',
+        message: 'Please select an image file.',
+        variant: 'warning',
+      })
       e.target.value = ''
       return
     }
@@ -51,7 +61,11 @@ export function Toolbar() {
       const img = new Image()
       img.onload = () => {
         if (img.naturalWidth > 10000 || img.naturalHeight > 10000) {
-          alert('Image dimensions too large. Maximum is 10000x10000 pixels.')
+          void showAlert({
+            title: 'Image too big',
+            message: 'Image dimensions too large. Maximum is 10000×10000 pixels.',
+            variant: 'danger',
+          })
           return
         }
         const bufReader = new FileReader()
@@ -78,7 +92,11 @@ export function Toolbar() {
     try {
       await openTemplate(file)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to open file')
+      await showAlert({
+        title: 'Failed to open file',
+        message: err instanceof Error ? err.message : 'Failed to open file',
+        variant: 'danger',
+      })
     }
     e.target.value = ''
   }

@@ -1,6 +1,8 @@
 import type PDFDocument from 'pdfkit'
 import type { FieldDefinition, TextFieldStyle } from '@template-goblin/types'
 import { measureText, truncateLines } from '../utils/measure.js'
+import { resolvePdfFontName } from './pdfFontResolver.js'
+import { paintTextDecoration } from './textDecoration.js'
 
 /**
  * Render a text field onto a PDFKit document within its bounding rectangle.
@@ -22,8 +24,18 @@ export function renderText(
   const style = field.style as TextFieldStyle
   const { x, y, width, height } = field
 
-  // Set font
-  const fontName = (style.fontId && fonts.get(style.fontId)) ?? style.fontFamily
+  // Set font. Resolves fontFamily + fontWeight + fontStyle into the
+  // PDFKit name (Helvetica-BoldOblique, Times-BoldItalic, …) so the
+  // bold/italic toggles in the editor actually reach the PDF. Custom
+  // uploaded fonts win — they're registered with their own name and
+  // bold/italic variants must come from separately uploaded files.
+  const customFontName = style.fontId ? (fonts.get(style.fontId) ?? null) : null
+  const fontName = resolvePdfFontName(
+    style.fontFamily,
+    style.fontWeight,
+    style.fontStyle,
+    customFontName,
+  )
   doc.font(fontName)
 
   // Set text color
@@ -80,10 +92,20 @@ export function renderText(
     if (lineY + lineHeightPt > y + height) break
     if (lineY < y) continue
 
-    doc.text(lines[i] ?? '', x, lineY, {
+    const line = lines[i] ?? ''
+    doc.text(line, x, lineY, {
       width,
       align: style.align,
       lineBreak: false,
+    })
+    // Underline / line-through — was silently dropped pre-fix.
+    paintTextDecoration(doc, line, style.textDecoration, {
+      x,
+      y: lineY,
+      width,
+      align: style.align,
+      fontSize,
+      color: style.color,
     })
   }
 }
