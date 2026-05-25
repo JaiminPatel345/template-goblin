@@ -2,6 +2,7 @@ import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { generateExampleJson } from '../../utils/jsonGenerator.js'
+import { buildImageDataUrlMap } from '../../utils/previewInputs.js'
 import { formatJsonString } from './formatJson.js'
 
 /**
@@ -25,17 +26,33 @@ export function JsonPreview() {
   const fields = useTemplateStore((s) => s.fields)
   const headerFields = useTemplateStore((s) => s.header?.fields)
   const footerFields = useTemplateStore((s) => s.footer?.fields)
+  const placeholderBuffers = useTemplateStore((s) => s.placeholderBuffers)
+  const staticImageDataUrls = useTemplateStore((s) => s.staticImageDataUrls)
   const maxModeRepeatCount = useUiStore((s) => s.maxModeRepeatCount)
   const previewJsonText = useUiStore((s) => s.previewJsonText)
   const setPreviewJsonText = useUiStore((s) => s.setPreviewJsonText)
 
+  // #165: resolve every image-field placeholder filename to a data URL so
+  // the JSON Preview's example output can show truncated base64 instead
+  // of just the bare filename.
+  const imageDataUrls = useMemo(
+    () => buildImageDataUrlMap(staticImageDataUrls, placeholderBuffers),
+    [staticImageDataUrls, placeholderBuffers],
+  )
+
   const generated = useMemo(
     () =>
-      generateExampleJson(fields, 'default', maxModeRepeatCount, {
-        header: headerFields,
-        footer: footerFields,
-      }),
-    [fields, headerFields, footerFields, maxModeRepeatCount],
+      generateExampleJson(
+        fields,
+        'default',
+        maxModeRepeatCount,
+        {
+          header: headerFields,
+          footer: footerFields,
+        },
+        imageDataUrls,
+      ),
+    [fields, headerFields, footerFields, maxModeRepeatCount, imageDataUrls],
   )
   const generatedText = useMemo(() => JSON.stringify(generated, null, 2), [generated])
 

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { generateExampleJson } from '../jsonGenerator.js'
+import {
+  generateExampleJson,
+  IMAGE_PLACEHOLDER_SENTINEL,
+  isPlaceholderImageSentinel,
+} from '../jsonGenerator.js'
 import type {
   FieldDefinition,
   TextFieldStyle,
@@ -63,14 +67,23 @@ function textField(jsonKey: string, required = true): FieldDefinition {
   }
 }
 
-function imageField(jsonKey: string, required = true): FieldDefinition {
+function imageField(
+  jsonKey: string,
+  required = true,
+  placeholderFilename: string | null = null,
+): FieldDefinition {
   return {
     id: `f-${jsonKey}`,
     type: 'image',
     groupId: null,
     pageId: null,
     label: '',
-    source: { mode: 'dynamic', jsonKey, required, placeholder: null },
+    source: {
+      mode: 'dynamic',
+      jsonKey,
+      required,
+      placeholder: placeholderFilename ? { filename: placeholderFilename } : null,
+    },
     x: 0,
     y: 0,
     width: 100,
@@ -274,6 +287,66 @@ describe('generateExampleJson', () => {
       expect(maxResult.texts.school).toContain('It works in my machine')
       expect(maxResult.images.photo).toBe('<base64-image-data>')
       expect(maxResult.tables.marks).toHaveLength(3)
+    })
+  })
+
+  // #165 — dynamic image fields with placeholder bitmaps emit a
+  // truncated data URL ending in the placeholder sentinel so the
+  // JSON preview reads as 'real' data without flooding the editor
+  // with multi-KB base64 strings.
+  describe('placeholder image data URLs (#165)', () => {
+    const FAKE_DATA_URL =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+
+    it('emits truncated base64 ending in the sentinel when the placeholder is in the map', () => {
+      const field = imageField('photo', true, 'placeholders/photo.png')
+      const dataUrls = new Map([['placeholders/photo.png', FAKE_DATA_URL]])
+      const result = generateExampleJson([field], 'default', 5, {}, dataUrls)
+      const value = result.images.photo
+      expect(typeof value).toBe('string')
+      expect(value as string).toContain('data:image/png;base64,')
+      expect((value as string).endsWith(IMAGE_PLACEHOLDER_SENTINEL)).toBe(true)
+      // Truncated, not the full URL.
+      expect((value as string).length).toBeLessThan(FAKE_DATA_URL.length + 1)
+    })
+
+    it('falls back to the bare filename when the data-URL map is missing the entry', () => {
+      const field = imageField('photo', true, 'placeholders/photo.png')
+      const result = generateExampleJson([field], 'default', 5, {}, new Map())
+      expect(result.images.photo).toBe('placeholders/photo.png')
+    })
+
+    it('omits the imageDataUrls arg entirely → bare filename (pre-#165 behaviour)', () => {
+      const field = imageField('photo', true, 'placeholders/photo.png')
+      const result = generateExampleJson([field], 'default', 5)
+      expect(result.images.photo).toBe('placeholders/photo.png')
+    })
+
+    it('required image with no placeholder still emits the literal marker', () => {
+      const result = generateExampleJson([imageField('photo')], 'default', 5, {}, new Map())
+      expect(result.images.photo).toBe('<base64-image-data>')
+    })
+
+    it('non-required image with no placeholder → null', () => {
+      const result = generateExampleJson([imageField('photo', false)], 'default', 5, {}, new Map())
+      expect(result.images.photo).toBeNull()
+    })
+  })
+
+  describe('isPlaceholderImageSentinel', () => {
+    it('detects values ending with the sentinel', () => {
+      expect(
+        isPlaceholderImageSentinel('data:image/png;base64,iVBOR' + IMAGE_PLACEHOLDER_SENTINEL),
+      ).toBe(true)
+    })
+    it('returns false for ordinary data URLs', () => {
+      expect(isPlaceholderImageSentinel('data:image/png;base64,iVBORw0KGgo')).toBe(false)
+    })
+    it('returns false for non-string values', () => {
+      expect(isPlaceholderImageSentinel(123)).toBe(false)
+      expect(isPlaceholderImageSentinel(null)).toBe(false)
+      expect(isPlaceholderImageSentinel(undefined)).toBe(false)
+      expect(isPlaceholderImageSentinel({ filename: 'x' })).toBe(false)
     })
   })
 })
