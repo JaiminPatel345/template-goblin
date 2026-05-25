@@ -198,14 +198,15 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
         // the PDF byte stream.
         links: (parsed.links ?? {}) as Record<string, string>,
       }
-      // Seed every dynamic image field with its placeholder bitmap as
-      // a FULL data URL up front. Core accepts data URLs but not raw
-      // ArrayBuffers, so we keep the value as a string the whole way
-      // through and let the parsed.images overlay (or upload) cleanly
-      // replace it. Pre-#165 this branch wrote the raw ArrayBuffer
-      // and relied on parsed.images overwriting it with the bare
-      // filename string — fragile and broke on Render once the
-      // truncated-sentinel skip was added.
+      // Seed every dynamic image field with its placeholder as a
+      // FULL data URL. Core's resolveImageInput accepts data URLs
+      // directly (it does NOT consult template.placeholders for
+      // dynamic fields — preflightImages reads bytes only from
+      // data.images[jsonKey]), so a bare filename here would fail
+      // the format sniff with 'not a valid PNG / JPEG'. The data URL
+      // round-trips through Buffer.from(b64) cleanly when the
+      // underlying bitmap is real (any genuine PNG / JPEG bytes
+      // produced by the upload pipeline).
       for (const field of dynamicImageFields) {
         if (field.source.mode !== 'dynamic') continue
         const ph = field.source.placeholder
@@ -218,7 +219,7 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
       // defaults; explicit uploads take precedence over both. Values
       // that came from the auto-generated example (truncated base64
       // ending in IMAGE_PLACEHOLDER_SENTINEL — see #165) are skipped
-      // so the full placeholder data URL set above wins when the user
+      // so the placeholder filename set above wins when the user
       // clicks Render without editing the JSON.
       const parsedImages = (parsed.images ?? {}) as Record<string, unknown>
       for (const [k, v] of Object.entries(parsedImages)) {
