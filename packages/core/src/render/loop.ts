@@ -10,6 +10,9 @@ import type {
 import { TemplateGoblinError } from '@template-goblin/types'
 import { renderBackground } from './background.js'
 import { measureText, truncateLines } from '../utils/measure.js'
+import { resolvePdfFontName } from './pdfFontResolver.js'
+import { paintTextDecoration } from './textDecoration.js'
+import { resolveCellTextY } from './cellVerticalAlign.js'
 
 /**
  * Render a table field onto a PDFKit document.
@@ -172,18 +175,37 @@ function renderHeaderRow(
       doc.restore()
     }
 
-    doc.font(hs.fontFamily || 'Helvetica')
+    // Table-header style — same bold/italic + standard-family resolution
+    // as body cells. The previous implementation called
+    // `doc.font(hs.fontFamily)` directly, which dropped weight + style.
+    doc.font(resolvePdfFontName(hs.fontFamily, hs.fontWeight, hs.fontStyle))
     doc.fontSize(hs.fontSize)
     doc.fillColor(hs.color)
 
     const textX = colX + hs.paddingLeft
-    const textY = startY + hs.paddingTop
+    const textY = resolveCellTextY(
+      startY,
+      rowHeight,
+      hs.fontSize,
+      hs.paddingTop,
+      hs.paddingBottom,
+      hs.verticalAlign,
+    )
     const textWidth = colWidth - hs.paddingLeft - hs.paddingRight
 
-    doc.text(col.label || col.key, textX, textY, {
+    const headerLabel = col.label || col.key
+    doc.text(headerLabel, textX, textY, {
       width: textWidth,
       align: hs.align,
       lineBreak: false,
+    })
+    paintTextDecoration(doc, headerLabel, hs.textDecoration, {
+      x: textX,
+      y: textY,
+      width: textWidth,
+      align: hs.align,
+      fontSize: hs.fontSize,
+      color: hs.color,
     })
 
     colX += colWidth
@@ -222,14 +244,24 @@ function renderDataRow(
       doc.restore()
     }
 
-    const fontFamily = rs.fontFamily || 'Helvetica'
-    const fontName = rs.fontWeight === 'bold' ? `${fontFamily}-Bold` : fontFamily
+    // Honour both fontWeight + fontStyle across the four PDF Standard
+    // face variants. Body cells don't currently bind a `fontId` so the
+    // custom-font branch is skipped here; a follow-up can pipe the
+    // template's font map through if per-column custom fonts ship.
+    const fontName = resolvePdfFontName(rs.fontFamily, rs.fontWeight, rs.fontStyle)
     doc.font(fontName)
     doc.fontSize(rs.fontSize)
     doc.fillColor(rs.color)
 
     const textX = colX + rs.paddingLeft
-    const textY = startY + rs.paddingTop
+    const textY = resolveCellTextY(
+      startY,
+      rowHeight,
+      rs.fontSize,
+      rs.paddingTop,
+      rs.paddingBottom,
+      rs.verticalAlign,
+    )
     const textWidth = colWidth - rs.paddingLeft - rs.paddingRight
     const maxTextRows = 1
 
@@ -270,17 +302,16 @@ function renderDataRow(
       }
     }
 
-    if (rs.textDecoration === 'underline') {
-      const actualWidth = doc.widthOfString(cellValue)
-      doc.save()
-      doc.strokeColor(rs.color)
-      doc.lineWidth(0.5)
-      doc
-        .moveTo(textX, textY + rs.fontSize + 1)
-        .lineTo(textX + Math.min(actualWidth, textWidth), textY + rs.fontSize + 1)
-        .stroke()
-      doc.restore()
-    }
+    // Underline + line-through via the shared helper so both
+    // decorations track across cell wrapping / alignment.
+    paintTextDecoration(doc, cellValue, rs.textDecoration, {
+      x: textX,
+      y: textY,
+      width: textWidth,
+      align: rs.align,
+      fontSize: rs.fontSize,
+      color: rs.color,
+    })
 
     colX += colWidth
   }
