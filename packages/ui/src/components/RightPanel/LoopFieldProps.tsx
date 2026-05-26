@@ -27,6 +27,7 @@ const BUILTIN_FONTS = ['Helvetica', 'Times-Roman', 'Courier']
 export function LoopFieldProps({ field }: Props) {
   const updateField = useTemplateStore((s) => s.updateField)
   const updateFieldStyle = useTemplateStore((s) => s.updateFieldStyle)
+  const resizeField = useTemplateStore((s) => s.resizeField)
   const fonts = useTemplateStore((s) => s.fonts)
 
   // QA BUG-08: surface a one-click upgrade for fields rehydrated
@@ -130,6 +131,38 @@ export function LoopFieldProps({ field }: Props) {
             defaultValue={10}
             onChange={(v) => updateFieldStyle(field.id, { maxRows: v })}
           />
+        </div>
+
+        {/* #162 — Fit-to-data: shrink the field's bounding rectangle
+            to the actual number of data rows (placeholder rows for
+            dynamic; value rows for static). Solves the 'large orange
+            area below the data' QA complaint without touching the
+            renderer's intentional 'user authors the rect' semantic. */}
+        <div className="tg-form-row">
+          <label>
+            Bounding box
+            <InfoTip text="Resize the field rectangle on the canvas to match the current data row count. Header + content × row-height = new height. Useful after editing placeholder rows or maxRows." />
+          </label>
+          <button
+            type="button"
+            className="tg-btn"
+            data-testid="table-fit-to-data"
+            onClick={() => {
+              const rs = style.rowStyle
+              const hs = style.headerStyle
+              const headerH = style.showHeader ? hs.fontSize + hs.paddingTop + hs.paddingBottom : 0
+              const rowH = rs.fontSize + rs.paddingTop + rs.paddingBottom
+              const placeholder = isDynamic
+                ? (dynamicSource?.placeholder as unknown[] | undefined)
+                : (field.source as { value?: unknown[] }).value
+              const dataRows = Array.isArray(placeholder) ? placeholder.length : 0
+              const rowCount = Math.min(dataRows || 1, style.maxRows ?? 1)
+              const nextHeight = Math.max(headerH + rowCount * rowH, headerH + rowH)
+              resizeField(field.id, field.width, nextHeight)
+            }}
+          >
+            Fit to data
+          </button>
         </div>
 
         <div className="tg-form-row">

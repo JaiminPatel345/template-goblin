@@ -293,6 +293,12 @@ export function CanvasArea() {
           // flows scrollably towards the bottom-right on both axes.
           overflow: 'auto',
           display: 'flex',
+          // #164 — when a placing tool is active, swap the cursor to
+          // crosshair across the whole canvas area so the user gets a
+          // tool-aware visual cue even outside the page bounds. Without
+          // this they'd only see the default arrow until the moment
+          // they cross the page rectangle.
+          cursor: isPlacing ? 'crosshair' : undefined,
         }}
         onContextMenu={(e) => e.preventDefault()}
       >

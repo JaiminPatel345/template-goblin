@@ -148,8 +148,10 @@ export function Toolbar() {
   }
 
   // ── Editor shell: menu tab strip + active-tab ribbon.
+  // `data-testid` is used by the global mousedown handler in MenuTabBar
+  // (#159) to detect 'clicked outside the toolbar' for ribbon-collapse.
   return (
-    <div role="region" aria-label="Application toolbar">
+    <div role="region" aria-label="Application toolbar" data-testid="toolbar-shell">
       <MenuTabBar />
       <RibbonBar />
     </div>

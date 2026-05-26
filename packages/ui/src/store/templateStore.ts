@@ -65,6 +65,17 @@ export interface TemplateState {
   history: HistorySnapshot[]
   historyIndex: number
   maxHistory: number
+  /**
+   * Reactive boolean derived from `historyIndex` / `history.length`
+   * (#160). Components that need to disable an Undo / Redo button can
+   * subscribe with `useTemplateStore((s) => s.canUndo)` and re-render
+   * automatically on every history change — no method call needed.
+   * The legacy method form is kept on the actions block below as
+   * `canUndoFn` for backward compat with call-sites that already
+   * shipped.
+   */
+  canUndo: boolean
+  canRedo: boolean
 
   /** Actions */
   setMeta: (meta: Partial<TemplateMeta>) => void
@@ -187,8 +198,9 @@ export interface TemplateState {
 
   undo: () => void
   redo: () => void
-  canUndo: () => boolean
-  canRedo: () => boolean
+  // canUndo / canRedo moved up to the state-field section (#160) so
+  // components can subscribe with `useTemplateStore((s) => s.canUndo)`
+  // and re-render reactively. No method form remains.
 
   /** Reset to empty state */
   reset: () => void
@@ -342,9 +354,14 @@ function pushHistory(state: TemplateState): Partial<TemplateState> {
     newHistory.shift()
   }
 
+  const historyIndex = newHistory.length - 1
   return {
     history: newHistory,
-    historyIndex: newHistory.length - 1,
+    historyIndex,
+    // #160 — reactive flags kept in sync with the index/length on
+    // every history mutation so component subscribers re-render.
+    canUndo: historyIndex > 0,
+    canRedo: false,
   }
 }
 
@@ -579,6 +596,8 @@ export const useTemplateStore = create<TemplateState>()(
       history: [],
       historyIndex: -1,
       maxHistory: 50,
+      canUndo: false,
+      canRedo: false,
 
       setMeta: (updates) =>
         set((state) => ({
@@ -1271,6 +1290,8 @@ export const useTemplateStore = create<TemplateState>()(
             fields: structuredClone(snapshot.fields),
             groups: structuredClone(snapshot.groups),
             historyIndex: newIndex,
+            canUndo: newIndex > 0,
+            canRedo: newIndex < state.history.length - 1,
           }
         }),
 
@@ -1284,18 +1305,13 @@ export const useTemplateStore = create<TemplateState>()(
             fields: structuredClone(snapshot.fields),
             groups: structuredClone(snapshot.groups),
             historyIndex: newIndex,
+            canUndo: newIndex > 0,
+            canRedo: newIndex < state.history.length - 1,
           }
         }),
 
-      canUndo: () => {
-        const state = get()
-        return state.historyIndex > 0
-      },
-
-      canRedo: () => {
-        const state = get()
-        return state.historyIndex < state.history.length - 1
-      },
+      // canUndo / canRedo are reactive state fields above — kept in
+      // sync by pushHistory / undo / redo / reset (#160).
 
       reset: () =>
         set({
@@ -1325,6 +1341,8 @@ export const useTemplateStore = create<TemplateState>()(
           pageNumber: undefined,
           history: [],
           historyIndex: -1,
+          canUndo: false,
+          canRedo: false,
         }),
 
       loadFromManifest: (
