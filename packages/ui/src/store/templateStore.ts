@@ -1386,6 +1386,11 @@ export const useTemplateStore = create<TemplateState>()(
           pageNumber,
           history: [createSnapshot({ fields, groups })],
           historyIndex: 0,
+          // #160 — keep the reactive undo/redo flags in lockstep with the
+          // history index. After loadFromManifest the index is 0 (single
+          // snapshot, nothing prior to undo, nothing forward to redo).
+          canUndo: false,
+          canRedo: false,
         }),
     }),
     {
