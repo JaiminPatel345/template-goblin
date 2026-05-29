@@ -42,12 +42,19 @@ export function wireDragResizeEvents(fc: FabricCanvas) {
         y: localY,
         width: patch.width,
         height: patch.height,
+        rotation: patch.rotation,
       })
       return
     }
 
     store.moveField(g.__fieldId, patch.x, patch.y)
     store.resizeField(g.__fieldId, patch.width, patch.height)
+    // #172 — rotation goes through updateField (no dedicated rotateField
+    // action; updateField handles the partial cleanly). Fires once per
+    // object:modified — Fabric only emits this at the end of a gesture,
+    // so calling it on every drag/resize event still produces a single
+    // commit per user action.
+    store.updateField(g.__fieldId, { rotation: patch.rotation })
   })
 
   fc.on('object:moving', (opt) => {

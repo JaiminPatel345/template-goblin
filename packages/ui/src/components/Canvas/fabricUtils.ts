@@ -126,7 +126,10 @@ function swapPlaceholderForImage(
  *
  * Group config (REQ-048):
  *  - `originX: 'left', originY: 'top'` so `left`/`top` = field `x`/`y`.
- *  - `lockRotation: true` (v1 constraint, REQ-013).
+ *  - Rotation handle is exposed (#172); the rotation handle uses Fabric's
+ *    `centeredRotation` default — rotates around the field's centre. The
+ *    stored value lives on `field.rotation` (degrees, null/0/undefined =
+ *    no rotation).
  *  - `lockScalingFlip: true` (REQ-011).
  *  - `selectable: true`, `hasControls: true`, `hasBorders: true`.
  *  - `subTargetCheck: false` (children must not receive individual events —
@@ -161,9 +164,10 @@ export function createFieldGroup(
     top: field.y,
     width: field.width,
     height: field.height,
+    angle: field.rotation ?? 0,
     originX: 'left',
     originY: 'top',
-    lockRotation: true,
+    centeredRotation: true,
     lockScalingFlip: true,
     selectable: true,
     hasControls: true,
@@ -275,6 +279,7 @@ export function applyFieldToGroup(
     group.set({
       left: field.x,
       top: field.y,
+      angle: field.rotation ?? 0,
       scaleX: 1,
       scaleY: 1,
     })
@@ -297,9 +302,13 @@ export function applyFieldToGroup(
   // identity) BEFORE re-adding children — the auto-translate becomes a
   // no-op and children land where their (left, top) say they should.
   // After the rebuild we restore the group to its real position.
+  // Also zero the angle during the rebuild so child enterGroup translation
+  // happens against an identity transform; the real angle is restored
+  // below once the children are in place.
   group.set({
     left: 0,
     top: 0,
+    angle: 0,
     width: field.width,
     height: field.height,
     scaleX: 1,
@@ -328,6 +337,7 @@ export function applyFieldToGroup(
   group.set({
     left: field.x,
     top: field.y,
+    angle: field.rotation ?? 0,
     width: field.width,
     height: field.height,
     scaleX: 1,
@@ -439,14 +449,18 @@ export function syncSelectionEmphasis(canvas: {
  * We multiply to get the true dimensions, reset scale to 1, and call
  * `setCoords()` so Fabric's bounding-box math stays in sync (REQ-051).
  *
+ * #172 — also captures `group.angle` so canvas rotation flows back into
+ * `field.rotation`. Returns `0` when the group isn't rotated so the
+ * sidebar input always sees a concrete number to display.
+ *
  * @param group - The Group that fired `object:modified`.
- * @returns Partial<FieldDefinition> with x, y, width, height.
+ * @returns Partial<FieldDefinition> with x, y, width, height, rotation.
  */
 export function groupToFieldPatch(
   group: Group,
   gridSize: number,
   snapToGrid: boolean,
-): Pick<FieldDefinition, 'x' | 'y' | 'width' | 'height'> {
+): Pick<FieldDefinition, 'x' | 'y' | 'width' | 'height' | 'rotation'> {
   const rawX = group.left ?? 0
   const rawY = group.top ?? 0
   const sx = group.scaleX ?? 1
@@ -468,6 +482,11 @@ export function groupToFieldPatch(
   const y = snap(rawY, gridSize, snapToGrid)
   const width = Math.max(20, snap(rawW, gridSize, snapToGrid))
   const height = Math.max(20, snap(rawH, gridSize, snapToGrid))
+  // #172 — read group.angle. Fabric's rotation handle leaves x/y at the
+  // group's pre-rotation position because we set `centeredRotation: true`
+  // in `createFieldGroup`, so the schema invariant (x/y/width/height
+  // describe the UNROTATED rect) holds without any extra correction.
+  const rotation = group.angle ?? 0
 
   // Update the group's logical position only. Deliberately DO NOT reset
   // scaleX/Y here even on a resize — the children were rendered stretched
@@ -482,7 +501,7 @@ export function groupToFieldPatch(
   group.__fieldHeight = height
   group.setCoords()
 
-  return { x, y, width, height }
+  return { x, y, width, height, rotation }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
