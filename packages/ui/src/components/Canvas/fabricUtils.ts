@@ -40,6 +40,7 @@ import type { FabricObject, FabricImage, Rect } from 'fabric'
 import type { FieldDefinition, InputJSON } from '@template-goblin/types'
 import { FIELD_COLORS, SELECTED_STROKE_WIDTH } from '../../theme/fieldColors.js'
 import { buildGroupChildren, type ImageResolver } from './buildGroupChildren.js'
+import { centerCompensatedLeftTop, normaliseAngle, recoverUnrotatedXY } from './rotationGeometry.js'
 
 // Re-export the moved utilities so existing importers keep working without
 // having to update their import paths.
@@ -126,7 +127,10 @@ function swapPlaceholderForImage(
  *
  * Group config (REQ-048):
  *  - `originX: 'left', originY: 'top'` so `left`/`top` = field `x`/`y`.
- *  - `lockRotation: true` (v1 constraint, REQ-013).
+ *  - Rotation handle is exposed (#172); the rotation handle uses Fabric's
+ *    `centeredRotation` default — rotates around the field's centre. The
+ *    stored value lives on `field.rotation` (degrees, null/0/undefined =
+ *    no rotation).
  *  - `lockScalingFlip: true` (REQ-011).
  *  - `selectable: true`, `hasControls: true`, `hasBorders: true`.
  *  - `subTargetCheck: false` (children must not receive individual events —
@@ -156,14 +160,28 @@ export function createFieldGroup(
     data,
   )
 
+  // #172 — pivot rotation around the unrotated centre. With Fabric's
+  // `originX: 'left', originY: 'top'`, `group.angle` rotates around
+  // `(group.left, group.top)` (the top-left corner). To make Fabric's
+  // pivot match the schema's "rotate around the rect centre" intent,
+  // we offset `(left, top)` by exactly the amount Fabric's own
+  // `centeredRotation: true` compensates during a handle drag — see
+  // `rotationGeometry.ts` for the math.
+  const { left: groupLeft, top: groupTop } = centerCompensatedLeftTop(field)
   createdGroup = new Group(children, {
-    left: field.x,
-    top: field.y,
+    left: groupLeft,
+    top: groupTop,
     width: field.width,
     height: field.height,
+    // Normalised to [0, 360) so all consumers (Fabric content render,
+    // Fabric selection border render, our compensation math) use the
+    // same effective angle. Without this, huge inputs lose precision
+    // unevenly across code paths and the border drifts off the
+    // content — see `normaliseAngle` for the failure mode.
+    angle: normaliseAngle(field.rotation),
     originX: 'left',
     originY: 'top',
-    lockRotation: true,
+    centeredRotation: true,
     lockScalingFlip: true,
     selectable: true,
     hasControls: true,
@@ -272,9 +290,12 @@ export function applyFieldToGroup(
   // visible as a "white flash" on mouseup of every drag).
   const newHash = fieldRenderHash(field, resolveImage, data)
   if (group.__fieldHash === newHash && group.getObjects().length > 0) {
+    // #172 — see `centerCompensatedLeftTop` for the rationale.
+    const { left: gLeft, top: gTop } = centerCompensatedLeftTop(field)
     group.set({
-      left: field.x,
-      top: field.y,
+      left: gLeft,
+      top: gTop,
+      angle: normaliseAngle(field.rotation),
       scaleX: 1,
       scaleY: 1,
     })
@@ -297,9 +318,13 @@ export function applyFieldToGroup(
   // identity) BEFORE re-adding children — the auto-translate becomes a
   // no-op and children land where their (left, top) say they should.
   // After the rebuild we restore the group to its real position.
+  // Also zero the angle during the rebuild so child enterGroup translation
+  // happens against an identity transform; the real angle is restored
+  // below once the children are in place.
   group.set({
     left: 0,
     top: 0,
+    angle: 0,
     width: field.width,
     height: field.height,
     scaleX: 1,
@@ -325,9 +350,13 @@ export function applyFieldToGroup(
   }
 
   // Restore the group to its real position now that children are in place.
+  // #172 — `centerCompensatedLeftTop` makes `group.angle` pivot around
+  // the field's unrotated centre.
+  const { left: finalLeft, top: finalTop } = centerCompensatedLeftTop(field)
   group.set({
-    left: field.x,
-    top: field.y,
+    left: finalLeft,
+    top: finalTop,
+    angle: normaliseAngle(field.rotation),
     width: field.width,
     height: field.height,
     scaleX: 1,
@@ -384,7 +413,11 @@ export function applySelectionVisuals(group: Group, selected: boolean): void {
   if (selected) {
     // Transparent-default fields keep a transparent fill on selection so a
     // rendered image / placeholder isn't painted over — stroke alone signals.
-    const nextFill = defaultFill === 'transparent' ? 'transparent' : tokens.selectedFill
+    // Solid-colour image fields (#81) carry the user's chosen colour as
+    // their bgRect fill; we tag those with `__userControlledFill` so the
+    // emphasis colour doesn't paint over the user's content either.
+    const keepFill = defaultFill === 'transparent' || bgRect.__userControlledFill === true
+    const nextFill = keepFill ? defaultFill : tokens.selectedFill
     bgRect.set({
       fill: nextFill,
       stroke: tokens.selectedStroke,
@@ -439,16 +472,20 @@ export function syncSelectionEmphasis(canvas: {
  * We multiply to get the true dimensions, reset scale to 1, and call
  * `setCoords()` so Fabric's bounding-box math stays in sync (REQ-051).
  *
+ * #172 — also captures `group.angle` so canvas rotation flows back into
+ * `field.rotation`. Returns `0` when the group isn't rotated so the
+ * sidebar input always sees a concrete number to display.
+ *
  * @param group - The Group that fired `object:modified`.
- * @returns Partial<FieldDefinition> with x, y, width, height.
+ * @returns Partial<FieldDefinition> with x, y, width, height, rotation.
  */
 export function groupToFieldPatch(
   group: Group,
   gridSize: number,
   snapToGrid: boolean,
-): Pick<FieldDefinition, 'x' | 'y' | 'width' | 'height'> {
-  const rawX = group.left ?? 0
-  const rawY = group.top ?? 0
+): Pick<FieldDefinition, 'x' | 'y' | 'width' | 'height' | 'rotation'> {
+  const rawLeft = group.left ?? 0
+  const rawTop = group.top ?? 0
   const sx = group.scaleX ?? 1
   const sy = group.scaleY ?? 1
   // On a pure drag (no resize handle interaction) `scaleX/Y` stays at 1 and
@@ -463,9 +500,17 @@ export function groupToFieldPatch(
   const baseH = group.__fieldHeight ?? group.height ?? 0
   const rawW = baseW * sx
   const rawH = baseH * sy
-
-  const x = snap(rawX, gridSize, snapToGrid)
-  const y = snap(rawY, gridSize, snapToGrid)
+  const rotation = normaliseAngle(group.angle)
+  // #172 — recover the UNROTATED top-left from Fabric's compensated
+  // `(left, top)`. With `centeredRotation: true`, the rotation-handle
+  // drag updates `group.left/top` so the visible centre stays put;
+  // the recovery formula undoes that offset so the schema invariant
+  // (x/y describe the UNROTATED rect's top-left) holds. Snap-to-grid
+  // is applied AFTER recovery so the user's snap targets are the
+  // unrotated rect's edges, not the rotated AABB's.
+  const { x: unrotX, y: unrotY } = recoverUnrotatedXY(rawLeft, rawTop, rawW, rawH, rotation)
+  const x = snap(unrotX, gridSize, snapToGrid)
+  const y = snap(unrotY, gridSize, snapToGrid)
   const width = Math.max(20, snap(rawW, gridSize, snapToGrid))
   const height = Math.max(20, snap(rawH, gridSize, snapToGrid))
 
@@ -477,12 +522,23 @@ export function groupToFieldPatch(
   // flash" on mouseup). Letting the scale linger means the in-between
   // frame keeps showing the stretched children that filled the group;
   // `applyFieldToGroup` will reset scale + rebuild atomically next tick.
-  group.set({ left: x, top: y })
+  //
+  // #172 — re-apply the centre-compensation when writing the snapped
+  // (x, y) back to the group so the visible position stays consistent
+  // with the snapped unrotated rect.
+  const { left: gLeft, top: gTop } = centerCompensatedLeftTop({
+    x,
+    y,
+    width,
+    height,
+    rotation,
+  })
+  group.set({ left: gLeft, top: gTop })
   group.__fieldWidth = width
   group.__fieldHeight = height
   group.setCoords()
 
-  return { x, y, width, height }
+  return { x, y, width, height, rotation }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

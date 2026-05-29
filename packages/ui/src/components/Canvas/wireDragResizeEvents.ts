@@ -42,17 +42,34 @@ export function wireDragResizeEvents(fc: FabricCanvas) {
         y: localY,
         width: patch.width,
         height: patch.height,
+        rotation: patch.rotation,
       })
       return
     }
 
     store.moveField(g.__fieldId, patch.x, patch.y)
     store.resizeField(g.__fieldId, patch.width, patch.height)
+    // #172 — rotation goes through updateField (no dedicated rotateField
+    // action; updateField handles the partial cleanly). Fires once per
+    // object:modified — Fabric only emits this at the end of a gesture,
+    // so calling it on every drag/resize event still produces a single
+    // commit per user action.
+    store.updateField(g.__fieldId, { rotation: patch.rotation })
   })
 
   fc.on('object:moving', (opt) => {
     const obj = opt.target
     if (!obj) return
+    // #172 — `obj.left/top` on a rotated group is the centre-compensated
+    // value (so `group.angle` pivots around the unrotated centre). Grid
+    // snap on that value would snap an offset point, NOT the rect's
+    // visible edge — disable the snap-while-moving for rotated fields
+    // and let the commit-time snap in `groupToFieldPatch` (which works
+    // off the recovered unrotated rect) handle it instead.
+    // Normalised so a 0 / 360 / -720 angle (visually identical to 0)
+    // doesn't skip the snap.
+    const normAngle = (((obj.angle ?? 0) % 360) + 360) % 360
+    if (normAngle !== 0) return
     const { showGrid: sg, gridSize: gs } = useUiStore.getState()
     obj.set({
       left: snap(obj.left ?? 0, gs, sg),

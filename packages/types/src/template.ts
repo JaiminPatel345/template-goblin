@@ -262,6 +262,15 @@ export interface FieldBase {
    * Allowed protocols: `https`, `http`, `mailto`, `tel`.
    */
   hyperlink?: Hyperlink
+  /**
+   * Optional rotation in degrees applied around the field's centre (#172).
+   * Positive values rotate clockwise. Unbounded (Fabric `angle` semantics
+   * — the sidebar UI normalises display to 0–359 but the schema accepts
+   * any number). `undefined`, `null`, and `0` are all rendered as
+   * "no rotation" — existing `.tgbl` bundles missing this field continue
+   * to load. Applies to every field type (text, image, table).
+   */
+  rotation?: number | null
 }
 
 /** A text field — static value is the literal rendered string. */

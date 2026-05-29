@@ -57,6 +57,27 @@ export function renderField(
   // Skip if value is not provided (optional dynamic field or unresolved static)
   if (value === undefined || value === null) return
 
+  // #172 — rotation: wrap the field's draw block in a PDFKit graphics-state
+  // save / rotate / restore so every renderer (text, image, table) inherits
+  // the rotation without needing per-type plumbing. Rotation pivots around
+  // the unrotated rect's centre — same convention as Fabric's
+  // `centeredRotation`, so the canvas preview and the rendered PDF agree.
+  // Treats `null`, `undefined`, and `0` identically (no transform applied).
+  //
+  // Normalise to [0, 360) so huge stored values (legacy / corrupted
+  // templates, user typing nonsense into the sidebar) don't lose
+  // precision in `doc.rotate`'s internal trig — same fix as the UI
+  // side, see `packages/ui/.../rotationGeometry.ts#normaliseAngle`.
+  const rawRotation = field.rotation ?? 0
+  const rotation = Number.isFinite(rawRotation) ? ((rawRotation % 360) + 360) % 360 : 0
+  const rotated = rotation !== 0
+  if (rotated) {
+    doc.save()
+    doc.rotate(rotation, {
+      origin: [field.x + field.width / 2, field.y + field.height / 2],
+    })
+  }
+
   try {
     switch (field.type) {
       case 'text':
@@ -115,11 +136,18 @@ export function renderField(
     // rect matches the field's bounding box exactly; for tables, that
     // means the whole table is clickable as a single unit (per #87
     // resolution — no per-row variant in v1).
+    // #172 note: PDF link annotations are page-axis-aligned rectangles —
+    // the spec has no rotated-annotation primitive. When the field is
+    // rotated we draw the link rect at the field's unrotated rect so
+    // the clickable region stays predictable; v1 leaves the visual /
+    // hit-region mismatch as a known limitation (the field's content
+    // visually rotates, the click target does not).
     const url = resolveHyperlinkUrl(field, data)
     if (url !== null) {
       doc.link(field.x, field.y, field.width, field.height, url)
     }
   } catch (error) {
+    if (rotated) doc.restore()
     if (error instanceof TemplateGoblinError) throw error
     const detail = fieldErrorDetails(field, pageCtx)
     throw new TemplateGoblinError(
@@ -128,4 +156,6 @@ export function renderField(
       detail.details,
     )
   }
+
+  if (rotated) doc.restore()
 }

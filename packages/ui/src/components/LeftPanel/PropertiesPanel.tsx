@@ -3,6 +3,7 @@ import { useUiStore } from '../../store/uiStore.js'
 import { TextFieldProps } from '../RightPanel/TextFieldProps.js'
 import { ImageFieldProps } from '../RightPanel/ImageFieldProps.js'
 import { LoopFieldProps } from '../RightPanel/LoopFieldProps.js'
+import { RotationSection } from './RotationSection.js'
 
 /**
  * Left-panel content under the new layout (GH #19): the styling / properties
@@ -55,6 +56,10 @@ export function PropertiesPanel() {
       {selectedField.type === 'text' && <TextFieldProps field={selectedField} />}
       {selectedField.type === 'image' && <ImageFieldProps field={selectedField} />}
       {selectedField.type === 'table' && <LoopFieldProps field={selectedField} />}
+      {/* #172 — field-type-agnostic rotation control. Lives in PropertiesPanel
+          rather than each *FieldProps.tsx so a single section serves all three
+          field types without bloating any one file past the 300-LOC cap. */}
+      <RotationSection field={selectedField} />
     </>
   )
 }
