@@ -40,6 +40,7 @@ import type { FabricObject, FabricImage, Rect } from 'fabric'
 import type { FieldDefinition, InputJSON } from '@template-goblin/types'
 import { FIELD_COLORS, SELECTED_STROKE_WIDTH } from '../../theme/fieldColors.js'
 import { buildGroupChildren, type ImageResolver } from './buildGroupChildren.js'
+import { centerCompensatedLeftTop, recoverUnrotatedXY } from './rotationGeometry.js'
 
 // Re-export the moved utilities so existing importers keep working without
 // having to update their import paths.
@@ -159,9 +160,17 @@ export function createFieldGroup(
     data,
   )
 
+  // #172 — pivot rotation around the unrotated centre. With Fabric's
+  // `originX: 'left', originY: 'top'`, `group.angle` rotates around
+  // `(group.left, group.top)` (the top-left corner). To make Fabric's
+  // pivot match the schema's "rotate around the rect centre" intent,
+  // we offset `(left, top)` by exactly the amount Fabric's own
+  // `centeredRotation: true` compensates during a handle drag — see
+  // `rotationGeometry.ts` for the math.
+  const { left: groupLeft, top: groupTop } = centerCompensatedLeftTop(field)
   createdGroup = new Group(children, {
-    left: field.x,
-    top: field.y,
+    left: groupLeft,
+    top: groupTop,
     width: field.width,
     height: field.height,
     angle: field.rotation ?? 0,
@@ -276,9 +285,11 @@ export function applyFieldToGroup(
   // visible as a "white flash" on mouseup of every drag).
   const newHash = fieldRenderHash(field, resolveImage, data)
   if (group.__fieldHash === newHash && group.getObjects().length > 0) {
+    // #172 — see `centerCompensatedLeftTop` for the rationale.
+    const { left: gLeft, top: gTop } = centerCompensatedLeftTop(field)
     group.set({
-      left: field.x,
-      top: field.y,
+      left: gLeft,
+      top: gTop,
       angle: field.rotation ?? 0,
       scaleX: 1,
       scaleY: 1,
@@ -334,9 +345,12 @@ export function applyFieldToGroup(
   }
 
   // Restore the group to its real position now that children are in place.
+  // #172 — `centerCompensatedLeftTop` makes `group.angle` pivot around
+  // the field's unrotated centre.
+  const { left: finalLeft, top: finalTop } = centerCompensatedLeftTop(field)
   group.set({
-    left: field.x,
-    top: field.y,
+    left: finalLeft,
+    top: finalTop,
     angle: field.rotation ?? 0,
     width: field.width,
     height: field.height,
@@ -465,8 +479,8 @@ export function groupToFieldPatch(
   gridSize: number,
   snapToGrid: boolean,
 ): Pick<FieldDefinition, 'x' | 'y' | 'width' | 'height' | 'rotation'> {
-  const rawX = group.left ?? 0
-  const rawY = group.top ?? 0
+  const rawLeft = group.left ?? 0
+  const rawTop = group.top ?? 0
   const sx = group.scaleX ?? 1
   const sy = group.scaleY ?? 1
   // On a pure drag (no resize handle interaction) `scaleX/Y` stays at 1 and
@@ -481,16 +495,19 @@ export function groupToFieldPatch(
   const baseH = group.__fieldHeight ?? group.height ?? 0
   const rawW = baseW * sx
   const rawH = baseH * sy
-
-  const x = snap(rawX, gridSize, snapToGrid)
-  const y = snap(rawY, gridSize, snapToGrid)
+  const rotation = group.angle ?? 0
+  // #172 — recover the UNROTATED top-left from Fabric's compensated
+  // `(left, top)`. With `centeredRotation: true`, the rotation-handle
+  // drag updates `group.left/top` so the visible centre stays put;
+  // the recovery formula undoes that offset so the schema invariant
+  // (x/y describe the UNROTATED rect's top-left) holds. Snap-to-grid
+  // is applied AFTER recovery so the user's snap targets are the
+  // unrotated rect's edges, not the rotated AABB's.
+  const { x: unrotX, y: unrotY } = recoverUnrotatedXY(rawLeft, rawTop, rawW, rawH, rotation)
+  const x = snap(unrotX, gridSize, snapToGrid)
+  const y = snap(unrotY, gridSize, snapToGrid)
   const width = Math.max(20, snap(rawW, gridSize, snapToGrid))
   const height = Math.max(20, snap(rawH, gridSize, snapToGrid))
-  // #172 — read group.angle. Fabric's rotation handle leaves x/y at the
-  // group's pre-rotation position because we set `centeredRotation: true`
-  // in `createFieldGroup`, so the schema invariant (x/y/width/height
-  // describe the UNROTATED rect) holds without any extra correction.
-  const rotation = group.angle ?? 0
 
   // Update the group's logical position only. Deliberately DO NOT reset
   // scaleX/Y here even on a resize — the children were rendered stretched
@@ -500,7 +517,18 @@ export function groupToFieldPatch(
   // flash" on mouseup). Letting the scale linger means the in-between
   // frame keeps showing the stretched children that filled the group;
   // `applyFieldToGroup` will reset scale + rebuild atomically next tick.
-  group.set({ left: x, top: y })
+  //
+  // #172 — re-apply the centre-compensation when writing the snapped
+  // (x, y) back to the group so the visible position stays consistent
+  // with the snapped unrotated rect.
+  const { left: gLeft, top: gTop } = centerCompensatedLeftTop({
+    x,
+    y,
+    width,
+    height,
+    rotation,
+  })
+  group.set({ left: gLeft, top: gTop })
   group.__fieldWidth = width
   group.__fieldHeight = height
   group.setCoords()

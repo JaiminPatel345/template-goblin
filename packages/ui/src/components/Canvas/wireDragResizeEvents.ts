@@ -60,6 +60,13 @@ export function wireDragResizeEvents(fc: FabricCanvas) {
   fc.on('object:moving', (opt) => {
     const obj = opt.target
     if (!obj) return
+    // #172 — `obj.left/top` on a rotated group is the centre-compensated
+    // value (so `group.angle` pivots around the unrotated centre). Grid
+    // snap on that value would snap an offset point, NOT the rect's
+    // visible edge — disable the snap-while-moving for rotated fields
+    // and let the commit-time snap in `groupToFieldPatch` (which works
+    // off the recovered unrotated rect) handle it instead.
+    if ((obj.angle ?? 0) !== 0) return
     const { showGrid: sg, gridSize: gs } = useUiStore.getState()
     obj.set({
       left: snap(obj.left ?? 0, gs, sg),
