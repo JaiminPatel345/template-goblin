@@ -55,6 +55,9 @@ export function defaultTextStyle(): TextFieldStyle {
     fontStyle: 'normal',
     textDecoration: 'none',
     color: '#000000',
+    // #167 — new text boxes start transparent (no fill); the user opts in
+    // via the background-colour swatch in the panel / ribbon / toolbar.
+    backgroundColor: null,
     // GH #39: new text fields default to centred horizontally + vertically.
     align: 'center',
     verticalAlign: 'middle',

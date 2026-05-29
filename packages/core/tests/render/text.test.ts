@@ -255,3 +255,83 @@ describe('Text rendering', () => {
     expect(output.length).toBeGreaterThan(0)
   })
 })
+
+/* ------------------------------------------------------------------ */
+/*  #167 — text background colour                                     */
+/* ------------------------------------------------------------------ */
+
+describe('Text background colour (#167)', () => {
+  it('paints a filled rect at the field bounds when backgroundColor is set', () => {
+    const doc = createDoc()
+    const rectSpy = jest.spyOn(doc, 'rect')
+    const fillSpy = jest.spyOn(doc, 'fill')
+    const field = createTextField({ backgroundColor: '#ff0000' })
+
+    renderText(doc, field, 'Hello', new Map())
+
+    expect(rectSpy).toHaveBeenCalledWith(field.x, field.y, field.width, field.height)
+    expect(fillSpy).toHaveBeenCalledWith('#ff0000')
+    doc.end()
+  })
+
+  it('does not paint a background when backgroundColor is null (transparent)', () => {
+    const doc = createDoc()
+    const rectSpy = jest.spyOn(doc, 'rect')
+    const field = createTextField({ backgroundColor: null })
+
+    renderText(doc, field, 'Hello', new Map())
+
+    expect(rectSpy).not.toHaveBeenCalled()
+    doc.end()
+  })
+
+  it('treats a legacy field with no backgroundColor as transparent', () => {
+    const doc = createDoc()
+    const rectSpy = jest.spyOn(doc, 'rect')
+    const field = createTextField()
+    // Simulate a template serialised before the field existed.
+    delete (field.style as Partial<TextFieldStyle>).backgroundColor
+
+    renderText(doc, field, 'Hello', new Map())
+
+    expect(rectSpy).not.toHaveBeenCalled()
+    doc.end()
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/*  Oversized text must still render (regression for the "preview      */
+/*  shows the box fill but no text" bug)                               */
+/* ------------------------------------------------------------------ */
+
+describe('Text taller than its box still renders', () => {
+  // A large fontSize over several rows makes the text block taller than the
+  // box. With middle / bottom vertical alignment this used to push the start
+  // above the box top, and the per-line clip then dropped EVERY line — so the
+  // field rendered as an empty (background-only) rectangle.
+  for (const verticalAlign of ['middle', 'bottom', 'top'] as const) {
+    it(`renders at least one line with verticalAlign='${verticalAlign}' when the block overflows`, () => {
+      const doc = createDoc()
+      const textSpy = jest.spyOn(doc, 'text')
+      const field = createTextField({
+        fontSize: 60,
+        lineHeight: 1.2,
+        maxRows: 2,
+        verticalAlign,
+        overflowMode: 'truncate',
+      })
+      // 2 rows × 60 × 1.2 = 144pt of text in a 100pt-tall box → overflows.
+      ;(field as FieldDefinition).height = 100
+
+      renderText(doc, field, 'Hello World Foo Bar Baz', new Map())
+
+      expect(textSpy).toHaveBeenCalled()
+      // Every drawn line stays within the box top (never above y).
+      for (const call of textSpy.mock.calls) {
+        const lineY = call[2] as number
+        expect(lineY).toBeGreaterThanOrEqual(field.y)
+      }
+      doc.end()
+    })
+  }
+})

@@ -15,7 +15,7 @@
  */
 import { Rect, FabricImage } from 'fabric'
 import type { FabricObject } from 'fabric'
-import type { FieldDefinition, InputJSON } from '@template-goblin/types'
+import type { FieldDefinition, InputJSON, TextFieldStyle } from '@template-goblin/types'
 import { FIELD_COLORS } from '../../theme/fieldColors.js'
 import { fieldCanvasLabel } from './fieldLabel.js'
 import { shouldRenderFillRect } from './rectFill.js'
@@ -92,11 +92,20 @@ export function buildGroupChildren(
   const shouldFill =
     !tableHasBodyRows && !imageColor && shouldRenderFillRect(field, { placeholderResolved })
 
+  // #167 — a text field can carry an explicit background fill. It wins over
+  // the per-type design-time tint (the same way a solid-colour image's
+  // colour does) so the editor canvas matches the rendered PDF (WYSIWYG).
+  let textBgColor: string | null = null
+  if (field.type === 'text') {
+    const bg = (field.style as TextFieldStyle).backgroundColor
+    if (typeof bg === 'string' && bg.length > 0) textBgColor = bg
+  }
+
   // 1. Background rect — always present so the Group has a stable bounding
   //    box and hit-testing works (Fabric needs a non-zero area; fill:
   //    'transparent' still participates in hit-detection unlike fill: null
   //    or fill: '').
-  const defaultFill = imageColor ?? (shouldFill ? colors.fill : 'transparent')
+  const defaultFill = imageColor ?? textBgColor ?? (shouldFill ? colors.fill : 'transparent')
   const defaultStroke = colors.stroke
   const defaultStrokeWidth = 1
   const bgRect = new Rect({
@@ -118,10 +127,11 @@ export function buildGroupChildren(
   bgRect.__defaultFill = defaultFill
   bgRect.__defaultStroke = defaultStroke
   bgRect.__defaultStrokeWidth = defaultStrokeWidth
-  // Solid-colour image (#81): the bgRect's fill IS the user's chosen
-  // colour, not a design-time tint. Mark it so `applySelectionVisuals`
-  // doesn't paint over it with the selection emphasis fill.
-  bgRect.__userControlledFill = imageColor !== null
+  // Solid-colour image (#81) or a text field's background fill (#167): the
+  // bgRect's fill IS the user's chosen colour, not a design-time tint. Mark
+  // it so `applySelectionVisuals` doesn't paint over it with the selection
+  // emphasis fill.
+  bgRect.__userControlledFill = imageColor !== null || textBgColor !== null
 
   const children: FabricObject[] = [bgRect]
 

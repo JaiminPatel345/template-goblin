@@ -24,6 +24,17 @@ export function renderText(
   const style = field.style as TextFieldStyle
   const { x, y, width, height } = field
 
+  // #167 — paint the text-box background fill (if any) before the glyphs,
+  // exactly like the cell-background pass in `loop.ts`. `backgroundColor`
+  // is `null` for a transparent box and may be `undefined` on a legacy
+  // template saved before the field existed — both skip the fill. The
+  // rect is drawn in the field's (already-rotated, see `renderField`)
+  // coordinate space so it tracks the field's rotation for free.
+  const backgroundColor = style.backgroundColor ?? null
+  if (backgroundColor) {
+    doc.rect(x, y, width, height).fill(backgroundColor)
+  }
+
   // Set font. Resolves fontFamily + fontWeight + fontStyle into the
   // PDFKit name (Helvetica-BoldOblique, Times-BoldItalic, …) so the
   // bold/italic toggles in the editor actually reach the PDF. Custom
@@ -82,6 +93,16 @@ export function renderText(
       startY = y
       break
   }
+
+  // When the text block is TALLER than the box (e.g. a large fontSize with
+  // multiple rows), a `middle` / `bottom` anchor pushes `startY` above the
+  // box top. The per-line clip below would then drop EVERY line — the top
+  // lines fail the `lineY < y` guard and the lower lines hit the bottom-
+  // overflow `break` — so the text vanished entirely (visible once #167's
+  // background fill made the empty box obvious). Clamp to the box top so the
+  // lines that DO fit render (top-aligned), matching the editor canvas which
+  // always shows the content.
+  startY = Math.max(y, startY)
 
   // Render each line
   doc.fontSize(fontSize)
