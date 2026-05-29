@@ -110,11 +110,14 @@ describe('PDF geometry — layout matches the template', () => {
     const run = findRun(page!, 'Middle')
     expect(run).toBeDefined()
 
-    const boxTop = 100
+    // The glyph ink (cap-top → baseline) must be optically centred, so the
+    // baseline sits BELOW the box centre by ~half the cap height. Centring the
+    // line box instead (glyph at the slot top) would leave the baseline at or
+    // above the centre — this range fails that "renders high" regression.
+    const fontSize = 20
     const boxCenter = 200 // y + height / 2
-    // Baseline lands in the middle band of the box — well below the top.
-    expect(run!.baselineY).toBeGreaterThan(boxTop + 50)
-    expect(Math.abs(run!.baselineY - boxCenter)).toBeLessThan(25)
+    expect(run!.baselineY).toBeGreaterThan(boxCenter + 0.2 * fontSize)
+    expect(run!.baselineY).toBeLessThan(boxCenter + 0.5 * fontSize)
   })
 
   it('oversized centred text still renders, centred (the preview-drop regression)', async () => {
@@ -134,8 +137,12 @@ describe('PDF geometry — layout matches the template', () => {
     const [page] = await parsePdfGeometry(await generatePDF(loaded([field]), EMPTY_DATA))
     const run = page!.texts.find((t) => t.str.length > 0)
     expect(run).toBeDefined() // text is NOT dropped
-    // Roughly centred in the 130pt box (centre at y+65 = 165), not at the top.
-    expect(run!.baselineY).toBeGreaterThan(120)
-    expect(run!.baselineY).toBeLessThan(220)
+    // Optically centred in the 130pt box (centre at y+65 = 165): the baseline
+    // sits ~half a cap-height below centre. The pre-fix "renders high"
+    // baseline (~174) is below this band and fails.
+    const fontSize = 80
+    const boxCenter = 165
+    expect(run!.baselineY).toBeGreaterThan(boxCenter + 0.2 * fontSize)
+    expect(run!.baselineY).toBeLessThan(boxCenter + 0.5 * fontSize)
   })
 })
