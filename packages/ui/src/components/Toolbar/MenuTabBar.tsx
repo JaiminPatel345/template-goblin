@@ -146,6 +146,28 @@ export function MenuTabBar() {
   // surface (dialog, popover, etc.) is in front. We listen on `window`
   // and check for visible dialogs first — if any are open they handle
   // their own Escape and we no-op.
+  //
+  // #159 — same dismiss on canvas/page/right-panel mousedown. We
+  // listen on `window` (mousedown bubbles up before any in-canvas
+  // handler can stopPropagation), bail when the click landed inside
+  // the toolbar shell itself (so menu tab + button clicks aren't
+  // self-cancelling), bail when a dialog is open, and only fire when
+  // the ribbon is currently visible.
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (ribbonCollapsed) return
+      const target = e.target as HTMLElement | null
+      if (!target) return
+      const toolbarShell = document.querySelector('[data-testid="toolbar-shell"]')
+      if (toolbarShell && toolbarShell.contains(target)) return
+      const dialogOpen = document.querySelector('[data-testid$="-dialog"], [role="dialog"]')
+      if (dialogOpen) return
+      setRibbonCollapsed(true)
+    }
+    window.addEventListener('mousedown', onMouseDown)
+    return () => window.removeEventListener('mousedown', onMouseDown)
+  }, [ribbonCollapsed, setRibbonCollapsed])
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return

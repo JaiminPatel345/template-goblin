@@ -8,8 +8,10 @@ import { UndoIcon, RedoIcon } from '../icons.js'
  * Paste / Delete come later as field-clipboard support lands.
  */
 export function EditRibbon() {
-  const canUndo = useTemplateStore((s) => s.canUndo())
-  const canRedo = useTemplateStore((s) => s.canRedo())
+  // #160 — reactive boolean flags. The selectors re-render on every
+  // history change without us having to call the legacy method form.
+  const canUndo = useTemplateStore((s) => s.canUndo)
+  const canRedo = useTemplateStore((s) => s.canRedo)
   const undo = useTemplateStore((s) => s.undo)
   const redo = useTemplateStore((s) => s.redo)
 

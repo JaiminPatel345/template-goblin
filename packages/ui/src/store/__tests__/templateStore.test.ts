@@ -494,17 +494,17 @@ describe('Z-index operations', () => {
 
 describe('Undo / Redo', () => {
   it('canUndo returns false initially (no history)', () => {
-    expect(state().canUndo()).toBe(false)
+    expect(state().canUndo).toBe(false)
   })
 
   it('canUndo returns false after a single action (only one snapshot exists)', () => {
     state().addField(makeTextField({ id: 'ur0' }))
-    expect(state().canUndo()).toBe(false)
+    expect(state().canUndo).toBe(false)
   })
 
   it('canRedo returns false when at the latest state', () => {
     state().addField(makeTextField({ id: 'ur1' }))
-    expect(state().canRedo()).toBe(false)
+    expect(state().canRedo).toBe(false)
   })
 
   it('after two addFields, undo reverts to the first snapshot', () => {
@@ -552,22 +552,22 @@ describe('Undo / Redo', () => {
   })
 
   it('canUndo becomes true after two actions, false after undoing to first snapshot', () => {
-    expect(state().canUndo()).toBe(false)
+    expect(state().canUndo).toBe(false)
     state().addField(makeTextField({ id: 'cu1' }))
     state().addField(makeTextField({ id: 'cu2' }))
-    expect(state().canUndo()).toBe(true)
+    expect(state().canUndo).toBe(true)
     state().undo()
-    expect(state().canUndo()).toBe(false)
+    expect(state().canUndo).toBe(false)
   })
 
   it('canRedo becomes true after undo, false after redo', () => {
     state().addField(makeTextField({ id: 'cr1' }))
     state().addField(makeTextField({ id: 'cr2' }))
-    expect(state().canRedo()).toBe(false)
+    expect(state().canRedo).toBe(false)
     state().undo()
-    expect(state().canRedo()).toBe(true)
+    expect(state().canRedo).toBe(true)
     state().redo()
-    expect(state().canRedo()).toBe(false)
+    expect(state().canRedo).toBe(false)
   })
 })
 
