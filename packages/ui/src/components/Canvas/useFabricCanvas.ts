@@ -83,6 +83,11 @@ export function useFabricCanvas(
         width: w,
         height: h,
         selection: true,
+        // #109 — marquee selects fully-contained fields only, matching
+        // Canva / Figma / PowerPoint / Google Slides semantics. Without
+        // this flag Fabric uses an intersect test and picks up any
+        // field whose bounding rect merely overlaps the marquee.
+        selectionFullyContained: true,
         preserveObjectStacking: true,
         controlsAboveOverlay: true,
         fireMiddleClick: true,
