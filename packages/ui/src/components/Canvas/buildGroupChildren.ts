@@ -118,6 +118,10 @@ export function buildGroupChildren(
   bgRect.__defaultFill = defaultFill
   bgRect.__defaultStroke = defaultStroke
   bgRect.__defaultStrokeWidth = defaultStrokeWidth
+  // Solid-colour image (#81): the bgRect's fill IS the user's chosen
+  // colour, not a design-time tint. Mark it so `applySelectionVisuals`
+  // doesn't paint over it with the selection emphasis fill.
+  bgRect.__userControlledFill = imageColor !== null
 
   const children: FabricObject[] = [bgRect]
 

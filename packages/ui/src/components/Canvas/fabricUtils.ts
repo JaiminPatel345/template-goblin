@@ -394,7 +394,11 @@ export function applySelectionVisuals(group: Group, selected: boolean): void {
   if (selected) {
     // Transparent-default fields keep a transparent fill on selection so a
     // rendered image / placeholder isn't painted over — stroke alone signals.
-    const nextFill = defaultFill === 'transparent' ? 'transparent' : tokens.selectedFill
+    // Solid-colour image fields (#81) carry the user's chosen colour as
+    // their bgRect fill; we tag those with `__userControlledFill` so the
+    // emphasis colour doesn't paint over the user's content either.
+    const keepFill = defaultFill === 'transparent' || bgRect.__userControlledFill === true
+    const nextFill = keepFill ? defaultFill : tokens.selectedFill
     bgRect.set({
       fill: nextFill,
       stroke: tokens.selectedStroke,

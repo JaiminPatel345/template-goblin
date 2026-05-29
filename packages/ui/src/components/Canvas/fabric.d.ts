@@ -35,6 +35,14 @@ declare module 'fabric' {
     __defaultStroke?: string
     /** Default (un-selected) strokeWidth saved on the field's background Rect. */
     __defaultStrokeWidth?: number
+    /**
+     * Marks a bgRect whose fill is user-controlled (e.g. solid-colour image
+     * field, #81). Selection emphasis must NOT paint over this fill — the
+     * user's chosen colour is the field's content, swapping it for the
+     * selection tint visually corrupts the document. `applySelectionVisuals`
+     * uses this flag to keep the fill and emphasise via stroke only.
+     */
+    __userControlledFill?: boolean
     /** Source-of-truth width of the field rect, written by `applyFieldToGroup`.
      *  Fabric's Group#width getter includes child bounding-box overhang, so it
      *  cannot be trusted as the intended rect width during drag/resize commit. */
