@@ -75,11 +75,25 @@ export function renderText(
     lines = result.fits ? result.lines : truncateLines(doc, result.lines, style.maxRows, width)
   }
 
-  // Calculate actual line height and total text block height
+  // Cap the rendered lines to those that FIT the box height — exactly what
+  // the editor canvas does (`pushTextLabel` keeps `floor(height / lineHeight)`
+  // lines, then centres that block). Without this the PDF wraps to `maxRows`
+  // lines, the block overflows the box, and the vertical-align maths below
+  // pushes it off the top — so a centred field on the canvas rendered at the
+  // top (or empty) in the PDF. Capping first means a `middle` / `bottom`
+  // block stays inside the rect and is genuinely centred / bottom-anchored,
+  // matching the canvas.
   const lineHeightPt = fontSize * style.lineHeight
+  const maxLinesByHeight = Math.max(1, Math.floor(height / lineHeightPt))
+  if (lines.length > maxLinesByHeight) {
+    lines = lines.slice(0, maxLinesByHeight)
+  }
   const textBlockHeight = lines.length * lineHeightPt
 
-  // REQ: Vertical alignment within bounding rectangle
+  // REQ: Vertical alignment within bounding rectangle. The block now fits
+  // (≤ box height for the common case), so `middle` centres it and `bottom`
+  // bottom-anchors it inside the rect — same as the canvas. The per-line clip
+  // below is the residual guard for a single line taller than the whole box.
   let startY: number
   switch (style.verticalAlign) {
     case 'middle':
@@ -93,16 +107,6 @@ export function renderText(
       startY = y
       break
   }
-
-  // When the text block is TALLER than the box (e.g. a large fontSize with
-  // multiple rows), a `middle` / `bottom` anchor pushes `startY` above the
-  // box top. The per-line clip below would then drop EVERY line — the top
-  // lines fail the `lineY < y` guard and the lower lines hit the bottom-
-  // overflow `break` — so the text vanished entirely (visible once #167's
-  // background fill made the empty box obvious). Clamp to the box top so the
-  // lines that DO fit render (top-aligned), matching the editor canvas which
-  // always shows the content.
-  startY = Math.max(y, startY)
 
   // Render each line
   doc.fontSize(fontSize)

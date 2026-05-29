@@ -304,13 +304,19 @@ describe('Text background colour (#167)', () => {
 /*  shows the box fill but no text" bug)                               */
 /* ------------------------------------------------------------------ */
 
-describe('Text taller than its box still renders', () => {
-  // A large fontSize over several rows makes the text block taller than the
-  // box. With middle / bottom vertical alignment this used to push the start
-  // above the box top, and the per-line clip then dropped EVERY line — so the
-  // field rendered as an empty (background-only) rectangle.
-  for (const verticalAlign of ['middle', 'bottom', 'top'] as const) {
-    it(`renders at least one line with verticalAlign='${verticalAlign}' when the block overflows`, () => {
+describe('Text taller than its box is capped to fit and vertically aligned like the canvas', () => {
+  // fontSize 60 × lineHeight 1.2 = 72pt per line. maxRows 2 → 144pt, but the
+  // box is 100pt, so only ONE line fits. The renderer caps to the fitting
+  // line(s) (like the canvas) and then vertically aligns that block — instead
+  // of overflowing and pushing the text off the top (or rendering nothing).
+  // y = 50 (createTextField), height = 100, lineHeight = 72.
+  const cases = [
+    { verticalAlign: 'top' as const, expectedFirstLineY: 50 }, // y
+    { verticalAlign: 'middle' as const, expectedFirstLineY: 64 }, // y + (100 - 72) / 2
+    { verticalAlign: 'bottom' as const, expectedFirstLineY: 78 }, // y + 100 - 72
+  ]
+  for (const { verticalAlign, expectedFirstLineY } of cases) {
+    it(`renders the fitting line ${verticalAlign}-aligned (canvas parity)`, () => {
       const doc = createDoc()
       const textSpy = jest.spyOn(doc, 'text')
       const field = createTextField({
@@ -320,16 +326,18 @@ describe('Text taller than its box still renders', () => {
         verticalAlign,
         overflowMode: 'truncate',
       })
-      // 2 rows × 60 × 1.2 = 144pt of text in a 100pt-tall box → overflows.
       ;(field as FieldDefinition).height = 100
 
       renderText(doc, field, 'Hello World Foo Bar Baz', new Map())
 
       expect(textSpy).toHaveBeenCalled()
-      // Every drawn line stays within the box top (never above y).
+      const firstLineY = textSpy.mock.calls[0]?.[2] as number
+      expect(firstLineY).toBeCloseTo(expectedFirstLineY, 1)
+      // Every drawn line stays fully inside the box [y, y+height].
       for (const call of textSpy.mock.calls) {
         const lineY = call[2] as number
         expect(lineY).toBeGreaterThanOrEqual(field.y)
+        expect(lineY + 72).toBeLessThanOrEqual(field.y + 100 + 0.001)
       }
       doc.end()
     })
