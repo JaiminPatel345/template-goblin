@@ -7,7 +7,7 @@
  * Round-trip via `recoverUnrotatedXY` returns the original `(x, y)`.
  */
 import { describe, it, expect } from 'vitest'
-import { centerCompensatedLeftTop, recoverUnrotatedXY } from '../rotationGeometry'
+import { centerCompensatedLeftTop, normaliseAngle, recoverUnrotatedXY } from '../rotationGeometry'
 
 function visibleCenter(
   left: number,
@@ -103,5 +103,69 @@ describe('recoverUnrotatedXY', () => {
     const back = recoverUnrotatedXY(left, top, original.width, original.height, 33)
     expect(back.x).toBeCloseTo(original.x, 6)
     expect(back.y).toBeCloseTo(original.y, 6)
+  })
+})
+
+describe('normaliseAngle', () => {
+  it.each([
+    [0, 0],
+    [360, 0],
+    [-360, 0],
+    [720, 0],
+    [45, 45],
+    [-45, 315],
+    [180, 180],
+    [-180, 180],
+    [359.999, 359.999],
+    [400, 40],
+    [-400, 320],
+  ])('normalises %s -> %s', (input, expected) => {
+    expect(normaliseAngle(input)).toBeCloseTo(expected, 6)
+  })
+
+  it.each([null, undefined, NaN, Infinity, -Infinity])('non-finite %s collapses to 0', (input) => {
+    expect(normaliseAngle(input as number | null | undefined)).toBe(0)
+  })
+
+  it('huge values stay in [0, 360)', () => {
+    const huge = 5612356213214654
+    const result = normaliseAngle(huge)
+    expect(result).toBeGreaterThanOrEqual(0)
+    expect(result).toBeLessThan(360)
+  })
+
+  it('huge value pair that maps to the same equivalence class yields the same normalised angle', () => {
+    // Property: x and x + 360 should normalise to the same value at
+    // small magnitudes. At large magnitudes the float ULP exceeds
+    // 360, so we just require the result to be in range — not bit-
+    // identical to a small-magnitude representative.
+    const a = normaliseAngle(720 + 45)
+    const b = normaliseAngle(45)
+    expect(a).toBeCloseTo(b, 6)
+  })
+})
+
+describe('centerCompensatedLeftTop — huge-angle precision (#172 follow-up)', () => {
+  it('rotation = N and rotation = (N mod 360) produce the same compensated (left, top) for small N', () => {
+    // For small N (well within float precision), normalising the
+    // rotation MUST be a no-op for the visible position.
+    const rect = { x: 100, y: 100, width: 160, height: 160 }
+    const a = centerCompensatedLeftTop({ ...rect, rotation: 720 + 45 })
+    const b = centerCompensatedLeftTop({ ...rect, rotation: 45 })
+    expect(a.left).toBeCloseTo(b.left, 6)
+    expect(a.top).toBeCloseTo(b.top, 6)
+  })
+
+  it('huge rotation returns a finite, in-range visible position (no NaN/Infinity)', () => {
+    const huge = 5612356213214654
+    const result = centerCompensatedLeftTop({
+      x: 100,
+      y: 100,
+      width: 160,
+      height: 160,
+      rotation: huge,
+    })
+    expect(Number.isFinite(result.left)).toBe(true)
+    expect(Number.isFinite(result.top)).toBe(true)
   })
 })

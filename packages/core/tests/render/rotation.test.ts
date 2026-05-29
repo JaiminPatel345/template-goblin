@@ -112,7 +112,11 @@ describe('renderField — rotation transform (#172)', () => {
     expect(calls.indexOf('font')).toBeLessThan(calls.indexOf('link'))
   })
 
-  it('negative rotation passes through unchanged (unbounded angle)', () => {
+  it('negative rotation is normalised into [0, 360) before doc.rotate', () => {
+    // #172 follow-up: renderField normalises the angle so very large or
+    // negative inputs don't lose precision in PDFKit's internal trig
+    // (which would visibly desync the rotated content from where the UI
+    // canvas drew it). -90° -> 270° here.
     const field = {
       ...staticText('t1', 'hello', { x: 10, y: 20, width: 100, height: 50 }),
       rotation: -90,
@@ -121,7 +125,23 @@ describe('renderField — rotation transform (#172)', () => {
     const rotateSpy = jest.spyOn(doc, 'rotate')
     const template = loadedTemplate(makeManifest({ fields: [field] }))
     renderField(doc, field, emptyData(), new Map(), template, { pageIndex: 0 }, new Map())
-    expect(rotateSpy).toHaveBeenCalledWith(-90, { origin: [60, 45] })
+    expect(rotateSpy).toHaveBeenCalledWith(270, { origin: [60, 45] })
+    rotateSpy.mockRestore()
+  })
+
+  it('huge rotation is normalised into [0, 360) before doc.rotate', () => {
+    const field = {
+      ...staticText('t1', 'hello', { x: 10, y: 20, width: 100, height: 50 }),
+      rotation: 5612356213214654,
+    }
+    const doc = new PDFDocument({ size: [595, 842], margin: 0 })
+    const rotateSpy = jest.spyOn(doc, 'rotate')
+    const template = loadedTemplate(makeManifest({ fields: [field] }))
+    renderField(doc, field, emptyData(), new Map(), template, { pageIndex: 0 }, new Map())
+    expect(rotateSpy).toHaveBeenCalledTimes(1)
+    const [angle] = rotateSpy.mock.calls[0] ?? []
+    expect(angle).toBeGreaterThanOrEqual(0)
+    expect(angle).toBeLessThan(360)
     rotateSpy.mockRestore()
   })
 

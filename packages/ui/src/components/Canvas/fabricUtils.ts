@@ -40,7 +40,7 @@ import type { FabricObject, FabricImage, Rect } from 'fabric'
 import type { FieldDefinition, InputJSON } from '@template-goblin/types'
 import { FIELD_COLORS, SELECTED_STROKE_WIDTH } from '../../theme/fieldColors.js'
 import { buildGroupChildren, type ImageResolver } from './buildGroupChildren.js'
-import { centerCompensatedLeftTop, recoverUnrotatedXY } from './rotationGeometry.js'
+import { centerCompensatedLeftTop, normaliseAngle, recoverUnrotatedXY } from './rotationGeometry.js'
 
 // Re-export the moved utilities so existing importers keep working without
 // having to update their import paths.
@@ -173,7 +173,12 @@ export function createFieldGroup(
     top: groupTop,
     width: field.width,
     height: field.height,
-    angle: field.rotation ?? 0,
+    // Normalised to [0, 360) so all consumers (Fabric content render,
+    // Fabric selection border render, our compensation math) use the
+    // same effective angle. Without this, huge inputs lose precision
+    // unevenly across code paths and the border drifts off the
+    // content — see `normaliseAngle` for the failure mode.
+    angle: normaliseAngle(field.rotation),
     originX: 'left',
     originY: 'top',
     centeredRotation: true,
@@ -290,7 +295,7 @@ export function applyFieldToGroup(
     group.set({
       left: gLeft,
       top: gTop,
-      angle: field.rotation ?? 0,
+      angle: normaliseAngle(field.rotation),
       scaleX: 1,
       scaleY: 1,
     })
@@ -351,7 +356,7 @@ export function applyFieldToGroup(
   group.set({
     left: finalLeft,
     top: finalTop,
-    angle: field.rotation ?? 0,
+    angle: normaliseAngle(field.rotation),
     width: field.width,
     height: field.height,
     scaleX: 1,
@@ -495,7 +500,7 @@ export function groupToFieldPatch(
   const baseH = group.__fieldHeight ?? group.height ?? 0
   const rawW = baseW * sx
   const rawH = baseH * sy
-  const rotation = group.angle ?? 0
+  const rotation = normaliseAngle(group.angle)
   // #172 — recover the UNROTATED top-left from Fabric's compensated
   // `(left, top)`. With `centeredRotation: true`, the rotation-handle
   // drag updates `group.left/top` so the visible centre stays put;

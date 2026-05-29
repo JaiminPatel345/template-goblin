@@ -28,6 +28,27 @@ export interface RectGeom {
 }
 
 /**
+ * Reduce any angle (in degrees) to the canonical `[0, 360)` range.
+ *
+ * `null` / `undefined` / non-finite values collapse to `0`. Beyond
+ * making the schema's "any number" rotation behave sanely, this is
+ * load-bearing for huge inputs: at e.g. `5.6e15` degrees, the
+ * `deg * π / 180` multiplication loses enough precision that
+ * `Math.cos / Math.sin` evaluated in two different code paths can
+ * diverge by ~0.7% — the visible content and Fabric's selection
+ * border end up rotated to slightly different effective angles.
+ * Normalising first turns the multiplication into a precise one
+ * (value is under 360, so the result fits well within IEEE 754
+ * mantissa precision) and the divergence disappears.
+ */
+export function normaliseAngle(deg: number | null | undefined): number {
+  const d = deg ?? 0
+  if (!Number.isFinite(d)) return 0
+  const m = d % 360
+  return m < 0 ? m + 360 : m
+}
+
+/**
  * Given the field's unrotated rect + rotation, return the
  * `(left, top)` Fabric needs on the Group so its `angle` pivot
  * pivots around the unrotated centre — i.e. so the visible centre
@@ -37,7 +58,7 @@ export interface RectGeom {
  * (the no-rotation fast path).
  */
 export function centerCompensatedLeftTop(field: RectGeom): { left: number; top: number } {
-  const rotation = field.rotation ?? 0
+  const rotation = normaliseAngle(field.rotation)
   if (rotation === 0) return { left: field.x, top: field.y }
   const theta = (rotation * Math.PI) / 180
   const cos = Math.cos(theta)
@@ -65,8 +86,9 @@ export function recoverUnrotatedXY(
   height: number,
   angle: number,
 ): { x: number; y: number } {
-  if (angle === 0) return { x: left, y: top }
-  const theta = (angle * Math.PI) / 180
+  const rotation = normaliseAngle(angle)
+  if (rotation === 0) return { x: left, y: top }
+  const theta = (rotation * Math.PI) / 180
   const cos = Math.cos(theta)
   const sin = Math.sin(theta)
   const halfW = width / 2

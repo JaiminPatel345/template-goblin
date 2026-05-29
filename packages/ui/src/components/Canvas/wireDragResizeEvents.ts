@@ -66,7 +66,10 @@ export function wireDragResizeEvents(fc: FabricCanvas) {
     // visible edge — disable the snap-while-moving for rotated fields
     // and let the commit-time snap in `groupToFieldPatch` (which works
     // off the recovered unrotated rect) handle it instead.
-    if ((obj.angle ?? 0) !== 0) return
+    // Normalised so a 0 / 360 / -720 angle (visually identical to 0)
+    // doesn't skip the snap.
+    const normAngle = (((obj.angle ?? 0) % 360) + 360) % 360
+    if (normAngle !== 0) return
     const { showGrid: sg, gridSize: gs } = useUiStore.getState()
     obj.set({
       left: snap(obj.left ?? 0, gs, sg),

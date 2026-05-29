@@ -18,6 +18,7 @@
 import type { FieldDefinition } from '@template-goblin/types'
 import { NumberInput } from '../NumberInput.js'
 import { useTemplateStore } from '../../store/templateStore.js'
+import { normaliseAngle } from '../Canvas/rotationGeometry.js'
 
 interface Props {
   field: FieldDefinition
@@ -28,9 +29,15 @@ export function RotationSection({ field }: Props) {
   const value = field.rotation ?? 0
 
   function onChange(next: number) {
+    // Reduce to [0, 360) on commit so the input value, the canvas
+    // angle, Fabric's selection border, and the PDF rotation ALL
+    // agree on the same effective angle. Huge inputs (e.g. accidental
+    // pastes) lose precision unevenly in different code paths
+    // otherwise — see rotationGeometry.ts#normaliseAngle.
+    const norm = normaliseAngle(next)
     // Persist `null` for the zero case so we don't bloat templates with
     // `rotation: 0` on every field that never moved off the default.
-    updateField(field.id, { rotation: next === 0 ? null : next })
+    updateField(field.id, { rotation: norm === 0 ? null : norm })
   }
 
   return (

@@ -63,7 +63,13 @@ export function renderField(
   // the unrotated rect's centre — same convention as Fabric's
   // `centeredRotation`, so the canvas preview and the rendered PDF agree.
   // Treats `null`, `undefined`, and `0` identically (no transform applied).
-  const rotation = field.rotation ?? 0
+  //
+  // Normalise to [0, 360) so huge stored values (legacy / corrupted
+  // templates, user typing nonsense into the sidebar) don't lose
+  // precision in `doc.rotate`'s internal trig — same fix as the UI
+  // side, see `packages/ui/.../rotationGeometry.ts#normaliseAngle`.
+  const rawRotation = field.rotation ?? 0
+  const rotation = Number.isFinite(rawRotation) ? ((rawRotation % 360) + 360) % 360 : 0
   const rotated = rotation !== 0
   if (rotated) {
     doc.save()
