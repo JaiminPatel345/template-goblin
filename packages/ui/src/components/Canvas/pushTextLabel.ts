@@ -58,9 +58,13 @@ export function pushTextLabel(
   h: number,
   colors: LabelColorTokens,
 ): void {
-  const innerPad = 6
-  const labelW = Math.max(1, w - innerPad * 2)
-  const labelH = Math.max(1, h - innerPad * 2)
+  // #167 WYSIWYG parity — the PDF renderer (`renderText`) wraps, caps, and
+  // positions text against the FULL field box with no inner padding. The
+  // canvas must use the same box, otherwise the preview's line count and
+  // wrap points drift from the generated PDF (a 6px inset changes
+  // `floor(height / lineHeight)` at boundary sizes, e.g. 1 line vs 2).
+  const labelW = Math.max(1, w)
+  const labelH = Math.max(1, h)
   const textStyle = resolveTextStyle(field)
   if (textStyle.fontSize < 4) return // pathological — nothing readable
 
@@ -78,8 +82,10 @@ export function pushTextLabel(
   const visible = computeVisibleText(label, textStyle, fontSize, labelW, labelH)
   if (!visible) return
 
+  // Anchor the block to the full box edges (PDF parity): top → field top,
+  // bottom → field bottom, middle → field centre.
   const verticalAlign = textStyle.verticalAlign
-  const top = verticalAlign === 'top' ? innerPad : verticalAlign === 'bottom' ? h - innerPad : h / 2
+  const top = verticalAlign === 'top' ? 0 : verticalAlign === 'bottom' ? h : h / 2
   const originY = verticalAlign === 'top' ? 'top' : verticalAlign === 'bottom' ? 'bottom' : 'center'
 
   children.push(
