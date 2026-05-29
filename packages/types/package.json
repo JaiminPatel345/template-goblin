@@ -1,6 +1,6 @@
 {
   "name": "@template-goblin/types",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Shared TypeScript types for TemplateGoblin — template schema, input JSON, errors",
   "type": "module",
   "main": "./dist/index.js",

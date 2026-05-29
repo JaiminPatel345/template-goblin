@@ -1,5 +1,149 @@
 # template-goblin
 
+## 4.0.0
+
+### Minor Changes
+
+- 056808f: feat(template): page-wide header, footer, and page number (#61)
+
+  Templates can now define a page-wide **header** band, **footer** band, and
+  **page number** that paint on every page (or every page except the first,
+  via `applyToFirstPage`). Bands accept text and image fields, have their
+  own padding / background colour / optional divider, and stamp on top of
+  the body content via a buffered second pass in the PDF renderer so the
+  final page count is known before they render.
+
+  Highlights:
+  - Manifest gains optional `header`, `footer`, and `pageNumber` blocks.
+    Each band carries `enabled`, `style` (height, padding, background,
+    divider), `fields`, and `applyToFirstPage`. Page-number config covers
+    placement, alignment, colour, numeral style (`arabic`, `roman`,
+    `arabic-paren`), font, font size, and `showOnFirstPage`.
+  - New toolbar **Page Layout** anchored menu with `›` flyouts for
+    Header / Footer / Page Number — toggle visibility from the flyout,
+    open a per-band settings modal for fine controls.
+  - Hide-band preserves the band's full style and migrates its fields
+    into body with absolute coordinates so the user keeps editing them
+    as normal elements. Show-band reclaims body fields whose bounding
+    box still sits entirely inside the band's Y-strip (the user never
+    moved them out) back into the band with band-local coordinates
+    restored — keeps the validator clean on re-show. Fields the user
+    explicitly moved out of the strip stay in body.
+  - JSON Preview surfaces dynamic header/footer field keys in the same
+    flat `texts` / `images` / `tables` / `links` buckets the renderer
+    reads from, so canvas, JSON, and PDF stay in sync.
+  - `setPageNumber` and `setPageNumberConfig` atomically enable the
+    placement band so turning page numbers on (or switching placement)
+    can't land in a state the validator rejects.
+  - Canvas z-order: band chrome (background, divider, page-number text)
+    paints below band field groups; the reconciler counts band visuals
+    as ambient so a coloured band background never hides its own fields.
+  - Defaults driven by QA: dividers default to disabled in both header
+    and footer; when the user enables a divider it defaults to `gap: 0`
+    (flush against the band edge); `pageNumber.showOnFirstPage` defaults
+    to `true` so the page number is visible on a single-page template
+    out of the box.
+  - Renderer adds a band-stamp pass after the body loop using PDFKit's
+    `bufferPages` + `bufferedPageRange` + `switchToPage`. New validator
+    gates: `FIELD_OVERLAPS_BAND` when a body field intrudes into an
+    enabled band's Y-strip, `PAGE_NUMBER_PLACEMENT_INVALID` when the
+    chosen placement band isn't enabled, and `INVALID_MANIFEST` when
+    a table-type field appears inside a band (text and image only).
+    Disabled bands bypass overlap enforcement — they paint nothing at
+    PDF time, so body fields living in their former Y-strip are
+    legitimate page content.
+  - Defence-in-depth page-dimension clamp: `setPageSize` and `updatePage`
+    floor width/height at 1pt; `validateManifest` rejects non-finite or
+    sub-1 page dimensions at PDF generation so a hand-edited `.tgbl` or
+    a server endpoint can't crash PDFKit with a negative dimension.
+
+  Closes #61.
+
+- cd98487: feat(canvas): rotate any element via sidebar Angle input + canvas handle (#172)
+
+  Adds `rotation` to every field type and surfaces it through both an
+  "Angle (°)" input in the LeftPanel properties editor and Fabric's
+  selection rotation handle. The two are kept in two-way sync, both
+  pivot around the field's unrotated centre, and the rotation
+  round-trips through `.tgbl` save/load and the PDF render path.
+
+  Schema (@template-goblin/types)
+  - `FieldBase.rotation?: number | null` — degrees, around the rect
+    centre. `null` / `undefined` / `0` all render unrotated, so
+    pre-rotation templates continue to load.
+
+  UI (template-goblin-ui)
+  - LeftPanel "Angle (°)" input; canvas rotation handle exposed on
+    every field type (text, image, table).
+  - Sidebar and canvas-handle inputs both pivot around the unrotated
+    centre — no visual translation when angle changes. Schema
+    invariant `(x, y) = unrotated top-left` survives every gesture.
+  - Angles are normalised to `[0, 360)` at every consumer boundary so
+    huge inputs (e.g. accidental pastes) don't cause Fabric's
+    selection border to drift off the rendered content.
+  - Bonus fix: clicking a solid-colour image field no longer paints
+    its bgRect with the selection emphasis fill — the user's chosen
+    colour is preserved, emphasis switches to stroke only.
+
+  PDF renderer (template-goblin)
+  - `renderField` wraps each draw block in `doc.save() / doc.rotate(angle,
+{ origin: [cx, cy] }) / doc.restore()` when rotation is non-zero.
+    Origin matches the UI's centre-pivot so canvas preview and
+    generated PDF agree pixel-for-pixel.
+
+  Closes #172. Supersedes #33.
+
+### Patch Changes
+
+- ef20239: fix(render): honour fontWeight, fontStyle, textDecoration, and table-cell verticalAlign
+
+  The text + table renderers silently dropped several style flags on
+  their way into the PDF stream, so the editor's Bold / Italic /
+  Underline / Strikethrough / Vertical-align toggles never reached
+  the rendered output even though the preview pipeline calls the
+  exact same `generatePDF` an SDK consumer would.
+
+  **Resolved gaps:**
+  - **fontWeight + fontStyle in text fields** — `text.ts` called
+    `doc.font(style.fontFamily)` directly, ignoring weight + style.
+    Now resolves the (family, weight, style) triple to the matching
+    PDFKit standard-font name (Helvetica-BoldOblique, Times-BoldItalic,
+    Courier-BoldOblique, …) via the new `resolvePdfFontName` helper.
+    Custom-uploaded fonts (registered via `doc.registerFont`) win —
+    bold/italic variants of a custom face must come from separately
+    uploaded files.
+  - **fontWeight + fontStyle in table cells + headers** — `loop.ts`
+    partially handled bold for body cells (`${family}-Bold` suffix)
+    and ignored both flags for headers. Both code paths now use the
+    same resolver.
+  - **textDecoration (underline / line-through) in text fields** —
+    `text.ts` did not paint either. A new `paintTextDecoration`
+    helper draws the line under or through the painted run for each
+    line, tracked across alignment.
+  - **textDecoration in table headers** — header path only supported
+    underline (no line-through). Both decorations now flow.
+  - **verticalAlign in table cells + headers** — both paths landed
+    at `startY + paddingTop`. Now respects 'top' / 'middle' / 'bottom'
+    via the new `resolveCellTextY` helper.
+
+  **New unit tests:** 17 covering the (family, weight, style)
+  matrix across Helvetica / Times-Roman / Courier + custom fonts
+  - unknown-family fallback. 7 covering the cell-vAlign formula.
+
+  **New integration test:** `loop.vAlign.test.ts` paints a two-
+  column table with one font-size-mismatched cell to create vertical
+  slack inside the row, then asserts the cell text y position
+  shifts top → middle → bottom in strict order with the expected
+  delta.
+
+  All 459 existing core tests still pass.
+
+  End-to-end verified in Chrome: editor canvas + preview PDF
+  render identically for bold + italic + underline.
+
+- Updated dependencies [cd98487]
+  - @template-goblin/types@2.3.0
+
 ## 3.0.0
 
 ### Minor Changes
