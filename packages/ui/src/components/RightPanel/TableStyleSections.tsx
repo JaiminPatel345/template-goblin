@@ -1,14 +1,9 @@
-import type {
-  CellStyle,
-  FontWeight,
-  TableBorderStyle,
-  TableField,
-  TextAlign,
-} from '@template-goblin/types'
+import type { CellStyle, TableBorderStyle, TableField, TextAlign } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { NumberInput } from '../NumberInput.js'
 import { NullableColorInput } from '../NullableColorInput.js'
 import { ColorPickerPopover } from '../ColorPickerPopover.js'
+import { StyleToggleGroup } from '../StyleToggleGroup.js'
 
 interface Props {
   field: TableField
@@ -70,15 +65,16 @@ export function TableStyleSections({ field, allFontFamilies }: Props) {
         </div>
 
         <div className="tg-form-row">
-          <label>Font Weight</label>
-          <select
-            className="tg-select"
-            value={headerStyle.fontWeight}
-            onChange={(e) => updateHeader({ fontWeight: e.target.value as FontWeight })}
-          >
-            <option value="normal">Normal</option>
-            <option value="bold">Bold</option>
-          </select>
+          <label>Style</label>
+          <StyleToggleGroup
+            value={{
+              fontWeight: headerStyle.fontWeight,
+              fontStyle: headerStyle.fontStyle,
+              textDecoration: headerStyle.textDecoration,
+            }}
+            onChange={(patch) => updateHeader(patch)}
+            testIdPrefix="table-header"
+          />
         </div>
 
         <div className="tg-form-row">
@@ -142,15 +138,16 @@ export function TableStyleSections({ field, allFontFamilies }: Props) {
         </div>
 
         <div className="tg-form-row">
-          <label>Font Weight</label>
-          <select
-            className="tg-select"
-            value={rowStyle.fontWeight}
-            onChange={(e) => updateRow({ fontWeight: e.target.value as FontWeight })}
-          >
-            <option value="normal">Normal</option>
-            <option value="bold">Bold</option>
-          </select>
+          <label>Style</label>
+          <StyleToggleGroup
+            value={{
+              fontWeight: rowStyle.fontWeight,
+              fontStyle: rowStyle.fontStyle,
+              textDecoration: rowStyle.textDecoration,
+            }}
+            onChange={(patch) => updateRow(patch)}
+            testIdPrefix="table-row"
+          />
         </div>
 
         <div className="tg-form-row">

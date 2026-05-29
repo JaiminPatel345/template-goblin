@@ -14,6 +14,7 @@ import { getPageSize } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { FieldCreationPopup } from './FieldCreationPopup.js'
+import { FloatingSelectionToolbar } from './FloatingSelectionToolbar.js'
 import { OnboardingPicker } from './OnboardingPicker.js'
 import { AddPageDialog } from './AddPageDialog.js'
 import { PageBar } from './PageBar.js'
@@ -28,41 +29,7 @@ import { useCanvasKeyboard } from './useCanvasKeyboard.js'
 import { usePageHandlers } from './usePageHandlers.js'
 import { useCurrentBackground } from './useCurrentBackground.js'
 import { useEffectivePreviewData } from './useEffectivePreviewData.js'
-import type { FieldDefinition, PageDefinition } from '@template-goblin/types'
-
-/**
- * Translate a band-local field into a page-coord field copy the reconciler
- * can hand to `createFieldGroup` / `applyFieldToGroup` (#61). The original
- * store entry keeps its band-local x/y; the translated copy is renderer-only.
- */
-function translateForCanvas(
-  f: FieldDefinition,
-  offset: { x: number; y: number },
-  kind: 'header' | 'footer',
-): FieldDefinition & { __bandKind: 'header' | 'footer' } {
-  return {
-    ...f,
-    x: f.x + offset.x,
-    y: f.y + offset.y,
-    __bandKind: kind,
-  } as FieldDefinition & { __bandKind: 'header' | 'footer' }
-}
-
-/**
- * Does this band render on the page the user is currently viewing? We
- * mirror the renderer's rule — only page index 0 needs the
- * `applyToFirstPage` check; every later page always renders bands.
- */
-function currentPageIndexIsZeroOrApplied(
-  currentPageId: string | null,
-  pages: PageDefinition[],
-  applyToFirstPage: boolean,
-): boolean {
-  const currentIndex = pages.findIndex((p) => p.id === currentPageId)
-  const safeIndex = currentIndex >= 0 ? currentIndex : 0
-  if (safeIndex === 0 && !applyToFirstPage) return false
-  return true
-}
+import { deriveCanvasFields } from './deriveCanvasFields.js'
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
@@ -106,29 +73,6 @@ export function CanvasArea() {
   const placeholderImages = usePlaceholderImages(fields, placeholderBuffers, staticImageBuffers)
   const resolveImage = useImageResolver(placeholderImages, staticImageDataUrls)
 
-  // Page 1 (index 0) is special: orphaned fields (pageId === null) and fields
-  // tagged with the explicit pages[0] id both belong here. Fields can be
-  // orphaned two ways:
-  //   1. They were drawn while Page 1 was implicit — `currentPageId` was null
-  //      at stamp time so `pageId` is null too. After `+ Add Page` makes
-  //      `pages[0]` explicit, clicking the Page 1 tab moves `currentPageId`
-  //      to the explicit id but the fields keep `pageId: null` — they
-  //      vanish without this inclusive filter (GH #37).
-  //   2. `removePage` deliberately reassigns the deleted page's fields to
-  //      `pageId: null` so they fall back to Page 1.
-  // The `currentPageId === null` case ALSO has to match fields that already
-  // carry the explicit id (the post-fix shape) since onboarding leaves
-  // `currentPageId` at null even after `pages[0]` becomes explicit.
-  // Other pages match strictly on id.
-  const page1Id = pages.find((p) => p.index === 0)?.id ?? null
-  const isOnPage1 = currentPageId === null || currentPageId === page1Id
-  const bodyFields = fields.filter((f) => {
-    if (isOnPage1) {
-      return f.pageId === null || f.pageId === undefined || f.pageId === page1Id
-    }
-    return f.pageId === currentPageId
-  })
-
   const isPlacing =
     activeTool === 'addText' || activeTool === 'addImage' || activeTool === 'addLoop'
 
@@ -161,53 +105,19 @@ export function CanvasArea() {
     footerFields: footerFieldsForPreview,
   })
 
-  // Resolve the *current page*'s size — drives canvas clipping, page-bounds
-  // outline, grid extents, zoom-fit, and move/scale clamping. For legacy
-  // single-page templates with no `pages[]` entry we fall through to
-  // `meta`. For multi-page templates with mixed sizes the canvas resizes
-  // when the user switches tabs (#46/#47).
-  const currentPage = pages.find((p) => p.id === currentPageId) ?? null
-  const fallbackPage = pages.find((p) => p.index === 0) ?? null
-  const pageBounds = getPageSize(currentPage ?? fallbackPage, meta)
-
-  // #61 — band fields flow through the same `useFabricSync` reconciler as
-  // body fields so they keep their Fabric identity across store updates.
-  // Each band field is translated into page coords (band-local → page) and
-  // tagged with `__bandKind`; the reconciler stamps that marker onto the
-  // resulting Fabric group so `clampToPage` and the drag-commit path route
-  // band fields to the right zone / store.
+  // Resolve the current page's render field list (body + translated header /
+  // footer band fields, #37/#61) and its size, via `deriveCanvasFields`
+  // (Hard Rule #11). `header` / `footer` are read so a band change re-renders.
   const header = useTemplateStore((s) => s.header)
   const footer = useTemplateStore((s) => s.footer)
-  // #61 follow-up — only render band fields when the band is enabled.
-  // A disabled band keeps its config (so re-show restores it) but its
-  // fields will have already been migrated to body on hide, so they don't
-  // appear here either way.
-  const headerActive = !!header?.enabled
-  const footerActive = !!footer?.enabled
-  const headerOffset =
-    headerActive && header ? { x: header.style.paddingLeft, y: header.style.paddingTop } : null
-  const footerOffset =
-    footerActive && footer
-      ? {
-          x: footer.style.paddingLeft,
-          y: pageBounds.height - footer.style.height + footer.style.paddingTop,
-        }
-      : null
-  const headerPageFields =
-    headerActive &&
-    header &&
-    headerOffset &&
-    currentPageIndexIsZeroOrApplied(currentPageId, pages, header.applyToFirstPage)
-      ? header.fields.map((f) => translateForCanvas(f, headerOffset, 'header'))
-      : []
-  const footerPageFields =
-    footerActive &&
-    footer &&
-    footerOffset &&
-    currentPageIndexIsZeroOrApplied(currentPageId, pages, footer.applyToFirstPage)
-      ? footer.fields.map((f) => translateForCanvas(f, footerOffset, 'footer'))
-      : []
-  const pageFields = [...bodyFields, ...headerPageFields, ...footerPageFields]
+  const { pageFields, pageBounds } = deriveCanvasFields({
+    meta,
+    fields,
+    pages,
+    currentPageId,
+    header,
+    footer,
+  })
 
   // ── Sync effects ───────────────────────────────────────────────────────
   useFabricSync({
@@ -336,6 +246,11 @@ export function CanvasArea() {
           <canvas key="fabric-canvas" ref={setCanvasEl} />
         </div>
       </div>
+
+      {/* #167 — floating B/I/U/S + colour toolbar anchored to the selected
+          text field. Rendered as a fixed-position sibling so it overlays the
+          scrollable canvas without being clipped by its overflow. */}
+      <FloatingSelectionToolbar fabric={fabricInstance} />
 
       <PageBar
         onRemovePage={pageHandlers.handleRemovePage}

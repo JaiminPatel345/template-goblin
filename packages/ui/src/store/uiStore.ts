@@ -39,6 +39,13 @@ export interface UiState {
   showRightPanel: boolean
   /** Whether the left panel is visible */
   showLeftPanel: boolean
+  /**
+   * Whether the floating selection toolbar (#167) appears when a single
+   * text field is selected. The toolbar's eye-off button flips this to
+   * false; View → Selection toolbar flips it back. Persisted so the
+   * preference survives reloads.
+   */
+  showSelectionToolbar: boolean
   /** Whether the page size dialog is open */
   showPageSizeDialog: boolean
   /**
@@ -137,6 +144,7 @@ export interface UiState {
   setPreviewJsonText: (text: string | null) => void
   setShowRightPanel: (show: boolean) => void
   setShowLeftPanel: (show: boolean) => void
+  setShowSelectionToolbar: (show: boolean) => void
   setShowPageSizeDialog: (show: boolean) => void
   setShowChangeBgDialog: (show: boolean) => void
   setShowFontManager: (show: boolean) => void
@@ -181,6 +189,7 @@ export const useUiStore = create<UiState>()(
       previewJsonText: null,
       showRightPanel: true,
       showLeftPanel: true,
+      showSelectionToolbar: true,
       showPageSizeDialog: false,
       showChangeBgDialog: false,
       showFontManager: false,
@@ -231,6 +240,7 @@ export const useUiStore = create<UiState>()(
       setPreviewJsonText: (text) => set({ previewJsonText: text }),
       setShowRightPanel: (show) => set({ showRightPanel: show }),
       setShowLeftPanel: (show) => set({ showLeftPanel: show }),
+      setShowSelectionToolbar: (show) => set({ showSelectionToolbar: show }),
       setShowPageSizeDialog: (show) => set({ showPageSizeDialog: show }),
       setShowChangeBgDialog: (show) => set({ showChangeBgDialog: show }),
       setShowFontManager: (show) => set({ showFontManager: show }),
@@ -272,6 +282,7 @@ export const useUiStore = create<UiState>()(
         maxModeRepeatCount: state.maxModeRepeatCount,
         showLeftPanel: state.showLeftPanel,
         showRightPanel: state.showRightPanel,
+        showSelectionToolbar: state.showSelectionToolbar,
         currentPageId: state.currentPageId,
         // GH #84 follow-up: preserve zoom across refresh so the canvas
         // restores at whatever level the user was last looking at.

@@ -2,6 +2,7 @@ import { useUiStore } from '../../../store/uiStore.js'
 import { RibbonGroup } from '../primitives/RibbonGroup.js'
 import { RibbonButton } from '../primitives/RibbonButton.js'
 import { MoonIcon, SunIcon, ZoomInIcon, ZoomOutIcon, PanelLeftIcon } from '../icons.js'
+import { EyeIcon } from '../../icons/index.js'
 
 /**
  * View ribbon (#128). Display preferences: panel visibility, snap to
@@ -21,6 +22,8 @@ export function ViewRibbon() {
   const setShowLeftPanel = useUiStore((s) => s.setShowLeftPanel)
   const showRightPanel = useUiStore((s) => s.showRightPanel)
   const setShowRightPanel = useUiStore((s) => s.setShowRightPanel)
+  const showSelectionToolbar = useUiStore((s) => s.showSelectionToolbar)
+  const setShowSelectionToolbar = useUiStore((s) => s.setShowSelectionToolbar)
 
   return (
     <div style={{ display: 'flex' }}>
@@ -42,6 +45,19 @@ export function ViewRibbon() {
           variant="toggle"
           title={showRightPanel ? 'Hide structure panel' : 'Show structure panel'}
           testid="toolbar-toggle-right-panel"
+        />
+        <RibbonButton
+          icon={<EyeIcon />}
+          label="Toolbar"
+          onClick={() => setShowSelectionToolbar(!showSelectionToolbar)}
+          active={showSelectionToolbar}
+          variant="toggle"
+          title={
+            showSelectionToolbar
+              ? 'Hide the floating selection toolbar'
+              : 'Show the floating selection toolbar'
+          }
+          testid="toolbar-toggle-selection-toolbar"
         />
       </RibbonGroup>
       <RibbonGroup label="Grid">
