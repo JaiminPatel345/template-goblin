@@ -243,27 +243,22 @@ test.describe('#167 — text style toggles, floating toolbar, background colour'
       .toBe(false)
   })
 
-  test('text background colour round-trips through the store', async ({ page }) => {
+  test('text background colour round-trips through the store and canvas', async ({ page }) => {
     await bootstrap(page)
 
-    // The Background row's NullableColorInput starts transparent (null), so it
-    // offers a "Color" button that restores a concrete fill.
+    // The Background row shows ONLY a swatch — clicking it opens the picker;
+    // the transparent ("no fill") option lives inside that popover, with no
+    // separate Clear/Color button beside the swatch.
     const bgRow = page.locator('.tg-form-row', { hasText: 'Background' })
-    await bgRow
-      .getByRole('button', { name: /transparent|Set a colour|Color/i })
-      .first()
-      .click()
-    await expect.poll(async () => (await readStyle(page))?.backgroundColor).toBeTruthy()
+    await bgRow.getByTestId('color-picker-swatch').click()
+    await page.getByTestId('color-picker-preset-#ef4444').click()
+    await expect.poll(async () => (await readStyle(page))?.backgroundColor).toBe('#ef4444')
+    // WYSIWYG — the colour also paints onto the canvas field's background rect.
+    await expect.poll(async () => readBgRectFill(page)).toBe('#ef4444')
 
-    // #167 WYSIWYG — the colour also paints onto the canvas field's
-    // background rect, not just the store + PDF.
-    await expect.poll(async () => readBgRectFill(page)).toBe('#ffffff')
-
-    // And "Clear" returns it to transparent (null) in the store AND on canvas.
-    await bgRow
-      .getByRole('button', { name: /Clear|Make transparent/i })
-      .first()
-      .click()
+    // The in-popover "Transparent" button removes the fill (null) in the store
+    // AND on the canvas.
+    await page.getByTestId('color-picker-transparent').click()
     await expect.poll(async () => (await readStyle(page))?.backgroundColor).toBeNull()
     await expect.poll(async () => readBgRectFill(page)).toBe('transparent')
   })

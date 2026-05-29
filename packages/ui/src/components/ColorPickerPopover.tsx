@@ -2,12 +2,32 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { HexColorPicker } from 'react-colorful'
 
 interface ColorPickerPopoverProps {
-  value: string
+  /** Hex colour, or `null` for transparent / no-fill (when `allowTransparent`). */
+  value: string | null
   onChange: (hex: string) => void
   ariaLabel?: string
   /** Swatch dimensions — defaults to a compact rectangle. */
   swatchWidth?: number
   swatchHeight?: number
+  /**
+   * When true, the swatch can express "transparent": a `null` value renders a
+   * checker-pattern swatch and the popover shows a "Transparent" button (#167
+   * — keeps the remove-fill option INSIDE the picker rather than as a separate
+   * button outside the swatch). `onTransparent` is invoked when chosen.
+   */
+  allowTransparent?: boolean
+  onTransparent?: () => void
+}
+
+/** Checkerboard fill marking a transparent (no-colour) swatch. */
+const CHECKER_STYLE: React.CSSProperties = {
+  backgroundImage:
+    'linear-gradient(45deg, #ccc 25%, transparent 25%), ' +
+    'linear-gradient(-45deg, #ccc 25%, transparent 25%), ' +
+    'linear-gradient(45deg, transparent 75%, #ccc 75%), ' +
+    'linear-gradient(-45deg, transparent 75%, #ccc 75%)',
+  backgroundSize: '8px 8px',
+  backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0',
 }
 
 /**
@@ -29,7 +49,10 @@ export function ColorPickerPopover({
   ariaLabel,
   swatchWidth = 28,
   swatchHeight = 24,
+  allowTransparent = false,
+  onTransparent,
 }: ColorPickerPopoverProps) {
+  const isTransparent = !value
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
   const wrapperRef = useRef<HTMLSpanElement | null>(null)
@@ -83,7 +106,7 @@ export function ColorPickerPopover({
     [onChange],
   )
 
-  const safePickerColor = /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000'
+  const safePickerColor = value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000'
 
   return (
     <span ref={wrapperRef} style={{ display: 'inline-block', position: 'relative' }}>
@@ -92,7 +115,7 @@ export function ColorPickerPopover({
         onClick={() => setOpen((o) => !o)}
         aria-label={ariaLabel ?? 'Select color'}
         aria-expanded={open}
-        title={value}
+        title={value ?? 'Transparent'}
         data-testid="color-picker-swatch"
         style={{
           width: swatchWidth,
@@ -101,7 +124,7 @@ export function ColorPickerPopover({
           border: '1px solid var(--border)',
           borderRadius: 3,
           cursor: 'pointer',
-          background: value,
+          ...(isTransparent ? CHECKER_STYLE : { background: value }),
         }}
       />
       {open && position && (
@@ -135,10 +158,11 @@ export function ColorPickerPopover({
           />
           <input
             type="text"
-            value={value}
+            value={value ?? ''}
             onChange={(e) => handleHexInput(e.target.value)}
             spellCheck={false}
             maxLength={7}
+            placeholder={allowTransparent ? 'transparent' : undefined}
             data-testid="color-picker-hex"
             style={{
               marginTop: 8,
@@ -174,7 +198,7 @@ export function ColorPickerPopover({
                   height: 22,
                   padding: 0,
                   border:
-                    hex.toLowerCase() === value.toLowerCase()
+                    hex.toLowerCase() === value?.toLowerCase()
                       ? '2px solid var(--accent)'
                       : '1px solid var(--border)',
                   borderRadius: 3,
@@ -184,6 +208,46 @@ export function ColorPickerPopover({
               />
             ))}
           </div>
+          {allowTransparent && (
+            // Remove-fill (transparent) lives INSIDE the picker (#167) — no
+            // separate button outside the swatch.
+            <button
+              type="button"
+              onClick={() => {
+                onTransparent?.()
+                setOpen(false)
+              }}
+              aria-pressed={isTransparent}
+              data-testid="color-picker-transparent"
+              style={{
+                marginTop: 8,
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '5px 8px',
+                fontSize: 12,
+                cursor: 'pointer',
+                color: 'var(--text-primary)',
+                background: isTransparent ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
+                border: isTransparent ? '2px solid var(--accent)' : '1px solid var(--border)',
+                borderRadius: 3,
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  width: 16,
+                  height: 16,
+                  borderRadius: 3,
+                  border: '1px solid var(--border)',
+                  flexShrink: 0,
+                  ...CHECKER_STYLE,
+                }}
+              />
+              Transparent (no fill)
+            </button>
+          )}
         </div>
       )}
     </span>
