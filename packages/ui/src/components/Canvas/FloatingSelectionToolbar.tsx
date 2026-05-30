@@ -17,12 +17,15 @@
  */
 import type { Canvas as FabricCanvas } from 'fabric'
 import { useUiStore } from '../../store/uiStore.js'
+import { useTemplateStore } from '../../store/templateStore.js'
 import { useSelectedTextField } from '../../hooks/useSelectedTextField.js'
 import { useSelectionAnchor } from './useSelectionAnchor.js'
+import { normaliseAngle } from './rotationGeometry.js'
 import { StyleToggleGroup } from '../StyleToggleGroup.js'
 import { NumberInput } from '../NumberInput.js'
 import { ColorPickerPopover } from '../ColorPickerPopover.js'
 import { NullableColorInput } from '../NullableColorInput.js'
+import { RotationDial } from '../RotationDial.js'
 import { EyeOffIcon } from '../icons/index.js'
 
 const TOOLBAR_HEIGHT = 40
@@ -38,6 +41,7 @@ interface Props {
 export function FloatingSelectionToolbar({ fabric }: Props) {
   const showSelectionToolbar = useUiStore((s) => s.showSelectionToolbar)
   const setShowSelectionToolbar = useUiStore((s) => s.setShowSelectionToolbar)
+  const updateField = useTemplateStore((s) => s.updateField)
   const selected = useSelectedTextField()
   const anchor = useSelectionAnchor(fabric, selected?.field.id ?? null)
 
@@ -45,6 +49,7 @@ export function FloatingSelectionToolbar({ fabric }: Props) {
 
   const { field, updateStyle } = selected
   const style = field.style
+  const angle = normaliseAngle(field.rotation)
 
   // Above the selection when there's room, otherwise below it.
   const above = anchor.top - TOOLBAR_HEIGHT - GAP > VIEWPORT_MARGIN
@@ -112,6 +117,15 @@ export function FloatingSelectionToolbar({ fabric }: Props) {
         value={style.backgroundColor ?? null}
         onChange={(v) => updateStyle({ backgroundColor: v })}
         ariaLabel="Text background color"
+      />
+
+      <span aria-hidden style={{ width: 1, height: 22, background: 'var(--border)' }} />
+
+      {/* Rotation dial — reachable here even though the toolbar overlays
+          Fabric's rotate handle. Writes field.rotation (null when 0). */}
+      <RotationDial
+        value={angle}
+        onChange={(deg) => updateField(field.id, { rotation: deg === 0 ? null : deg })}
       />
 
       <span aria-hidden style={{ width: 1, height: 22, background: 'var(--border)' }} />

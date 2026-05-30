@@ -14,6 +14,8 @@ import {
   SaveIcon,
   LockedIcon,
   UnlockedIcon,
+  MoonIcon,
+  SunIcon,
 } from './icons.js'
 
 /**
@@ -195,6 +197,8 @@ export function MenuTabBar() {
   )
   const showPreview = useUiStore((s) => s.showPreview)
   const setShowPreview = useUiStore((s) => s.setShowPreview)
+  const theme = useUiStore((s) => s.theme)
+  const toggleTheme = useUiStore((s) => s.toggleTheme)
 
   const selectedFieldTypes = new Set(
     fields.filter((f) => selectedFieldIds.includes(f.id)).map((f) => f.type),
@@ -310,6 +314,13 @@ export function MenuTabBar() {
 
       {/* Primary CTAs — far right */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <RibbonButton
+          icon={theme === 'light' ? <MoonIcon /> : <SunIcon />}
+          onClick={toggleTheme}
+          title={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+          ariaLabel="Toggle theme"
+          testid="navbar-theme-toggle"
+        />
         <RibbonButton
           icon={<PreviewIcon />}
           label="Preview"
