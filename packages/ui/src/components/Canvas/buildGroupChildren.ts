@@ -13,20 +13,18 @@
  * placeholder fallback, and dynamic table rows render against
  * `data.tables[jsonKey]`. Pass `null` to render the design-time preview.
  */
-import { Rect, FabricImage } from 'fabric'
-import type { FabricObject } from 'fabric'
+import { Rect } from 'fabric'
+import type { FabricObject, FabricImage } from 'fabric'
 import type { FieldDefinition, InputJSON, TextFieldStyle } from '@template-goblin/types'
 import { FIELD_COLORS } from '../../theme/fieldColors.js'
 import { fieldCanvasLabel } from './fieldLabel.js'
 import { shouldRenderFillRect } from './rectFill.js'
 import { buildTableCanvasParts } from './tableCanvasParts.js'
 import { pushTextLabel } from './pushTextLabel.js'
+import { resolveImagePaint, loadFabricImage, type ImageResolver } from './fabricImage.js'
 
-/**
- * Resolve an image asset for a field (placeholder or static).
- * Returns the data URL string if available, or null.
- */
-export type ImageResolver = (filename: string) => string | null
+// Re-exported so existing imports via `fabricUtils` keep resolving.
+export { loadFabricImage, type ImageResolver }
 
 /**
  * Build the child objects for a field Group.
@@ -41,38 +39,8 @@ export function buildGroupChildren(
   const w = field.width
   const h = field.height
 
-  // Resolve the image-field paint shape: either a colour fill (#81) or a
-  // baked image asset. Colour wins over filename when both are present
-  // (shouldn't happen, but defensive).
-  let imageDataUrl: string | null = null
-  let imageColor: string | null = null
-  if (field.type === 'image' && field.source) {
-    const fromValue =
-      field.source.mode === 'dynamic'
-        ? (field.source.placeholder as unknown)
-        : (field.source.value as unknown)
-    if (fromValue && typeof fromValue === 'object') {
-      if ('color' in fromValue) {
-        const c = (fromValue as { color: unknown }).color
-        if (typeof c === 'string' && c.length > 0) imageColor = c
-      } else if ('filename' in fromValue) {
-        const name = (fromValue as { filename: unknown }).filename
-        if (typeof name === 'string' && name.length > 0) {
-          imageDataUrl = resolveImage(name)
-        }
-      }
-    }
-    // GH #81 — dynamic image fields can also receive a colour marker via
-    // `data.images[jsonKey]` like `<STATICIMAGE_COLOR_#hex>`; the canvas
-    // shows that fill at design time as soon as the user pins it.
-    if (!imageColor && field.source.mode === 'dynamic' && data) {
-      const supplied = data.images?.[field.source.jsonKey]
-      if (typeof supplied === 'string') {
-        const m = /^<STATICIMAGE_COLOR_(#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}))>$/.exec(supplied)
-        if (m && m[1]) imageColor = m[1]
-      }
-    }
-  }
+  // Resolve the image-field paint shape: a colour fill (#81) or a baked image.
+  const { imageDataUrl, imageColor } = resolveImagePaint(field, resolveImage, data)
 
   const placeholderResolved = imageDataUrl !== null
   const tableRowsForRender = lookupTableRows(field, data)
@@ -222,56 +190,4 @@ function lookupTableRows(
   if (field.source?.mode !== 'dynamic') return null
   const rows = data.tables?.[field.source.jsonKey]
   return Array.isArray(rows) ? rows : null
-}
-
-/**
- * Load a `FabricImage` from a data URL and configure it to fill the given
- * dimensions per the chosen fit mode. Exported so future async-load paths
- * can call it directly.
- */
-export async function loadFabricImage(
-  dataUrl: string,
-  width: number,
-  height: number,
-  fieldId: string,
-  fit: 'fill' | 'contain' | 'cover' = 'contain',
-): Promise<FabricImage> {
-  const img = await FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' })
-  const natW = img.width || width
-  const natH = img.height || height
-  let scaleX: number
-  let scaleY: number
-  if (fit === 'fill') {
-    scaleX = width / natW
-    scaleY = height / natH
-  } else if (fit === 'cover') {
-    const s = Math.max(width / natW, height / natH)
-    scaleX = s
-    scaleY = s
-  } else {
-    const s = Math.min(width / natW, height / natH)
-    scaleX = s
-    scaleY = s
-  }
-  img.set({
-    left: width / 2,
-    top: height / 2,
-    selectable: false,
-    evented: false,
-    originX: 'center',
-    originY: 'center',
-    scaleX,
-    scaleY,
-  })
-  img.clipPath = new Rect({
-    left: 0,
-    top: 0,
-    width: width / scaleX,
-    height: height / scaleY,
-    originX: 'center',
-    originY: 'center',
-    absolutePositioned: false,
-  })
-  img.__fieldId = `__img_${fieldId}`
-  return img
 }
