@@ -9,6 +9,8 @@ interface NumberInputProps {
   defaultValue?: number
   className?: string
   style?: React.CSSProperties
+  disabled?: boolean
+  'data-testid'?: string
 }
 
 /**
@@ -27,6 +29,8 @@ export function NumberInput({
   defaultValue,
   className = 'tg-input',
   style,
+  disabled,
+  'data-testid': dataTestid,
 }: NumberInputProps) {
   const [localValue, setLocalValue] = useState(String(value))
   const [focused, setFocused] = useState(false)
@@ -87,6 +91,8 @@ export function NumberInput({
       min={min}
       max={max}
       step={step}
+      disabled={disabled}
+      data-testid={dataTestid}
       onChange={handleChange}
       onFocus={handleFocus}
       onBlur={handleBlur}

@@ -255,3 +255,93 @@ describe('Text rendering', () => {
     expect(output.length).toBeGreaterThan(0)
   })
 })
+
+/* ------------------------------------------------------------------ */
+/*  #167 — text background colour                                     */
+/* ------------------------------------------------------------------ */
+
+describe('Text background colour (#167)', () => {
+  it('paints a filled rect at the field bounds when backgroundColor is set', () => {
+    const doc = createDoc()
+    const rectSpy = jest.spyOn(doc, 'rect')
+    const fillSpy = jest.spyOn(doc, 'fill')
+    const field = createTextField({ backgroundColor: '#ff0000' })
+
+    renderText(doc, field, 'Hello', new Map())
+
+    expect(rectSpy).toHaveBeenCalledWith(field.x, field.y, field.width, field.height)
+    expect(fillSpy).toHaveBeenCalledWith('#ff0000')
+    doc.end()
+  })
+
+  // `renderText` always calls `doc.rect(...).clip()` to clip text to the box,
+  // so "no background" is asserted via the absence of a fill — the background
+  // is the only `doc.fill(colour)` call (glyphs use `doc.fillColor`).
+  it('does not fill a background when backgroundColor is null (transparent)', () => {
+    const doc = createDoc()
+    const fillSpy = jest.spyOn(doc, 'fill')
+    const field = createTextField({ backgroundColor: null })
+
+    renderText(doc, field, 'Hello', new Map())
+
+    expect(fillSpy).not.toHaveBeenCalled()
+    doc.end()
+  })
+
+  it('treats a legacy field with no backgroundColor as transparent', () => {
+    const doc = createDoc()
+    const fillSpy = jest.spyOn(doc, 'fill')
+    const field = createTextField()
+    // Simulate a template serialised before the field existed.
+    delete (field.style as Partial<TextFieldStyle>).backgroundColor
+
+    renderText(doc, field, 'Hello', new Map())
+
+    expect(fillSpy).not.toHaveBeenCalled()
+    doc.end()
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/*  Oversized text must still render (regression for the "preview      */
+/*  shows the box fill but no text" bug)                               */
+/* ------------------------------------------------------------------ */
+
+describe('Text taller than its box is capped to fit and vertically aligned', () => {
+  // fontSize 60 × lineHeight 1.2 = 72pt per line. maxRows 2 → 144pt, but the
+  // box is 100pt, so only ONE line fits. The renderer caps to the fitting
+  // line and vertically aligns it — instead of overflowing or rendering
+  // nothing. Here we pin RELATIVE behaviour (renders, stays inside the box,
+  // top < middle < bottom); the exact centred baseline is verified against
+  // the real PDF in `pdfGeometry.test.ts`.
+  function firstLineY(verticalAlign: 'top' | 'middle' | 'bottom'): number {
+    const doc = createDoc()
+    const textSpy = jest.spyOn(doc, 'text')
+    const field = createTextField({
+      fontSize: 60,
+      lineHeight: 1.2,
+      maxRows: 2,
+      verticalAlign,
+      overflowMode: 'truncate',
+    })
+    ;(field as FieldDefinition).height = 100
+    renderText(doc, field, 'Hello World Foo Bar Baz', new Map())
+    expect(textSpy).toHaveBeenCalled()
+    const ys = textSpy.mock.calls.map((c) => c[2] as number)
+    // Every drawn line's top stays within the box.
+    for (const ly of ys) {
+      expect(ly).toBeGreaterThanOrEqual(field.y)
+      expect(ly).toBeLessThan(field.y + 100)
+    }
+    doc.end()
+    return ys[0] ?? NaN
+  }
+
+  it('renders the fitting line for every vertical alignment, ordered top < middle < bottom', () => {
+    const top = firstLineY('top')
+    const middle = firstLineY('middle')
+    const bottom = firstLineY('bottom')
+    expect(top).toBeLessThan(middle)
+    expect(middle).toBeLessThan(bottom)
+  })
+})

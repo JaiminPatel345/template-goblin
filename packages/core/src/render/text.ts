@@ -24,6 +24,17 @@ export function renderText(
   const style = field.style as TextFieldStyle
   const { x, y, width, height } = field
 
+  // #167 — paint the text-box background fill (if any) before the glyphs,
+  // exactly like the cell-background pass in `loop.ts`. `backgroundColor`
+  // is `null` for a transparent box and may be `undefined` on a legacy
+  // template saved before the field existed — both skip the fill. The
+  // rect is drawn in the field's (already-rotated, see `renderField`)
+  // coordinate space so it tracks the field's rotation for free.
+  const backgroundColor = style.backgroundColor ?? null
+  if (backgroundColor) {
+    doc.rect(x, y, width, height).fill(backgroundColor)
+  }
+
   // Set font. Resolves fontFamily + fontWeight + fontStyle into the
   // PDFKit name (Helvetica-BoldOblique, Times-BoldItalic, …) so the
   // bold/italic toggles in the editor actually reach the PDF. Custom
@@ -64,34 +75,68 @@ export function renderText(
     lines = result.fits ? result.lines : truncateLines(doc, result.lines, style.maxRows, width)
   }
 
-  // Calculate actual line height and total text block height
-  const lineHeightPt = fontSize * style.lineHeight
-  const textBlockHeight = lines.length * lineHeightPt
+  // Cap the rendered lines to those that FIT the box height (like the editor
+  // canvas's `pushTextLabel`, which keeps `floor(innerHeight / lineHeight)`
+  // lines and centres that block). Without this the PDF wraps to `maxRows`
+  // lines, the block overflows the box, and the vertical-align maths below
+  // pushes it off the top — so a centred field on the canvas rendered at the
+  // top (or empty) in the PDF. Capping first means a `middle` / `bottom`
+  // block stays inside the rect and is genuinely centred / bottom-anchored.
+  // NOTE: the canvas uses a 6px inner padding (`height - 12`) and the PDF the
+  // full height, so the line count can differ by one at boundary box sizes —
+  // a known WYSIWYG gap tracked separately, not introduced here.
+  // Guard a malformed `lineHeight` (0 / negative / NaN) — otherwise the cap
+  // below divides to Infinity/NaN, no-ops, and the overflow bug returns. The
+  // canvas applies the same 1.2 fallback.
+  const lineHeightFactor = style.lineHeight > 0 ? style.lineHeight : 1.2
+  const lineHeightPt = fontSize * lineHeightFactor
+  const maxLinesByHeight = Math.max(1, Math.floor(height / lineHeightPt))
+  if (lines.length > maxLinesByHeight) {
+    lines = lines.slice(0, maxLinesByHeight)
+  }
 
-  // REQ: Vertical alignment within bounding rectangle
-  let startY: number
+  // Font ascent (the y we pass to `doc.text` is the line top; PDFKit places
+  // the baseline `ascent` below it — measured to equal `ascender/1000 *
+  // fontSize`). Used to centre the glyph WITHIN its line slot.
+  const fontMetrics = doc as unknown as { _font?: { ascender?: number } }
+  const ascent = ((fontMetrics._font?.ascender ?? 750) / 1000) * fontSize
+  // Half the line-height leading. The editor canvas (Fabric) distributes the
+  // (lineHeight − glyph) space around the glyph, so the glyph sits in the
+  // MIDDLE of its slot; PDFKit draws it at the slot TOP. Adding `leadingHalf`
+  // to each line's y reproduces the canvas's optical centring — without it a
+  // vertically-centred field renders visibly high in the PDF.
+  const leadingHalf = (lineHeightPt - ascent) / 2
+
+  // Position the block of line slots; per-line glyphs are centred in their
+  // slot below. `middle` centres the block, `bottom` bottom-anchors it.
+  const blockHeight = lines.length * lineHeightPt
+  let blockTop: number
   switch (style.verticalAlign) {
     case 'middle':
-      startY = y + (height - textBlockHeight) / 2
+      blockTop = y + (height - blockHeight) / 2
       break
     case 'bottom':
-      startY = y + height - textBlockHeight
+      blockTop = y + height - blockHeight
       break
     case 'top':
     default:
-      startY = y
+      blockTop = y
       break
   }
 
-  // Render each line
+  // Clip to the field rect so text can NEVER cross its bounding box (REQ /
+  // Hard Rule #10) — even a single line whose font is taller than the whole
+  // box. The clip is a no-op for content that already fits.
+  doc.save()
+  doc.rect(x, y, width, height).clip()
   doc.fontSize(fontSize)
   for (let i = 0; i < lines.length; i++) {
-    const lineY = startY + i * lineHeightPt
+    const slotTop = blockTop + i * lineHeightPt
+    // Skip a slot that falls entirely outside the rect (defensive — capping
+    // above keeps the common case inside).
+    if (slotTop + lineHeightPt <= y || slotTop >= y + height) continue
 
-    // Skip if line would be outside bounding rect
-    if (lineY + lineHeightPt > y + height) break
-    if (lineY < y) continue
-
+    const lineY = slotTop + leadingHalf
     const line = lines[i] ?? ''
     doc.text(line, x, lineY, {
       width,
@@ -108,6 +153,7 @@ export function renderText(
       color: style.color,
     })
   }
+  doc.restore()
 }
 
 /**

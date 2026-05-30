@@ -101,6 +101,15 @@ export interface TextFieldStyle {
   fontStyle: FontStyle
   textDecoration: TextDecoration
   color: string
+  /**
+   * Text-box fill colour painted behind the glyphs (#167). `null` — or a
+   * missing field on a legacy template saved before this existed — means a
+   * transparent box, so nothing is painted. Optional (rather than required
+   * `string | null`) to stay backward-compatible with templates serialised
+   * before #167, mirroring how `FieldBase.rotation` was added in #172.
+   * New fields seed it to `null` via `defaultTextStyle`.
+   */
+  backgroundColor?: string | null
   align: TextAlign
   verticalAlign: VerticalAlign
   maxRows: number

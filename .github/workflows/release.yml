@@ -1,24 +1,38 @@
 name: Release
 
-# Changesets-driven release pipeline.
+# Fully autonomous changesets release.
 #
-# How it works:
-#   1. Devs include a `.changeset/*.md` in their PRs (via `pnpm changeset`).
-#   2. When a PR merges to `main`, this workflow runs.
-#   3. If there are pending changesets, `changesets/action` opens (or
-#      updates) a "chore(release): version packages" PR that:
-#        - bumps every affected package.json version,
-#        - regenerates each package's CHANGELOG.md,
-#        - consumes (deletes) the .changeset/*.md files.
-#   4. When that release PR is merged, this workflow runs again. No
-#      pending changesets remain, so `changesets/action` switches to
-#      publish mode and runs `pnpm -r publish` for every non-private
-#      workspace package (`@template-goblin/types`, `template-goblin`,
-#      `template-goblin-ui`). Each tarball already carries its own
-#      README from the package root, so npm shows real docs.
+# On every push to `main`:
+#   1. If there are pending `.changeset/*.md` files, bump every affected
+#      package version + regenerate changelogs (`changeset version`),
+#      commit the result back to `main` as
+#      `chore(release): version packages [skip ci]` (the skip-ci marker
+#      stops that commit from re-triggering this workflow), then publish
+#      every public package to npm.
+#   2. If there are none, there is nothing to release and the job no-ops.
 #
-# Manual publishes still live in `publish-sdk.yml` (workflow_dispatch
-# only) as an escape hatch.
+# This removes the old two-step dance (merge feature PR → a bot opens a
+# "version packages" PR → a human merges THAT PR → publish). Authors still
+# add a changeset at push time (CLAUDE.md Rule #12); everything after the
+# merge to `main` is automatic.
+#
+# ── Publish auth (the E403 fix) ───────────────────────────────────────────
+# Publishing fails with `E403 … Two-factor authentication or granular access
+# token with bypass 2fa enabled is required` when `NPM_TOKEN` cannot satisfy
+# the npm account's 2FA-for-publish policy. Use ONE of:
+#   • a classic **Automation** token (npmjs.com → Access Tokens → Generate
+#     New Token → Classic → "Automation") — automation tokens bypass 2FA in
+#     CI and are the simplest fix; or
+#   • a **Granular Access Token** scoped to @template-goblin with
+#     "Read and write" packages permission.
+# Store it as the `NPM_TOKEN` repository secret (Settings → Secrets and
+# variables → Actions). A login/password token, or a token that prompts for
+# an OTP at publish time, will keep failing with E403.
+#
+# If branch protection blocks the github-actions bot from pushing the
+# version commit to `main`, allow it to bypass in Settings → Branches.
+#
+# `publish-sdk.yml` remains as a manual (workflow_dispatch) escape hatch.
 
 on:
   push:
@@ -26,7 +40,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
   id-token: write
 
 env:
@@ -34,15 +47,15 @@ env:
 
 jobs:
   release:
-    name: Version or publish via changesets
+    name: Version and publish via changesets
     runs-on: ubuntu-latest
     if: github.repository == 'JaiminPatel345/template-goblin'
 
     steps:
       - uses: actions/checkout@v4
         with:
-          # Full history is required so changeset can read commit
-          # context when generating release-PR bodies.
+          # Full history so changeset can read commit context, and so the
+          # version-bump commit can be pushed back to main.
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
@@ -63,28 +76,67 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Detect pending changesets
+        id: detect
+        run: |
+          if ls .changeset/*.md 2>/dev/null | grep -qv 'README\.md'; then
+            echo "has_changesets=true" >> "$GITHUB_OUTPUT"
+            echo "Pending changesets found — will version + publish."
+          else
+            echo "has_changesets=false" >> "$GITHUB_OUTPUT"
+            echo "No pending changesets — nothing to release."
+          fi
+          # Capture the SDK version BEFORE the bump so we can detect a major
+          # crossing afterwards (Rule #14 tag + release).
+          echo "core_before=$(node -p "require('./packages/core/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Apply version bump + changelogs
+        if: steps.detect.outputs.has_changesets == 'true'
+        run: pnpm changeset version
+
       - name: Build all packages
-        # `pnpm build` runs the per-package build scripts, which also
-        # copy README.md into each dist/. The pre-published tarball
-        # picks up README.md from the package root via the "files"
-        # array; the dist/ copy is for in-bundle consumers.
+        # Builds in dependency order (types → core → ui) and copies each
+        # package README into its dist/ for the published tarball.
+        if: steps.detect.outputs.has_changesets == 'true'
         run: pnpm build
 
-      - name: Create release PR or publish to npm
-        id: changesets
-        uses: changesets/action@v1
-        with:
-          # When there ARE pending changesets, this command runs and the
-          # action opens/updates a release PR with the resulting diff.
-          version: pnpm changeset version
-          # When there are NO pending changesets (state immediately after
-          # merging the release PR), this command runs to actually
-          # publish. --no-git-checks is required because changesets
-          # bumps versions without an extra git commit before publish.
-          publish: pnpm -r publish --no-git-checks --access public
-          commit: 'chore(release): version packages'
-          title: 'chore(release): version packages'
+      - name: Commit + push version bump
+        # Pushed BEFORE publish so a push failure (e.g. branch protection)
+        # aborts the run before anything reaches npm — keeping the repo and
+        # the registry in lockstep. `[skip ci]` stops the re-trigger loop.
+        if: steps.detect.outputs.has_changesets == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore(release): version packages [skip ci]"
+          git push
+
+      - name: Publish to npm
+        # `pnpm -r publish` skips any package whose version already exists on
+        # the registry, so re-runs and unbumped packages are safe no-ops.
+        if: steps.detect.outputs.has_changesets == 'true'
+        run: pnpm -r publish --no-git-checks --access public
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Tag + GitHub release on a major SDK bump (Rule #14)
+        # When `template-goblin` crosses a major (e.g. 1.x → 2.0.0), make the
+        # new major discoverable via an annotated git tag + a GitHub Release.
+        # Runs AFTER the version commit is pushed and the publish succeeded, so
+        # we never tag a local-only commit.
+        if: steps.detect.outputs.has_changesets == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BEFORE="${{ steps.detect.outputs.core_before }}"
+          AFTER="$(node -p "require('./packages/core/package.json').version")"
+          if [ "${BEFORE%%.*}" != "${AFTER%%.*}" ]; then
+            echo "Major bump: $BEFORE → $AFTER — tagging v$AFTER"
+            git tag -a "v$AFTER" -m "v$AFTER"
+            git push origin "v$AFTER"
+            gh release create "v$AFTER" --generate-notes --title "v$AFTER"
+          else
+            echo "No major SDK bump ($BEFORE → $AFTER) — no tag/release needed."
+          fi

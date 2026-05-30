@@ -55,6 +55,7 @@
     "@types/node": "^25.6.0",
     "@types/pdfkit": "^0.13.5",
     "jest": "^29.7.0",
+    "pdfjs-dist": "3.11.174",
     "ts-jest": "^29.2.5",
     "typescript": "^5.7.2"
   },
@@ -62,5 +63,6 @@
     "@template-goblin/types": "workspace:*"
   },
   "comment:adm-zip": "ZIP extraction/creation for .tgbl files (Node.js)",
-  "comment:pdfkit": "PDF generation engine — renders text, images, tables to PDF Buffer"
+  "comment:pdfkit": "PDF generation engine — renders text, images, tables to PDF Buffer",
+  "comment:pdfjs-dist": "DEV-ONLY: parses generated PDFs in tests to assert layout/geometry (text positions + spacing) matches the template/canvas. Pinned to v3 (last major with a CommonJS legacy build) because the Jest runtime here evaluates node_modules as CJS."
 }

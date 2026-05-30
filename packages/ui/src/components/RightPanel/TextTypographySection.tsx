@@ -6,6 +6,8 @@
 import type { TextField, TextFieldStyle } from '@template-goblin/types'
 import { NumberInput } from '../NumberInput.js'
 import { ColorPickerPopover } from '../ColorPickerPopover.js'
+import { NullableColorInput } from '../NullableColorInput.js'
+import { StyleToggleGroup } from '../StyleToggleGroup.js'
 import { InfoTip } from './InfoTip.js'
 
 interface Props {
@@ -97,63 +99,20 @@ export function TextTypographySection({
         </div>
       )}
 
+      {/* #167 — B / I / U / S inline toggles replace the old Font Weight /
+          Font Style / Text Decoration dropdowns. Underline and strikethrough
+          share `textDecoration`, so they are mutually exclusive. */}
       <div className="tg-form-row">
-        <label>Font Weight</label>
-        <select
-          className="tg-select"
-          value={style.fontWeight}
-          onChange={(e) =>
-            updateFieldStyle(field.id, { fontWeight: e.target.value as 'normal' | 'bold' })
-          }
-        >
-          <option value="normal">Normal</option>
-          <option value="bold">Bold</option>
-        </select>
-      </div>
-
-      <div className="tg-form-row">
-        <label>Font Style</label>
-        <select
-          className="tg-select"
-          value={style.fontStyle}
-          onChange={(e) =>
-            updateFieldStyle(field.id, { fontStyle: e.target.value as 'normal' | 'italic' })
-          }
-        >
-          <option value="normal">Normal</option>
-          <option value="italic">Italic</option>
-        </select>
-      </div>
-
-      <div className="tg-form-row">
-        <label>Text Decoration</label>
-        <select
-          className="tg-select"
-          // The displayed value collapses fontWeight=bold into the dropdown
-          // so the user has a single "format" picker. When the user changes
-          // the value, we write to fontWeight or textDecoration accordingly
-          // so each store field still stays single-purposed.
-          value={style.fontWeight === 'bold' ? 'bold' : style.textDecoration}
-          onChange={(e) => {
-            const v = e.target.value
-            if (v === 'bold') {
-              updateFieldStyle(field.id, {
-                fontWeight: 'bold',
-                textDecoration: 'none',
-              })
-            } else {
-              updateFieldStyle(field.id, {
-                fontWeight: 'normal',
-                textDecoration: v as 'none' | 'underline' | 'line-through',
-              })
-            }
+        <label>Style</label>
+        <StyleToggleGroup
+          value={{
+            fontWeight: style.fontWeight,
+            fontStyle: style.fontStyle,
+            textDecoration: style.textDecoration,
           }}
-        >
-          <option value="none">None</option>
-          <option value="underline">Underline</option>
-          <option value="line-through">Line Through</option>
-          <option value="bold">Bold</option>
-        </select>
+          onChange={(patch) => updateFieldStyle(field.id, patch)}
+          testIdPrefix="panel"
+        />
       </div>
 
       <div className="tg-form-row">
@@ -162,6 +121,18 @@ export function TextTypographySection({
           value={style.color}
           onChange={(c) => updateFieldStyle(field.id, { color: c })}
           ariaLabel="Text color"
+        />
+      </div>
+
+      <div className="tg-form-row">
+        <label>
+          Background
+          <InfoTip text="Fill colour painted behind the text. Leave transparent for no fill." />
+        </label>
+        <NullableColorInput
+          value={style.backgroundColor ?? null}
+          onChange={(v) => updateFieldStyle(field.id, { backgroundColor: v })}
+          ariaLabel="Text background color"
         />
       </div>
     </div>

@@ -1,16 +1,13 @@
 import { useUiStore } from '../../../store/uiStore.js'
 import { RibbonGroup } from '../primitives/RibbonGroup.js'
 import { RibbonButton } from '../primitives/RibbonButton.js'
+import { TextStyleRibbonGroup } from './TextStyleRibbonGroup.js'
 
 /**
- * Format ribbon (#128). Most formatting controls live in the
- * field-properties panel today; this ribbon surfaces a deliberate
- * subset of selection-aware shortcuts (panel toggle + Fonts manager)
- * and degrades gracefully when nothing is selected — the buttons are
- * either disabled or document-wide actions only.
- *
- * Future work (#62, #64): bring inline font / colour / alignment
- * controls into this ribbon when a text field is selected.
+ * Format ribbon (#128). Surfaces selection-aware formatting shortcuts
+ * (panel toggle, the #167 Text-style group, Fonts manager) and degrades
+ * gracefully when nothing is selected — the Text-style controls disable
+ * and the rest stay document-wide.
  */
 export function FormatRibbon() {
   const showLeftPanel = useUiStore((s) => s.showLeftPanel)
@@ -31,6 +28,7 @@ export function FormatRibbon() {
           testid="ribbon-toggle-properties"
         />
       </RibbonGroup>
+      <TextStyleRibbonGroup />
       <RibbonGroup label="Typography">
         <RibbonButton
           label="Font Manager"

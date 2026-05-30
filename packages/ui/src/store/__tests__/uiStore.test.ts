@@ -15,6 +15,7 @@ function resetStore(): void {
     maxModeRepeatCount: 5,
     showRightPanel: true,
     showLeftPanel: true,
+    showSelectionToolbar: true,
     showPageSizeDialog: false,
     showFontManager: false,
     pendingBackground: null,
@@ -274,6 +275,25 @@ describe('uiStore', () => {
       useUiStore.getState().setPreviewJsonText('{"texts":{"name":"x"}}')
       useUiStore.getState().setPreviewJsonText(null)
       expect(useUiStore.getState().previewJsonText).toBeNull()
+    })
+  })
+
+  /* -- Selection toolbar (#167) -- */
+
+  describe('setShowSelectionToolbar', () => {
+    it('defaults to true (toolbar shown until hidden)', () => {
+      expect(useUiStore.getState().showSelectionToolbar).toBe(true)
+    })
+
+    it('hides the toolbar when set false (the eye-off button)', () => {
+      useUiStore.getState().setShowSelectionToolbar(false)
+      expect(useUiStore.getState().showSelectionToolbar).toBe(false)
+    })
+
+    it('re-shows the toolbar when set true (View → Selection toolbar)', () => {
+      useUiStore.getState().setShowSelectionToolbar(false)
+      useUiStore.getState().setShowSelectionToolbar(true)
+      expect(useUiStore.getState().showSelectionToolbar).toBe(true)
     })
   })
 
