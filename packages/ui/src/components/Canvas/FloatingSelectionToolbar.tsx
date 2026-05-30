@@ -25,7 +25,7 @@ import { StyleToggleGroup } from '../StyleToggleGroup.js'
 import { NumberInput } from '../NumberInput.js'
 import { ColorPickerPopover } from '../ColorPickerPopover.js'
 import { NullableColorInput } from '../NullableColorInput.js'
-import { RotationDial } from '../RotationDial.js'
+import { RotationControl } from '../RotationControl.js'
 import { EyeOffIcon } from '../icons/index.js'
 
 const TOOLBAR_HEIGHT = 40
@@ -121,9 +121,9 @@ export function FloatingSelectionToolbar({ fabric }: Props) {
 
       <span aria-hidden style={{ width: 1, height: 22, background: 'var(--border)' }} />
 
-      {/* Rotation dial — reachable here even though the toolbar overlays
-          Fabric's rotate handle. Writes field.rotation (null when 0). */}
-      <RotationDial
+      {/* Rotation control — compact trigger; opens a popover with a large dial
+          + numeric input. Writes field.rotation (null when 0). */}
+      <RotationControl
         value={angle}
         onChange={(deg) => updateField(field.id, { rotation: deg === 0 ? null : deg })}
       />
