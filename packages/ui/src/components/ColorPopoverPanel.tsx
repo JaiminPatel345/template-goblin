@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { HexColorPicker } from 'react-colorful'
 import { CHECKER_STYLE, COLOR_PRESETS } from './colorSwatch.js'
 
@@ -30,7 +31,11 @@ export function ColorPopoverPanel({
   const isTransparent = !value
   const safePickerColor = value && /^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000'
 
-  return (
+  // Portal to <body> so the fixed popover anchors to the viewport, not a
+  // transformed ancestor (e.g. the floating selection toolbar's
+  // `translateX(-50%)`), which would otherwise become its containing block and
+  // shove it off-position (#167).
+  return createPortal(
     <div
       ref={popoverRef}
       role="dialog"
@@ -141,6 +146,7 @@ export function ColorPopoverPanel({
           Transparent (no fill)
         </button>
       )}
-    </div>
+    </div>,
+    document.body,
   )
 }

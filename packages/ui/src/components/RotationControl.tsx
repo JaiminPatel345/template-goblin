@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { DialFace, RotationDial } from './RotationDial.js'
 import { NumberInput } from './NumberInput.js'
 import { usePopoverAnchor } from './usePopoverAnchor.js'
@@ -45,64 +46,72 @@ export function RotationControl({ value, onChange }: Props) {
         <span style={{ fontSize: 11, minWidth: 26, textAlign: 'left' }}>{value}°</span>
       </button>
 
-      {open && position && (
-        <div
-          ref={popoverRef}
-          role="dialog"
-          aria-label="Rotation"
-          data-testid="rotation-popover"
-          style={{
-            position: 'fixed',
-            top: position.top,
-            left: position.left,
-            zIndex: 2000,
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            padding: 12,
-            width: 168,
-            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <RotationDial value={value} onChange={onChange} size={130} />
-          </div>
+      {open &&
+        position &&
+        // Portal to <body> so the fixed popover is positioned against the
+        // viewport, not the floating toolbar — that toolbar uses
+        // `transform: translateX(-50%)`, and a transformed ancestor becomes
+        // the containing block for `position: fixed` descendants, which
+        // otherwise pushed this popover off over the right panel (#167).
+        createPortal(
+          <div
+            ref={popoverRef}
+            role="dialog"
+            aria-label="Rotation"
+            data-testid="rotation-popover"
+            style={{
+              position: 'fixed',
+              top: position.top,
+              left: position.left,
+              zIndex: 2000,
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              padding: 12,
+              width: 168,
+              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <RotationDial value={value} onChange={onChange} size={130} />
+            </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>Angle</label>
-            <NumberInput
-              value={value}
-              min={0}
-              max={360}
-              defaultValue={0}
-              onChange={(v) => onChange(norm(v))}
-              style={{ width: 64, height: 26 }}
-              data-testid="rotation-angle-input"
-            />
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>°</span>
-          </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
+              <label style={{ fontSize: 11, color: 'var(--text-muted)' }}>Angle</label>
+              <NumberInput
+                value={value}
+                min={0}
+                max={360}
+                defaultValue={0}
+                onChange={(v) => onChange(norm(v))}
+                style={{ width: 64, height: 26 }}
+                data-testid="rotation-angle-input"
+              />
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>°</span>
+            </div>
 
-          <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-            {PRESETS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                className="tg-btn"
-                onClick={() => onChange(p)}
-                style={{
-                  flex: 1,
-                  fontSize: 11,
-                  padding: '3px 0',
-                  justifyContent: 'center',
-                  ...(value === p ? { borderColor: 'var(--accent)' } : {}),
-                }}
-              >
-                {p}°
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+            <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+              {PRESETS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className="tg-btn"
+                  onClick={() => onChange(p)}
+                  style={{
+                    flex: 1,
+                    fontSize: 11,
+                    padding: '3px 0',
+                    justifyContent: 'center',
+                    ...(value === p ? { borderColor: 'var(--accent)' } : {}),
+                  }}
+                >
+                  {p}°
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body,
+        )}
     </span>
   )
 }
