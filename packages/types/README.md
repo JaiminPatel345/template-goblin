@@ -31,5 +31,3 @@ If you're just rendering PDFs from a designed template, [`template-goblin`](http
 - 📖 **Repo, docs, and examples** — https://github.com/JaiminPatel345/template-goblin
 - 🐛 **Issues** — https://github.com/JaiminPatel345/template-goblin/issues
 - 📄 **License** — MIT
-
-> 🚧 **Pre-1.0** — schema fields may be added, renamed, or removed between minor versions.
