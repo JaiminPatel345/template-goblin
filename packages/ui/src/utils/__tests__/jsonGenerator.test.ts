@@ -4,6 +4,7 @@ import {
   IMAGE_PLACEHOLDER_SENTINEL,
   isPlaceholderImageSentinel,
 } from '../jsonGenerator.js'
+import { fieldCanvasLabel } from '../../components/Canvas/fieldLabel.js'
 import type {
   FieldDefinition,
   TextFieldStyle,
@@ -128,9 +129,11 @@ function tableField(jsonKey: string, required = true, maxRows = 10): FieldDefini
 
 describe('generateExampleJson', () => {
   describe('default mode', () => {
-    it('returns "A" for required text fields', () => {
+    // #174 — a required text field with no placeholder previews as its own
+    // jsonKey so the canvas is self-describing.
+    it('returns the jsonKey for required text fields', () => {
       const result = generateExampleJson([textField('name')], 'default', 5)
-      expect(result.texts.name).toBe('A')
+      expect(result.texts.name).toBe('name')
     })
 
     it('returns "" for optional text fields', () => {
@@ -169,11 +172,11 @@ describe('generateExampleJson', () => {
       expect(result.texts.name).toBe('Alice')
     })
 
-    it('falls back to "A" when placeholder is empty / null', () => {
+    it('falls back to the jsonKey when placeholder is empty / null (#174)', () => {
       const f = textField('name')
       ;(f.source as { mode: 'dynamic'; placeholder: string | null }).placeholder = ''
       const result = generateExampleJson([f], 'default', 5)
-      expect(result.texts.name).toBe('A')
+      expect(result.texts.name).toBe('name')
     })
 
     it('uses the first row of source.placeholder for tables when supplied', () => {
@@ -277,7 +280,7 @@ describe('generateExampleJson', () => {
       ]
 
       const defaultResult = generateExampleJson(fields, 'default', 5)
-      expect(defaultResult.texts.name).toBe('A')
+      expect(defaultResult.texts.name).toBe('name')
       expect(defaultResult.texts.school).toBe('')
       expect(defaultResult.images.photo).toBe('<base64-image-data>')
       expect(defaultResult.tables.marks).toHaveLength(1)
@@ -287,6 +290,64 @@ describe('generateExampleJson', () => {
       expect(maxResult.texts.school).toContain('It works in my machine')
       expect(maxResult.images.photo).toBe('<base64-image-data>')
       expect(maxResult.tables.marks).toHaveLength(3)
+    })
+  })
+
+  // #174 — the canvas renders a dynamic text field from the generated JSON
+  // value when non-empty, else from `fieldCanvasLabel`. These tests assert
+  // the two sources stay IN SYNC: whichever path the canvas takes, a
+  // key-named field with no placeholder always previews as its own jsonKey,
+  // and a placeholder always wins on both paths.
+  describe('canvas ↔ JSON preview sync (#174)', () => {
+    /** Mirrors `labelFor` in buildGroupChildren.ts: JSON value wins, else fieldCanvasLabel. */
+    function canvasLabel(field: FieldDefinition, texts: Record<string, string>): string {
+      if (field.source?.mode !== 'dynamic') return fieldCanvasLabel(field)
+      const value = texts[field.source.jsonKey]
+      if (typeof value === 'string' && value.length > 0) return value
+      return fieldCanvasLabel(field)
+    }
+
+    it('required text without placeholder: JSON value, canvas label, and fallback all equal the jsonKey', () => {
+      const f = textField('student_name')
+      const json = generateExampleJson([f], 'default', 5)
+      expect(json.texts.student_name).toBe('student_name')
+      expect(fieldCanvasLabel(f)).toBe('student_name')
+      expect(canvasLabel(f, json.texts)).toBe('student_name')
+    })
+
+    it('optional text without placeholder: JSON stays "", canvas still shows the jsonKey via fallback', () => {
+      const f = textField('school', false)
+      const json = generateExampleJson([f], 'default', 5)
+      expect(json.texts.school).toBe('')
+      expect(canvasLabel(f, json.texts)).toBe('school')
+    })
+
+    it('placeholder wins over the jsonKey on both paths', () => {
+      const f = textField('student_name')
+      ;(f.source as { mode: 'dynamic'; placeholder: string | null }).placeholder = 'Alice'
+      const json = generateExampleJson([f], 'default', 5)
+      expect(json.texts.student_name).toBe('Alice')
+      expect(fieldCanvasLabel(f)).toBe('Alice')
+      expect(canvasLabel(f, json.texts)).toBe('Alice')
+    })
+
+    it('max mode is untouched — bulk text, not the jsonKey', () => {
+      const f = textField('student_name')
+      const json = generateExampleJson([f], 'max', 2)
+      expect(json.texts.student_name).toContain('It works in my machine')
+      expect(json.texts.student_name).not.toBe('student_name')
+    })
+
+    it('table cells keep the synthetic "A" row (tables already self-describe via column labels)', () => {
+      const json = generateExampleJson([tableField('marks')], 'default', 5)
+      expect(json.tables.marks![0]).toEqual({ name: 'A', grade: 'A' })
+    })
+
+    it('does not change the stored field definition (canvas-preview only)', () => {
+      const f = textField('student_name')
+      const before = JSON.stringify(f)
+      generateExampleJson([f], 'default', 5)
+      expect(JSON.stringify(f)).toBe(before)
     })
   })
 

@@ -5,10 +5,10 @@ import type { FieldDefinition } from '@template-goblin/types'
  *
  * - `'default'` — minimal sample with each text/image filled from the
  *   field's `source.placeholder` (when set) or a synthetic fallback
- *   (`'A'` / `'<base64-image-data>'`). Tables get one row sourced from
- *   `source.placeholder[0]` when set, otherwise one row of `'A'`s. This
- *   is the JSON the right-panel textarea always shows when no user pin
- *   is active.
+ *   (the field's own `jsonKey` for texts (#174), `'<base64-image-data>'`
+ *   for images). Tables get one row sourced from `source.placeholder[0]`
+ *   when set, otherwise one row of `'A'`s. This is the JSON the
+ *   right-panel textarea always shows when no user pin is active.
  * - `'max'` — every text gets a long repeated string and every table
  *   gets `style.maxRows` rows. Used by the **Max Fill** button to seed
  *   bulk test data — the result is written into `previewJsonText` as a
@@ -97,7 +97,7 @@ export function generateExampleJson(
       if (name) {
         switch (field.type) {
           case 'text':
-            result.texts[name] = getTextValue(mode, required, repeatCount, placeholder)
+            result.texts[name] = getTextValue(mode, required, repeatCount, placeholder, name)
             break
           case 'image':
             result.images[name] = getImageValue(mode, required, placeholder, imageDataUrls)
@@ -140,16 +140,20 @@ function getTextValue(
   required: boolean,
   repeatCount: number,
   placeholder: unknown,
+  jsonKey: string,
 ): string {
   if (mode === 'max') {
     return 'It works in my machine '.repeat(repeatCount).trim()
   }
   // GH #25 / #90: when the user typed a placeholder for the dynamic field,
   // surface it as the JSON mock value so what they see in the panel matches
-  // the canvas + preview. Fall back to the synthetic 'A' / '' only when no
-  // placeholder exists.
+  // the canvas + preview.
   if (typeof placeholder === 'string' && placeholder.length > 0) return placeholder
-  return required ? 'A' : ''
+  // #174: with no placeholder, a required field previews as its own jsonKey
+  // (not a generic 'A') so the canvas is self-describing — each dynamic
+  // field shows what it binds to. Optional fields stay '' in the JSON;
+  // the canvas falls back to the jsonKey via `fieldCanvasLabel` anyway.
+  return required ? jsonKey : ''
 }
 
 function getImageValue(
