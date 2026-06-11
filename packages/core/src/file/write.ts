@@ -56,7 +56,12 @@ export async function saveTemplate(
       for (const page of sortedPages) {
         const bgBuffer = assets.pageBackgrounds.get(page.id)
         if (bgBuffer) {
-          const filename = `${BACKGROUNDS_DIR}page-${page.index}.png`
+          // The loader resolves backgrounds via `page.backgroundFilename`
+          // — writing under a synthetic index-based name orphaned every
+          // per-page background on the very next load. Honour the
+          // manifest's filename; the index name remains only as the
+          // legacy fallback for pages that never set one.
+          const filename = page.backgroundFilename ?? `${BACKGROUNDS_DIR}page-${page.index}.png`
           zip.addFile(filename, bgBuffer)
         }
       }

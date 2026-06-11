@@ -20,6 +20,7 @@ export type ErrorCode =
   | 'INVALID_TABLE_ROW'
   | 'FIELD_OVERLAPS_BAND'
   | 'PAGE_NUMBER_PLACEMENT_INVALID'
+  | 'INVALID_ARGUMENT'
 
 /** Base error class for all TemplateGoblin errors */
 export class TemplateGoblinError extends Error {

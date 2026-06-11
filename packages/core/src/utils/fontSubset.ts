@@ -1,4 +1,5 @@
 import type { TemplateManifest } from '@template-goblin/types'
+import { allManifestFields } from './manifestFields.js'
 
 /**
  * Common characters to always include in subsetted fonts.
@@ -29,7 +30,19 @@ for (const ch of EXTENDED) {
 export function extractUsedCodePoints(manifest: TemplateManifest): Set<number> {
   const codePoints = new Set(COMMON_CHARS)
 
-  for (const field of manifest.fields) {
+  // #61 — band fields render text too; pageNumber stamps digits, roman
+  // numerals, and the user's prefix/suffix. Subsetting only body fields
+  // would render band/page-number glyphs as tofu once real subsetting
+  // is wired in.
+  if (manifest.pageNumber) {
+    addStringCodePoints(codePoints, '0123456789ivxlcdmIVXLCDM/ ')
+    const pn = manifest.pageNumber as { format?: string; prefix?: string; suffix?: string }
+    if (typeof pn.format === 'string') addStringCodePoints(codePoints, pn.format)
+    if (typeof pn.prefix === 'string') addStringCodePoints(codePoints, pn.prefix)
+    if (typeof pn.suffix === 'string') addStringCodePoints(codePoints, pn.suffix)
+  }
+
+  for (const field of allManifestFields(manifest)) {
     // Collect text from source (static value for text; placeholder string for dynamic text)
     if (field.type === 'text') {
       if (field.source.mode === 'static') {

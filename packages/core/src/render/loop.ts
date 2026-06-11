@@ -74,7 +74,8 @@ export function renderLoop(
       // so each page's table chunk has all four edges (#65).
       drawTablePerimeter(doc, x, y, width, field.height, style)
 
-      doc.addPage({ size: [meta.width, meta.height] })
+      // margin: 0 — addPage REPLACES constructor options (see generate.ts).
+      doc.addPage({ size: [meta.width, meta.height], margin: 0 })
       renderBackground(doc, backgroundImage, meta)
 
       currentY = y
@@ -193,7 +194,13 @@ function renderHeaderRow(
     )
     const textWidth = colWidth - hs.paddingLeft - hs.paddingRight
 
-    const headerLabel = col.label || col.key
+    // Truncate to the cell box exactly like data cells do — a long
+    // column label painted past the column edge (Hard Rule #10).
+    const rawLabel = col.label || col.key
+    const measured = measureText(doc, rawLabel, hs.fontSize, textWidth, 1)
+    const headerLabel = measured.fits
+      ? rawLabel
+      : (truncateLines(doc, measured.lines, 1, textWidth)[0] ?? '')
     doc.text(headerLabel, textX, textY, {
       width: textWidth,
       align: hs.align,

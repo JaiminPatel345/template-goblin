@@ -1,5 +1,6 @@
 import { fork } from 'node:child_process'
 import { cpus } from 'node:os'
+import { TemplateGoblinError } from '@template-goblin/types'
 import type { LoadedTemplate, InputJSON } from '@template-goblin/types'
 import { generatePDF } from './generate.js'
 
@@ -90,7 +91,10 @@ export async function generateBatchPDF(
   const { concurrency = cpus().length, parallel = true, onProgress, workerPath } = options
 
   if (dataArray.length > MAX_BATCH_SIZE) {
-    throw new Error(`Batch size ${dataArray.length} exceeds maximum of ${MAX_BATCH_SIZE}`)
+    throw new TemplateGoblinError(
+      'INVALID_ARGUMENT',
+      `Batch size ${dataArray.length} exceeds maximum of ${MAX_BATCH_SIZE}`,
+    )
   }
 
   if (!parallel || dataArray.length <= 1) {
@@ -103,7 +107,10 @@ export async function generateBatchPDF(
   let completed = 0
 
   if (!workerPath) {
-    throw new Error('workerPath is required when parallel=true. Pass the path to batch-worker.js.')
+    throw new TemplateGoblinError(
+      'INVALID_ARGUMENT',
+      'workerPath is required when parallel=true. Pass the path to batch-worker.js.',
+    )
   }
   const resolvedWorkerPath: string = workerPath
 
@@ -118,34 +125,50 @@ export async function generateBatchPDF(
 
       const child = fork(resolvedWorkerPath, [], { serialization: 'json' })
 
+      // Exactly ONE settlement per worker slot — `message`, `error`, and
+      // `exit` can all fire for the same child, and a child killed by the
+      // OS (OOM, segfault) fires ONLY `exit`. Without the exit handler a
+      // dead worker left `completed` short forever and the batch promise
+      // never resolved.
+      let settled = false
+      function settle(result: BatchResult) {
+        if (settled) return
+        settled = true
+        results[index] = result
+        completed++
+        onProgress?.(completed, dataArray.length)
+
+        if (completed === dataArray.length) {
+          resolve(results)
+        } else {
+          spawnNext()
+        }
+      }
+
       child.on('message', (msg: { success: boolean; pdf?: string; error?: string }) => {
-        results[index] = {
+        settle({
           index,
           success: msg.success,
           pdf: msg.pdf ? Buffer.from(msg.pdf, 'base64') : undefined,
           error: msg.error,
-        }
-
-        completed++
-        onProgress?.(completed, dataArray.length)
-
-        if (completed === dataArray.length) {
-          resolve(results)
-        } else {
-          spawnNext()
-        }
+        })
       })
 
       child.on('error', (err) => {
-        results[index] = { index, success: false, error: err.message }
-        completed++
-        onProgress?.(completed, dataArray.length)
+        settle({ index, success: false, error: err.message })
+      })
 
-        if (completed === dataArray.length) {
-          resolve(results)
-        } else {
-          spawnNext()
-        }
+      child.on('exit', (code, signal) => {
+        // A healthy worker sends its result and exits immediately — give an
+        // already-delivered `message` event one tick of priority so a clean
+        // exit can't race its own reply into a false failure.
+        setImmediate(() =>
+          settle({
+            index,
+            success: false,
+            error: `Worker exited before replying (code ${code ?? 'null'}, signal ${signal ?? 'null'})`,
+          }),
+        )
       })
 
       child.send({ template: serialized, data })
