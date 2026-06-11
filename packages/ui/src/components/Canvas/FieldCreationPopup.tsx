@@ -258,6 +258,7 @@ export function FieldCreationPopup({
                   <input
                     type="text"
                     className="tg-input"
+                    style={{ flex: 1 }}
                     value={jsonKey}
                     onChange={(e) => setJsonKey(e.target.value)}
                     placeholder={draft.type === 'text' ? 'student_name' : draft.type}
@@ -266,18 +267,20 @@ export function FieldCreationPopup({
                 </div>
               </label>
 
-              <label className="tg-field-row tg-field-row--inline">
-                <input
-                  type="checkbox"
-                  checked={required}
-                  onChange={(e) => setRequired(e.target.checked)}
-                  data-testid="create-popup-required"
-                />
-                <span>Required</span>
-                <span className="tg-field-hint" style={{ marginLeft: 6 }}>
+              <div className="tg-field-row">
+                <label className="tg-field-row tg-field-row--inline" style={{ cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={required}
+                    onChange={(e) => setRequired(e.target.checked)}
+                    data-testid="create-popup-required"
+                  />
+                  <span>Required</span>
+                </label>
+                <span className="tg-field-hint">
                   If unchecked, missing values at PDF generation are silently skipped.
                 </span>
-              </label>
+              </div>
 
               {!required && draft.type === 'text' && (
                 <label className="tg-field-row">
