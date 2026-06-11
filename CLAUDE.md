@@ -104,7 +104,15 @@ developers use the npm library to generate PDFs at scale.
     supersedes Rule #15's "do exactly what is asked" for these
     specific phrases: the merge is the asked action and ALL of
     (a)-(g) are part of it.
-19. **Clarify before starting — both when filing an issue and when
+19. **Never work directly on `main` — branch first, always.** Before
+    writing ANY change (code, docs, examples, configs), create / switch
+    to a feature branch (`feature/<issue-or-topic>-<short-name>`). This
+    applies to documentation-only and examples-only changes too — there
+    are no "small enough" exceptions. If changes were accidentally
+    started on `main`, move them to a branch immediately (uncommitted
+    work carries over on `git switch -c <branch>`). `main` only ever
+    advances via PR merges.
+20. **Clarify before starting — both when filing an issue and when
     starting work on one.** If anything about the requested change
     is ambiguous (acceptance scope, edge cases, backward compat,
     cut-point / cap / default values, which surfaces are in scope,

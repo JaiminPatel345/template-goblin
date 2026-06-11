@@ -39,5 +39,3 @@ await writeFile('out.pdf', pdf)
 - 📖 **Full docs and examples** — https://github.com/JaiminPatel345/template-goblin
 - 🐛 **Issues & feature requests** — https://github.com/JaiminPatel345/template-goblin/issues
 - 📄 **License** — MIT
-
-> 🚧 **Pre-1.0** — UI workflows and the `.tgbl` file format may change between minor versions.

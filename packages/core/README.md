@@ -41,5 +41,3 @@ Types live in [`@template-goblin/types`](https://www.npmjs.com/package/@template
 - 📖 **Full docs, examples, and the visual builder** — https://github.com/JaiminPatel345/template-goblin
 - 🐛 **Issues & feature requests** — https://github.com/JaiminPatel345/template-goblin/issues
 - 📄 **License** — MIT
-
-> 🚧 **Pre-1.0** — APIs and the `.tgbl` format may change between minor versions. See the repo for the current status.
