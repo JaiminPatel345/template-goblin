@@ -39,6 +39,20 @@ export function sniffImageMime(bytes: Uint8Array): string | null {
 }
 
 /**
+ * Convert raw image bytes to a `data:` URL, sniffing the MIME type from
+ * the magic bytes (defaults to `image/png`). Shared by the thumbnail map
+ * below and the static-image store mirror.
+ */
+export function bufferToDataUrl(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i] ?? 0)
+  const base64 = btoa(binary)
+  const mime = sniffImageMime(bytes) ?? 'image/png'
+  return `data:${mime};base64,${base64}`
+}
+
+/**
  * Build a `filename → dataUrl` map covering both static images (already
  * stored as data URLs) and dynamic-image placeholders (stored as raw
  * `ArrayBuffer`s). Used by the upload-row thumbnails. Static URLs win on
@@ -57,12 +71,7 @@ export function buildImageDataUrlMap(
   for (const [filename, buffer] of placeholderBuffers) {
     if (map.has(filename)) continue
     try {
-      const bytes = new Uint8Array(buffer)
-      let binary = ''
-      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i] ?? 0)
-      const base64 = btoa(binary)
-      const mime = sniffImageMime(bytes) ?? 'image/png'
-      map.set(filename, `data:${mime};base64,${base64}`)
+      map.set(filename, bufferToDataUrl(buffer))
     } catch {
       // Corrupt buffer — skip; the upload row falls back to a blank thumb.
     }
