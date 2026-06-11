@@ -272,6 +272,10 @@ test.describe('JSON Preview — single-source projection', () => {
   })
 
   test('adding a table column updates the projection', async ({ page }) => {
+    // First click anywhere collapses the ribbon (#159) and reflows the
+    // panels, swallowing that click — spend it on the textarea so the
+    // add-column click below lands reliably.
+    await textarea(page).click()
     await page.evaluate(() => {
       interface FabricLike {
         getObjects(): Array<{ __fieldId?: string }>
