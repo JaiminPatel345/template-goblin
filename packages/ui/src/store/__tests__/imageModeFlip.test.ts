@@ -123,8 +123,14 @@ describe('setFieldMode — image bytes follow the filename across pools', () => 
     store.setFieldMode('img-3', 'dynamic')
     store.setFieldMode('img-3', 'static')
 
+    // The renderer handover carries the pool the field's CURRENT mode
+    // reads (static → staticImages); the stale placeholder copy is swept
+    // from the handover but kept in the store so undoing a flip still
+    // finds its bytes.
     expect(loaded().staticImages.get('placeholders/pic.png')?.length).toBeGreaterThan(0)
-    expect(loaded().placeholders.get('placeholders/pic.png')?.length).toBeGreaterThan(0)
+    expect(loaded().placeholders.has('placeholders/pic.png')).toBe(false)
+    expect(useTemplateStore.getState().placeholderBuffers.has('placeholders/pic.png')).toBe(true)
+    expect(useTemplateStore.getState().staticImageBuffers.has('placeholders/pic.png')).toBe(true)
   })
 
   it('solid-colour static images flip without touching the pools (#81)', () => {

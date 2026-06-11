@@ -17,6 +17,10 @@
     "./validateManifest": {
       "types": "./dist/validateManifest.d.ts",
       "import": "./dist/validateManifest.js"
+    },
+    "./assetRefs": {
+      "types": "./dist/assetRefs.d.ts",
+      "import": "./dist/assetRefs.js"
     }
   },
   "license": "MIT",

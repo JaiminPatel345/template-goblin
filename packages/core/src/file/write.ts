@@ -13,6 +13,7 @@ import {
   PLACEHOLDERS_DIR,
 } from './constants.js'
 import { subsetTemplateFonts } from '../utils/fontSubset.js'
+import { collectReferencedImageAssets } from '../assetRefs.js'
 
 /**
  * Save a template as a .tgbl ZIP file.
@@ -68,8 +69,15 @@ export async function saveTemplate(
       zip.addFile(filename, fontBuffer)
     }
 
+    // Image pools are append-only while a template is edited (eager
+    // deletion would break editor undo and shared-filename fields), so
+    // they may carry orphans from deleted / replaced / mode-flipped
+    // fields. Sweep here: persist only what the manifest references.
+    const refs = collectReferencedImageAssets(manifest)
+
     // REQ: placeholder images stored as real binaries under placeholders/
     for (const [name, imageBuffer] of assets.placeholders) {
+      if (!refs.placeholders.has(name)) continue
       const filename = name.startsWith(PLACEHOLDERS_DIR) ? name : `${PLACEHOLDERS_DIR}${name}`
       zip.addFile(filename, imageBuffer)
     }
@@ -77,6 +85,7 @@ export async function saveTemplate(
     // REQ: static image assets stored as real binaries under images/
     if (assets.staticImages) {
       for (const [name, imageBuffer] of assets.staticImages) {
+        if (!refs.staticImages.has(name)) continue
         const filename = name.startsWith(IMAGES_DIR) ? name : `${IMAGES_DIR}${name}`
         zip.addFile(filename, imageBuffer)
       }

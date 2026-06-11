@@ -185,7 +185,14 @@ describe('saveTemplate', () => {
   })
 
   it('should include placeholders under the placeholders/ directory', async () => {
-    const manifest = createValidManifest()
+    // The writer only persists pool entries the manifest references
+    // (orphan sweep) — give each placeholder an owning dynamic field.
+    const manifest = createValidManifest({
+      fields: [
+        dynImage('f-avatar', 'avatar', false, {}, undefined, { filename: 'avatar.png' }),
+        dynImage('f-logo', 'logo', false, {}, undefined, { filename: 'logo.png' }),
+      ],
+    })
     const placeholder1 = Buffer.from('placeholder-image-1')
     const placeholder2 = Buffer.from('placeholder-image-2')
     const assets: TemplateAssets = {
@@ -209,7 +216,13 @@ describe('saveTemplate', () => {
   })
 
   it('should not double-prefix placeholders that already start with placeholders/', async () => {
-    const manifest = createValidManifest()
+    const manifest = createValidManifest({
+      fields: [
+        dynImage('f1', 'pic', false, {}, undefined, {
+          filename: 'placeholders/already-prefixed.png',
+        }),
+      ],
+    })
     const imgData = Buffer.from('img-bytes')
     const assets: TemplateAssets = {
       ...createEmptyAssets(),
@@ -239,6 +252,7 @@ describe('saveTemplate', () => {
   it('should produce a complete ZIP with all asset types', async () => {
     const manifest = createValidManifest({
       fonts: [{ id: 'myfont', name: 'MyFont', filename: 'fonts/myfont.ttf' }],
+      fields: [dynImage('f-thumb', 'thumb', false, {}, undefined, { filename: 'thumb.png' })],
     })
     const bgData = Buffer.from('background-bytes')
     const fontData = Buffer.from('font-bytes')
@@ -329,6 +343,7 @@ describe('roundtrip: save then read', () => {
   it('should roundtrip binary assets through save and AdmZip re-read', async () => {
     const manifest = createValidManifest({
       fonts: [{ id: 'bold', name: 'Bold Font', filename: 'fonts/bold.ttf' }],
+      fields: [dynImage('f-av', 'avatar', false, {}, undefined, { filename: 'avatar.png' })],
     })
     const bgData = Buffer.alloc(256)
     for (let i = 0; i < 256; i++) bgData[i] = i // all byte values 0-255
@@ -435,6 +450,47 @@ describe('roundtrip: save then read', () => {
     expect(reloaded.style.headerStyle.backgroundColor).toBeNull()
     expect(reloaded.style.rowStyle.backgroundColor).toBeNull()
     expect(reloaded.style.rowStyle.borderColor).toBeNull()
+  })
+
+  it('sweeps orphaned image assets — only manifest-referenced files are written', async () => {
+    // Editors keep image pools append-only (deleting bytes eagerly would
+    // break undo), so the pools handed to saveTemplate can contain
+    // entries no field references anymore. The writer must drop them.
+    const keepPh = Buffer.from('kept-placeholder')
+    const orphanPh = Buffer.from('orphan-placeholder')
+    const keepImg = Buffer.from('kept-static')
+    const orphanImg = Buffer.from('orphan-static')
+
+    const manifest = createValidManifest({
+      fields: [
+        dynImage('f1', 'photo', true, {}, undefined, { filename: 'keep.png' }),
+        staticImage('f2', 'logo.png'),
+      ],
+    })
+    const assets: TemplateAssets = {
+      ...createEmptyAssets(),
+      placeholders: new Map([
+        ['keep.png', keepPh],
+        ['deleted-field.png', orphanPh],
+      ]),
+      staticImages: new Map([
+        ['logo.png', keepImg],
+        ['replaced-upload.png', orphanImg],
+      ]),
+    }
+    const outputPath = join(tmpDir, 'orphan-sweep.tgbl')
+
+    await saveTemplate(manifest, assets, outputPath)
+
+    const zip = new AdmZip(outputPath)
+    expect(zip.getEntry(`${PLACEHOLDERS_DIR}keep.png`)).not.toBeNull()
+    expect(zip.getEntry(`${IMAGES_DIR}logo.png`)).not.toBeNull()
+    expect(zip.getEntry(`${PLACEHOLDERS_DIR}deleted-field.png`)).toBeNull()
+    expect(zip.getEntry(`${IMAGES_DIR}replaced-upload.png`)).toBeNull()
+    // And the swept archive still loads + validates.
+    const loaded = await loadTemplate(outputPath)
+    expect(loaded.placeholders.get('keep.png')).toEqual(keepPh)
+    expect(loaded.staticImages.get('logo.png')).toEqual(keepImg)
   })
 
   it('should emit static images under images/ and roundtrip through loadTemplate', async () => {

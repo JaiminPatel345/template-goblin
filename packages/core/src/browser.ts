@@ -24,6 +24,8 @@ export { generatePDF } from './generate.js'
 export type { GeneratePDFOptions } from './generate.js'
 export { validateData } from './validate.js'
 export { validateManifest } from './validateManifest.js'
+export { collectReferencedImageAssets } from './assetRefs.js'
+export type { ReferencedImageAssets } from './assetRefs.js'
 export { resolveValue } from './utils/resolveValue.js'
 export { subsetTemplateFonts, extractUsedCodePoints } from './utils/fontSubset.js'
 export {
