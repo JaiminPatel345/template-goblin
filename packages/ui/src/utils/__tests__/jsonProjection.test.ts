@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
-  generateExampleJson,
+  projectFieldsToJson,
   IMAGE_PLACEHOLDER_SENTINEL,
   isPlaceholderImageSentinel,
-} from '../jsonGenerator.js'
+} from '../jsonProjection.js'
 import { fieldCanvasLabel } from '../../components/Canvas/fieldLabel.js'
 import type {
   FieldDefinition,
@@ -127,148 +127,97 @@ function tableField(jsonKey: string, required = true, maxRows = 10): FieldDefini
 
 /* ---- tests ---- */
 
-describe('generateExampleJson', () => {
-  describe('default mode', () => {
+describe('projectFieldsToJson', () => {
+  describe('values', () => {
     // #174 — a required text field with no placeholder previews as its own
     // jsonKey so the canvas is self-describing.
     it('returns the jsonKey for required text fields', () => {
-      const result = generateExampleJson([textField('name')], 'default', 5)
+      const result = projectFieldsToJson([textField('name')])
       expect(result.texts.name).toBe('name')
     })
 
     it('returns "" for optional text fields', () => {
-      const result = generateExampleJson([textField('subtitle', false)], 'default', 5)
+      const result = projectFieldsToJson([textField('subtitle', false)])
       expect(result.texts.subtitle).toBe('')
     })
 
-    it('returns 1 row for required table fields', () => {
-      const result = generateExampleJson([tableField('marks')], 'default', 5)
+    it('returns one self-describing row for required table fields', () => {
+      const result = projectFieldsToJson([tableField('marks')])
       expect(result.tables.marks).toHaveLength(1)
-      expect(result.tables.marks![0]).toEqual({ name: 'A', grade: 'A' })
+      expect(result.tables.marks![0]).toEqual({ name: 'name', grade: 'grade' })
     })
 
     it('returns [] for optional table fields', () => {
-      const result = generateExampleJson([tableField('extra', false)], 'default', 5)
+      const result = projectFieldsToJson([tableField('extra', false)])
       expect(result.tables.extra).toEqual([])
     })
 
     it('returns base64 placeholder for required image', () => {
-      const result = generateExampleJson([imageField('photo')], 'default', 5)
+      const result = projectFieldsToJson([imageField('photo')])
       expect(result.images.photo).toBe('<base64-image-data>')
     })
 
     it('returns null for optional image', () => {
-      const result = generateExampleJson([imageField('logo', false)], 'default', 5)
+      const result = projectFieldsToJson([imageField('logo', false)])
       expect(result.images.logo).toBeNull()
     })
 
-    // GH #90 — default-mode JSON should track each field's placeholder so the
-    // sidebar input ↔ canvas label ↔ JSON value all stay in sync. Falls back
-    // to the synthetic 'A' / '' / first-row only when no placeholder is set.
+    // GH #90 — the JSON tracks each field's placeholder so the sidebar
+    // input ↔ canvas label ↔ JSON value all stay in sync. Falls back to
+    // the self-describing jsonKey / '' / column keys only when no
+    // placeholder is set.
     it('uses field.source.placeholder for text fields when set', () => {
       const f = textField('name')
       ;(f.source as { mode: 'dynamic'; placeholder: string | null }).placeholder = 'Alice'
-      const result = generateExampleJson([f], 'default', 5)
+      const result = projectFieldsToJson([f])
       expect(result.texts.name).toBe('Alice')
     })
 
     it('falls back to the jsonKey when placeholder is empty / null (#174)', () => {
       const f = textField('name')
       ;(f.source as { mode: 'dynamic'; placeholder: string | null }).placeholder = ''
-      const result = generateExampleJson([f], 'default', 5)
+      const result = projectFieldsToJson([f])
       expect(result.texts.name).toBe('name')
     })
 
-    it('uses the first row of source.placeholder for tables when supplied', () => {
+    it('projects the FULL source.placeholder row array for tables (lossless round-trip)', () => {
       const f = tableField('marks')
       ;(f.source as { mode: 'dynamic'; placeholder: Record<string, string>[] | null }).placeholder =
         [
           { name: 'Alice', grade: 'A+' },
           { name: 'Bob', grade: 'B' },
         ]
-      const result = generateExampleJson([f], 'default', 5)
-      expect(result.tables.marks).toHaveLength(1)
+      const result = projectFieldsToJson([f])
+      expect(result.tables.marks).toHaveLength(2)
       expect(result.tables.marks![0]).toEqual({ name: 'Alice', grade: 'A+' })
+      expect(result.tables.marks![1]).toEqual({ name: 'Bob', grade: 'B' })
     })
 
-    it('falls back to "A" for table cells when the placeholder row is missing a column key', () => {
+    it('falls back to the column key for table cells when the placeholder row is missing one', () => {
       const f = tableField('marks')
       ;(f.source as { mode: 'dynamic'; placeholder: Record<string, string>[] | null }).placeholder =
         [{ name: 'Alice' }]
-      const result = generateExampleJson([f], 'default', 5)
-      expect(result.tables.marks![0]).toEqual({ name: 'Alice', grade: 'A' })
-    })
-  })
-
-  describe('max mode', () => {
-    it('returns repeated text for text fields', () => {
-      const result = generateExampleJson([textField('name')], 'max', 3)
-      expect(result.texts.name).toBe(
-        'It works in my machine It works in my machine It works in my machine',
-      )
-      expect(result.texts.name!.length).toBeGreaterThan(20)
-    })
-
-    it('returns repeated text even for optional fields', () => {
-      const result = generateExampleJson([textField('subtitle', false)], 'max', 2)
-      expect(result.texts.subtitle).toContain('It works in my machine')
-    })
-
-    it('returns maxRows number of rows for table fields', () => {
-      const result = generateExampleJson([tableField('marks', true, 5)], 'max', 2)
-      expect(result.tables.marks).toHaveLength(5)
-      for (const row of result.tables.marks!) {
-        expect(row.name).toContain('It works in my machine')
-        expect(row.grade).toContain('It works in my machine')
-      }
-    })
-
-    it('returns base64 placeholder for all images', () => {
-      const result = generateExampleJson([imageField('photo', false)], 'max', 5)
-      expect(result.images.photo).toBe('<base64-image-data>')
-    })
-
-    it('handles repeatCount=0 by returning empty string', () => {
-      const result = generateExampleJson([textField('name')], 'max', 0)
-      expect(result.texts.name).toBe('')
-    })
-
-    it('handles large repeatCount', () => {
-      const result = generateExampleJson([textField('name')], 'max', 50)
-      expect(result.texts.name!.length).toBeGreaterThan(500)
+      const result = projectFieldsToJson([f])
+      expect(result.tables.marks![0]).toEqual({ name: 'Alice', grade: 'grade' })
     })
   })
 
   describe('edge cases', () => {
     it('handles empty fields array', () => {
-      const result = generateExampleJson([], 'default', 5)
-      expect(result).toEqual({ texts: {}, tables: {}, images: {}, links: {} })
-    })
-
-    it('handles empty fields array in max mode', () => {
-      const result = generateExampleJson([], 'max', 5)
+      const result = projectFieldsToJson([])
       expect(result).toEqual({ texts: {}, tables: {}, images: {}, links: {} })
     })
 
     it('skips fields with empty jsonKey', () => {
-      const result = generateExampleJson([textField('')], 'max', 5)
+      const result = projectFieldsToJson([textField('')])
       expect(Object.keys(result.texts)).toHaveLength(0)
     })
 
-    it('handles table with no columns in max mode', () => {
+    it('handles a required table with no columns', () => {
       const field = tableField('empty')
       ;(field.style as TableFieldStyle).columns = []
-      const result = generateExampleJson([field], 'max', 5)
-      // maxRows rows but each row is empty object
-      expect(result.tables.empty).toHaveLength(10)
-      expect(result.tables.empty![0]).toEqual({})
-    })
-
-    it('handles unknown mode by falling back to default behavior', () => {
-      // stale persisted value: 'min' removed
-      const result = generateExampleJson([textField('name')], 'min' as 'default', 5)
-      expect(result.texts.name).toBeDefined()
-      expect(typeof result.texts.name).toBe('string')
+      const result = projectFieldsToJson([field])
+      expect(result.tables.empty).toEqual([{}])
     })
 
     it('handles multiple fields of all types together', () => {
@@ -279,21 +228,25 @@ describe('generateExampleJson', () => {
         tableField('marks', true, 3),
       ]
 
-      const defaultResult = generateExampleJson(fields, 'default', 5)
-      expect(defaultResult.texts.name).toBe('name')
-      expect(defaultResult.texts.school).toBe('')
-      expect(defaultResult.images.photo).toBe('<base64-image-data>')
-      expect(defaultResult.tables.marks).toHaveLength(1)
+      const result = projectFieldsToJson(fields)
+      expect(result.texts.name).toBe('name')
+      expect(result.texts.school).toBe('')
+      expect(result.images.photo).toBe('<base64-image-data>')
+      expect(result.tables.marks).toHaveLength(1)
+    })
 
-      const maxResult = generateExampleJson(fields, 'max', 2)
-      expect(maxResult.texts.name).toContain('It works in my machine')
-      expect(maxResult.texts.school).toContain('It works in my machine')
-      expect(maxResult.images.photo).toBe('<base64-image-data>')
-      expect(maxResult.tables.marks).toHaveLength(3)
+    it('projects band fields into the same flat buckets (#61)', () => {
+      const result = projectFieldsToJson([textField('body')], {
+        header: [textField('title')],
+        footer: [textField('footer_note', false)],
+      })
+      expect(result.texts.body).toBe('body')
+      expect(result.texts.title).toBe('title')
+      expect(result.texts.footer_note).toBe('')
     })
   })
 
-  // #174 — the canvas renders a dynamic text field from the generated JSON
+  // #174 — the canvas renders a dynamic text field from the projected JSON
   // value when non-empty, else from `fieldCanvasLabel`. These tests assert
   // the two sources stay IN SYNC: whichever path the canvas takes, a
   // key-named field with no placeholder always previews as its own jsonKey,
@@ -309,7 +262,7 @@ describe('generateExampleJson', () => {
 
     it('required text without placeholder: JSON value, canvas label, and fallback all equal the jsonKey', () => {
       const f = textField('student_name')
-      const json = generateExampleJson([f], 'default', 5)
+      const json = projectFieldsToJson([f])
       expect(json.texts.student_name).toBe('student_name')
       expect(fieldCanvasLabel(f)).toBe('student_name')
       expect(canvasLabel(f, json.texts)).toBe('student_name')
@@ -317,7 +270,7 @@ describe('generateExampleJson', () => {
 
     it('optional text without placeholder: JSON stays "", canvas still shows the jsonKey via fallback', () => {
       const f = textField('school', false)
-      const json = generateExampleJson([f], 'default', 5)
+      const json = projectFieldsToJson([f])
       expect(json.texts.school).toBe('')
       expect(canvasLabel(f, json.texts)).toBe('school')
     })
@@ -325,28 +278,21 @@ describe('generateExampleJson', () => {
     it('placeholder wins over the jsonKey on both paths', () => {
       const f = textField('student_name')
       ;(f.source as { mode: 'dynamic'; placeholder: string | null }).placeholder = 'Alice'
-      const json = generateExampleJson([f], 'default', 5)
+      const json = projectFieldsToJson([f])
       expect(json.texts.student_name).toBe('Alice')
       expect(fieldCanvasLabel(f)).toBe('Alice')
       expect(canvasLabel(f, json.texts)).toBe('Alice')
     })
 
-    it('max mode is untouched — bulk text, not the jsonKey', () => {
-      const f = textField('student_name')
-      const json = generateExampleJson([f], 'max', 2)
-      expect(json.texts.student_name).toContain('It works in my machine')
-      expect(json.texts.student_name).not.toBe('student_name')
+    it('tables self-describe via their column keys', () => {
+      const json = projectFieldsToJson([tableField('marks')])
+      expect(json.tables.marks![0]).toEqual({ name: 'name', grade: 'grade' })
     })
 
-    it('table cells keep the synthetic "A" row (tables already self-describe via column labels)', () => {
-      const json = generateExampleJson([tableField('marks')], 'default', 5)
-      expect(json.tables.marks![0]).toEqual({ name: 'A', grade: 'A' })
-    })
-
-    it('does not change the stored field definition (canvas-preview only)', () => {
+    it('does not change the stored field definition (projection is pure)', () => {
       const f = textField('student_name')
       const before = JSON.stringify(f)
-      generateExampleJson([f], 'default', 5)
+      projectFieldsToJson([f])
       expect(JSON.stringify(f)).toBe(before)
     })
   })
@@ -362,7 +308,7 @@ describe('generateExampleJson', () => {
     it('emits truncated base64 ending in the sentinel when the placeholder is in the map', () => {
       const field = imageField('photo', true, 'placeholders/photo.png')
       const dataUrls = new Map([['placeholders/photo.png', FAKE_DATA_URL]])
-      const result = generateExampleJson([field], 'default', 5, {}, dataUrls)
+      const result = projectFieldsToJson([field], {}, dataUrls)
       const value = result.images.photo
       expect(typeof value).toBe('string')
       expect(value as string).toContain('data:image/png;base64,')
@@ -373,23 +319,23 @@ describe('generateExampleJson', () => {
 
     it('falls back to the bare filename when the data-URL map is missing the entry', () => {
       const field = imageField('photo', true, 'placeholders/photo.png')
-      const result = generateExampleJson([field], 'default', 5, {}, new Map())
+      const result = projectFieldsToJson([field], {}, new Map())
       expect(result.images.photo).toBe('placeholders/photo.png')
     })
 
     it('omits the imageDataUrls arg entirely → bare filename (pre-#165 behaviour)', () => {
       const field = imageField('photo', true, 'placeholders/photo.png')
-      const result = generateExampleJson([field], 'default', 5)
+      const result = projectFieldsToJson([field])
       expect(result.images.photo).toBe('placeholders/photo.png')
     })
 
     it('required image with no placeholder still emits the literal marker', () => {
-      const result = generateExampleJson([imageField('photo')], 'default', 5, {}, new Map())
+      const result = projectFieldsToJson([imageField('photo')], {}, new Map())
       expect(result.images.photo).toBe('<base64-image-data>')
     })
 
     it('non-required image with no placeholder → null', () => {
-      const result = generateExampleJson([imageField('photo', false)], 'default', 5, {}, new Map())
+      const result = projectFieldsToJson([imageField('photo', false)], {}, new Map())
       expect(result.images.photo).toBeNull()
     })
   })

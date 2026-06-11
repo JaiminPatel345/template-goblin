@@ -15,8 +15,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import type { ImageField } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
-import { useUiStore } from '../../store/uiStore.js'
-import { generateExampleJson, isPlaceholderImageSentinel } from '../../utils/jsonGenerator.js'
+import { projectFieldsToJson, isPlaceholderImageSentinel } from '../../utils/jsonProjection.js'
 import { runCorePreview, openPdfInNewTab } from '../../utils/runCorePreview.js'
 import {
   parseInputJson,
@@ -37,15 +36,12 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
   const fields = useTemplateStore((s) => s.fields)
   const headerFields = useTemplateStore((s) => s.header?.fields)
   const footerFields = useTemplateStore((s) => s.footer?.fields)
-  const repeatCount = useUiStore((s) => s.maxModeRepeatCount)
-  const previewJsonText = useUiStore((s) => s.previewJsonText)
-  const setPreviewJsonText = useUiStore((s) => s.setPreviewJsonText)
 
-  // GH #90: there's no longer a Default/Max mode toggle. The default seed
-  // is always the Default-mode example; Max Fill (in `JsonPreview`) writes
-  // a max snapshot directly into `previewJsonText` if the user wants it.
-  // #61: include header/footer band fields so their dynamic jsonKeys seed
-  // the editor too — the renderer reads them from the same flat buckets.
+  // The editor seeds from the live field projection on every open, so it
+  // can never show stale keys. Edits stay LOCAL to this render session —
+  // test data for one render is not template state. (#61: band fields'
+  // dynamic jsonKeys seed the editor too — the renderer reads them from
+  // the same flat buckets.)
   // Thumbnail data-URL map for the image-upload rows. Drawn from the user's
   // already-loaded placeholder bitmaps + static images in the store; the
   // PDF render path still gets bytes from the store via `templateToLoaded`.
@@ -59,14 +55,9 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
   const defaultJsonText = useMemo(
     () =>
       JSON.stringify(
-        generateExampleJson(
+        projectFieldsToJson(
           fields,
-          'default',
-          repeatCount,
-          {
-            header: headerFields,
-            footer: footerFields,
-          },
+          { header: headerFields, footer: footerFields },
           // #165: emit truncated base64 for each placeholder bitmap so
           // the dialog opens with a JSON shape that reads as 'real' data.
           baseImageDataUrls,
@@ -74,13 +65,10 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
         null,
         2,
       ),
-    [fields, headerFields, footerFields, repeatCount, baseImageDataUrls],
+    [fields, headerFields, footerFields, baseImageDataUrls],
   )
 
-  // Initial editor content prefers the user's pinned text from the right
-  // panel (#78) so an edit there flows directly into the dialog without
-  // round-tripping through Reset.
-  const [jsonText, setJsonText] = useState(previewJsonText ?? defaultJsonText)
+  const [jsonText, setJsonText] = useState(defaultJsonText)
   const [imageOverrides, setImageOverrides] = useState<Map<string, UploadedImage>>(new Map())
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [renderError, setRenderError] = useState<string | null>(null)
@@ -140,19 +128,6 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
     setImageOverrides(new Map())
     setUploadError(null)
     setRenderError(null)
-    // Clear the right-panel pin too — Reset means "go back to fresh
-    // defaults across both surfaces", not just the dialog.
-    setPreviewJsonText(null)
-  }
-
-  /**
-   * Mirror dialog edits into the right-panel store so the two surfaces stay
-   * in sync (#78). `setPreviewJsonText` accepts `null` for "unpinned" but the
-   * dialog never writes `null` from typing — only the explicit Reset does.
-   */
-  function handleJsonChange(text: string) {
-    setJsonText(text)
-    setPreviewJsonText(text)
   }
 
   async function handleUpload(jsonKey: string, file: File) {
@@ -266,7 +241,7 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
           id="preview-json-editor"
           data-testid="preview-json-editor"
           value={jsonText}
-          onChange={(e) => handleJsonChange(e.target.value)}
+          onChange={(e) => setJsonText(e.target.value)}
           spellCheck={false}
           style={{
             width: '100%',

@@ -22,8 +22,6 @@ export const useUiStore = create<UiState>()(
       gridSize: 5,
       zoom: 1.0,
       showPreview: false,
-      maxModeRepeatCount: 5,
-      previewJsonText: null,
       showRightPanel: true,
       showLeftPanel: true,
       showSelectionToolbar: true,
@@ -73,8 +71,6 @@ export const useUiStore = create<UiState>()(
         return clamped
       },
       setShowPreview: (show) => set({ showPreview: show }),
-      setMaxModeRepeatCount: (count) => set({ maxModeRepeatCount: count }),
-      setPreviewJsonText: (text) => set({ previewJsonText: text }),
       setShowRightPanel: (show) => set({ showRightPanel: show }),
       setShowLeftPanel: (show) => set({ showLeftPanel: show }),
       setShowSelectionToolbar: (show) => set({ showSelectionToolbar: show }),
@@ -110,13 +106,12 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'template-goblin-ui',
-      version: 3,
+      version: 4,
       // Only persist user preferences, not transient UI state
       partialize: (state) => ({
         theme: state.theme,
         showGrid: state.showGrid,
         gridSize: state.gridSize,
-        maxModeRepeatCount: state.maxModeRepeatCount,
         showLeftPanel: state.showLeftPanel,
         showRightPanel: state.showRightPanel,
         showSelectionToolbar: state.showSelectionToolbar,
@@ -129,6 +124,10 @@ export const useUiStore = create<UiState>()(
       // v2 → v3: removed jsonPreviewMode entirely (#90 collapsed Default/Max
       //   toggle into a single JSON + Max-Fill button). Strip the stale key
       //   from rehydrated state so it doesn't linger as dead persisted data.
+      // v3 → v4: removed Max Fill + the JSON pin — the JSON panel is now a
+      //   pure projection of the fields with per-value write-through, so
+      //   `maxModeRepeatCount` (and the never-persisted `previewJsonText`)
+      //   are gone.
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown>
         if (version < 2) {
@@ -136,6 +135,9 @@ export const useUiStore = create<UiState>()(
         }
         if (version < 3) {
           delete state.jsonPreviewMode
+        }
+        if (version < 4) {
+          delete state.maxModeRepeatCount
         }
         return state
       },

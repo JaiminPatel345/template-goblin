@@ -9,7 +9,7 @@
  * both buckets without crossing them over.
  */
 import { describe, it, expect } from 'vitest'
-import { generateExampleJson } from '../jsonGenerator.js'
+import { projectFieldsToJson } from '../jsonProjection.js'
 import type {
   FieldDefinition,
   Hyperlink,
@@ -90,9 +90,9 @@ function staticImage(id: string, hyperlink?: Hyperlink): FieldDefinition {
   }
 }
 
-describe('generateExampleJson — hyperlink (#87)', () => {
+describe('projectFieldsToJson — hyperlink (#87)', () => {
   it('always emits an empty links bucket, even with no fields', () => {
-    const result = generateExampleJson([], 'default', 5)
+    const result = projectFieldsToJson([])
     expect(result.links).toEqual({})
   })
 
@@ -101,7 +101,7 @@ describe('generateExampleJson — hyperlink (#87)', () => {
       mode: 'dynamic',
       jsonKey: 'profile_url',
     })
-    const result = generateExampleJson([field], 'default', 5)
+    const result = projectFieldsToJson([field])
     // Static source = no key in `texts`. Hyperlink = key in `links`.
     expect(result.texts).toEqual({})
     expect(result.links).toEqual({ profile_url: 'https://example.com' })
@@ -109,14 +109,14 @@ describe('generateExampleJson — hyperlink (#87)', () => {
 
   it('a dynamic-source field with a dynamic hyperlink populates both buckets independently', () => {
     const field = dynText('t1', 'name', { mode: 'dynamic', jsonKey: 'profile_url' })
-    const result = generateExampleJson([field], 'default', 5)
+    const result = projectFieldsToJson([field])
     expect(result.texts).toHaveProperty('name')
     expect(result.links).toEqual({ profile_url: 'https://example.com' })
   })
 
   it('a STATIC hyperlink contributes nothing to links (URL is baked into the manifest)', () => {
     const field = staticText('t1', 'Hi', { mode: 'static', url: 'https://baked.example.com' })
-    const result = generateExampleJson([field], 'default', 5)
+    const result = projectFieldsToJson([field])
     expect(result.links).toEqual({})
   })
 
@@ -126,7 +126,7 @@ describe('generateExampleJson — hyperlink (#87)', () => {
       dynText('t2', 'b', { mode: 'dynamic', jsonKey: 'shared' }),
       staticImage('img', { mode: 'dynamic', jsonKey: 'shared' }),
     ]
-    const result = generateExampleJson(fields, 'default', 5)
+    const result = projectFieldsToJson(fields)
     expect(Object.keys(result.links)).toEqual(['shared'])
   })
 
@@ -135,13 +135,13 @@ describe('generateExampleJson — hyperlink (#87)', () => {
       dynText('t1', 'a', { mode: 'static', url: 'https://baked.example.com' }),
       dynText('t2', 'b', { mode: 'dynamic', jsonKey: 'dynamic_url' }),
     ]
-    const result = generateExampleJson(fields, 'default', 5)
+    const result = projectFieldsToJson(fields)
     expect(result.links).toEqual({ dynamic_url: 'https://example.com' })
   })
 
   it('a hyperlink with an empty jsonKey is ignored', () => {
     const field = dynText('t1', 'a', { mode: 'dynamic', jsonKey: '' })
-    const result = generateExampleJson([field], 'default', 5)
+    const result = projectFieldsToJson([field])
     expect(result.links).toEqual({})
   })
 
@@ -149,23 +149,17 @@ describe('generateExampleJson — hyperlink (#87)', () => {
     // Designer writes both `name` (text source) and `name` (hyperlink
     // key). Each lives in its own bucket — no clash.
     const field = dynText('t1', 'name', { mode: 'dynamic', jsonKey: 'name' })
-    const result = generateExampleJson([field], 'default', 5)
+    const result = projectFieldsToJson([field])
     expect(result.texts).toHaveProperty('name')
     expect(result.links).toHaveProperty('name')
-    // Different default values: text gets the synthetic 'A' / '' /
+    // Different default values: text gets the jsonKey / '' /
     // placeholder, link gets the example URL.
     expect(result.links.name).toBe('https://example.com')
   })
 
-  it('max mode: links bucket still emits the example URL (no special max value)', () => {
-    const field = dynText('t1', 'a', { mode: 'dynamic', jsonKey: 'profile_url' })
-    const result = generateExampleJson([field], 'max', 5)
-    expect(result.links).toEqual({ profile_url: 'https://example.com' })
-  })
-
   it('a field with no hyperlink contributes nothing to links', () => {
     const field = dynText('t1', 'a')
-    const result = generateExampleJson([field], 'default', 5)
+    const result = projectFieldsToJson([field])
     expect(result.links).toEqual({})
   })
 
@@ -232,7 +226,7 @@ describe('generateExampleJson — hyperlink (#87)', () => {
         hyperlink: { mode: 'dynamic', jsonKey: 'table_link' },
       },
     ]
-    const result = generateExampleJson(fields, 'default', 5)
+    const result = projectFieldsToJson(fields)
     expect(result.links).toEqual({
       text_link: 'https://example.com',
       image_link: 'https://example.com',

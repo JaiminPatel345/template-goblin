@@ -1,12 +1,14 @@
 /**
- * E2E for the right-panel JSON Preview (#85).
+ * E2E for the right-panel JSON Preview — single-source projection.
  *
- * Covers the Format button, the Cmd/Ctrl+Shift+F shortcut, the inline
- * error path on invalid JSON, the click-doesn't-select-all behaviour
- * (pre-fix the right-panel auto-select-on-focus wiped the textarea on
- * the first keystroke), and the regression case where Format on the
- * unpinned auto-generated text used to pin the snapshot and freeze it
- * from tracking subsequent field edits.
+ * The JSON panel is a live projection of the fields: every field add /
+ * remove / mode-flip appears immediately (no pin to freeze it), and
+ * editing a VALUE in the textarea writes through to the owning field's
+ * placeholder. These tests drive the real app through the exact flows
+ * that used to break under the old pinned-JSON design:
+ *   - the SECOND field added not appearing,
+ *   - static → dynamic flips not appearing,
+ *   - edits freezing the panel forever.
  */
 import type { Page } from '@playwright/test'
 import { test, expect } from '@playwright/test'
@@ -61,6 +63,23 @@ function tableStyle(columns: Array<{ key: string; label: string; width: number }
   }
 }
 
+function textFieldPayload(id: string, jsonKey: string, placeholder: string | null) {
+  return {
+    id,
+    type: 'text',
+    label: id,
+    groupId: null,
+    pageId: 'p0',
+    x: 50,
+    y: 50,
+    width: 400,
+    height: 80,
+    zIndex: 0,
+    source: { mode: 'dynamic', jsonKey, required: false, placeholder },
+    style: TEXT_STYLE,
+  }
+}
+
 async function seed(page: Page): Promise<void> {
   const payload = {
     state: {
@@ -73,20 +92,7 @@ async function seed(page: Page): Promise<void> {
         locked: false,
       },
       fields: [
-        {
-          id: 'greeting',
-          type: 'text',
-          label: 'greeting',
-          groupId: null,
-          pageId: 'p0',
-          x: 50,
-          y: 50,
-          width: 400,
-          height: 80,
-          zIndex: 0,
-          source: { mode: 'dynamic', jsonKey: 'greeting', required: false, placeholder: 'Hi' },
-          style: TEXT_STYLE,
-        },
+        textFieldPayload('greeting', 'greeting', 'Hi'),
         {
           id: 'tbl1',
           type: 'table',
@@ -153,152 +159,147 @@ function textarea(page: Page) {
   return page.locator('[data-testid="json-preview-textarea"]')
 }
 
-function formatBtn(page: Page) {
-  return page.locator('[data-testid="json-preview-format"]')
+function notice(page: Page) {
+  return page.locator('[data-testid="json-preview-notice"]')
 }
 
-function resetBtn(page: Page) {
-  return page.locator('[data-testid="json-preview-reset"]')
+interface StoreLike {
+  getState(): {
+    fields: Array<{
+      id: string
+      source?: { mode: string; jsonKey?: string; placeholder?: unknown }
+    }>
+    addField: (f: object) => void
+    setFieldMode: (id: string, mode: 'static' | 'dynamic') => void
+  }
 }
 
-function formatError(page: Page) {
-  return page.locator('[data-testid="json-preview-format-error"]')
+async function addTextField(page: Page, id: string, jsonKey: string): Promise<void> {
+  await page.evaluate(
+    ({ field }) => {
+      const store = (window as unknown as { __templateStore?: StoreLike }).__templateStore
+      store?.getState().addField(field)
+    },
+    { field: textFieldPayload(id, jsonKey, null) },
+  )
 }
 
-async function selectField(page: Page, fieldId: string): Promise<void> {
-  await page.evaluate((id: string) => {
-    interface FabricLike {
-      getObjects(): Array<{ __fieldId?: string }>
-      setActiveObject: (o: object) => void
-      requestRenderAll: () => void
-      fire?: (event: string, opts: object) => void
-    }
-    const fc = (window as unknown as { __fabricCanvas?: FabricLike }).__fabricCanvas
-    if (!fc) return
-    const g = fc.getObjects().find((o) => o.__fieldId === id)
-    if (!g) return
-    fc.setActiveObject(g as object)
-    fc.fire?.('selection:created', { selected: [g] })
-    fc.requestRenderAll()
-  }, fieldId)
-}
-
-test.describe('JSON Preview (#85)', () => {
+test.describe('JSON Preview — single-source projection', () => {
   test.beforeEach(async ({ page }) => {
     await seed(page)
     await page.goto('/')
     await expect(textarea(page)).toBeVisible()
   })
 
-  test('auto-generated text is already 2-space formatted on load', async ({ page }) => {
+  test('projection is already 2-space formatted on load', async ({ page }) => {
     const value = await textarea(page).inputValue()
     expect(value).toContain('"greeting"')
     expect(value).toMatch(/\n {2}"/)
   })
 
-  test('Format on a pinned-edited textarea pretty-prints the user input', async ({ page }) => {
-    // Type a minified object — onChange pins it.
-    await textarea(page).fill('{"texts":{"greeting":"hello"},"tables":{"rows":[]}}')
-    await formatBtn(page).click()
-    const formatted = await textarea(page).inputValue()
-    expect(formatted).toBe(
-      '{\n  "texts": {\n    "greeting": "hello"\n  },\n  "tables": {\n    "rows": []\n  }\n}',
-    )
-    // Reset button should now be visible — the textarea is pinned.
-    await expect(resetBtn(page)).toBeVisible()
+  test('a SECOND field added always appears (the original sync bug)', async ({ page }) => {
+    await addTextField(page, 'extra1', 'first_extra')
+    await expect.poll(() => textarea(page).inputValue()).toContain('"first_extra"')
+    await addTextField(page, 'extra2', 'second_extra')
+    await expect.poll(() => textarea(page).inputValue()).toContain('"second_extra"')
+    expect(await textarea(page).inputValue()).toContain('"first_extra"')
   })
 
-  test('Format is a no-op when the textarea is showing the auto-generated baseline', async ({
+  test('a field still appears even after the user has edited the JSON', async ({ page }) => {
+    // Pre-refactor: any edit pinned the JSON and froze it forever.
+    const edited = (await textarea(page).inputValue()).replace('"Hi"', '"Hello"')
+    await textarea(page).fill(edited)
+    await textarea(page).blur()
+    await addTextField(page, 'extra3', 'after_edit')
+    await expect.poll(() => textarea(page).inputValue()).toContain('"after_edit"')
+    // And the earlier edit survived — it lives in the field placeholder now.
+    expect(await textarea(page).inputValue()).toContain('"Hello"')
+  })
+
+  test('static → dynamic flip surfaces the key immediately', async ({ page }) => {
+    await page.evaluate(() => {
+      const store = (window as unknown as { __templateStore?: StoreLike }).__templateStore
+      store?.getState().setFieldMode('greeting', 'static')
+    })
+    await expect.poll(() => textarea(page).inputValue()).not.toContain('"greeting"')
+    await page.evaluate(() => {
+      const store = (window as unknown as { __templateStore?: StoreLike }).__templateStore
+      store?.getState().setFieldMode('greeting', 'dynamic')
+    })
+    await expect.poll(() => textarea(page).inputValue()).toContain('"texts"')
+    // setFieldMode generates a fresh text_N key; the texts bucket must be
+    // non-empty again.
+    const parsed = JSON.parse(await textarea(page).inputValue()) as {
+      texts: Record<string, string>
+    }
+    expect(Object.keys(parsed.texts).length).toBeGreaterThan(0)
+  })
+
+  test('editing a text value writes through to the field placeholder', async ({ page }) => {
+    const edited = (await textarea(page).inputValue()).replace('"Hi"', '"Namaste"')
+    await textarea(page).fill(edited)
+    const placeholder = await page.evaluate(() => {
+      const store = (window as unknown as { __templateStore?: StoreLike }).__templateStore
+      const f = store?.getState().fields.find((x) => x.id === 'greeting')
+      return f?.source && 'placeholder' in f.source ? f.source.placeholder : null
+    })
+    expect(placeholder).toBe('Namaste')
+    // Blur snaps back to the canonical projection — which includes the edit.
+    await textarea(page).blur()
+    await expect.poll(() => textarea(page).inputValue()).toContain('"Namaste"')
+  })
+
+  test('an unknown key shows an inline notice and is dropped on blur', async ({ page }) => {
+    const value = await textarea(page).inputValue()
+    const parsed = JSON.parse(value) as { texts: Record<string, string> }
+    parsed.texts.ghost_key = 'boo'
+    await textarea(page).fill(JSON.stringify(parsed, null, 2))
+    await expect(notice(page)).toBeVisible()
+    await expect(notice(page)).toContainText('ghost_key')
+    await textarea(page).blur()
+    await expect.poll(() => textarea(page).inputValue()).not.toContain('ghost_key')
+  })
+
+  test('invalid JSON shows a notice and reverts on blur without breaking anything', async ({
     page,
   }) => {
-    // Reset is hidden because nothing is pinned.
-    await expect(resetBtn(page)).toHaveCount(0)
     const before = await textarea(page).inputValue()
-    await formatBtn(page).click()
-    const after = await textarea(page).inputValue()
-    expect(after).toBe(before)
-    // Still not pinned — Reset stays hidden.
-    await expect(resetBtn(page)).toHaveCount(0)
+    await textarea(page).fill('{not valid json')
+    await expect(notice(page)).toBeVisible()
+    await expect(notice(page)).toContainText(/Invalid JSON/i)
+    await textarea(page).blur()
+    await expect.poll(() => textarea(page).inputValue()).toBe(before)
   })
 
-  test('adding a table column updates the auto-generated preview AFTER Format was clicked', async ({
-    page,
-  }) => {
-    // Repro of the bug user reported on #85: Format used to pin the
-    // snapshot, freezing the preview from tracking subsequent edits.
-    await formatBtn(page).click()
-    await selectField(page, 'tbl1')
+  test('adding a table column updates the projection', async ({ page }) => {
+    await page.evaluate(() => {
+      interface FabricLike {
+        getObjects(): Array<{ __fieldId?: string }>
+        setActiveObject: (o: object) => void
+        requestRenderAll: () => void
+        fire?: (event: string, opts: object) => void
+      }
+      const fc = (window as unknown as { __fabricCanvas?: FabricLike }).__fabricCanvas
+      const g = fc?.getObjects().find((o) => o.__fieldId === 'tbl1')
+      if (!fc || !g) return
+      fc.setActiveObject(g as object)
+      fc.fire?.('selection:created', { selected: [g] })
+      fc.requestRenderAll()
+    })
     await expect(page.locator('[data-testid="loop-add-column"]')).toBeVisible()
-
     const before = await textarea(page).inputValue()
     await page.locator('[data-testid="loop-add-column"]').click()
-
-    // The auto-generated JSON should grow to reflect the new column key —
-    // the default table row stamps every column key with an example value.
     await expect.poll(async () => textarea(page).inputValue(), { timeout: 3000 }).not.toBe(before)
   })
 
-  test('Format on invalid JSON surfaces an inline error and leaves text unchanged', async ({
-    page,
-  }) => {
-    const broken = '{not valid json'
-    await textarea(page).fill(broken)
-    await formatBtn(page).click()
-    await expect(formatError(page)).toBeVisible()
-    await expect(formatError(page)).toContainText(/Invalid JSON/i)
-    expect(await textarea(page).inputValue()).toBe(broken)
-  })
-
-  test('inline error auto-clears within ~3 seconds', async ({ page }) => {
-    await textarea(page).fill('{not valid json')
-    await formatBtn(page).click()
-    await expect(formatError(page)).toBeVisible()
-    await expect(formatError(page)).toHaveCount(0, { timeout: 5000 })
-  })
-
-  test('Cmd/Ctrl+Shift+F inside the textarea formats the JSON', async ({ page }) => {
-    await textarea(page).fill('{"texts":{"greeting":"x"}}')
-    await textarea(page).focus()
-    // Use Control+Shift+F — Playwright honours it on all platforms.
-    await page.keyboard.press('Control+Shift+F')
-    const formatted = await textarea(page).inputValue()
-    expect(formatted).toBe('{\n  "texts": {\n    "greeting": "x"\n  }\n}')
-  })
-
   test('clicking inside the textarea does NOT select the whole content', async ({ page }) => {
-    // Pre-fix: the right-panel select-all-on-focus would select the
-    // entire textarea on click, so the next keystroke would wipe the
-    // user's JSON. Now textareas are skipped.
     const ta = textarea(page)
     await ta.click()
     const selection = await ta.evaluate((el) => {
       const t = el as HTMLTextAreaElement
       return { start: t.selectionStart, end: t.selectionEnd, len: t.value.length }
     })
-    // A click should leave a zero-width selection (caret) somewhere
-    // inside the buffer, NOT a full-content range.
     expect(selection.end - selection.start).toBe(0)
     expect(selection.end).toBeLessThan(selection.len)
-  })
-
-  test('Reset clears the pin and returns to auto-generated text', async ({ page }) => {
-    await textarea(page).fill('{"custom":"value"}')
-    await expect(resetBtn(page)).toBeVisible()
-    await resetBtn(page).click()
-    await expect(resetBtn(page)).toHaveCount(0)
-    const value = await textarea(page).inputValue()
-    expect(value).toContain('"greeting"')
-  })
-
-  test('subsequent successful Format clears a previously-shown error', async ({ page }) => {
-    await textarea(page).fill('{not valid json')
-    await formatBtn(page).click()
-    await expect(formatError(page)).toBeVisible()
-    // Fix it and re-format — the error should disappear immediately,
-    // not wait for the 3s timer.
-    await textarea(page).fill('{"a":1}')
-    await formatBtn(page).click()
-    await expect(formatError(page)).toHaveCount(0)
-    expect(await textarea(page).inputValue()).toBe('{\n  "a": 1\n}')
   })
 })

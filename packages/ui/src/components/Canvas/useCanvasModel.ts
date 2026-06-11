@@ -16,7 +16,7 @@ import {
 import { useCanvasKeyboard } from './useCanvasKeyboard.js'
 import { usePageHandlers } from './usePageHandlers.js'
 import { useCurrentBackground } from './useCurrentBackground.js'
-import { useEffectivePreviewData } from './useEffectivePreviewData.js'
+import { useProjectedPreviewData } from './useProjectedPreviewData.js'
 import { deriveCanvasFields } from './deriveCanvasFields.js'
 
 export function useCanvasModel() {
@@ -37,8 +37,6 @@ export function useCanvasModel() {
   const zoom = useUiStore((s) => s.zoom)
   const currentPageId = useUiStore((s) => s.currentPageId)
   const setCurrentPage = useUiStore((s) => s.setCurrentPage)
-  const previewJsonText = useUiStore((s) => s.previewJsonText)
-  const maxModeRepeatCount = useUiStore((s) => s.maxModeRepeatCount)
 
   // ── Refs + hooks ─────────────────────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -70,11 +68,10 @@ export function useCanvasModel() {
   const headerFieldsForPreview = useTemplateStore((s) => s.header?.fields)
   const footerFieldsForPreview = useTemplateStore((s) => s.footer?.fields)
 
-  // GH #79: the canvas reflects the right-panel JSON (cached last-good parse).
-  const previewData = useEffectivePreviewData({
+  // GH #79: the canvas renders the same projection the JSON panel shows —
+  // both are pure functions of the fields, so they cannot drift.
+  const previewData = useProjectedPreviewData({
     fields,
-    repeatCount: maxModeRepeatCount,
-    previewJsonText,
     headerFields: headerFieldsForPreview,
     footerFields: footerFieldsForPreview,
   })

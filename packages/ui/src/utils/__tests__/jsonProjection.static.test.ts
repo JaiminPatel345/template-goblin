@@ -1,11 +1,11 @@
 /**
- * QA tests for `generateExampleJson` — static/dynamic split.
+ * QA tests for `projectFieldsToJson` — static/dynamic split.
  * Spec 014 §Status: "Design 2026-04-18 §8.5 narrows the JSON preview to
  * dynamic fields only -- static fields never appear in the input contract,
  * so they are filtered out."
  */
 import { describe, it, expect } from 'vitest'
-import { generateExampleJson } from '../jsonGenerator.js'
+import { projectFieldsToJson } from '../jsonProjection.js'
 import type {
   FieldDefinition,
   TextFieldStyle,
@@ -191,19 +191,19 @@ function dynamicTable(jsonKey: string): FieldDefinition {
 // Spec 014 §8.5: static fields filtered out of JSON preview
 // ---------------------------------------------------------------------------
 
-describe('generateExampleJson — static fields excluded', () => {
+describe('projectFieldsToJson — static fields excluded', () => {
   it('template with only static text produces empty texts/images/tables', () => {
-    const result = generateExampleJson([staticText('Hello')], 'default', 5)
+    const result = projectFieldsToJson([staticText('Hello')])
     expect(result).toEqual({ texts: {}, images: {}, tables: {}, links: {} })
   })
 
   it('template with only static image produces empty', () => {
-    const result = generateExampleJson([staticImage('logo.png')], 'default', 5)
+    const result = projectFieldsToJson([staticImage('logo.png')])
     expect(result).toEqual({ texts: {}, images: {}, tables: {}, links: {} })
   })
 
   it('template with only static table produces empty', () => {
-    const result = generateExampleJson([staticTable([{ c1: 'v' }])], 'default', 5)
+    const result = projectFieldsToJson([staticTable([{ c1: 'v' }])])
     expect(result).toEqual({ texts: {}, images: {}, tables: {}, links: {} })
   })
 
@@ -216,36 +216,36 @@ describe('generateExampleJson — static fields excluded', () => {
       staticTable([{ c1: 'row1' }]),
       dynamicTable('marks'),
     ]
-    const result = generateExampleJson(fields, 'default', 5)
+    const result = projectFieldsToJson(fields)
     expect(Object.keys(result.texts)).toEqual(['name'])
     expect(Object.keys(result.images)).toEqual(['photo'])
     expect(Object.keys(result.tables)).toEqual(['marks'])
   })
 
-  it('static fields do not leak under "max" mode either', () => {
-    const result = generateExampleJson([staticText('baked'), dynamicText('input', true)], 'max', 3)
+  it('static values never leak into the projection output', () => {
+    const result = projectFieldsToJson([staticText('baked'), dynamicText('input', true)])
     expect(Object.keys(result.texts)).toEqual(['input'])
     // And the static value is nowhere in the output
     expect(JSON.stringify(result)).not.toContain('baked')
   })
 })
 
-describe('generateExampleJson — dynamic jsonKey produces a key', () => {
+describe('projectFieldsToJson — dynamic jsonKey produces a key', () => {
   it('dynamic text field contributes { jsonKey: <example> }', () => {
-    const result = generateExampleJson([dynamicText('user_name', true)], 'default', 5)
+    const result = projectFieldsToJson([dynamicText('user_name', true)])
     expect(result.texts).toHaveProperty('user_name')
     expect(typeof result.texts.user_name).toBe('string')
   })
 
   it('dynamic image field with required=false still appears as a key', () => {
-    const result = generateExampleJson([dynamicImage('photo', false)], 'default', 5)
+    const result = projectFieldsToJson([dynamicImage('photo', false)])
     expect(Object.prototype.hasOwnProperty.call(result.images, 'photo')).toBe(true)
   })
 
   it('dynamic image with a placeholder filename surfaces it as the mock value (GH #25)', () => {
     // The fixture uses placeholder: { filename: 'x.png' } — we now prefer that
     // over the synthetic <base64-image-data>.
-    const result = generateExampleJson([dynamicImage('photo', false)], 'default', 5)
+    const result = projectFieldsToJson([dynamicImage('photo', false)])
     expect(result.images.photo).toBe('x.png')
   })
 
@@ -254,7 +254,7 @@ describe('generateExampleJson — dynamic jsonKey produces a key', () => {
       ...dynamicImage('photoB', false),
       source: { mode: 'dynamic', jsonKey: 'photoB', required: false, placeholder: null },
     }
-    const result = generateExampleJson([noPlaceholder], 'default', 5)
+    const result = projectFieldsToJson([noPlaceholder])
     expect(result.images.photoB).toBeNull()
   })
 })
