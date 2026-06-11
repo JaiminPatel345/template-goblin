@@ -6,6 +6,7 @@ import { RibbonGroup } from '../primitives/RibbonGroup.js'
 import { RibbonButton } from '../primitives/RibbonButton.js'
 import { useDialogs } from '../../Dialogs/index.js'
 import { NewIcon, OpenIcon, BackgroundIcon } from '../icons.js'
+import { surfaceError } from '../../../utils/friendlyError.js'
 
 /**
  * File ribbon (#128). Save lives in the pinned-CTA slot at the far right
@@ -26,7 +27,7 @@ export function FileRibbon() {
     } catch (err) {
       await showAlert({
         title: 'Failed to open file',
-        message: err instanceof Error ? err.message : 'Failed to open file',
+        message: surfaceError('open template', err, true),
         variant: 'danger',
       })
     }

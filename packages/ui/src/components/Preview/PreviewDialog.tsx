@@ -16,6 +16,7 @@ import { useState, useMemo, useEffect } from 'react'
 import type { ImageField } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { projectFieldsToJson, isPlaceholderImageSentinel } from '../../utils/jsonProjection.js'
+import { surfaceError } from '../../utils/friendlyError.js'
 import { runCorePreview, openPdfInNewTab } from '../../utils/runCorePreview.js'
 import {
   parseInputJson,
@@ -208,7 +209,7 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
       openPdfInNewTab(bytes)
       onClose()
     } catch (err) {
-      setRenderError(err instanceof Error ? err.message : 'Preview generation failed.')
+      setRenderError(surfaceError('preview render', err))
     } finally {
       setIsRendering(false)
     }
