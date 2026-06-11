@@ -49,6 +49,14 @@ const IMAGE_PLACEHOLDER_HEAD = 80
  *  so this value is read-only in the JSON panel. */
 export const LINK_SAMPLE_URL = 'https://example.com'
 
+/**
+ * Literal marker projected for a REQUIRED dynamic image that has no
+ * placeholder bitmap. Unlike the sentinel above it maps to no real bytes
+ * anywhere — consumers (PreviewDialog) must treat it as "not supplied",
+ * never feed it to the renderer as base64.
+ */
+export const IMAGE_REQUIRED_MARKER = '<base64-image-data>'
+
 /** Flatten body + band fields in projection order (body, header, footer). */
 export function collectFields(
   fields: FieldDefinition[],
@@ -146,7 +154,7 @@ function projectImageValue(
       return filename
     }
   }
-  return required ? '<base64-image-data>' : null
+  return required ? IMAGE_REQUIRED_MARKER : null
 }
 
 /**

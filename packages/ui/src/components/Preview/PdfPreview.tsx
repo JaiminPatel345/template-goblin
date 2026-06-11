@@ -1,8 +1,8 @@
 /**
  * PdfPreview — mounts the interactive `PreviewDialog` (#45) when the
  * toolbar's Preview button toggles `showPreview`. The dialog owns the
- * full render flow (JSON editor, image overrides, calling
- * `generatePreviewHtml`, opening the result in a new tab).
+ * full render flow (JSON editor, image overrides, running the real
+ * `generatePDF`, opening the result in a new tab).
  *
  * Before #45 this component auto-ran the renderer on every `showPreview`
  * flip — hard-wired data, no JSON edits, no image swaps. The dialog now

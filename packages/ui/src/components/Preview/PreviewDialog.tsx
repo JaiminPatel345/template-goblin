@@ -15,7 +15,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import type { ImageField } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
-import { projectFieldsToJson, isPlaceholderImageSentinel } from '../../utils/jsonProjection.js'
+import {
+  projectFieldsToJson,
+  isPlaceholderImageSentinel,
+  IMAGE_REQUIRED_MARKER,
+} from '../../utils/jsonProjection.js'
 import { surfaceError } from '../../utils/friendlyError.js'
 import { runCorePreview, openPdfInNewTab } from '../../utils/runCorePreview.js'
 import {
@@ -77,6 +81,15 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
 
   const parseResult = useMemo(() => parseInputJson(jsonText), [jsonText])
 
+  // Band fields render from the same flat data buckets as body fields
+  // (#61) — the required-gate and the upload rows must cover them too,
+  // or a required header logo silently slips past the gate and fails at
+  // render time.
+  const allFields = useMemo(
+    () => [...fields, ...(headerFields ?? []), ...(footerFields ?? [])],
+    [fields, headerFields, footerFields],
+  )
+
   // UX-02: required dynamic fields that aren't supplied in the JSON or
   // (for images) via the upload widget block the Render button. Without
   // this gate the user clicked Render and got a runtime SDK error —
@@ -85,7 +98,7 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
     if (!parseResult.ok) return []
     const parsed = parseResult.data
     const out: string[] = []
-    for (const f of fields) {
+    for (const f of allFields) {
       if (!f.source || f.source.mode !== 'dynamic') continue
       if (!f.source.required) continue
       const bucket =
@@ -95,19 +108,22 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
             ? (parsed.images as Record<string, unknown> | undefined)
             : (parsed.tables as Record<string, unknown> | undefined)
       const v = bucket?.[f.source.jsonKey]
-      const hasJson = v !== undefined && v !== null && v !== ''
+      // The projected `<base64-image-data>` marker maps to no real bytes —
+      // it must NOT count as supplied, or Render passes the gate and dies
+      // in the engine's format sniff.
+      const hasJson = v !== undefined && v !== null && v !== '' && v !== IMAGE_REQUIRED_MARKER
       const hasUpload = f.type === 'image' && imageOverrides.has(f.source.jsonKey)
       if (!hasJson && !hasUpload) out.push(f.source.jsonKey)
     }
     return out
-  }, [fields, parseResult, imageOverrides])
+  }, [allFields, parseResult, imageOverrides])
 
   const dynamicImageFields = useMemo(
     () =>
-      fields.filter(
+      allFields.filter(
         (f): f is ImageField => f.type === 'image' && !!f.source && f.source.mode === 'dynamic',
       ),
-    [fields],
+    [allFields],
   )
 
   // ESC dismiss.
@@ -193,13 +209,14 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
       }
       // User-edited JSON.images takes precedence over the placeholder
       // defaults; explicit uploads take precedence over both. Values
-      // that came from the auto-generated example (truncated base64
-      // ending in IMAGE_PLACEHOLDER_SENTINEL — see #165) are skipped
-      // so the placeholder filename set above wins when the user
-      // clicks Render without editing the JSON.
+      // that came from the projection rather than the user are skipped:
+      // the truncated-base64 sentinel (#165) so the full placeholder
+      // bytes set above win, and the `<base64-image-data>` required-
+      // marker, which maps to no bytes at all and would fail the
+      // engine's PNG/JPEG sniff if passed through as literal base64.
       const parsedImages = (parsed.images ?? {}) as Record<string, unknown>
       for (const [k, v] of Object.entries(parsedImages)) {
-        if (isPlaceholderImageSentinel(v)) continue
+        if (isPlaceholderImageSentinel(v) || v === IMAGE_REQUIRED_MARKER) continue
         data.images[k] = v as string | ArrayBuffer
       }
       for (const [jsonKey, upload] of imageOverrides) {

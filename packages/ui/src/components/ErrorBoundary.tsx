@@ -71,6 +71,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
  */
 export function installGlobalErrorHandlers(): void {
   window.addEventListener('error', (event) => {
+    // Chrome reports these as window errors during normal layout churn;
+    // the spec calls them benign (the observer just deferred a cycle).
+    // Toasting "Internal error" on them would cry wolf constantly.
+    if (typeof event.message === 'string' && event.message.includes('ResizeObserver loop')) {
+      return
+    }
     console.error('[template-goblin] uncaught error:', event.error ?? event.message)
     showInternalErrorToast()
   })

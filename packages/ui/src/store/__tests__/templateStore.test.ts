@@ -516,6 +516,19 @@ describe('Undo / Redo', () => {
     expect(state().fields[0]?.id).toBe('ur2a')
   })
 
+  it('a full drag commit (x/y/size/rotation in one updateField) is ONE undo step', () => {
+    // wireDragResizeEvents commits a gesture as a single updateField call.
+    // It used to be moveField + resizeField + updateField — three history
+    // snapshots — so one Ctrl+Z only partially reverted a drag.
+    state().addField(makeTextField({ id: 'drag1', x: 10, y: 10, width: 100, height: 50 }))
+    state().updateField('drag1', { x: 200, y: 300, width: 150, height: 80, rotation: 45 })
+    state().undo()
+    const reverted = state().fields.find((f) => f.id === 'drag1')
+    expect(reverted).toMatchObject({ x: 10, y: 10, width: 100, height: 50 })
+    expect(reverted?.rotation ?? 0).toBe(0)
+    expect(state().canRedo).toBe(true)
+  })
+
   it('after undo, redo restores the later snapshot', () => {
     state().addField(makeTextField({ id: 'ur3a' }))
     state().addField(makeTextField({ id: 'ur3b' }))
