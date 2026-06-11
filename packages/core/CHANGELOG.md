@@ -1,5 +1,15 @@
 # template-goblin
 
+## 5.0.1
+
+### Patch Changes
+
+- 834d25b: Docs: remove the "Under Construction" / "Pre-1.0" banners from the README of
+  every published package — the packages are published and stable. The repo
+  README gains an npm version badge in place of the construction notice.
+- Updated dependencies [834d25b]
+  - @template-goblin/types@2.4.1
+
 ## 5.0.0
 
 ### Minor Changes
