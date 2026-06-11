@@ -15,8 +15,12 @@
 import { useState, useMemo, useEffect } from 'react'
 import type { ImageField } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
-import { useUiStore } from '../../store/uiStore.js'
-import { generateExampleJson, isPlaceholderImageSentinel } from '../../utils/jsonGenerator.js'
+import {
+  projectFieldsToJson,
+  isPlaceholderImageSentinel,
+  IMAGE_REQUIRED_MARKER,
+} from '../../utils/jsonProjection.js'
+import { surfaceError } from '../../utils/friendlyError.js'
 import { runCorePreview, openPdfInNewTab } from '../../utils/runCorePreview.js'
 import {
   parseInputJson,
@@ -37,15 +41,12 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
   const fields = useTemplateStore((s) => s.fields)
   const headerFields = useTemplateStore((s) => s.header?.fields)
   const footerFields = useTemplateStore((s) => s.footer?.fields)
-  const repeatCount = useUiStore((s) => s.maxModeRepeatCount)
-  const previewJsonText = useUiStore((s) => s.previewJsonText)
-  const setPreviewJsonText = useUiStore((s) => s.setPreviewJsonText)
 
-  // GH #90: there's no longer a Default/Max mode toggle. The default seed
-  // is always the Default-mode example; Max Fill (in `JsonPreview`) writes
-  // a max snapshot directly into `previewJsonText` if the user wants it.
-  // #61: include header/footer band fields so their dynamic jsonKeys seed
-  // the editor too — the renderer reads them from the same flat buckets.
+  // The editor seeds from the live field projection on every open, so it
+  // can never show stale keys. Edits stay LOCAL to this render session —
+  // test data for one render is not template state. (#61: band fields'
+  // dynamic jsonKeys seed the editor too — the renderer reads them from
+  // the same flat buckets.)
   // Thumbnail data-URL map for the image-upload rows. Drawn from the user's
   // already-loaded placeholder bitmaps + static images in the store; the
   // PDF render path still gets bytes from the store via `templateToLoaded`.
@@ -59,14 +60,9 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
   const defaultJsonText = useMemo(
     () =>
       JSON.stringify(
-        generateExampleJson(
+        projectFieldsToJson(
           fields,
-          'default',
-          repeatCount,
-          {
-            header: headerFields,
-            footer: footerFields,
-          },
+          { header: headerFields, footer: footerFields },
           // #165: emit truncated base64 for each placeholder bitmap so
           // the dialog opens with a JSON shape that reads as 'real' data.
           baseImageDataUrls,
@@ -74,19 +70,25 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
         null,
         2,
       ),
-    [fields, headerFields, footerFields, repeatCount, baseImageDataUrls],
+    [fields, headerFields, footerFields, baseImageDataUrls],
   )
 
-  // Initial editor content prefers the user's pinned text from the right
-  // panel (#78) so an edit there flows directly into the dialog without
-  // round-tripping through Reset.
-  const [jsonText, setJsonText] = useState(previewJsonText ?? defaultJsonText)
+  const [jsonText, setJsonText] = useState(defaultJsonText)
   const [imageOverrides, setImageOverrides] = useState<Map<string, UploadedImage>>(new Map())
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [renderError, setRenderError] = useState<string | null>(null)
   const [isRendering, setIsRendering] = useState(false)
 
   const parseResult = useMemo(() => parseInputJson(jsonText), [jsonText])
+
+  // Band fields render from the same flat data buckets as body fields
+  // (#61) — the required-gate and the upload rows must cover them too,
+  // or a required header logo silently slips past the gate and fails at
+  // render time.
+  const allFields = useMemo(
+    () => [...fields, ...(headerFields ?? []), ...(footerFields ?? [])],
+    [fields, headerFields, footerFields],
+  )
 
   // UX-02: required dynamic fields that aren't supplied in the JSON or
   // (for images) via the upload widget block the Render button. Without
@@ -96,7 +98,7 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
     if (!parseResult.ok) return []
     const parsed = parseResult.data
     const out: string[] = []
-    for (const f of fields) {
+    for (const f of allFields) {
       if (!f.source || f.source.mode !== 'dynamic') continue
       if (!f.source.required) continue
       const bucket =
@@ -106,19 +108,22 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
             ? (parsed.images as Record<string, unknown> | undefined)
             : (parsed.tables as Record<string, unknown> | undefined)
       const v = bucket?.[f.source.jsonKey]
-      const hasJson = v !== undefined && v !== null && v !== ''
+      // The projected `<base64-image-data>` marker maps to no real bytes —
+      // it must NOT count as supplied, or Render passes the gate and dies
+      // in the engine's format sniff.
+      const hasJson = v !== undefined && v !== null && v !== '' && v !== IMAGE_REQUIRED_MARKER
       const hasUpload = f.type === 'image' && imageOverrides.has(f.source.jsonKey)
       if (!hasJson && !hasUpload) out.push(f.source.jsonKey)
     }
     return out
-  }, [fields, parseResult, imageOverrides])
+  }, [allFields, parseResult, imageOverrides])
 
   const dynamicImageFields = useMemo(
     () =>
-      fields.filter(
+      allFields.filter(
         (f): f is ImageField => f.type === 'image' && !!f.source && f.source.mode === 'dynamic',
       ),
-    [fields],
+    [allFields],
   )
 
   // ESC dismiss.
@@ -140,19 +145,6 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
     setImageOverrides(new Map())
     setUploadError(null)
     setRenderError(null)
-    // Clear the right-panel pin too — Reset means "go back to fresh
-    // defaults across both surfaces", not just the dialog.
-    setPreviewJsonText(null)
-  }
-
-  /**
-   * Mirror dialog edits into the right-panel store so the two surfaces stay
-   * in sync (#78). `setPreviewJsonText` accepts `null` for "unpinned" but the
-   * dialog never writes `null` from typing — only the explicit Reset does.
-   */
-  function handleJsonChange(text: string) {
-    setJsonText(text)
-    setPreviewJsonText(text)
   }
 
   async function handleUpload(jsonKey: string, file: File) {
@@ -217,13 +209,14 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
       }
       // User-edited JSON.images takes precedence over the placeholder
       // defaults; explicit uploads take precedence over both. Values
-      // that came from the auto-generated example (truncated base64
-      // ending in IMAGE_PLACEHOLDER_SENTINEL — see #165) are skipped
-      // so the placeholder filename set above wins when the user
-      // clicks Render without editing the JSON.
+      // that came from the projection rather than the user are skipped:
+      // the truncated-base64 sentinel (#165) so the full placeholder
+      // bytes set above win, and the `<base64-image-data>` required-
+      // marker, which maps to no bytes at all and would fail the
+      // engine's PNG/JPEG sniff if passed through as literal base64.
       const parsedImages = (parsed.images ?? {}) as Record<string, unknown>
       for (const [k, v] of Object.entries(parsedImages)) {
-        if (isPlaceholderImageSentinel(v)) continue
+        if (isPlaceholderImageSentinel(v) || v === IMAGE_REQUIRED_MARKER) continue
         data.images[k] = v as string | ArrayBuffer
       }
       for (const [jsonKey, upload] of imageOverrides) {
@@ -233,7 +226,7 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
       openPdfInNewTab(bytes)
       onClose()
     } catch (err) {
-      setRenderError(err instanceof Error ? err.message : 'Preview generation failed.')
+      setRenderError(surfaceError('preview render', err))
     } finally {
       setIsRendering(false)
     }
@@ -266,7 +259,7 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
           id="preview-json-editor"
           data-testid="preview-json-editor"
           value={jsonText}
-          onChange={(e) => handleJsonChange(e.target.value)}
+          onChange={(e) => setJsonText(e.target.value)}
           spellCheck={false}
           style={{
             width: '100%',

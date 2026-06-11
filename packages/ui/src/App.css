@@ -352,6 +352,39 @@ html, body, #root {
 
 .tg-dialog-actions { @apply flex justify-end gap-2 mt-4; }
 
+/* Title row: heading on the left, close (×) pinned to the top-right —
+   pre-fix these classes had no rules at all, so the close button wrapped
+   onto its own line below the title. */
+.tg-dialog-header {
+  @apply flex items-center justify-between gap-3 mb-4;
+}
+
+.tg-dialog-body {
+  @apply flex flex-col gap-3;
+}
+
+/* ===== Dialog form rows (FieldCreationPopup etc.) ===== */
+/* A labelled control stacks label-over-input; the --inline variant lays a
+   checkbox + its caption on one row. Hints always read as muted sub-text. */
+.tg-field-row {
+  @apply flex flex-col gap-1.5;
+}
+
+.tg-field-row--inline {
+  @apply flex-row items-center gap-2;
+}
+
+.tg-field-label {
+  @apply text-xs font-semibold uppercase tracking-wide;
+  color: var(--text-secondary);
+}
+
+.tg-field-hint {
+  @apply text-xs;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 /* ===== Anchored Popover (Page Layout menu, etc.) ===== */
 /* Vertical menu anchored to a toolbar button. Items stack top→bottom; a
    flyout sub-menu sits to the right of the main pane. Word / Google Docs

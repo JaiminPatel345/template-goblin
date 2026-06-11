@@ -3,6 +3,7 @@ import type { FieldDefinition, ImageField, ImageFieldStyle } from '@template-gob
 import { isSafeKey } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { autoShrinkStaticField } from '../../utils/autoShrinkDispatch.js'
+import { bufferToDataUrl } from '../../utils/previewInputs.js'
 import { SourceModeToggle } from './SourceModeToggle.js'
 import { HyperlinkSection } from './HyperlinkSection.js'
 import { ColorPickerPopover } from '../ColorPickerPopover.js'
@@ -15,6 +16,7 @@ export function ImageFieldProps({ field }: Props) {
   const updateField = useTemplateStore((s) => s.updateField)
   const updateFieldStyle = useTemplateStore((s) => s.updateFieldStyle)
   const addPlaceholder = useTemplateStore((s) => s.addPlaceholder)
+  const addStaticImage = useTemplateStore((s) => s.addStaticImage)
   const groups = useTemplateStore((s) => s.groups)
   // Separate file inputs per mode so the static and dynamic buttons don't
   // share a hidden <input ref>.
@@ -83,7 +85,12 @@ export function ImageFieldProps({ field }: Props) {
     reader.onload = () => {
       const buffer = reader.result as ArrayBuffer
       const filename = `static-${field.id}-${file.name}`
-      addPlaceholder(filename, buffer)
+      // The bytes MUST land in the static-image pool — the PDF renderer's
+      // preflight resolves static fields strictly from `staticImages`
+      // (saved under `images/` in the .tgbl). Pre-fix this stored them in
+      // `placeholderBuffers`, so the canvas thumbnail worked but Render /
+      // Save failed with MISSING_ASSET.
+      addStaticImage(filename, bufferToDataUrl(buffer), buffer)
       updateField(field.id, {
         source: { mode: 'static', value: { filename } },
       } as Partial<FieldDefinition>)

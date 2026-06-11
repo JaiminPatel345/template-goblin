@@ -12,7 +12,6 @@ function resetStore(): void {
     gridSize: 5,
     zoom: 1.0,
     showPreview: false,
-    maxModeRepeatCount: 5,
     showRightPanel: true,
     showLeftPanel: true,
     showSelectionToolbar: true,
@@ -255,26 +254,6 @@ describe('uiStore', () => {
       useUiStore.getState().setZoom(0.2)
       useUiStore.getState().resetZoom()
       expect(useUiStore.getState().zoom).toBe(1.0)
-    })
-  })
-
-  // GH #78 — `previewJsonText` is the shared pin between the right-panel
-  // JsonPreview and the PreviewDialog. Round-tripping null ↔ string lets
-  // either surface drive the other.
-  describe('setPreviewJsonText', () => {
-    it('defaults to null (no pin — both surfaces show auto-generated)', () => {
-      expect(useUiStore.getState().previewJsonText).toBeNull()
-    })
-
-    it('stores the user-pinned text verbatim', () => {
-      useUiStore.getState().setPreviewJsonText('{"texts":{"name":"Jaimin"}}')
-      expect(useUiStore.getState().previewJsonText).toBe('{"texts":{"name":"Jaimin"}}')
-    })
-
-    it('null clears the pin (revert to auto-generated)', () => {
-      useUiStore.getState().setPreviewJsonText('{"texts":{"name":"x"}}')
-      useUiStore.getState().setPreviewJsonText(null)
-      expect(useUiStore.getState().previewJsonText).toBeNull()
     })
   })
 

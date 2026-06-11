@@ -3,6 +3,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from './App.js'
 import { DialogProvider } from './components/Dialogs/index.js'
+import { ErrorBoundary, installGlobalErrorHandlers } from './components/ErrorBoundary.js'
 
 // GH #86 — `template-goblin/browser` and PDFKit's standalone build reach
 // for `globalThis.Buffer` at module-init. `vite-plugin-node-polyfills`
@@ -14,13 +15,19 @@ import { DialogProvider } from './components/Dialogs/index.js'
 const globalScope = globalThis as unknown as { Buffer?: typeof Buffer }
 if (!globalScope.Buffer) globalScope.Buffer = Buffer
 
+// Last-resort guard: anything that escapes component-level handling shows
+// a calm "Internal error" toast and logs the full error to the console.
+installGlobalErrorHandlers()
+
 const rootEl = document.getElementById('root')
 if (!rootEl) throw new Error('Root element not found')
 
 ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
-    <DialogProvider>
-      <App />
-    </DialogProvider>
+    <ErrorBoundary>
+      <DialogProvider>
+        <App />
+      </DialogProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 )

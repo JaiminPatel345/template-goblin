@@ -6,6 +6,7 @@ import { useDialogs } from '../Dialogs/index.js'
 import { FIELD_COLORS } from '../../theme/fieldColors.js'
 import { MenuButton, MenuSeparator } from './primitives/MenuButton.js'
 import { RibbonButton } from './primitives/RibbonButton.js'
+import { surfaceError } from '../../utils/friendlyError.js'
 import {
   TextIcon,
   ImageIcon,
@@ -225,7 +226,7 @@ export function MenuTabBar() {
     } catch (err) {
       await showAlert({
         title: 'Save failed',
-        message: err instanceof Error ? err.message : 'Save failed',
+        message: surfaceError('save template', err, true),
         variant: 'danger',
       })
     }

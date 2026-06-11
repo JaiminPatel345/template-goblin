@@ -7,6 +7,7 @@ import { RibbonBar } from './RibbonBar.js'
 import { RibbonButton } from './primitives/RibbonButton.js'
 import { useDialogs } from '../Dialogs/index.js'
 import { MoonIcon, SunIcon, OpenIcon, BackgroundIcon } from './icons.js'
+import { surfaceError } from '../../utils/friendlyError.js'
 
 /**
  * Top-of-app toolbar (#128 redesign).
@@ -94,7 +95,7 @@ export function Toolbar() {
     } catch (err) {
       await showAlert({
         title: 'Failed to open file',
-        message: err instanceof Error ? err.message : 'Failed to open file',
+        message: surfaceError('open template', err, true),
         variant: 'danger',
       })
     }

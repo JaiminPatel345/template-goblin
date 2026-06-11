@@ -1,26 +1,30 @@
-import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
+import { useMemo, useCallback, useState } from 'react'
+import type { FieldDefinition } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
-import { useUiStore } from '../../store/uiStore.js'
-import { generateExampleJson } from '../../utils/jsonGenerator.js'
+import { projectFieldsToJson, projectionToText, collectFields } from '../../utils/jsonProjection.js'
+import { diffJsonEdit, type JsonEditResult } from '../../utils/jsonApply.js'
 import { buildImageDataUrlMap } from '../../utils/previewInputs.js'
-import { formatJsonString } from './formatJson.js'
 
 /**
- * Right-panel JSON preview (#90).
+ * Right-panel JSON preview — a live PROJECTION of the fields, never a
+ * separate copy.
  *
- * One textarea, one source of truth. The displayed JSON is either:
- *   - `uiStore.previewJsonText` (user-pinned edit), or
- *   - the auto-generated default-mode JSON for the current fields.
+ * The textarea always shows `projectFieldsToJson(fields)`; editing a VALUE
+ * writes through to the owning field's `source.placeholder` via the same
+ * `updateField` action the sidebar uses. Canvas, sidebar, and this panel
+ * therefore all render the one store state and cannot drift.
  *
- * Pre-#90 there was a Default / Max toggle. That created a UX trap: a
- * user staring at Max-mode JSON would add a field on canvas, the field
- * would land in the (hidden) Default JSON, and the user would think
- * the field "didn't appear in JSON" until they switched modes. The
- * toggle is gone; **Max Fill** replaces it as a one-shot button that
- * generates the max-mode JSON and pins it via `setPreviewJsonText` —
- * exactly as if the user typed it. Adding a new field after Max-Fill
- * leaves the pin alone (so the user's bulk-test data isn't lost), and
- * **Reset** still clears the pin → reverts to auto-Default.
+ * While the textarea is focused, the user's literal text is kept as a
+ * local draft (so typing isn't reformatted under the cursor); parseable
+ * edits apply to the store on every keystroke, and blur snaps the
+ * textarea back to the canonical projection. Keys that match no field,
+ * read-only values (images / links), and wrong-shaped values surface as
+ * an inline notice and are ignored.
+ *
+ * Pre-refactor this panel had a "pin" (`uiStore.previewJsonText`): the
+ * first edit froze the JSON until a Reset click, so new fields silently
+ * stopped appearing. The pin, Max Fill, Format, and Reset are gone —
+ * there is nothing to reset anymore.
  */
 export function JsonPreview() {
   const fields = useTemplateStore((s) => s.fields)
@@ -28,39 +32,55 @@ export function JsonPreview() {
   const footerFields = useTemplateStore((s) => s.footer?.fields)
   const placeholderBuffers = useTemplateStore((s) => s.placeholderBuffers)
   const staticImageDataUrls = useTemplateStore((s) => s.staticImageDataUrls)
-  const maxModeRepeatCount = useUiStore((s) => s.maxModeRepeatCount)
-  const previewJsonText = useUiStore((s) => s.previewJsonText)
-  const setPreviewJsonText = useUiStore((s) => s.setPreviewJsonText)
+  const updateField = useTemplateStore((s) => s.updateField)
 
   // #165: resolve every image-field placeholder filename to a data URL so
-  // the JSON Preview's example output can show truncated base64 instead
-  // of just the bare filename.
+  // the projection can show truncated base64 instead of just the filename.
   const imageDataUrls = useMemo(
     () => buildImageDataUrlMap(staticImageDataUrls, placeholderBuffers),
     [staticImageDataUrls, placeholderBuffers],
   )
 
-  const generated = useMemo(
-    () =>
-      generateExampleJson(
-        fields,
-        'default',
-        maxModeRepeatCount,
-        {
-          header: headerFields,
-          footer: footerFields,
-        },
-        imageDataUrls,
-      ),
-    [fields, headerFields, footerFields, maxModeRepeatCount, imageDataUrls],
+  const bands = useMemo(
+    () => ({ header: headerFields, footer: footerFields }),
+    [headerFields, footerFields],
   )
-  const generatedText = useMemo(() => JSON.stringify(generated, null, 2), [generated])
+  const projectedText = useMemo(
+    () => projectionToText(projectFieldsToJson(fields, bands, imageDataUrls)),
+    [fields, bands, imageDataUrls],
+  )
 
-  // The textarea always shows the user's pinned text when it exists — that
-  // pin is the contract that links this surface to PreviewDialog. Without
-  // a pin we fall back to the freshly-regenerated baseline.
-  const value = previewJsonText ?? generatedText
-  const isPinned = previewJsonText !== null
+  // The user's literal keystrokes while the textarea is focused. `null`
+  // means "not editing — show the canonical projection".
+  const [draft, setDraft] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const value = draft ?? projectedText
+
+  const handleChange = useCallback(
+    (text: string) => {
+      setDraft(text)
+      const result = diffJsonEdit(text, fields, bands, imageDataUrls)
+      if (!result.ok) {
+        setNotice(`Invalid JSON — fix it to apply (your edit reverts if you click away)`)
+        return
+      }
+      const all = collectFields(fields, bands)
+      for (const patch of result.patches) {
+        const field = all.find((f) => f.id === patch.fieldId)
+        if (field?.source?.mode !== 'dynamic') continue
+        updateField(field.id, {
+          source: { ...field.source, placeholder: patch.placeholder },
+        } as Partial<FieldDefinition>)
+      }
+      setNotice(buildNotice(result))
+    },
+    [fields, bands, imageDataUrls, updateField],
+  )
+
+  const handleBlur = useCallback(() => {
+    setDraft(null)
+    setNotice(null)
+  }, [])
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(value).catch(() => {
@@ -68,58 +88,8 @@ export function JsonPreview() {
     })
   }, [value])
 
-  const handleMaxFill = useCallback(() => {
-    const max = generateExampleJson(fields, 'max', maxModeRepeatCount, {
-      header: headerFields,
-      footer: footerFields,
-    })
-    setPreviewJsonText(JSON.stringify(max, null, 2))
-  }, [fields, headerFields, footerFields, maxModeRepeatCount, setPreviewJsonText])
-
-  // GH #85 — Format button. Inline error message lives below the textarea
-  // and self-clears after 3s. We intentionally don't disable the button on
-  // unparseable input (per issue: "always enabled, fail gracefully").
-  const [formatError, setFormatError] = useState<string | null>(null)
-  const formatErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (formatErrorTimerRef.current) clearTimeout(formatErrorTimerRef.current)
-    }
-  }, [])
-
-  const handleFormat = useCallback(() => {
-    // When the textarea is showing the auto-generated baseline (not
-    // pinned), the text is already 2-space formatted via the
-    // `JSON.stringify(_, null, 2)` in `generatedText`. Re-pinning a
-    // formatted copy here would lock the preview to that snapshot and
-    // stop tracking field-add / field-edit events on the canvas — the
-    // user would have to hit Reset to see new columns appear. So
-    // Format is a no-op in the unpinned state; the user only needs it
-    // after they've edited the textarea (which already pinned it).
-    if (!isPinned) return
-    const result = formatJsonString(value)
-    if (result.ok) {
-      setPreviewJsonText(result.text)
-      setFormatError(null)
-      if (formatErrorTimerRef.current) clearTimeout(formatErrorTimerRef.current)
-      return
-    }
-    setFormatError(result.error)
-    if (formatErrorTimerRef.current) clearTimeout(formatErrorTimerRef.current)
-    formatErrorTimerRef.current = setTimeout(() => setFormatError(null), 3000)
-  }, [isPinned, value, setPreviewJsonText])
-
-  const handleTextareaKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // Cmd/Ctrl+Shift+F triggers Format from inside the textarea (#85).
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
-        e.preventDefault()
-        handleFormat()
-      }
-    },
-    [handleFormat],
-  )
+  const hasFields =
+    fields.length > 0 || (headerFields?.length ?? 0) > 0 || (footerFields?.length ?? 0) > 0
 
   return (
     <div className="tg-panel-section">
@@ -133,10 +103,9 @@ export function JsonPreview() {
       >
         <div className="tg-panel-section-title" style={{ marginBottom: 0 }}>
           JSON Preview
-          {/* UX-07: the values shown below are the placeholder strings
-              the user typed during field creation, not data that will
-              be served at runtime. Make this explicit so developers
-              reading the panel for the schema shape aren't misled. */}
+          {/* UX-07: the values below are field placeholders, not runtime
+              data. Editing a value here updates that field's placeholder —
+              the same state the canvas and the properties panel show. */}
           <span
             style={{
               fontSize: 10,
@@ -148,49 +117,19 @@ export function JsonPreview() {
             }}
             data-testid="json-preview-placeholder-note"
           >
-            (sample / placeholder values)
+            (placeholder values — edits update the fields)
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {isPinned && (
-            <button
-              className="tg-btn"
-              style={{ fontSize: 10, padding: '2px 8px' }}
-              onClick={() => setPreviewJsonText(null)}
-              title="Discard your edits and show the auto-generated example"
-              data-testid="json-preview-reset"
-            >
-              Reset
-            </button>
-          )}
-          <button
-            className="tg-btn"
-            style={{ fontSize: 10, padding: '2px 8px' }}
-            onClick={handleFormat}
-            title="Pretty-print the JSON with 2-space indentation (Cmd/Ctrl+Shift+F)"
-            data-testid="json-preview-format"
-          >
-            Format
-          </button>
-          <button
-            className="tg-btn"
-            style={{ fontSize: 10, padding: '2px 8px' }}
-            onClick={handleMaxFill}
-            title="Pin a max-fill snapshot — every text repeated, every table at maxRows"
-          >
-            Max Fill
-          </button>
-          <button
-            className="tg-btn"
-            style={{ fontSize: 10, padding: '2px 8px' }}
-            onClick={handleCopy}
-          >
-            Copy
-          </button>
-        </div>
+        <button
+          className="tg-btn"
+          style={{ fontSize: 10, padding: '2px 8px' }}
+          onClick={handleCopy}
+        >
+          Copy
+        </button>
       </div>
 
-      {fields.length === 0 ? (
+      {!hasFields ? (
         <div
           className="tg-json-preview"
           style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 16 }}
@@ -203,8 +142,8 @@ export function JsonPreview() {
             className="tg-json-preview"
             data-testid="json-preview-textarea"
             value={value}
-            onChange={(e) => setPreviewJsonText(e.target.value)}
-            onKeyDown={handleTextareaKeyDown}
+            onChange={(e) => handleChange(e.target.value)}
+            onBlur={handleBlur}
             style={{
               minHeight: 120,
               width: '100%',
@@ -214,21 +153,40 @@ export function JsonPreview() {
             }}
             spellCheck={false}
           />
-          {formatError && (
+          {notice && (
             <div
               role="alert"
-              data-testid="json-preview-format-error"
+              data-testid="json-preview-notice"
               style={{
                 marginTop: 6,
                 fontSize: 11,
-                color: 'var(--error)',
+                color: 'var(--text-muted)',
               }}
             >
-              {formatError}
+              {notice}
             </div>
           )}
         </>
       )}
     </div>
   )
+}
+
+/** Compose the inline notice for ignored / read-only / invalid keys. */
+function buildNotice(result: JsonEditResult): string | null {
+  const parts: string[] = []
+  if (result.unknownKeys.length > 0) {
+    parts.push(
+      `No field matches ${result.unknownKeys.join(', ')} — add a field with that JSON key first.`,
+    )
+  }
+  if (result.readOnlyKeys.length > 0) {
+    parts.push(
+      `${result.readOnlyKeys.join(', ')} ${result.readOnlyKeys.length === 1 ? 'is' : 'are'} read-only here — change images via the field's placeholder upload.`,
+    )
+  }
+  if (result.invalidKeys.length > 0) {
+    parts.push(`Wrong value shape for ${result.invalidKeys.join(', ')} — edit ignored.`)
+  }
+  return parts.length > 0 ? parts.join(' ') : null
 }

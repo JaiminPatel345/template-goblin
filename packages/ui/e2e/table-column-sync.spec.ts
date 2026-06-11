@@ -228,10 +228,10 @@ test.describe('Table column sync (#38)', () => {
     await expect(fabricCanvas(page)).toBeVisible()
     await selectField(page, 'tbl1')
 
-    // The seeded field is `required: true`, so even in the default JSON
-    // preview mode `getTableValue` emits one row carrying every column key
-    // (see `jsonGenerator.ts`). After Add Column the new key (`col3`) must
-    // appear in the rendered preview without any mode toggle.
+    // The seeded field is `required: true`, so the projection emits one
+    // self-describing row carrying every column key (see
+    // `jsonProjection.ts`). After Add Column the new key (`col3`) must
+    // appear in the rendered preview.
     await page.locator('[data-testid="loop-add-column"]').click()
 
     await expect

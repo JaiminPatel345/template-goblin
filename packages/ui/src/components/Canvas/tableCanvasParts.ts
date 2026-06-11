@@ -81,7 +81,7 @@ export function computeHeaderHeight(totalHeight: number, showHeader: boolean): n
  * when the field has no columns.
  *
  * `rows` is the runtime data the table should render against — flowed in
- * from `previewJsonText` via `useEffectivePreviewData`. Pass `null` to
+ * from the field projection via `useProjectedPreviewData`. Pass `null` to
  * skip the body-cell pass and render only the design-time header (legacy
  * behaviour). Body rows are clipped to `style.maxRows` and to the count
  * that physically fits inside the rect — never overflow (Hard Rule #10).

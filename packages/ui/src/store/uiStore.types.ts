@@ -24,21 +24,6 @@ export interface UiState {
   zoom: number
   /** Whether the PDF preview panel is open */
   showPreview: boolean
-  /**
-   * How many times the per-text "It works in my machine " phrase repeats
-   * when the user clicks **Max Fill** (#90). Pre-#90 this also drove the
-   * removed Default/Max toggle's max output; the toggle is gone, but the
-   * repeat count still parameterises Max Fill's snapshot.
-   */
-  maxModeRepeatCount: number
-  /**
-   * User-edited JSON for the preview pipeline (#78). `null` means "use the
-   * auto-generated example" — both the right-panel JsonPreview textarea and
-   * the PreviewDialog's JSON editor read from this field, so an edit in
-   * either surface flows to the other. Transient (not persisted) — a fresh
-   * session starts unpinned, showing the auto-generated example.
-   */
-  previewJsonText: string | null
   /** Whether the right panel is visible */
   showRightPanel: boolean
   /** Whether the left panel is visible */
@@ -140,12 +125,6 @@ export interface UiState {
     padding?: number,
   ) => number
   setShowPreview: (show: boolean) => void
-  setMaxModeRepeatCount: (count: number) => void
-  /**
-   * Set the user-pinned preview JSON. Pass `null` to clear (revert to the
-   * auto-generated example).
-   */
-  setPreviewJsonText: (text: string | null) => void
   setShowRightPanel: (show: boolean) => void
   setShowLeftPanel: (show: boolean) => void
   setShowSelectionToolbar: (show: boolean) => void

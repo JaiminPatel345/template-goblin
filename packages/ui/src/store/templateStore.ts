@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { idbGet, idbSet, idbDelete, migrateFromLocalStorage } from './idbStorage.js'
+import { migrateImageAssetOnModeFlip, type ImageAssetPools } from './imageAssetMigration.js'
 import type {
   FieldDefinition,
   TemplateMeta,
@@ -957,9 +958,14 @@ export const useTemplateStore = create<TemplateState>()(
           // regenerated a fresh `text_N`. Cache the dynamic-side metadata on
           // the previous flip so we can restore it on the next round-trip.
           const dynMemo = new Map(fieldDynamicMemo)
+          // Image flips carry the filename across pools (placeholder ↔
+          // value) — the BYTES must follow it or the renderer's preflight
+          // fails with MISSING_ASSET. Computed from the pre-flip field.
+          let assetPatch: Partial<ImageAssetPools> | null = null
           const fields = state.fields.map((f) => {
             if (f.id !== id) return f
             if (!f.source || f.source.mode === mode) return f
+            assetPatch = migrateImageAssetOnModeFlip(f, mode, state)
             if (f.source.mode === 'static' && mode === 'dynamic') {
               const placeholder = f.source.value as unknown
               const restored = dynMemo.get(id)
@@ -988,7 +994,11 @@ export const useTemplateStore = create<TemplateState>()(
             return f
           })
           fieldDynamicMemo = dynMemo
-          return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
+          return {
+            fields,
+            ...(assetPatch ?? {}),
+            ...pushHistory({ ...state, fields, groups: state.groups }),
+          }
         }),
 
       removeField: (id) =>

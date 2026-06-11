@@ -3,38 +3,19 @@ import type { TemplateManifest, PageDefinition, PageBand } from '@template-gobli
 import { TemplateGoblinError } from '@template-goblin/types'
 import { validateManifest } from 'template-goblin/validateManifest'
 import { useTemplateStore } from '../store/templateStore.js'
-
-const MANIFEST_FILENAME = 'manifest.json'
-const BACKGROUND_FILENAME = 'background.png'
+import {
+  MANIFEST_FILENAME,
+  BACKGROUND_FILENAME,
+  buildTemplateArchive,
+  isSafeZipPath,
+  sanitizeFilename,
+} from './templateArchive.js'
 
 /** Maximum file size accepted for opening (100 MB) */
 const MAX_FILE_SIZE = 100 * 1024 * 1024
 
 /** Maximum number of files inside a ZIP (prevents ZIP bomb) */
 const MAX_ZIP_ENTRIES = 500
-
-/**
- * Sanitize a filename for safe download.
- * Strips path separators, null bytes, and non-printable characters.
- */
-function sanitizeFilename(name: string): string {
-  return (
-    name
-      .replace(/[/\\:*?"<>|]/g, '_')
-      .replace(/\.{2,}/g, '_')
-      .slice(0, 200) || 'template'
-  )
-}
-
-/**
- * Validate that a ZIP entry path is safe (no path traversal).
- */
-function isSafeZipPath(entryName: string): boolean {
-  if (entryName.includes('..')) return false
-  if (entryName.startsWith('/')) return false
-  if (entryName.includes('\x00')) return false
-  return true
-}
 
 /**
  * Sanitize parsed JSON to prevent prototype pollution.
@@ -59,116 +40,18 @@ export interface SaveResult {
 
 /**
  * Save the current template as a .tgbl file (ZIP archive).
- * Triggers a browser download.
+ * Archive assembly (manifest, assets, orphan sweep) lives in
+ * `buildTemplateArchive`; this wrapper only adds the browser download.
  */
 export async function saveTemplate(): Promise<SaveResult> {
   const state = useTemplateStore.getState()
-  const {
-    meta,
-    fields,
-    fonts,
-    groups,
-    pages,
-    backgroundBuffer,
-    pageBackgroundBuffers,
-    fontBuffers,
-    placeholderBuffers,
-    staticImageBuffers,
-    // #61 — page-wide header / footer / page-number config. Optional; only
-    // present in the saved manifest when the user has enabled them.
-    header,
-    footer,
-    pageNumber,
-  } = state
-
-  // Defence in depth: filter out fields missing `source` before serialising.
-  // These can only originate from a stale localStorage rehydration and would
-  // make the saved `.tgbl` fail `validateManifest` on reload. We now also
-  // record the dropped ids so the caller can surface a UI warning instead
-  // of relying on console output the user never sees (QA BUG-09).
-  const droppedFieldIds: string[] = []
-  const sanitizedFields = fields.filter((f) => {
-    if (!f.source) {
-      droppedFieldIds.push(f.id)
-      console.warn('[saveTemplate] dropping field with missing source:', f.id)
-      return false
-    }
-    return true
-  })
-
-  const sanitizeBand = (band: typeof header): typeof header =>
-    band
-      ? {
-          ...band,
-          fields: band.fields.filter((f) => {
-            if (!f.source) {
-              droppedFieldIds.push(f.id)
-              console.warn('[saveTemplate] dropping band field with missing source:', f.id)
-              return false
-            }
-            return true
-          }),
-        }
-      : band
-
-  const manifest: TemplateManifest = {
-    version: '1.0',
-    meta: { ...meta, updatedAt: new Date().toISOString() },
-    fonts,
-    groups,
-    pages,
-    fields: sanitizedFields,
-    header: sanitizeBand(header),
-    footer: sanitizeBand(footer),
-    pageNumber,
-  }
-
-  const zip = new JSZip()
-
-  zip.file(MANIFEST_FILENAME, JSON.stringify(manifest, null, 2))
-
-  // Legacy page-0 background
-  if (backgroundBuffer) {
-    zip.file(BACKGROUND_FILENAME, backgroundBuffer)
-  }
-
-  // Per-page backgrounds under backgrounds/ folder
-  for (const page of pages) {
-    if (page.backgroundType === 'image' && page.backgroundFilename) {
-      const buffer = pageBackgroundBuffers.get(page.id)
-      if (buffer && isSafeZipPath(page.backgroundFilename)) {
-        zip.file(page.backgroundFilename, buffer)
-      }
-    }
-  }
-
-  for (const font of fonts) {
-    const buffer = fontBuffers.get(font.id)
-    if (buffer && isSafeZipPath(font.filename)) {
-      zip.file(font.filename, buffer)
-    }
-  }
-
-  for (const [filename, buffer] of placeholderBuffers) {
-    const path = filename.startsWith('placeholders/') ? filename : `placeholders/${filename}`
-    if (isSafeZipPath(path)) {
-      zip.file(path, buffer)
-    }
-  }
-
-  // Static image files referenced by static-image fields (images/<filename>).
-  for (const [filename, buffer] of staticImageBuffers) {
-    const path = filename.startsWith('images/') ? filename : `images/${filename}`
-    if (isSafeZipPath(path)) {
-      zip.file(path, buffer)
-    }
-  }
+  const { zip, droppedFieldIds } = buildTemplateArchive(state)
 
   const blob = await zip.generateAsync({ type: 'blob' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${sanitizeFilename(meta.name)}.tgbl`
+  a.download = `${sanitizeFilename(state.meta.name)}.tgbl`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)

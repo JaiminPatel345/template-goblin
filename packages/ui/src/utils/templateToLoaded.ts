@@ -15,6 +15,7 @@
  *      via `vite-plugin-node-polyfills`).
  */
 import { Buffer } from 'buffer'
+import { collectReferencedImageAssets } from 'template-goblin/assetRefs'
 import type {
   FieldDefinition,
   FontDefinition,
@@ -77,13 +78,19 @@ export function templateToLoaded(state: TemplateStoreSnapshot): LoadedTemplate {
 
   const backgroundImage = state.backgroundBuffer ? toBuffer(state.backgroundBuffer) : null
 
+  // The image pools are append-only during a session and may carry
+  // orphans (deleted / replaced / mode-flipped fields). Hand the
+  // renderer only what the manifest references — same sweep the .tgbl
+  // writers do — and skip the Buffer copy for dead entries.
+  const imageRefs = collectReferencedImageAssets(manifest)
+
   return {
     manifest,
     backgroundImage,
     pageBackgrounds: mapBuffers(state.pageBackgroundBuffers),
     fonts: mapBuffers(state.fontBuffers),
-    placeholders: mapBuffers(state.placeholderBuffers),
-    staticImages: mapBuffers(state.staticImageBuffers),
+    placeholders: mapBuffers(state.placeholderBuffers, imageRefs.placeholders),
+    staticImages: mapBuffers(state.staticImageBuffers, imageRefs.staticImages),
   }
 }
 
@@ -92,8 +99,12 @@ function toBuffer(ab: ArrayBuffer): Buffer {
   return Buffer.from(ab)
 }
 
-function mapBuffers(src: Map<string, ArrayBuffer>): Map<string, Buffer> {
+/** Copy a pool to `Buffer`s, optionally keeping only `keep` members. */
+function mapBuffers(src: Map<string, ArrayBuffer>, keep?: Set<string>): Map<string, Buffer> {
   const out = new Map<string, Buffer>()
-  for (const [k, v] of src) out.set(k, toBuffer(v))
+  for (const [k, v] of src) {
+    if (keep && !keep.has(k)) continue
+    out.set(k, toBuffer(v))
+  }
   return out
 }
