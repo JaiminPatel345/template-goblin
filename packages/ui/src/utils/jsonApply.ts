@@ -148,9 +148,44 @@ function diffTables(
     }
     const rows = normalizeRows(value)
     if (JSON.stringify(rows) === JSON.stringify(baseline[key])) continue
-    const placeholder = rows.length === 0 ? null : rows
-    for (const f of targets) result.patches.push({ fieldId: f.id, placeholder })
+    // Per-field write-back that preserves sparseness: cells the user did
+    // NOT change keep the field's ORIGINAL placeholder cell (including
+    // its absence) instead of the projected column-key fallback —
+    // otherwise editing one cell stamped literal "qty": "qty" strings
+    // into the placeholder for every untouched sparse cell.
+    for (const f of targets) {
+      const merged = mergeUneditedCells(rows, baseline[key] ?? [], f)
+      result.patches.push({ fieldId: f.id, placeholder: merged.length === 0 ? null : merged })
+    }
   }
+}
+
+/** Keep the original placeholder's cell wherever the edited value equals
+ *  the projected baseline (i.e. the user didn't touch it). */
+function mergeUneditedCells(
+  edited: TableRow[],
+  baseline: TableRow[],
+  field: FieldDefinition,
+): TableRow[] {
+  const original =
+    field.source?.mode === 'dynamic' && Array.isArray(field.source.placeholder)
+      ? (field.source.placeholder as Record<string, unknown>[])
+      : []
+  return edited.map((row, i) => {
+    const baseRow = baseline[i] ?? {}
+    const origRow = original[i] && typeof original[i] === 'object' ? original[i] : {}
+    const out: TableRow = {}
+    for (const [k, v] of Object.entries(row)) {
+      if (v === baseRow[k]) {
+        const ov = (origRow as Record<string, unknown>)[k]
+        if (typeof ov === 'string') out[k] = ov
+        // untouched fallback cell with no original value → stays absent
+      } else {
+        out[k] = v
+      }
+    }
+    return out
+  })
 }
 
 /** Keep object rows; keep string cells, stringify numbers/booleans, drop

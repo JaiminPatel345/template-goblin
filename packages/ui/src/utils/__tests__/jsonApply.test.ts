@@ -311,3 +311,26 @@ describe('diffJsonEdit — structure', () => {
     expect(result.patches).toEqual([{ fieldId: 'h1', placeholder: 'New title' }])
   })
 })
+
+describe('diffJsonEdit — sparse table placeholders are not polluted by fallbacks', () => {
+  it('editing one cell does not stamp the projected column-key fallback into untouched cells', () => {
+    // Placeholder row has only `name`; the projection fills `grade` with
+    // the column-key fallback "grade". Editing just `name` must NOT write
+    // that literal fallback into the placeholder.
+    const fields = [tableField('f4', 'marks', [{ name: 'Widget' }])]
+    const result = diffJsonEdit(editedText(fields, 'tables', 'marks', [
+      { name: 'Gadget', grade: 'grade' },
+    ]), fields)
+    expect(result.patches).toEqual([{ fieldId: 'f4', placeholder: [{ name: 'Gadget' }] }])
+  })
+
+  it('an actually-edited fallback cell IS written', () => {
+    const fields = [tableField('f4', 'marks', [{ name: 'Widget' }])]
+    const result = diffJsonEdit(editedText(fields, 'tables', 'marks', [
+      { name: 'Widget', grade: 'A+' },
+    ]), fields)
+    expect(result.patches).toEqual([
+      { fieldId: 'f4', placeholder: [{ name: 'Widget', grade: 'A+' }] },
+    ])
+  })
+})

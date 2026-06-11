@@ -131,21 +131,69 @@ function getMeasureCtx(): CanvasRenderingContext2D | null {
   return _measureCtx
 }
 
-function wrapToLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+/**
+ * Word-wrap mirroring `core/src/utils/measure.ts#wrapText` exactly
+ * (#91 WYSIWYG): paragraphs split on `\n` FIRST (the old version
+ * collapsed newlines into spaces, so `"a\nb"` previewed as one wrapped
+ * paragraph but printed as two lines), and a single word wider than the
+ * box breaks mid-word instead of being admitted whole and char-truncated.
+ */
+export function wrapToLines(
+  ctx: Pick<CanvasRenderingContext2D, 'measureText'>,
+  text: string,
+  maxWidth: number,
+): string[] {
   if (maxWidth <= 0) return [text]
-  const words = text.split(/\s+/).filter(Boolean)
-  if (words.length === 0) return ['']
+  if (!text) return ['']
   const lines: string[] = []
+  for (const paragraph of text.split('\n')) {
+    if (paragraph === '') {
+      lines.push('')
+      continue
+    }
+    const words = paragraph.split(/\s+/).filter(Boolean)
+    let current = ''
+    for (const word of words) {
+      const test = current ? `${current} ${word}` : word
+      if (ctx.measureText(test).width <= maxWidth) {
+        current = test
+      } else if (!current) {
+        const broken = breakWord(ctx, word, maxWidth)
+        lines.push(...broken.slice(0, -1))
+        current = broken[broken.length - 1] ?? ''
+      } else {
+        lines.push(current)
+        if (ctx.measureText(word).width <= maxWidth) {
+          current = word
+        } else {
+          const broken = breakWord(ctx, word, maxWidth)
+          lines.push(...broken.slice(0, -1))
+          current = broken[broken.length - 1] ?? ''
+        }
+      }
+    }
+    if (current) lines.push(current)
+  }
+  return lines.length > 0 ? lines : ['']
+}
+
+/** Mirror of `core/src/utils/measure.ts#breakWord` — split an over-wide
+ *  word into fragments that each fit `maxWidth`. */
+function breakWord(
+  ctx: Pick<CanvasRenderingContext2D, 'measureText'>,
+  word: string,
+  maxWidth: number,
+): string[] {
+  const parts: string[] = []
   let current = ''
-  for (const w of words) {
-    const test = current ? `${current} ${w}` : w
-    if (ctx.measureText(test).width <= maxWidth || current === '') {
-      current = test
+  for (const char of word) {
+    if (ctx.measureText(current + char).width > maxWidth && current) {
+      parts.push(current)
+      current = char
     } else {
-      lines.push(current)
-      current = w
+      current += char
     }
   }
-  if (current) lines.push(current)
-  return lines
+  if (current) parts.push(current)
+  return parts
 }

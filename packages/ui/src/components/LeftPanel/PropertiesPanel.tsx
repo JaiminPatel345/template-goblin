@@ -53,9 +53,20 @@ export function PropertiesPanel() {
 
   return (
     <>
-      {selectedField.type === 'text' && <TextFieldProps field={selectedField} />}
-      {selectedField.type === 'image' && <ImageFieldProps field={selectedField} />}
-      {selectedField.type === 'table' && <LoopFieldProps field={selectedField} />}
+      {/* key={id} — the props components hold per-field draft state (e.g.
+          HyperlinkSection's URL/key inputs, seeded once per mount). Without
+          remounting on selection change, switching between two same-type
+          fields showed (and on blur, COMMITTED) field A's drafts onto
+          field B — including silently deleting B's link when A had none. */}
+      {selectedField.type === 'text' && (
+        <TextFieldProps key={selectedField.id} field={selectedField} />
+      )}
+      {selectedField.type === 'image' && (
+        <ImageFieldProps key={selectedField.id} field={selectedField} />
+      )}
+      {selectedField.type === 'table' && (
+        <LoopFieldProps key={selectedField.id} field={selectedField} />
+      )}
       {/* #172 — field-type-agnostic rotation control. Lives in PropertiesPanel
           rather than each *FieldProps.tsx so a single section serves all three
           field types without bloating any one file past the 300-LOC cap. */}

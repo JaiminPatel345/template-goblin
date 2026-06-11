@@ -3,6 +3,7 @@ import type { TemplateManifest, PageDefinition, PageBand } from '@template-gobli
 import { TemplateGoblinError } from '@template-goblin/types'
 import { validateManifest } from 'template-goblin/validateManifest'
 import { useTemplateStore } from '../store/templateStore.js'
+import { useUiStore } from '../store/uiStore.js'
 import {
   MANIFEST_FILENAME,
   BACKGROUND_FILENAME,
@@ -205,8 +206,18 @@ export async function openTemplate(file: File): Promise<void> {
   // a save→reopen round-trip in a clean browser session showed the
   // filename text instead of the bitmap and (worse) re-saved an
   // archive missing every placeholder under `placeholders/`.
+  // #61 — header/footer band fields reference assets in the same archive
+  // folders. Loading only `manifest.fields` lost every band image: it
+  // rendered blank after open, and the next save's orphan sweep dropped
+  // the bytes from the archive for good.
+  const allFields = [
+    ...manifest.fields,
+    ...(manifest.header?.fields ?? []),
+    ...(manifest.footer?.fields ?? []),
+  ]
+
   const placeholderBuffers = new Map<string, ArrayBuffer>()
-  for (const field of manifest.fields) {
+  for (const field of allFields) {
     if (field.type !== 'image') continue
     if (field.source.mode !== 'dynamic') continue
     const ph = field.source.placeholder
@@ -226,7 +237,7 @@ export async function openTemplate(file: File): Promise<void> {
   // `images/<filename>`.
   const staticImageBuffers = new Map<string, ArrayBuffer>()
   const staticImageDataUrls = new Map<string, string>()
-  for (const field of manifest.fields) {
+  for (const field of allFields) {
     if (field.type !== 'image') continue
     if (field.source.mode !== 'static') continue
     // GH #81 — solid-colour static fields carry no asset; skip.
@@ -268,6 +279,13 @@ export async function openTemplate(file: File): Promise<void> {
     backfillEnabledFlag(manifest.footer),
     manifest.pageNumber,
   )
+
+  // The PREVIOUS template's view state must not leak into the opened one:
+  // `currentPageId` is persisted, and an id no new page has makes
+  // `deriveCanvasFields` filter every body field — the template opened
+  // "empty" until the user happened to click a page tab.
+  useUiStore.getState().setCurrentPage(null)
+  useUiStore.getState().clearSelection()
 }
 
 /**

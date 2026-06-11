@@ -47,7 +47,10 @@ const BAND_STYLE = {
   paddingRight: 8,
 }
 
-function loadedFrom(manifest: TemplateManifest, assets: Partial<LoadedTemplate> = {}): LoadedTemplate {
+function loadedFrom(
+  manifest: TemplateManifest,
+  assets: Partial<LoadedTemplate> = {},
+): LoadedTemplate {
   return {
     manifest,
     backgroundImage: null,

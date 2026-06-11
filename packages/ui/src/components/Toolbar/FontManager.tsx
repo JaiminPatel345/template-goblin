@@ -30,6 +30,26 @@ export function FontManager() {
           message: `Invalid font file: ${r.filename}. Please select a valid .ttf file.`,
           variant: 'danger',
         })
+      } else if (r.reason === 'duplicate') {
+        // Previously SILENT — re-uploading a same-named font did nothing
+        // and gave no hint why.
+        await showAlert({
+          title: 'Font already added',
+          message: `A font named ${r.filename} is already in this template. Remove it first to replace it.`,
+          variant: 'danger',
+        })
+      } else if (r.reason === 'extension') {
+        await showAlert({
+          title: 'Unsupported file type',
+          message: `${r.filename} is not a .ttf file. Only TrueType fonts (.ttf) are supported.`,
+          variant: 'danger',
+        })
+      } else {
+        await showAlert({
+          title: 'Could not read font',
+          message: `${r.filename} could not be read. Try the file again or re-export it.`,
+          variant: 'danger',
+        })
       }
     }
     e.target.value = ''

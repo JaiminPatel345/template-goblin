@@ -8,6 +8,7 @@ import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import { createDefaultField } from '../../utils/defaults.js'
 import { autoShrinkStaticField } from '../../utils/autoShrinkDispatch.js'
+import { currentPageBandContext } from './bandGeometry.js'
 import type { FieldDefinition, PageBand } from '@template-goblin/types'
 import type { FieldCreationDraft, SourceInputs } from './FieldCreationPopup.js'
 
@@ -93,19 +94,24 @@ export function useFieldCreationPopup() {
       // path. Band fields' x/y are stored band-local so the renderer can
       // re-add the band offset on every paint.
       const store = useTemplateStore.getState()
+      // Zone-detect against the VIEWED page: per-page heights shift the
+      // footer zone, and a band with applyToFirstPage=false doesn't render
+      // on page 0 — drawing in its strip there must create a BODY field
+      // (it previously vanished into a band that never renders here).
+      const pageCtx = currentPageBandContext()
       const zone = detectDrawZone(
         pendingDraft.y,
         pendingDraft.height,
-        store.header,
-        store.footer,
-        store.meta.height,
+        pageCtx.header,
+        pageCtx.footer,
+        pageCtx.pageHeight,
       )
 
       if (zone !== 'body') {
-        const band = zone === 'header' ? store.header : store.footer
+        const band = zone === 'header' ? pageCtx.header : pageCtx.footer
         // `band` is non-null here because `zone !== 'body'` only returns
         // when the corresponding band exists with height > 0.
-        const bandTop = zone === 'header' ? 0 : store.meta.height - (band?.style.height ?? 0)
+        const bandTop = zone === 'header' ? 0 : pageCtx.pageHeight - (band?.style.height ?? 0)
         const bandLocalX = pendingDraft.x - (band?.style.paddingLeft ?? 0)
         const bandLocalY = pendingDraft.y - bandTop - (band?.style.paddingTop ?? 0)
         const bandField: FieldDefinition = {
