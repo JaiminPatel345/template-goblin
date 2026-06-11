@@ -87,7 +87,7 @@ export function PreviewImageUploadRow({
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp"
+        accept="image/png,image/jpeg"
         hidden
         data-testid={`preview-upload-input-${jsonKey}`}
         onChange={(e) => {

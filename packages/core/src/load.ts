@@ -2,6 +2,7 @@ import AdmZip from 'adm-zip'
 import type { LoadedTemplate } from '@template-goblin/types'
 import { TemplateGoblinError } from '@template-goblin/types'
 import { readTgblBuffer, parseManifestFromZip } from './file/read.js'
+import { allManifestFields } from './utils/manifestFields.js'
 import {
   BACKGROUND_FILENAME,
   BACKGROUNDS_DIR,
@@ -88,14 +89,19 @@ export async function loadTemplate(path: string): Promise<LoadedTemplate> {
   // the archive entry and stores the bare filename as the Map key.
   const placeholders = new Map<string, Buffer>()
   const staticImages = new Map<string, Buffer>()
-  for (const field of manifest.fields) {
+  // #61 — band image fields' assets live in the same archive folders.
+  for (const field of allManifestFields(manifest)) {
     if (field.type !== 'image') continue
     if (field.source.mode === 'static') {
       // GH #81 — solid-colour static fields carry no asset to load.
       if ('color' in field.source.value) continue
       const filename = field.source.value.filename
       if (!staticImages.has(filename)) {
-        const entry = zip.getEntry(`${IMAGES_DIR}${filename}`)
+        // References may already carry the folder prefix (the writers
+        // accept both spellings — see assetRefs.ts); don't double it.
+        const entry = zip.getEntry(
+          filename.startsWith(IMAGES_DIR) ? filename : `${IMAGES_DIR}${filename}`,
+        )
         if (!entry) {
           throw new TemplateGoblinError(
             'MISSING_STATIC_IMAGE_FILE',
@@ -109,7 +115,9 @@ export async function loadTemplate(path: string): Promise<LoadedTemplate> {
       if ('color' in field.source.placeholder) continue
       const filename = field.source.placeholder.filename
       if (!placeholders.has(filename)) {
-        const entry = zip.getEntry(`${PLACEHOLDERS_DIR}${filename}`)
+        const entry = zip.getEntry(
+          filename.startsWith(PLACEHOLDERS_DIR) ? filename : `${PLACEHOLDERS_DIR}${filename}`,
+        )
         if (!entry) {
           throw new TemplateGoblinError(
             'MISSING_PLACEHOLDER_IMAGE_FILE',

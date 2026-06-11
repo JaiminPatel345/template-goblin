@@ -1,4 +1,5 @@
-import type { PageBand, TemplateManifest } from '@template-goblin/types'
+import type { TemplateManifest } from '@template-goblin/types'
+import { allManifestFields } from './utils/manifestFields.js'
 
 /**
  * Referenced-image-asset collection — the mark phase of the .tgbl
@@ -48,19 +49,12 @@ export function collectReferencedImageAssets(
 ): ReferencedImageAssets {
   const refs: ReferencedImageAssets = { placeholders: new Set(), staticImages: new Set() }
 
-  const pools: Array<Pick<PageBand, 'fields'> | undefined> = [
-    { fields: manifest.fields },
-    manifest.header,
-    manifest.footer,
-  ]
-  for (const pool of pools) {
-    for (const field of pool?.fields ?? []) {
-      if (field.type !== 'image' || !field.source) continue
-      if (field.source.mode === 'dynamic') {
-        addRef(refs.placeholders, filenameOf(field.source.placeholder), PLACEHOLDERS_PREFIX)
-      } else {
-        addRef(refs.staticImages, filenameOf(field.source.value), IMAGES_PREFIX)
-      }
+  for (const field of allManifestFields(manifest)) {
+    if (field.type !== 'image' || !field.source) continue
+    if (field.source.mode === 'dynamic') {
+      addRef(refs.placeholders, filenameOf(field.source.placeholder), PLACEHOLDERS_PREFIX)
+    } else {
+      addRef(refs.staticImages, filenameOf(field.source.value), IMAGES_PREFIX)
     }
   }
   return refs

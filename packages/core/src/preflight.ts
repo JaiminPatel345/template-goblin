@@ -4,6 +4,7 @@ import { sniffImageFormat } from './utils/imageFormat.js'
 import { pageContextFor, pageLabel, type PageContext } from './utils/errorContext.js'
 import { resolveImageInputs, type ResolveContext, type ResolveOptions } from './utils/imageInput.js'
 import { isImageColorMarker } from './utils/imageColorMarker.js'
+import { allManifestFields } from './utils/manifestFields.js'
 
 /** Per-call options for {@link preflightImages}. */
 export interface PreflightOptions {
@@ -49,7 +50,9 @@ export async function preflightImages(
   // synchronous.
   const dynamicWork: Array<{ input: ImageInput; ctx: ResolveContext; field: FieldDefinition }> = []
 
-  for (const field of manifest.fields) {
+  // #61 — band image fields resolve from the same pools; skipping them
+  // meant required band images silently rendered blank.
+  for (const field of allManifestFields(manifest)) {
     if (field.type !== 'image') continue
     const pageContext = pageContextFor(template, field.pageId)
 

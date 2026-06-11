@@ -268,7 +268,9 @@ function validatePageDimensions(manifest: TemplateManifest): void {
   }
   checkDim(manifest.meta.width, 'meta.width')
   checkDim(manifest.meta.height, 'meta.height')
-  for (const page of manifest.pages) {
+  // `pages` is optional for legacy single-page templates (see
+  // file/read.ts + generate.ts's no-pages branch) — don't crash on it.
+  for (const page of manifest.pages ?? []) {
     // Per-page width / height are optional; when present they must be valid.
     if (page.width !== undefined) checkDim(page.width, `pages[${page.id}].width`)
     if (page.height !== undefined) checkDim(page.height, `pages[${page.id}].height`)

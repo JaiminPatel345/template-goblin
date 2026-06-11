@@ -27,6 +27,7 @@ import type { Canvas as FabricCanvas, FabricObject } from 'fabric'
 import { getPageSize } from '@template-goblin/types'
 import { useTemplateStore } from '../../../store/templateStore.js'
 import { useUiStore } from '../../../store/uiStore.js'
+import { currentPageBandContext } from '../bandGeometry.js'
 import { clampToPage } from '../usePageBoundsEnforcement.js'
 import { buildCandidates, type Rect } from './candidates.js'
 import { computeSnap } from './snap.js'
@@ -47,12 +48,15 @@ function readPageMeta(): PageMeta {
   return getPageSize(page, store.meta)
 }
 
-/** Read the current header/footer band heights from the store (#61). */
+/** Read the band heights that apply on the VIEWED page (#61). A band
+ *  with applyToFirstPage=false reserves no space on page 0 — clamping by
+ *  its height there shoved body fields out of a strip where no band
+ *  renders. */
 function readBandHeights(): { header: number; footer: number } {
-  const s = useTemplateStore.getState()
+  const ctx = currentPageBandContext()
   return {
-    header: s.header?.enabled ? s.header.style.height : 0,
-    footer: s.footer?.enabled ? s.footer.style.height : 0,
+    header: ctx.header?.style.height ?? 0,
+    footer: ctx.footer?.style.height ?? 0,
   }
 }
 

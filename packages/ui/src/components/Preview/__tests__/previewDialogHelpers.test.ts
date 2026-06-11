@@ -131,7 +131,9 @@ describe('validateUpload', () => {
   })
 
   it('accepts WEBP under the cap', () => {
-    expect(validateUpload(fakeFile('image/webp', 1024))).toBeNull()
+    // WEBP is NOT accepted — the PDF engine renders only PNG/JPEG, so
+    // inviting it here just deferred the failure to Render.
+    expect(validateUpload(fakeFile('image/webp', 1024))).not.toBeNull()
   })
 
   it('rejects GIF (not in the allow-list per the issue spec)', () => {

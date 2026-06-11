@@ -121,7 +121,12 @@ export async function generatePDF(
         const page = sortedPages[i] as PageDefinition
 
         if (i > 0) {
-          doc.addPage({ size: [meta.width, meta.height] })
+          // `addPage(options)` REPLACES the constructor options — without an
+          // explicit margin PDFKit applies its 72pt default to every page
+          // after the first, shrinking the writable area: content in the
+          // bottom 72pt triggered auto-pagination (phantom pages) and split
+          // clip save/restore pairs across pages (corrupt q/Q nesting).
+          doc.addPage({ size: [meta.width, meta.height], margin: 0 })
         }
 
         const pageCtx: PageContext = { pageId: page.id, pageIndex: page.index }
@@ -152,8 +157,18 @@ export async function generatePDF(
         // Sort by zIndex (lowest first), stable with id tiebreaker
         pageFields.sort((a, b) => a.zIndex - b.zIndex || a.id.localeCompare(b.id))
 
+        // A multiPage table appends continuation pages and leaves the doc
+        // pointed at the LAST of them — without switching back, every
+        // later field of this template page rendered onto the table's
+        // final overflow page instead of its own. Pin this page's buffer
+        // index (it IS the last page right after addPage) and return to
+        // it whenever a field grew the document.
+        const thisPageIndex = doc.bufferedPageRange().count - 1
         for (const field of pageFields) {
           renderField(doc, field, data, fontMap, template, pageCtx, resolvedImages)
+          if (doc.bufferedPageRange().count - 1 !== thisPageIndex) {
+            doc.switchToPage(thisPageIndex)
+          }
         }
       }
     }

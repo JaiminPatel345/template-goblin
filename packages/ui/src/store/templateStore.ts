@@ -2,6 +2,13 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { idbGet, idbSet, idbDelete, migrateFromLocalStorage } from './idbStorage.js'
 import { migrateImageAssetOnModeFlip, type ImageAssetPools } from './imageAssetMigration.js'
+import {
+  createSnapshot,
+  pushHistory,
+  applyUndo,
+  applyRedo,
+  type HistorySnapshot,
+} from './history.js'
 import type {
   FieldDefinition,
   TemplateMeta,
@@ -18,10 +25,6 @@ import type {
 } from '@template-goblin/types'
 
 /** Snapshot of the template state for undo/redo */
-interface HistorySnapshot {
-  fields: FieldDefinition[]
-  groups: GroupDefinition[]
-}
 
 export interface TemplateState {
   /** Template metadata */
@@ -335,37 +338,6 @@ const defaultMeta: TemplateMeta = {
   updatedAt: new Date().toISOString(),
 }
 
-function createSnapshot(state: {
-  fields: FieldDefinition[]
-  groups: GroupDefinition[]
-}): HistorySnapshot {
-  return {
-    fields: structuredClone(state.fields),
-    groups: structuredClone(state.groups),
-  }
-}
-
-function pushHistory(state: TemplateState): Partial<TemplateState> {
-  const snapshot = createSnapshot(state)
-  const newHistory = state.history.slice(0, state.historyIndex + 1)
-  newHistory.push(snapshot)
-
-  // Trim to max history
-  if (newHistory.length > state.maxHistory) {
-    newHistory.shift()
-  }
-
-  const historyIndex = newHistory.length - 1
-  return {
-    history: newHistory,
-    historyIndex,
-    // #160 — reactive flags kept in sync with the index/length on
-    // every history mutation so component subscribers re-render.
-    canUndo: historyIndex > 0,
-    canRedo: false,
-  }
-}
-
 let fieldCounter = 0
 
 /**
@@ -641,12 +613,13 @@ export const useTemplateStore = create<TemplateState>()(
           // First-time enable on a never-configured store: lay down a sensible
           // default band. First-time disable: nothing to remember; no-op.
           if (!state.header) {
-            return enabled
-              ? {
-                  header: defaultBand('header'),
-                  meta: { ...state.meta, updatedAt: new Date().toISOString() },
-                }
-              : state
+            if (!enabled) return state
+            const header = defaultBand('header')
+            return {
+              header,
+              meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              ...pushHistory({ ...state, header }),
+            }
           }
           if (state.header.enabled === enabled) return state
           if (enabled) {
@@ -667,14 +640,16 @@ export const useTemplateStore = create<TemplateState>()(
             const restored = reclaim.map(
               (f) => ({ ...f, x: f.x - padX, y: f.y - padY }) as FieldDefinition,
             )
+            const header = {
+              ...state.header,
+              enabled: true,
+              fields: [...state.header.fields, ...restored],
+            }
             return {
               fields: remaining,
-              header: {
-                ...state.header,
-                enabled: true,
-                fields: [...state.header.fields, ...restored],
-              },
+              header,
               meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              ...pushHistory({ ...state, fields: remaining, header }),
             }
           }
           // Hide — migrate band fields to body with page-absolute coords so
@@ -686,10 +661,15 @@ export const useTemplateStore = create<TemplateState>()(
           const migrated = state.header.fields.map(
             (f) => ({ ...f, x: f.x + padX, y: f.y + bandTop + padY }) as FieldDefinition,
           )
+          const fields = [...state.fields, ...migrated]
+          const header = { ...state.header, enabled: false, fields: [] }
           return {
-            fields: [...state.fields, ...migrated],
-            header: { ...state.header, enabled: false, fields: [] },
+            fields,
+            header,
             meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            // The hide-migration is exactly the mutation that, without a
+            // snapshot, let Ctrl+Z lose the migrated fields from BOTH pools.
+            ...pushHistory({ ...state, fields, header }),
           }
         }),
 
@@ -704,42 +684,45 @@ export const useTemplateStore = create<TemplateState>()(
         ),
 
       addHeaderField: (field) =>
-        set((state) =>
-          state.header
-            ? {
-                header: { ...state.header, fields: [...state.header.fields, field] },
-                meta: { ...state.meta, updatedAt: new Date().toISOString() },
-              }
-            : state,
-        ),
+        set((state) => {
+          if (!state.header) return state
+          const header = { ...state.header, fields: [...state.header.fields, field] }
+          return {
+            header,
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            ...pushHistory({ ...state, header }),
+          }
+        }),
 
       updateHeaderField: (id, updates) =>
-        set((state) =>
-          state.header
-            ? {
-                header: {
-                  ...state.header,
-                  fields: state.header.fields.map((f) =>
-                    f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
-                  ),
-                },
-                meta: { ...state.meta, updatedAt: new Date().toISOString() },
-              }
-            : state,
-        ),
+        set((state) => {
+          if (!state.header) return state
+          const header = {
+            ...state.header,
+            fields: state.header.fields.map((f) =>
+              f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+            ),
+          }
+          return {
+            header,
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            ...pushHistory({ ...state, header }),
+          }
+        }),
 
       removeHeaderField: (id) =>
-        set((state) =>
-          state.header
-            ? {
-                header: {
-                  ...state.header,
-                  fields: state.header.fields.filter((f) => f.id !== id),
-                },
-                meta: { ...state.meta, updatedAt: new Date().toISOString() },
-              }
-            : state,
-        ),
+        set((state) => {
+          if (!state.header) return state
+          const header = {
+            ...state.header,
+            fields: state.header.fields.filter((f) => f.id !== id),
+          }
+          return {
+            header,
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            ...pushHistory({ ...state, header }),
+          }
+        }),
 
       setFooter: (footer) =>
         set((state) => ({
@@ -750,12 +733,13 @@ export const useTemplateStore = create<TemplateState>()(
       setFooterEnabled: (enabled) =>
         set((state) => {
           if (!state.footer) {
-            return enabled
-              ? {
-                  footer: defaultBand('footer'),
-                  meta: { ...state.meta, updatedAt: new Date().toISOString() },
-                }
-              : state
+            if (!enabled) return state
+            const footer = defaultBand('footer')
+            return {
+              footer,
+              meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              ...pushHistory({ ...state, footer }),
+            }
           }
           if (state.footer.enabled === enabled) return state
           if (enabled) {
@@ -769,14 +753,16 @@ export const useTemplateStore = create<TemplateState>()(
             const restored = reclaim.map(
               (f) => ({ ...f, x: f.x - padX, y: f.y - bandTop - padY }) as FieldDefinition,
             )
+            const footer = {
+              ...state.footer,
+              enabled: true,
+              fields: [...state.footer.fields, ...restored],
+            }
             return {
               fields: remaining,
-              footer: {
-                ...state.footer,
-                enabled: true,
-                fields: [...state.footer.fields, ...restored],
-              },
+              footer,
               meta: { ...state.meta, updatedAt: new Date().toISOString() },
+              ...pushHistory({ ...state, fields: remaining, footer }),
             }
           }
           const bandTop = state.meta.height - state.footer.style.height
@@ -785,10 +771,13 @@ export const useTemplateStore = create<TemplateState>()(
           const migrated = state.footer.fields.map(
             (f) => ({ ...f, x: f.x + padX, y: f.y + bandTop + padY }) as FieldDefinition,
           )
+          const fields = [...state.fields, ...migrated]
+          const footer = { ...state.footer, enabled: false, fields: [] }
           return {
-            fields: [...state.fields, ...migrated],
-            footer: { ...state.footer, enabled: false, fields: [] },
+            fields,
+            footer,
             meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            ...pushHistory({ ...state, fields, footer }),
           }
         }),
 
@@ -803,42 +792,45 @@ export const useTemplateStore = create<TemplateState>()(
         ),
 
       addFooterField: (field) =>
-        set((state) =>
-          state.footer
-            ? {
-                footer: { ...state.footer, fields: [...state.footer.fields, field] },
-                meta: { ...state.meta, updatedAt: new Date().toISOString() },
-              }
-            : state,
-        ),
+        set((state) => {
+          if (!state.footer) return state
+          const footer = { ...state.footer, fields: [...state.footer.fields, field] }
+          return {
+            footer,
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            ...pushHistory({ ...state, footer }),
+          }
+        }),
 
       updateFooterField: (id, updates) =>
-        set((state) =>
-          state.footer
-            ? {
-                footer: {
-                  ...state.footer,
-                  fields: state.footer.fields.map((f) =>
-                    f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
-                  ),
-                },
-                meta: { ...state.meta, updatedAt: new Date().toISOString() },
-              }
-            : state,
-        ),
+        set((state) => {
+          if (!state.footer) return state
+          const footer = {
+            ...state.footer,
+            fields: state.footer.fields.map((f) =>
+              f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+            ),
+          }
+          return {
+            footer,
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            ...pushHistory({ ...state, footer }),
+          }
+        }),
 
       removeFooterField: (id) =>
-        set((state) =>
-          state.footer
-            ? {
-                footer: {
-                  ...state.footer,
-                  fields: state.footer.fields.filter((f) => f.id !== id),
-                },
-                meta: { ...state.meta, updatedAt: new Date().toISOString() },
-              }
-            : state,
-        ),
+        set((state) => {
+          if (!state.footer) return state
+          const footer = {
+            ...state.footer,
+            fields: state.footer.fields.filter((f) => f.id !== id),
+          }
+          return {
+            footer,
+            meta: { ...state.meta, updatedAt: new Date().toISOString() },
+            ...pushHistory({ ...state, footer }),
+          }
+        }),
 
       setPageNumber: (config) =>
         set((state) => {
@@ -885,24 +877,22 @@ export const useTemplateStore = create<TemplateState>()(
           // making the router transparent means they keep working for band fields
           // without per-callsite knowledge of which pool the field lives in.
           if (state.header?.fields.some((f) => f.id === id)) {
-            return {
-              header: {
-                ...state.header,
-                fields: state.header.fields.map((f) =>
-                  f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
-                ),
-              },
+            const header = {
+              ...state.header,
+              fields: state.header.fields.map((f) =>
+                f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+              ),
             }
+            return { header, ...pushHistory({ ...state, header }) }
           }
           if (state.footer?.fields.some((f) => f.id === id)) {
-            return {
-              footer: {
-                ...state.footer,
-                fields: state.footer.fields.map((f) =>
-                  f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
-                ),
-              },
+            const footer = {
+              ...state.footer,
+              fields: state.footer.fields.map((f) =>
+                f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+              ),
             }
+            return { footer, ...pushHistory({ ...state, footer }) }
           }
           // `{ ...f, ...updates }` widens the discriminated union — cast back to
           // `FieldDefinition` once the shape is known to match (`type` stays put,
@@ -922,28 +912,22 @@ export const useTemplateStore = create<TemplateState>()(
         set((state) => {
           // #61 — route through the band pool when the field lives there.
           if (state.header?.fields.some((f) => f.id === id)) {
-            return {
-              header: {
-                ...state.header,
-                fields: state.header.fields.map((f) =>
-                  f.id === id
-                    ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition)
-                    : f,
-                ),
-              },
+            const header = {
+              ...state.header,
+              fields: state.header.fields.map((f) =>
+                f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
+              ),
             }
+            return { header, ...pushHistory({ ...state, header }) }
           }
           if (state.footer?.fields.some((f) => f.id === id)) {
-            return {
-              footer: {
-                ...state.footer,
-                fields: state.footer.fields.map((f) =>
-                  f.id === id
-                    ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition)
-                    : f,
-                ),
-              },
+            const footer = {
+              ...state.footer,
+              fields: state.footer.fields.map((f) =>
+                f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
+              ),
             }
+            return { footer, ...pushHistory({ ...state, footer }) }
           }
           const fields = state.fields.map((f) =>
             f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
@@ -962,14 +946,21 @@ export const useTemplateStore = create<TemplateState>()(
           // value) — the BYTES must follow it or the renderer's preflight
           // fails with MISSING_ASSET. Computed from the pre-flip field.
           let assetPatch: Partial<ImageAssetPools> | null = null
-          const fields = state.fields.map((f) => {
+          // jsonKey uniqueness is checked across ALL pools so a band flip
+          // can't collide with a body field's key.
+          const everyField = [
+            ...state.fields,
+            ...(state.header?.fields ?? []),
+            ...(state.footer?.fields ?? []),
+          ]
+          const flip = (f: FieldDefinition): FieldDefinition => {
             if (f.id !== id) return f
             if (!f.source || f.source.mode === mode) return f
             assetPatch = migrateImageAssetOnModeFlip(f, mode, state)
             if (f.source.mode === 'static' && mode === 'dynamic') {
               const placeholder = f.source.value as unknown
               const restored = dynMemo.get(id)
-              const jsonKey = restored?.jsonKey ?? generateDefaultJsonKey(f.type, state.fields, id)
+              const jsonKey = restored?.jsonKey ?? generateDefaultJsonKey(f.type, everyField, id)
               const required = restored?.required ?? false
               return {
                 ...f,
@@ -992,7 +983,21 @@ export const useTemplateStore = create<TemplateState>()(
               } as FieldDefinition
             }
             return f
-          })
+          }
+          // #61 — route to whichever pool owns the id (parity with
+          // updateField); the Static/Dynamic toggle previously no-op'd on
+          // band fields.
+          if (state.header?.fields.some((f) => f.id === id)) {
+            const header = { ...state.header, fields: state.header.fields.map(flip) }
+            fieldDynamicMemo = dynMemo
+            return { header, ...(assetPatch ?? {}), ...pushHistory({ ...state, header }) }
+          }
+          if (state.footer?.fields.some((f) => f.id === id)) {
+            const footer = { ...state.footer, fields: state.footer.fields.map(flip) }
+            fieldDynamicMemo = dynMemo
+            return { footer, ...(assetPatch ?? {}), ...pushHistory({ ...state, footer }) }
+          }
+          const fields = state.fields.map(flip)
           fieldDynamicMemo = dynMemo
           return {
             fields,
@@ -1005,20 +1010,18 @@ export const useTemplateStore = create<TemplateState>()(
         set((state) => {
           // #61 — band-aware removal.
           if (state.header?.fields.some((f) => f.id === id)) {
-            return {
-              header: {
-                ...state.header,
-                fields: state.header.fields.filter((f) => f.id !== id),
-              },
+            const header = {
+              ...state.header,
+              fields: state.header.fields.filter((f) => f.id !== id),
             }
+            return { header, ...pushHistory({ ...state, header }) }
           }
           if (state.footer?.fields.some((f) => f.id === id)) {
-            return {
-              footer: {
-                ...state.footer,
-                fields: state.footer.fields.filter((f) => f.id !== id),
-              },
+            const footer = {
+              ...state.footer,
+              fields: state.footer.fields.filter((f) => f.id !== id),
             }
+            return { footer, ...pushHistory({ ...state, footer }) }
           }
           const fields = state.fields.filter((f) => f.id !== id)
           return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
@@ -1027,13 +1030,27 @@ export const useTemplateStore = create<TemplateState>()(
       removeFields: (ids) =>
         set((state) => {
           const idSet = new Set(ids)
+          // #61 — the keyboard Delete path uses the plural form; a selected
+          // band field previously survived (the cleared selection just made
+          // it LOOK deleted). Route across all three pools atomically.
           const fields = state.fields.filter((f) => !idSet.has(f.id))
-          return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
+          const header = state.header
+            ? { ...state.header, fields: state.header.fields.filter((f) => !idSet.has(f.id)) }
+            : state.header
+          const footer = state.footer
+            ? { ...state.footer, fields: state.footer.fields.filter((f) => !idSet.has(f.id)) }
+            : state.footer
+          return { fields, header, footer, ...pushHistory({ ...state, fields, header, footer }) }
         }),
 
       duplicateField: (id) => {
         const state = get()
-        const field = state.fields.find((f) => f.id === id)
+        // #61 — find the source in whichever pool owns it and duplicate
+        // INTO that pool (previously a band-field duplicate silently
+        // returned null).
+        const inHeader = state.header?.fields.find((f) => f.id === id)
+        const inFooter = state.footer?.fields.find((f) => f.id === id)
+        const field = state.fields.find((f) => f.id === id) ?? inHeader ?? inFooter
         if (!field) return null
         const newField: FieldDefinition = {
           ...structuredClone(field),
@@ -1042,6 +1059,14 @@ export const useTemplateStore = create<TemplateState>()(
           y: field.y + 20,
         }
         set((s) => {
+          if (inHeader && s.header) {
+            const header = { ...s.header, fields: [...s.header.fields, newField] }
+            return { header, ...pushHistory({ ...s, header }) }
+          }
+          if (inFooter && s.footer) {
+            const footer = { ...s.footer, fields: [...s.footer.fields, newField] }
+            return { footer, ...pushHistory({ ...s, footer }) }
+          }
           const fields = [...s.fields, newField]
           return { fields, ...pushHistory({ ...s, fields, groups: s.groups }) }
         })
@@ -1290,35 +1315,9 @@ export const useTemplateStore = create<TemplateState>()(
           }
         }),
 
-      undo: () =>
-        set((state) => {
-          if (state.historyIndex <= 0) return state
-          const newIndex = state.historyIndex - 1
-          const snapshot = state.history[newIndex]
-          if (!snapshot) return state
-          return {
-            fields: structuredClone(snapshot.fields),
-            groups: structuredClone(snapshot.groups),
-            historyIndex: newIndex,
-            canUndo: newIndex > 0,
-            canRedo: newIndex < state.history.length - 1,
-          }
-        }),
+      undo: () => set((state) => applyUndo(state) ?? state),
 
-      redo: () =>
-        set((state) => {
-          if (state.historyIndex >= state.history.length - 1) return state
-          const newIndex = state.historyIndex + 1
-          const snapshot = state.history[newIndex]
-          if (!snapshot) return state
-          return {
-            fields: structuredClone(snapshot.fields),
-            groups: structuredClone(snapshot.groups),
-            historyIndex: newIndex,
-            canUndo: newIndex > 0,
-            canRedo: newIndex < state.history.length - 1,
-          }
-        }),
+      redo: () => set((state) => applyRedo(state) ?? state),
 
       // canUndo / canRedo are reactive state fields above — kept in
       // sync by pushHistory / undo / redo / reset (#160).
@@ -1394,7 +1393,7 @@ export const useTemplateStore = create<TemplateState>()(
           header,
           footer,
           pageNumber,
-          history: [createSnapshot({ fields, groups })],
+          history: [createSnapshot({ fields, groups, header, footer })],
           historyIndex: 0,
           // #160 — keep the reactive undo/redo flags in lockstep with the
           // history index. After loadFromManifest the index is 0 (single
@@ -1406,6 +1405,22 @@ export const useTemplateStore = create<TemplateState>()(
     {
       name: 'template-goblin-template',
       version: PERSIST_VERSION,
+      // History isn't persisted, so a fresh page load starts with an EMPTY
+      // stack — the first mutation then pushes only the post-change
+      // snapshot and the pre-change state is unrecoverable (delete a field
+      // right after reload → Ctrl+Z dead). Seed a baseline snapshot of the
+      // rehydrated document so the first action is always undoable.
+      onRehydrateStorage: () => () => {
+        const s = useTemplateStore.getState()
+        if (s.history.length === 0) {
+          useTemplateStore.setState({
+            history: [createSnapshot(s)],
+            historyIndex: 0,
+            canUndo: false,
+            canRedo: false,
+          })
+        }
+      },
       // Only persist essential data, skip history and transient state
       partialize: (state) => ({
         meta: state.meta,

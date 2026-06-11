@@ -3,7 +3,8 @@ import type { FieldDefinition, ImageField, ImageFieldStyle } from '@template-gob
 import { isSafeKey } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { autoShrinkStaticField } from '../../utils/autoShrinkDispatch.js'
-import { bufferToDataUrl } from '../../utils/previewInputs.js'
+import { bufferToDataUrl, sniffImageMime } from '../../utils/previewInputs.js'
+import { useDialogs } from '../Dialogs/index.js'
 import { SourceModeToggle } from './SourceModeToggle.js'
 import { HyperlinkSection } from './HyperlinkSection.js'
 import { ColorPickerPopover } from '../ColorPickerPopover.js'
@@ -17,6 +18,31 @@ export function ImageFieldProps({ field }: Props) {
   const updateFieldStyle = useTemplateStore((s) => s.updateFieldStyle)
   const addPlaceholder = useTemplateStore((s) => s.addPlaceholder)
   const addStaticImage = useTemplateStore((s) => s.addStaticImage)
+  const { alert: showAlert } = useDialogs()
+
+  /** PNG/JPEG + 10MB gate shared by both upload paths — anything else
+   *  sailed through here and failed later at Render/Save with a format
+   *  error far from the action that caused it. */
+  async function validateImageFile(buffer: ArrayBuffer, filename: string): Promise<boolean> {
+    if (buffer.byteLength > 10 * 1024 * 1024) {
+      await showAlert({
+        title: 'Image too large',
+        message: `${filename} is over 10 MB. Compress or resize it and upload again.`,
+        variant: 'danger',
+      })
+      return false
+    }
+    const mime = sniffImageMime(new Uint8Array(buffer))
+    if (mime !== 'image/png' && mime !== 'image/jpeg') {
+      await showAlert({
+        title: 'Unsupported image format',
+        message: `${filename} is not a PNG or JPEG. PDFs support only PNG and JPEG — convert it and upload again.`,
+        variant: 'danger',
+      })
+      return false
+    }
+    return true
+  }
   const groups = useTemplateStore((s) => s.groups)
   // Separate file inputs per mode so the static and dynamic buttons don't
   // share a hidden <input ref>.
@@ -82,8 +108,9 @@ export function ImageFieldProps({ field }: Props) {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.onload = async () => {
       const buffer = reader.result as ArrayBuffer
+      if (!(await validateImageFile(buffer, file.name))) return
       const filename = `static-${field.id}-${file.name}`
       // The bytes MUST land in the static-image pool — the PDF renderer's
       // preflight resolves static fields strictly from `staticImages`
@@ -123,8 +150,9 @@ export function ImageFieldProps({ field }: Props) {
     if (!dynamicSource) return
 
     const reader = new FileReader()
-    reader.onload = () => {
+    reader.onload = async () => {
       const buffer = reader.result as ArrayBuffer
+      if (!(await validateImageFile(buffer, file.name))) return
       const filename = `placeholder-${field.id}-${file.name}`
       addPlaceholder(filename, buffer)
       updateField(field.id, {

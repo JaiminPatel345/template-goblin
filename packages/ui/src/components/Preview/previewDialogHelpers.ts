@@ -9,7 +9,9 @@ import type { FieldSource, ImageSourceValue } from '@template-goblin/types'
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 /** MIME types accepted by the image upload picker. */
-export const ALLOWED_UPLOAD_MIME = new Set(['image/png', 'image/jpeg', 'image/webp'])
+// PNG + JPEG only — the PDF engine's format sniff rejects everything
+// else, so inviting WEBP here just deferred the failure to Render.
+export const ALLOWED_UPLOAD_MIME = new Set(['image/png', 'image/jpeg'])
 
 interface ParseOk {
   ok: true

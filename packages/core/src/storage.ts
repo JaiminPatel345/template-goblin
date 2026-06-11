@@ -1,4 +1,5 @@
 import type { LoadedTemplate, InputJSON } from '@template-goblin/types'
+import { TemplateGoblinError } from '@template-goblin/types'
 import { generatePDF } from './generate.js'
 
 /**
@@ -63,7 +64,10 @@ export async function generateAndStore(
 
   // Sanitize storage key — prevent path traversal
   if (rawKey.includes('..') || rawKey.startsWith('/') || /[<>:"|?*]/.test(rawKey)) {
-    throw new Error('Invalid storage key: contains unsafe characters')
+    throw new TemplateGoblinError(
+      'INVALID_ARGUMENT',
+      'Invalid storage key: contains unsafe characters',
+    )
   }
   const fullKey = rawKey
 

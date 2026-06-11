@@ -8,6 +8,7 @@ import type {
   ValidationResult,
 } from '@template-goblin/types'
 import { isValidHyperlinkUrl } from '@template-goblin/types'
+import { allManifestFields } from './utils/manifestFields.js'
 
 /** Maximum allowed text length to prevent memory exhaustion */
 const MAX_TEXT_LENGTH = 100_000
@@ -224,7 +225,9 @@ export function validateData(template: LoadedTemplate, data: InputJSON): Validat
 
   const errors: ValidationError[] = []
 
-  for (const field of template.manifest.fields) {
+  // #61 — band fields read the same data buckets; a required header
+  // field must fail validation exactly like a required body field.
+  for (const field of allManifestFields(template.manifest)) {
     errors.push(...validateField(field, data))
     errors.push(...validateHyperlink(field, data))
   }

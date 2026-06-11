@@ -96,7 +96,14 @@ export async function processFontFiles(files: File[] | FileList): Promise<FontUp
       continue
     }
 
-    if (buffer.byteLength >= 4) {
+    // Too short to even carry the magic bytes — definitely not a font.
+    // (Previously a 0–3-byte file SKIPPED the magic check and was added,
+    // then every render using it failed with FONT_LOAD_FAILED.)
+    if (buffer.byteLength < 4) {
+      results.push({ filename: file.name, ok: false, reason: 'magic' })
+      continue
+    }
+    {
       const view = new DataView(buffer)
       const magic = view.getUint32(0)
       if (!TTF_MAGIC_BYTES.has(magic)) {
