@@ -1,9 +1,5 @@
 import type { FieldDefinition, TableRow } from '@template-goblin/types'
-import {
-  projectFieldsToJson,
-  collectFields,
-  type BandFieldSets,
-} from './jsonProjection.js'
+import { projectFieldsToJson, collectFields, type BandFieldSets } from './jsonProjection.js'
 
 /**
  * Write-back half of the JSON sync contract (see `jsonProjection.ts`).
@@ -195,9 +191,7 @@ function diffLinks(
   result: JsonEditResult,
 ): void {
   for (const [key, value] of Object.entries(edited)) {
-    const known = all.some(
-      (f) => f.hyperlink?.mode === 'dynamic' && f.hyperlink.jsonKey === key,
-    )
+    const known = all.some((f) => f.hyperlink?.mode === 'dynamic' && f.hyperlink.jsonKey === key)
     if (!known) {
       result.unknownKeys.push(`links.${key}`)
       continue
