@@ -27,6 +27,39 @@ function checkOne(value: number, label: string): string | null {
   return null
 }
 
+/** A page size that equals a named preset, possibly rotated to landscape. */
+export interface PresetMatch {
+  name: Exclude<PageSize, 'custom'>
+  landscape: boolean
+}
+
+/**
+ * Identify whether `width × height` equals a known preset in either
+ * orientation (#118). Portrait presets in `PAGE_SIZE_PRESETS` also match
+ * their rotated (landscape) dimensions. Returns `null` for genuine custom
+ * sizes.
+ */
+export function matchPreset(width: number, height: number): PresetMatch | null {
+  for (const name of Object.keys(PAGE_SIZE_PRESETS) as Exclude<PageSize, 'custom'>[]) {
+    const dims = PAGE_SIZE_PRESETS[name]
+    if (dims.width === width && dims.height === height) return { name, landscape: false }
+    if (dims.width === height && dims.height === width) return { name, landscape: true }
+  }
+  return null
+}
+
+/**
+ * Human-readable hint for a preset match — e.g. `"Same as A4"` or
+ * `"Same as A4 (landscape)"`. `null` when the dimensions are genuinely
+ * custom. Used to reassure users that the pre-filled custom defaults
+ * (595 × 842) are in fact A4.
+ */
+export function presetMatchLabel(width: number, height: number): string | null {
+  const match = matchPreset(width, height)
+  if (!match) return null
+  return `Same as ${match.name}${match.landscape ? ' (landscape)' : ''}`
+}
+
 /**
  * Reusable page-size radio picker. The "Same as previous" option is shown
  * when `previousSize` is supplied (i.e. on second-and-later pages); when
@@ -75,6 +108,9 @@ export function PageSizePicker({
   matchImage,
 }: PageSizePickerProps) {
   const { widthError, heightError } = validateCustomDims(customWidth, customHeight)
+  // #118 — reassure the user that the pre-filled custom defaults map to a
+  // known preset (e.g. 595 × 842 = A4) so the numbers aren't a mystery.
+  const customMatch = presetMatchLabel(customWidth, customHeight)
   const presets: { key: PageSize; label: string }[] = [
     { key: 'A4', label: 'A4 (595 × 842 pt)' },
     { key: 'A3', label: 'A3 (842 × 1191 pt)' },
@@ -117,83 +153,91 @@ export function PageSizePicker({
       <div style={{ minHeight: 60, marginTop: 8 }}>
         <div
           style={{
-            display: 'flex',
-            gap: 12,
             visibility: value === 'custom' ? 'visible' : 'hidden',
             pointerEvents: value === 'custom' ? 'auto' : 'none',
           }}
           aria-hidden={value !== 'custom'}
         >
-          <div style={{ flex: 1 }}>
-            <label
-              style={{
-                fontSize: 12,
-                color: 'var(--text-secondary)',
-                display: 'block',
-                marginBottom: 4,
-              }}
-            >
-              Width (pt)
-            </label>
-            <input
-              className="tg-input"
-              type="number"
-              min={1}
-              value={customWidth}
-              onChange={(e) => setCustomWidth(Number(e.target.value))}
-              tabIndex={value === 'custom' ? 0 : -1}
-              aria-invalid={value === 'custom' && !!widthError}
-              aria-describedby={
-                value === 'custom' && widthError ? 'page-size-width-error' : undefined
-              }
-              data-testid="page-size-custom-width"
-            />
-            {value === 'custom' && widthError && (
-              <div
-                id="page-size-width-error"
-                data-testid="page-size-width-error"
-                role="alert"
-                style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-secondary)',
+                  display: 'block',
+                  marginBottom: 4,
+                }}
               >
-                {widthError}
-              </div>
-            )}
-          </div>
-          <div style={{ flex: 1 }}>
-            <label
-              style={{
-                fontSize: 12,
-                color: 'var(--text-secondary)',
-                display: 'block',
-                marginBottom: 4,
-              }}
-            >
-              Height (pt)
-            </label>
-            <input
-              className="tg-input"
-              type="number"
-              min={1}
-              value={customHeight}
-              onChange={(e) => setCustomHeight(Number(e.target.value))}
-              tabIndex={value === 'custom' ? 0 : -1}
-              aria-invalid={value === 'custom' && !!heightError}
-              aria-describedby={
-                value === 'custom' && heightError ? 'page-size-height-error' : undefined
-              }
-              data-testid="page-size-custom-height"
-            />
-            {value === 'custom' && heightError && (
-              <div
-                id="page-size-height-error"
-                data-testid="page-size-height-error"
-                role="alert"
-                style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+                Width (pt)
+              </label>
+              <input
+                className="tg-input"
+                type="number"
+                min={1}
+                value={customWidth}
+                onChange={(e) => setCustomWidth(Number(e.target.value))}
+                tabIndex={value === 'custom' ? 0 : -1}
+                aria-invalid={value === 'custom' && !!widthError}
+                aria-describedby={
+                  value === 'custom' && widthError ? 'page-size-width-error' : undefined
+                }
+                data-testid="page-size-custom-width"
+              />
+              {value === 'custom' && widthError && (
+                <div
+                  id="page-size-width-error"
+                  data-testid="page-size-width-error"
+                  role="alert"
+                  style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+                >
+                  {widthError}
+                </div>
+              )}
+            </div>
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-secondary)',
+                  display: 'block',
+                  marginBottom: 4,
+                }}
               >
-                {heightError}
-              </div>
-            )}
+                Height (pt)
+              </label>
+              <input
+                className="tg-input"
+                type="number"
+                min={1}
+                value={customHeight}
+                onChange={(e) => setCustomHeight(Number(e.target.value))}
+                tabIndex={value === 'custom' ? 0 : -1}
+                aria-invalid={value === 'custom' && !!heightError}
+                aria-describedby={
+                  value === 'custom' && heightError ? 'page-size-height-error' : undefined
+                }
+                data-testid="page-size-custom-height"
+              />
+              {value === 'custom' && heightError && (
+                <div
+                  id="page-size-height-error"
+                  data-testid="page-size-height-error"
+                  role="alert"
+                  style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+                >
+                  {heightError}
+                </div>
+              )}
+            </div>
           </div>
+          {customMatch && (
+            <div
+              data-testid="page-size-preset-match"
+              style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}
+            >
+              {customMatch}
+            </div>
+          )}
         </div>
       </div>
     </div>

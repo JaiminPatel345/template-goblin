@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import type { PageSize } from '@template-goblin/types'
-import { validateCustomDims } from '../Canvas/PageSizePicker.js'
+import { validateCustomDims, presetMatchLabel } from '../Canvas/PageSizePicker.js'
 
 interface PageSizeOption {
   label: string
@@ -28,6 +28,8 @@ export function PageSizeDialog() {
   // user should see WHY their value was rejected before hitting Apply.
   const customDimValidation = validateCustomDims(customWidth, customHeight)
   const applyDisabled = selected === 'custom' && customDimValidation.hasError
+  // #118 — tell the user when the custom defaults equal a known preset.
+  const customMatch = presetMatchLabel(customWidth, customHeight)
 
   if (!showDialog || !pendingBackground) return null
 
@@ -111,75 +113,85 @@ export function PageSizeDialog() {
         </div>
 
         {selected === 'custom' && (
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-            <div style={{ flex: 1 }}>
-              <label
-                style={{
-                  fontSize: 12,
-                  color: 'var(--text-secondary)',
-                  display: 'block',
-                  marginBottom: 4,
-                }}
-              >
-                Width (pt)
-              </label>
-              <input
-                className="tg-input"
-                type="number"
-                min={1}
-                value={customWidth}
-                onChange={(e) => setCustomWidth(Number(e.target.value))}
-                aria-invalid={!!customDimValidation.widthError}
-                aria-describedby={
-                  customDimValidation.widthError ? 'toolbar-page-size-width-error' : undefined
-                }
-                data-testid="toolbar-page-size-custom-width"
-              />
-              {customDimValidation.widthError && (
-                <div
-                  id="toolbar-page-size-width-error"
-                  data-testid="toolbar-page-size-width-error"
-                  role="alert"
-                  style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--text-secondary)',
+                    display: 'block',
+                    marginBottom: 4,
+                  }}
                 >
-                  {customDimValidation.widthError}
-                </div>
-              )}
-            </div>
-            <div style={{ flex: 1 }}>
-              <label
-                style={{
-                  fontSize: 12,
-                  color: 'var(--text-secondary)',
-                  display: 'block',
-                  marginBottom: 4,
-                }}
-              >
-                Height (pt)
-              </label>
-              <input
-                className="tg-input"
-                type="number"
-                min={1}
-                value={customHeight}
-                onChange={(e) => setCustomHeight(Number(e.target.value))}
-                aria-invalid={!!customDimValidation.heightError}
-                aria-describedby={
-                  customDimValidation.heightError ? 'toolbar-page-size-height-error' : undefined
-                }
-                data-testid="toolbar-page-size-custom-height"
-              />
-              {customDimValidation.heightError && (
-                <div
-                  id="toolbar-page-size-height-error"
-                  data-testid="toolbar-page-size-height-error"
-                  role="alert"
-                  style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+                  Width (pt)
+                </label>
+                <input
+                  className="tg-input"
+                  type="number"
+                  min={1}
+                  value={customWidth}
+                  onChange={(e) => setCustomWidth(Number(e.target.value))}
+                  aria-invalid={!!customDimValidation.widthError}
+                  aria-describedby={
+                    customDimValidation.widthError ? 'toolbar-page-size-width-error' : undefined
+                  }
+                  data-testid="toolbar-page-size-custom-width"
+                />
+                {customDimValidation.widthError && (
+                  <div
+                    id="toolbar-page-size-width-error"
+                    data-testid="toolbar-page-size-width-error"
+                    role="alert"
+                    style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+                  >
+                    {customDimValidation.widthError}
+                  </div>
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <label
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--text-secondary)',
+                    display: 'block',
+                    marginBottom: 4,
+                  }}
                 >
-                  {customDimValidation.heightError}
-                </div>
-              )}
+                  Height (pt)
+                </label>
+                <input
+                  className="tg-input"
+                  type="number"
+                  min={1}
+                  value={customHeight}
+                  onChange={(e) => setCustomHeight(Number(e.target.value))}
+                  aria-invalid={!!customDimValidation.heightError}
+                  aria-describedby={
+                    customDimValidation.heightError ? 'toolbar-page-size-height-error' : undefined
+                  }
+                  data-testid="toolbar-page-size-custom-height"
+                />
+                {customDimValidation.heightError && (
+                  <div
+                    id="toolbar-page-size-height-error"
+                    data-testid="toolbar-page-size-height-error"
+                    role="alert"
+                    style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+                  >
+                    {customDimValidation.heightError}
+                  </div>
+                )}
+              </div>
             </div>
+            {customMatch && (
+              <div
+                data-testid="toolbar-page-size-preset-match"
+                style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}
+              >
+                {customMatch}
+              </div>
+            )}
           </div>
         )}
 
