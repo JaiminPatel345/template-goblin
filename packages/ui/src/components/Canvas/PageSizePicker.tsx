@@ -1,5 +1,6 @@
 import React from 'react'
 import { PAGE_SIZE_PRESETS, type PageSize } from '@template-goblin/types'
+import { OrientationToggle, swapDimensions } from './OrientationToggle.js'
 
 /**
  * Per-field validation of the custom Width / Height inputs (#112).
@@ -75,6 +76,17 @@ export function PageSizePicker({
   matchImage,
 }: PageSizePickerProps) {
   const { widthError, heightError } = validateCustomDims(customWidth, customHeight)
+  // Effective dimensions of the current choice — drives the orientation
+  // toggle and the swap it performs.
+  const resolved = resolveChoice(value, customWidth, customHeight, previousSize, matchImage)
+  const handleSwapOrientation = () => {
+    const swapped = swapDimensions(resolved.width, resolved.height)
+    setCustomWidth(swapped.width)
+    setCustomHeight(swapped.height)
+    // A swapped preset is no longer that named size — land on Custom with the
+    // rotated dimensions (the schema has no "A4 landscape").
+    onChange('custom')
+  }
   const presets: { key: PageSize; label: string }[] = [
     { key: 'A4', label: 'A4 (595 × 842 pt)' },
     { key: 'A3', label: 'A3 (842 × 1191 pt)' },
@@ -84,6 +96,13 @@ export function PageSizePicker({
   ]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ marginBottom: 8 }}>
+        <OrientationToggle
+          width={resolved.width}
+          height={resolved.height}
+          onSwap={handleSwapOrientation}
+        />
+      </div>
       {matchImage && (
         <Radio
           checked={value === 'match'}
