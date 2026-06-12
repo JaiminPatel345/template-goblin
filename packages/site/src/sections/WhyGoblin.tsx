@@ -25,7 +25,7 @@ const FEATURES: { icon: JSX.Element; title: string; body: string }[] = [
   {
     icon: <Bolt />,
     title: 'Built for scale',
-    body: 'A persistent worker pool and a static/dynamic split keep batch generation fast — render thousands of PDFs from one template.',
+    body: 'Load a template once and reuse it for millions of renders with zero disk I/O per call, or fan a batch out across worker processes.',
   },
   {
     icon: <FileText />,

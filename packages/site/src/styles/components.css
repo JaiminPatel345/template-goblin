@@ -8,6 +8,24 @@
   padding-inline: 24px;
 }
 
+/* Keyboard-only skip link — hidden until focused. */
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -48px;
+  z-index: 100;
+  padding: 9px 16px;
+  border-radius: 8px;
+  background: var(--brand);
+  color: #04130d;
+  font-weight: 600;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+  top: 12px;
+}
+
 .grad-text {
   background: var(--gradient);
   -webkit-background-clip: text;

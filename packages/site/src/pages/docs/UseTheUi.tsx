@@ -49,25 +49,27 @@ export function UseTheUi() {
         </li>
       </ul>
 
-      <h2>4. Static vs. dynamic</h2>
+      <h2>4. Static vs. dynamic — the one idea to grasp</h2>
       <p>
-        This is the one concept that makes TemplateGoblin click. Every field is one of two kinds:
+        On a certificate, the logo and the title look the same every time, but the recipient’s name
+        changes for each person. TemplateGoblin lets you mark each field as one of those two kinds —
+        no code involved, you just label them:
       </p>
       <ul>
         <li>
-          <strong>Static</strong> — identical on every PDF (a title, a logo, fixed legal text). Type
-          the value right in the editor.
+          <strong>Static</strong> — the same on every PDF (your logo, a heading, fixed wording). You
+          type it once, right in the editor, and you’re done.
         </li>
         <li>
-          <strong>Dynamic</strong> — different on every PDF (a customer’s name, their invoice rows).
-          Give it a <strong>data key</strong> like <code>name</code> or <code>marks</code>; a
-          developer supplies that value as JSON at generate time.
+          <strong>Dynamic</strong> — changes for each PDF (a person’s name, an invoice’s rows). You
+          give it a short name like <code>name</code> or <code>invoice_total</code>; when the PDFs
+          are produced, each one gets its own value for that name.
         </li>
       </ul>
       <Callout>
-        Tip: name your data keys clearly — <code>student_name</code>, <code>invoice_total</code> —
-        because those exact names are what the developer fills in. The editor lists every key for
-        them automatically.
+        You never write code for this — you only label which fields change. If a developer on your
+        team automates the bulk run, those labels are exactly the values they fill in, and the
+        editor lists every one of them automatically.
       </Callout>
 
       <h2>5. Style and align</h2>
@@ -91,12 +93,17 @@ export function UseTheUi() {
         <strong>Min</strong> (shortest) to make sure nothing overflows its box in any case.
       </p>
 
-      <h2>8. Export and share</h2>
+      <h2>8. Export your template</h2>
       <p>
-        Click <strong>Export → .tgbl</strong>. That single file contains your layout, fonts, and
-        images. Commit it to a repo or send it to a developer — they load it once and generate PDFs
-        from it forever. When the design needs to change, you edit the template and re-export; no
-        engineering ticket required.
+        Click <strong>Export → .tgbl</strong> to save your design as a single file holding the
+        layout, fonts, and images. You can preview a finished PDF with sample data right here in the
+        editor whenever you like — so you can check your work without waiting on anyone.
+      </p>
+      <p>
+        When it’s time to produce real PDFs in bulk — one per customer, student, or order — that{' '}
+        <code>.tgbl</code> goes to a developer (or your own backend), where a few lines of code turn
+        it into thousands of finished PDFs. Need a design change later? Edit the template,
+        re-export, and you’re done — no engineering ticket to redo the layout.
       </p>
 
       <DocNext

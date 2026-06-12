@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import { DocHeader } from '../../components/DocParts'
+import { PLAYGROUND_URL } from '../../lib/constants'
 
 const CARDS = [
   {
@@ -48,8 +49,8 @@ export function DocsHome() {
       <h2>New here?</h2>
       <p>
         If you’ve never seen TemplateGoblin, the fastest way to understand it is to{' '}
-        <a className="link" href="../playground/">
-          open the playground
+        <a className="link" href={PLAYGROUND_URL}>
+          open the editor
         </a>{' '}
         and drag a few fields onto a page. Then come back and read the track for your role:
       </p>

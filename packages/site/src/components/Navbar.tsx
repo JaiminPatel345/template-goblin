@@ -15,6 +15,7 @@ const DOC_LINKS = [
 /** Sticky top navigation, shared across every page. */
 export function Navbar() {
   const [open, setOpen] = useState(false)
+  const [docsOpen, setDocsOpen] = useState(false)
   const location = useLocation()
   const docsActive = location.pathname.startsWith('/docs')
 
@@ -27,17 +28,29 @@ export function Navbar() {
         </Link>
 
         <nav className="nav-links" aria-label="Primary">
-          <div className="dropdown">
+          <div
+            className={`dropdown${docsOpen ? ' open' : ''}`}
+            onMouseLeave={() => setDocsOpen(false)}
+          >
             <button
               className={`nav-link${docsActive ? ' active' : ''}`}
               type="button"
               aria-haspopup="true"
+              aria-expanded={docsOpen}
+              onClick={() => setDocsOpen((v) => !v)}
+              onMouseEnter={() => setDocsOpen(true)}
             >
               Docs <ChevronDown size={14} />
             </button>
             <div className="dropdown-menu" role="menu">
               {DOC_LINKS.map((d) => (
-                <Link key={d.to} to={d.to} className="dropdown-item" role="menuitem">
+                <Link
+                  key={d.to}
+                  to={d.to}
+                  className="dropdown-item"
+                  role="menuitem"
+                  onClick={() => setDocsOpen(false)}
+                >
                   {d.label}
                   <span>{d.hint}</span>
                 </Link>
@@ -59,7 +72,7 @@ export function Navbar() {
             rel="noreferrer"
             aria-label="GitHub stars"
           >
-            <img className="nav-stars" src={STARS_BADGE} alt="GitHub stars" height={20} />
+            <img className="nav-stars" src={STARS_BADGE} alt="" height={20} />
           </a>
           <a
             className="nav-icon"

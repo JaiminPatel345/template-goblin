@@ -365,13 +365,13 @@
 
 .compare thead th {
   font-family: var(--font-display);
-  font-size: 0.96rem;
-  color: var(--text-dim);
+  font-size: 1.04rem;
+  color: var(--text);
   font-weight: 600;
 }
 
 .compare thead th.us {
-  color: var(--text);
+  color: var(--brand);
 }
 
 .compare .us {
@@ -383,7 +383,7 @@
 }
 
 .compare td.feat {
-  color: var(--text-dim);
+  color: var(--text);
   font-weight: 500;
 }
 

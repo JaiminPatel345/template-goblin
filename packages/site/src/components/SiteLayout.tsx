@@ -6,6 +6,9 @@ import { Footer } from './Footer'
 export function SiteLayout() {
   return (
     <>
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
       <Navbar />
       <main id="main">
         <Outlet />

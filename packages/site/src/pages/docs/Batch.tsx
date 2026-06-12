@@ -21,17 +21,6 @@ for (const r of results) {
   else console.error(\`#\${r.index} failed: \${r.error}\`)
 }`
 
-const PREPARED = `import { loadTemplate, prepareTemplate, generatePreparedPDF } from 'template-goblin'
-
-const template = await loadTemplate('./certificate.tgbl')
-
-// Render the STATIC layer (background, logos, fixed text) once…
-const prepared = await prepareTemplate(template)
-
-// …then only the dynamic fields are drawn per call, over a copy of that base
-const a = await generatePreparedPDF(prepared, { texts: { name: 'Alice' } })
-const b = await generatePreparedPDF(prepared, { texts: { name: 'Bob' } })`
-
 const STORE = `import { loadTemplate, generateAndStore, S3StorageProvider } from 'template-goblin'
 
 const template = await loadTemplate('./invoice.tgbl')
@@ -42,40 +31,34 @@ const { url, size } = await generateAndStore(template, data, s3, {
   prefix: 'pdfs/2026/',
 })`
 
-/** Scaling guide: batch pool, the static/dynamic split, and storage. */
+/** Scaling guide: parallel batch generation and direct-to-storage upload. */
 export function Batch() {
   return (
     <>
       <DocHeader
         kicker="At scale"
         title="Batch generation & storage"
-        intro="Render thousands of PDFs from one template with a worker pool, cache the static layer, and upload straight to cloud storage."
+        intro="Render thousands of PDFs from one template in parallel, and upload them straight to cloud storage."
       />
 
-      <h2>Batch with a worker pool</h2>
+      <h2>The pattern that scales</h2>
       <p>
-        <code>generateBatchPDF</code> spreads work across a persistent pool of worker processes.
-        Each worker deserializes the template once and streams jobs — far faster than spawning a
-        process per PDF. A failed row is reported in its result rather than crashing the batch.
+        The single most important habit: call <code>loadTemplate()</code> <strong>once</strong>,
+        then reuse that in-memory template for every PDF. Each <code>generatePDF()</code> call does
+        zero disk I/O, so one loaded template can back millions of renders.
+      </p>
+
+      <h2>Batch generation</h2>
+      <p>
+        <code>generateBatchPDF</code> renders an array of inputs across several worker processes in
+        parallel and collects the results. A row that fails is reported in its own result rather
+        than crashing the whole batch, so you can retry or log just the failures.
       </p>
       <CodeBlock code={BATCH} file="batch.ts" />
       <Callout>
         Tune <code>concurrency</code> to your CPU. <code>onProgress(done, total)</code> fires as
-        each PDF finishes — wire it to a progress bar or log line.
-      </Callout>
-
-      <h2>Cache the static layer</h2>
-      <p>
-        When one template is rendered many times, the static parts — background, logos, fixed text —
-        are identical on every output. <code>prepareTemplate</code> renders that layer once into an
-        in-memory base; <code>generatePreparedPDF</code> then draws only the dynamic fields on top
-        of a copy of it.
-      </p>
-      <CodeBlock code={PREPARED} file="prepared.ts" />
-      <Callout>
-        It’s safe by construction: the fast path runs only when it’s provably identical to a full
-        render, and otherwise falls back to <code>generatePDF</code> automatically. You always get
-        the same PDF — just faster when it’s safe.
+        each PDF finishes — wire it to a progress bar or a log line. Each result carries{' '}
+        <code>index</code>, <code>success</code>, and either <code>pdf</code> or <code>error</code>.
       </Callout>
 
       <h2>Generate straight to storage</h2>

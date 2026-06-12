@@ -1,5 +1,6 @@
 import { CodeBlock } from '../../components/CodeBlock'
 import { Callout, DocHeader, DocNext, DocTable } from '../../components/DocParts'
+import { PLAYGROUND_URL } from '../../lib/constants'
 
 const INSTALL = `npm install template-goblin
 # or: pnpm add template-goblin · yarn add template-goblin · bun add template-goblin`
@@ -74,7 +75,7 @@ export function Sdk() {
       <h2>Generate your first PDF</h2>
       <p>
         Get a <code>.tgbl</code> from the{' '}
-        <a className="link" href="../playground/">
+        <a className="link" href={PLAYGROUND_URL}>
           visual editor
         </a>{' '}
         (or any existing one), drop it next to your script, and:

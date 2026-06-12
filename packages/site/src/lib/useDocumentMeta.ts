@@ -12,12 +12,23 @@ import { useEffect } from 'react'
 export function useDocumentMeta(title: string, description: string): void {
   useEffect(() => {
     document.title = title
-    let tag = document.querySelector<HTMLMetaElement>('meta[name="description"]')
-    if (!tag) {
-      tag = document.createElement('meta')
-      tag.name = 'description'
-      document.head.appendChild(tag)
+
+    let desc = document.querySelector<HTMLMetaElement>('meta[name="description"]')
+    if (!desc) {
+      desc = document.createElement('meta')
+      desc.name = 'description'
+      document.head.appendChild(desc)
     }
-    tag.content = description
+    desc.content = description
+
+    // Point the canonical at the current route so deep-linked pages don't all
+    // report the home URL (every prerendered route ships the same index.html).
+    let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')
+    if (!canonical) {
+      canonical = document.createElement('link')
+      canonical.rel = 'canonical'
+      document.head.appendChild(canonical)
+    }
+    canonical.href = window.location.origin + window.location.pathname
   }, [title, description])
 }
