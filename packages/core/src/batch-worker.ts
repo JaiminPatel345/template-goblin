@@ -21,6 +21,8 @@
 import type { InputJSON } from '@template-goblin/types'
 import { deserializeTemplate } from './batch.js'
 import { generatePDF } from './generate.js'
+import { prepareTemplate, type PreparedTemplate } from './prepare.js'
+import { generatePreparedPDF } from './generatePrepared.js'
 
 type SerializedTemplate = Parameters<typeof deserializeTemplate>[0]
 type MainToWorker =
@@ -29,6 +31,31 @@ type MainToWorker =
   | { type: 'shutdown' }
 
 let template: ReturnType<typeof deserializeTemplate> | null = null
+// Lazily-built static/dynamic split, shared across this worker's jobs.
+// `undefined` = not yet attempted, `null` = attempted and unavailable
+// (fall back to full renders). Built on the SECOND job so a worker that
+// only ever sees one job never pays for the static-base render.
+let prepared: PreparedTemplate | null | undefined = undefined
+let jobsSeen = 0
+
+/** Render one job, compounding the static/dynamic split when this worker
+ *  handles enough jobs to amortize the one-time base render. */
+async function renderJob(
+  tpl: ReturnType<typeof deserializeTemplate>,
+  data: InputJSON,
+): Promise<Buffer> {
+  jobsSeen++
+  if (prepared) return generatePreparedPDF(prepared, data)
+  if (jobsSeen >= 2 && prepared === undefined) {
+    try {
+      prepared = await prepareTemplate(tpl)
+      return generatePreparedPDF(prepared, data)
+    } catch {
+      prepared = null // give up on the fast path; keep doing full renders
+    }
+  }
+  return generatePDF(tpl, data)
+}
 
 process.on('message', async (msg: MainToWorker) => {
   if (msg.type === 'init') {
@@ -55,7 +82,7 @@ process.on('message', async (msg: MainToWorker) => {
   // job
   try {
     if (!template) throw new Error('Worker received a job before init')
-    const pdf = await generatePDF(template, msg.data)
+    const pdf = await renderJob(template, msg.data)
     process.send?.({ type: 'result', success: true, pdf: pdf.toString('base64') })
   } catch (err) {
     // Per-job failure — report and keep the worker alive for the next job.

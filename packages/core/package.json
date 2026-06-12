@@ -50,6 +50,7 @@
   ],
   "dependencies": {
     "adm-zip": "^0.5.16",
+    "pdf-lib": "^1.17.1",
     "pdfkit": "^0.15.1"
   },
   "devDependencies": {
@@ -68,5 +69,6 @@
   },
   "comment:adm-zip": "ZIP extraction/creation for .tgbl files (Node.js)",
   "comment:pdfkit": "PDF generation engine — renders text, images, tables to PDF Buffer",
+  "comment:pdf-lib": "Static/dynamic split optimization (prepareTemplate / generatePreparedPDF): composites a per-call dynamic overlay over a cached static base PDF so static images/fonts are byte-copied instead of re-decoded each generation. Browser-safe.",
   "comment:pdfjs-dist": "DEV-ONLY: parses generated PDFs in tests to assert layout/geometry (text positions + spacing) matches the template/canvas. Pinned to v3 (last major with a CommonJS legacy build) because the Jest runtime here evaluates node_modules as CJS."
 }
