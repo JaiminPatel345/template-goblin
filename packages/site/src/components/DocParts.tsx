@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useDocumentMeta } from '../lib/useDocumentMeta'
-import { ArrowRight, Info } from './Icons'
+import { ArrowLeft, ArrowRight, Info } from './Icons'
 
 /** Page header for a doc page; also sets the document title + meta. */
 export function DocHeader({
@@ -51,12 +51,19 @@ export function DocNext({
 }) {
   return (
     <nav className="doc-next">
-      <span>{prev && <Link to={prev.to}>← {prev.label}</Link>}</span>
+      <span>
+        {prev && (
+          <Link to={prev.to}>
+            <ArrowLeft size={15} />
+            <span>{prev.label}</span>
+          </Link>
+        )}
+      </span>
       <span>
         {next && (
           <Link to={next.to}>
-            {next.label}{' '}
-            <ArrowRight size={15} style={{ display: 'inline', verticalAlign: '-2px' }} />
+            <span>{next.label}</span>
+            <ArrowRight size={15} />
           </Link>
         )}
       </span>

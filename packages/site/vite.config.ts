@@ -50,7 +50,19 @@ export default defineConfig({
   base: process.env.VITE_BASE || '/',
   plugins: [react(), staticRoutesPlugin()],
   server: {
-    port: 4243,
+    port: 4242,
+    proxy: {
+      // One origin in dev: this site serves `/` (home) + `/docs/*`, and proxies
+      // `/playground` to the editor's own dev server (packages/ui on :5174,
+      // base `/playground/`). The editor's HMR socket connects straight back to
+      // :5174; `ws: true` just keeps upgrade requests from erroring. Visit
+      // everything at http://localhost:4242.
+      '/playground': {
+        target: 'http://localhost:5174',
+        changeOrigin: true,
+        ws: true,
+      },
+    },
   },
   build: {
     outDir: 'dist',

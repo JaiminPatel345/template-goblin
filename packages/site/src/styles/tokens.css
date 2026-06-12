@@ -1,33 +1,33 @@
 /* Design tokens + reset + base typography.
-   TemplateGoblin's identity: dark, focused, a little playful — a mint→teal→
-   violet gradient ("goblin glow") against near-black, generous type, and
-   glassy surfaces. */
+   Clean, professional LIGHT theme. A solid teal brand drives all real UI
+   (buttons, links, accents). The teal→violet gradient is reserved for a
+   couple of text accents (`.grad-text`) and the logo mark — never buttons,
+   never surfaces. */
 
 :root {
-  /* Surfaces */
-  --bg: #0e1117;
-  --bg-1: #12171f;
-  --bg-2: #161d27;
-  --bg-3: #1c2531;
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.16);
+  /* Surfaces — off-white page, white cards for subtle layering */
+  --bg: #fbfcfd;
+  --bg-1: #f3f5f8;
+  --bg-2: #ffffff;
+  --bg-3: #eceff3;
+  --border: rgba(15, 23, 42, 0.1);
+  --border-strong: rgba(15, 23, 42, 0.16);
 
   /* Text */
-  --text: #e9eef5;
-  --text-dim: #9fabbd;
-  --text-faint: #6b7889;
+  --text: #0f1729;
+  --text-dim: #51607a;
+  --text-faint: #8a94a6;
 
-  /* Brand */
-  --brand: #2ee6a6;
-  --brand-teal: #14b8a6;
-  --brand-violet: #7b6cff;
-  --brand-soft: rgba(46, 230, 166, 0.12);
-  --gradient: linear-gradient(115deg, #2ee6a6 0%, #14b8a6 42%, #7b6cff 100%);
-  --gradient-soft: linear-gradient(
-    115deg,
-    rgba(46, 230, 166, 0.16),
-    rgba(123, 108, 255, 0.16)
-  );
+  /* Brand — solid teal for buttons / links / accents */
+  --brand: #0d9488;
+  --brand-strong: #0f766e;
+  --brand-hover: #115e59;
+  --brand-teal: #0d9488;
+  --brand-violet: #6d5cff;
+  --brand-soft: rgba(13, 148, 136, 0.1);
+
+  /* Gradient — ONLY for `.grad-text` accents and the logo mark. */
+  --gradient: linear-gradient(115deg, #0d9488 0%, #14b8a6 45%, #6d5cff 100%);
 
   /* Shape + rhythm */
   --radius-sm: 9px;
@@ -41,11 +41,11 @@
   --font-display: 'Space Grotesk', var(--font-sans);
   --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
 
-  /* Elevation */
-  --shadow: 0 18px 50px -22px rgba(0, 0, 0, 0.7);
-  --shadow-glow: 0 0 0 1px var(--border), 0 24px 70px -30px rgba(46, 230, 166, 0.35);
+  /* Elevation — soft, neutral (no coloured glows) */
+  --shadow: 0 12px 30px -16px rgba(15, 23, 42, 0.16);
+  --shadow-glow: 0 1px 0 var(--border), 0 28px 56px -32px rgba(15, 23, 42, 0.28);
 
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 *,
@@ -68,13 +68,6 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* faint dotted grid + two soft brand glows anchored top-corners */
-  background-image:
-    radial-gradient(circle at 12% -10%, rgba(46, 230, 166, 0.1), transparent 45%),
-    radial-gradient(circle at 92% 4%, rgba(123, 108, 255, 0.12), transparent 42%),
-    radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-  background-size: auto, auto, 26px 26px;
-  background-attachment: fixed, fixed, fixed;
   min-height: 100vh;
 }
 
@@ -86,6 +79,7 @@ h4 {
   line-height: 1.12;
   letter-spacing: -0.02em;
   font-weight: 600;
+  color: var(--text);
 }
 
 a {
@@ -99,7 +93,7 @@ img {
 }
 
 ::selection {
-  background: rgba(46, 230, 166, 0.28);
+  background: rgba(13, 148, 136, 0.18);
 }
 
 :focus-visible {

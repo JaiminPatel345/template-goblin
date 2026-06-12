@@ -12,6 +12,8 @@
   position: sticky;
   top: calc(var(--nav-h) + 28px);
   align-self: start;
+  max-height: calc(100vh - var(--nav-h) - 40px);
+  overflow-y: auto;
 }
 
 .docs-side h4 {
@@ -33,7 +35,6 @@
   border-radius: 8px;
   font-size: 0.92rem;
   color: var(--text-dim);
-  border-left: 2px solid transparent;
   transition:
     color 0.15s ease,
     background 0.15s ease;
@@ -41,13 +42,26 @@
 
 .docs-nav-link:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-3);
 }
 
+/* Active = clean filled pill, no stray left border. */
 .docs-nav-link.active {
-  color: var(--brand);
+  color: var(--brand-strong);
   background: var(--brand-soft);
-  border-left-color: var(--brand);
+  font-weight: 600;
+}
+
+/* On-this-page scroll-spy links — lighter, slightly smaller than page nav. */
+.docs-toc {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.docs-toc-link {
+  font-size: 0.86rem;
+  color: var(--text-faint);
 }
 
 /* Prose */
@@ -61,7 +75,7 @@
   font-size: 0.78rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--brand);
+  color: var(--brand-strong);
 }
 
 .prose h1 {
@@ -80,6 +94,8 @@
   margin: 48px 0 16px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
+  /* Clear the sticky navbar when jumped to via an on-this-page link. */
+  scroll-margin-top: calc(var(--nav-h) + 20px);
 }
 
 .prose h3 {
@@ -108,12 +124,14 @@
 }
 
 .prose a.link {
-  color: var(--brand);
-  border-bottom: 1px solid rgba(46, 230, 166, 0.35);
+  color: var(--brand-strong);
+  text-decoration: underline;
+  text-decoration-color: rgba(13, 148, 136, 0.35);
+  text-underline-offset: 2px;
 }
 
 .prose a.link:hover {
-  border-bottom-color: var(--brand);
+  text-decoration-color: var(--brand);
 }
 
 .prose strong {
@@ -123,11 +141,11 @@
 .prose code:not(pre code) {
   font-family: var(--font-mono);
   font-size: 0.86em;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(15, 23, 42, 0.05);
   border: 1px solid var(--border);
   border-radius: 5px;
   padding: 1.5px 6px;
-  color: #cdd6e4;
+  color: #0f1729;
 }
 
 .prose .code {
@@ -142,12 +160,12 @@
   padding: 16px 18px;
   border-radius: var(--radius);
   background: var(--brand-soft);
-  border: 1px solid rgba(46, 230, 166, 0.25);
+  border: 1px solid rgba(13, 148, 136, 0.22);
 }
 
 .callout svg {
   flex-shrink: 0;
-  color: var(--brand);
+  color: var(--brand-strong);
   margin-top: 2px;
 }
 
@@ -158,12 +176,12 @@
 }
 
 .callout.warn {
-  background: rgba(240, 168, 104, 0.1);
-  border-color: rgba(240, 168, 104, 0.3);
+  background: rgba(217, 119, 6, 0.08);
+  border-color: rgba(217, 119, 6, 0.25);
 }
 
 .callout.warn svg {
-  color: #f0a868;
+  color: #b45309;
 }
 
 /* Doc tables */
@@ -206,7 +224,7 @@
   white-space: nowrap;
 }
 
-/* Next/prev + cards on docs home */
+/* Next/prev links */
 .doc-next {
   display: flex;
   justify-content: space-between;
@@ -217,10 +235,19 @@
 }
 
 .doc-next a {
-  color: var(--brand);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--brand-strong);
   font-weight: 600;
 }
 
+.doc-next a:hover span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Cards on the docs home — these ARE links, so they get hover feedback. */
 .docs-cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -233,15 +260,15 @@
   padding: 24px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  background: var(--bg-2);
   transition:
-    transform 0.2s ease,
-    border-color 0.2s ease;
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .docs-card:hover {
-  transform: translateY(-3px);
   border-color: var(--brand);
+  box-shadow: var(--shadow);
 }
 
 .docs-card h3 {
@@ -260,7 +287,7 @@
   font-size: 0.7rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--brand);
+  color: var(--brand-strong);
 }
 
 /* Mobile docs: collapse the sidebar into a scrollable strip on top */
@@ -292,7 +319,7 @@
     color: var(--text-dim);
   }
   .docs-mobile-nav a.active {
-    color: var(--brand);
+    color: var(--brand-strong);
     border-color: var(--brand);
     background: var(--brand-soft);
   }

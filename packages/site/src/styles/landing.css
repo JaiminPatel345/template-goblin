@@ -57,15 +57,10 @@
 .mock {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-strong);
-  background: var(--bg-1);
+  background: var(--bg-2);
   box-shadow: var(--shadow-glow);
   overflow: hidden;
   transform: perspective(1400px) rotateY(-7deg) rotateX(2deg);
-  transition: transform 0.4s ease;
-}
-
-.mock:hover {
-  transform: perspective(1400px) rotateY(-2deg) rotateX(0deg);
 }
 
 .mock-bar {
@@ -73,7 +68,7 @@
   align-items: center;
   gap: 7px;
   padding: 11px 14px;
-  background: var(--bg-2);
+  background: var(--bg-1);
   border-bottom: 1px solid var(--border);
 }
 
@@ -81,7 +76,7 @@
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: #2b3340;
+  background: #cdd3db;
   display: block;
 }
 
@@ -105,14 +100,14 @@
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  background: var(--bg-2);
+  background: var(--bg-1);
 }
 
 .mock-tool {
   width: 24px;
   height: 24px;
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(15, 23, 42, 0.06);
 }
 
 .mock-tool.on {
@@ -124,16 +119,18 @@
   position: relative;
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px) 0 0 / 16px 16px;
+  background: var(--bg-3);
+  background-image: radial-gradient(rgba(15, 23, 42, 0.07) 1px, transparent 1px);
+  background-size: 16px 16px;
 }
 
 .mock-page {
   width: 200px;
   height: 268px;
-  background: #fdfdfb;
+  background: #ffffff;
   border-radius: 4px;
-  box-shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 14px 32px -16px rgba(15, 23, 42, 0.3);
+  border: 1px solid var(--border);
   padding: 16px;
   color: #1a2230;
   display: flex;
@@ -145,7 +142,7 @@
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: var(--gradient);
+  background: var(--brand);
   align-self: center;
 }
 
@@ -170,8 +167,8 @@
   width: 80%;
   margin: 10px auto 2px;
   border-radius: 3px;
-  background: linear-gradient(90deg, #2ee6a6, #14b8a6);
-  outline: 1.5px dashed #14b8a6;
+  background: var(--brand);
+  outline: 1.5px dashed var(--brand);
   outline-offset: 3px;
 }
 
@@ -200,7 +197,7 @@
 
 .mock-props {
   border-left: 1px solid var(--border);
-  background: var(--bg-2);
+  background: var(--bg-1);
   padding: 12px 10px;
   display: flex;
   flex-direction: column;
@@ -218,40 +215,56 @@
 .mock-props .pp-field {
   height: 22px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
+  background: #ffffff;
   border: 1px solid var(--border);
 }
 
 .mock-props .pp-swatch {
   height: 22px;
   border-radius: 6px;
-  background: var(--gradient);
+  background: var(--brand);
 }
 
-/* ---------- Logos / trust strip ---------- */
+/* ---------- Frameworks / runtimes strip ---------- */
 .runs-on {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 28px;
-  padding-block: 30px;
+  gap: 10px;
+  padding-block: 26px;
   border-block: 1px solid var(--border);
-  color: var(--text-faint);
-  font-size: 0.92rem;
-}
-
-.runs-on b {
-  color: var(--text-dim);
-  font-weight: 600;
 }
 
 .runs-on .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-family: var(--font-mono);
   font-size: 0.82rem;
   padding: 5px 12px;
   border-radius: 999px;
   border: 1px solid var(--border);
   color: var(--text-dim);
+  background: var(--bg-2);
+}
+
+/* Planned, not shipped yet — clearly de-emphasised with a "Soon" badge. */
+.runs-on .tag-soon {
+  border-style: dashed;
+  color: var(--text-faint);
+  background: transparent;
+}
+
+.runs-on .tag-soon em {
+  font-style: normal;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-strong);
 }
 
 /* ---------- Feature / why grid ---------- */
@@ -412,10 +425,8 @@
   margin-block: 30px;
   padding: 64px 40px;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--border-strong);
-  background:
-    var(--gradient-soft),
-    radial-gradient(circle at 80% 20%, rgba(123, 108, 255, 0.18), transparent 60%);
+  border: 1px solid var(--border);
+  background: var(--bg-1);
   text-align: center;
   overflow: hidden;
 }

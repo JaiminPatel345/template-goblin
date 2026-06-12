@@ -16,8 +16,8 @@
   z-index: 100;
   padding: 9px 16px;
   border-radius: 8px;
-  background: var(--brand);
-  color: #04130d;
+  background: var(--brand-strong);
+  color: #ffffff;
   font-weight: 600;
   transition: top 0.15s ease;
 }
@@ -31,6 +31,22 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* Inline gradient text link — underlines on hover (the underline shows in a
+   solid brand colour since the text fill itself is a transparent gradient). */
+.link-grad {
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: 600;
+}
+
+.link-grad:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--brand-strong);
+  text-underline-offset: 2px;
 }
 
 /* Buttons */
@@ -57,25 +73,24 @@
 }
 
 .btn-primary {
-  background: var(--gradient);
-  color: #04130d;
-  box-shadow: 0 10px 30px -12px rgba(46, 230, 166, 0.6);
+  background: var(--brand-strong);
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 40px -12px rgba(46, 230, 166, 0.7);
+  background: var(--brand-hover);
 }
 
 .btn-ghost {
-  background: rgba(255, 255, 255, 0.04);
+  background: #ffffff;
   border-color: var(--border-strong);
   color: var(--text);
 }
 
 .btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--brand);
+  background: var(--bg-3);
+  border-color: var(--text-faint);
 }
 
 .btn-lg {
@@ -94,8 +109,8 @@
   padding: 6px 13px;
   border-radius: 999px;
   background: var(--brand-soft);
-  border: 1px solid rgba(46, 230, 166, 0.3);
-  color: var(--brand);
+  border: 1px solid rgba(13, 148, 136, 0.28);
+  color: var(--brand-strong);
 }
 
 .pill-dot {
@@ -103,7 +118,6 @@
   height: 7px;
   border-radius: 50%;
   background: var(--brand);
-  box-shadow: 0 0 10px var(--brand);
 }
 
 /* Section scaffolding */
@@ -140,22 +154,12 @@
   font-size: 1.08rem;
 }
 
-/* Cards */
+/* Cards — informational, NOT clickable, so they get no hover feedback. */
 .card {
-  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 26px;
-  transition:
-    transform 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.card:hover {
-  transform: translateY(-4px);
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow);
 }
 
 .card-icon {
@@ -179,10 +183,10 @@
   font-size: 0.97rem;
 }
 
-/* Code */
+/* Code — light, GitHub-style block */
 .code {
   position: relative;
-  background: #0a0e14;
+  background: var(--bg-1);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -194,14 +198,14 @@
   gap: 8px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-3);
 }
 
 .code-dot {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: #2b3340;
+  background: #cdd3db;
 }
 
 .code-file {
@@ -216,7 +220,7 @@
   font-family: var(--font-mono);
   font-size: 0.74rem;
   color: var(--text-dim);
-  background: rgba(255, 255, 255, 0.05);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px 9px;
@@ -225,7 +229,7 @@
 }
 
 .code-copy:hover {
-  color: var(--brand);
+  color: var(--brand-strong);
   border-color: var(--brand);
 }
 
@@ -236,26 +240,30 @@
   font-family: var(--font-mono);
   font-size: 0.86rem;
   line-height: 1.65;
-  color: #cdd6e4;
+  color: #1f2937;
 }
 
 .code code {
   font-family: inherit;
 }
 
-.tok-key {
-  color: #7b6cff;
-}
-.tok-str {
-  color: #2ee6a6;
-}
-.tok-fn {
-  color: #6cb6ff;
-}
+/* Syntax token colours (light, GitHub-ish) */
 .tok-com {
-  color: var(--text-faint);
+  color: #6e7781;
   font-style: italic;
 }
+.tok-str {
+  color: #0a7d55;
+}
+.tok-key {
+  color: #cf222e;
+}
 .tok-num {
-  color: #f0a868;
+  color: #0550ae;
+}
+.tok-fn {
+  color: #8250df;
+}
+.tok-punct {
+  color: #57606a;
 }

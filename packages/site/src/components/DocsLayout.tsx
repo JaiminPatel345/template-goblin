@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useLocation } from 'react-router'
+import { useTocSpy } from '../lib/useTocSpy'
 
 /** Documentation pages, grouped for the sidebar + mobile strip. */
 export const DOC_SECTIONS = [
@@ -24,6 +25,9 @@ const ALL_LINKS = DOC_SECTIONS.flatMap((s) => s.links)
 
 /** Two-column docs shell: sticky sidebar (desktop) / scroll strip (mobile). */
 export function DocsLayout() {
+  const { pathname } = useLocation()
+  const { items: toc, activeId } = useTocSpy(pathname)
+
   return (
     <div className="container docs">
       <aside className="docs-side" aria-label="Documentation">
@@ -42,6 +46,22 @@ export function DocsLayout() {
             ))}
           </div>
         ))}
+
+        {/* On-this-page scroll-spy — follows the reader down the current page. */}
+        {toc.length > 1 && (
+          <div className="docs-toc">
+            <h4>On this page</h4>
+            {toc.map((h) => (
+              <a
+                key={h.id}
+                href={`#${h.id}`}
+                className={`docs-nav-link docs-toc-link${activeId === h.id ? ' active' : ''}`}
+              >
+                {h.text}
+              </a>
+            ))}
+          </div>
+        )}
       </aside>
 
       <nav className="docs-mobile-nav" aria-label="Documentation">

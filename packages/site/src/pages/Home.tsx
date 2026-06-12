@@ -7,7 +7,8 @@ import { WhyGoblin } from '../sections/WhyGoblin'
 import { HowItWorks } from '../sections/HowItWorks'
 import { CtaBand } from '../sections/CtaBand'
 
-const RUNTIMES = ['Node.js', 'Bun', 'Deno', 'AWS Lambda', 'Express', 'Hono', 'Next.js']
+const RUNTIMES = ['Node.js', 'Bun', 'Deno', 'Express', 'Hono', 'Next.js']
+const UPCOMING = ['Java', 'Go']
 
 /** Marketing landing page. */
 export function Home() {
@@ -21,10 +22,14 @@ export function Home() {
       <Hero />
       <div className="container">
         <div className="runs-on">
-          <b>Runs anywhere TypeScript runs</b>
           {RUNTIMES.map((r) => (
             <span className="tag" key={r}>
               {r}
+            </span>
+          ))}
+          {UPCOMING.map((r) => (
+            <span className="tag tag-soon" key={r}>
+              {r} <em>Soon</em>
             </span>
           ))}
         </div>

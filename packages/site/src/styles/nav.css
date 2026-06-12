@@ -7,7 +7,7 @@
   height: var(--nav-h);
   display: flex;
   align-items: center;
-  background: rgba(14, 17, 23, 0.72);
+  background: rgba(251, 252, 253, 0.82);
   backdrop-filter: saturate(160%) blur(14px);
   border-bottom: 1px solid var(--border);
 }
@@ -56,7 +56,7 @@
 
 .nav-link:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(15, 23, 42, 0.05);
 }
 
 .nav-link.active {
@@ -87,7 +87,7 @@
 
 .nav-icon:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(15, 23, 42, 0.06);
 }
 
 .nav-stars {
@@ -135,7 +135,7 @@
 }
 
 .dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(15, 23, 42, 0.06);
   color: var(--text);
 }
 
@@ -154,7 +154,7 @@
   place-items: center;
   border-radius: 8px;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(15, 23, 42, 0.05);
   border: 1px solid var(--border);
 }
 
@@ -196,7 +196,7 @@
   border-top: 1px solid var(--border);
   margin-top: 40px;
   padding-block: 56px 40px;
-  background: linear-gradient(180deg, transparent, rgba(123, 108, 255, 0.04));
+  background: var(--bg-1);
 }
 
 .footer-grid {

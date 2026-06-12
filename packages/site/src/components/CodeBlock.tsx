@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { tokenize, tokenClass } from '../lib/highlight'
 
 /**
  * A code block with a window-style header, optional filename, and a
- * copy-to-clipboard button. Plain monospace rendering — deliberately no
- * syntax-highlighter dependency (keeps the bundle tiny for Lighthouse).
+ * copy-to-clipboard button. Syntax-highlighted with a tiny in-house tokenizer
+ * (see `lib/highlight`) — coloured spans, no highlighter dependency.
  */
 export function CodeBlock({
   code,
@@ -15,6 +16,7 @@ export function CodeBlock({
   lang?: string
 }) {
   const [copied, setCopied] = useState(false)
+  const tokens = useMemo(() => tokenize(code, lang), [code, lang])
 
   const copy = async () => {
     try {
@@ -38,7 +40,18 @@ export function CodeBlock({
         </button>
       </div>
       <pre>
-        <code>{code}</code>
+        <code>
+          {tokens.map((t, i) => {
+            const cls = tokenClass(t.type)
+            return cls ? (
+              <span key={i} className={cls}>
+                {t.value}
+              </span>
+            ) : (
+              t.value
+            )
+          })}
+        </code>
       </pre>
     </div>
   )

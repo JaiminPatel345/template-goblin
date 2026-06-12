@@ -34,11 +34,11 @@ export function HowItWorks() {
         </div>
         <p style={{ textAlign: 'center', marginTop: 40, color: 'var(--text-dim)' }}>
           New here? Start with the{' '}
-          <Link to="/docs/use-the-ui" className="grad-text" style={{ fontWeight: 600 }}>
+          <Link to="/docs/use-the-ui" className="link-grad">
             editor walkthrough
           </Link>{' '}
           or jump to the{' '}
-          <Link to="/docs/sdk" className="grad-text" style={{ fontWeight: 600 }}>
+          <Link to="/docs/sdk" className="link-grad">
             SDK guide
           </Link>
           .
