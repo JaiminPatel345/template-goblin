@@ -1,0 +1,302 @@
+/* Documentation: sidebar layout + readable prose. */
+
+.docs {
+  display: grid;
+  grid-template-columns: 244px 1fr;
+  gap: 48px;
+  align-items: start;
+  padding-block: 44px 80px;
+}
+
+.docs-side {
+  position: sticky;
+  top: calc(var(--nav-h) + 28px);
+  align-self: start;
+}
+
+.docs-side h4 {
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 22px 0 10px;
+}
+
+.docs-side h4:first-child {
+  margin-top: 0;
+}
+
+.docs-nav-link {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  color: var(--text-dim);
+  border-left: 2px solid transparent;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.docs-nav-link:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.docs-nav-link.active {
+  color: var(--brand);
+  background: var(--brand-soft);
+  border-left-color: var(--brand);
+}
+
+/* Prose */
+.prose {
+  max-width: 760px;
+  min-width: 0;
+}
+
+.prose .doc-kicker {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+.prose h1 {
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  margin: 12px 0 14px;
+}
+
+.prose .doc-intro {
+  font-size: 1.1rem;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.prose h2 {
+  font-size: 1.5rem;
+  margin: 48px 0 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.prose h3 {
+  font-size: 1.15rem;
+  margin: 30px 0 12px;
+}
+
+.prose p {
+  color: var(--text-dim);
+  margin: 12px 0;
+}
+
+.prose ul,
+.prose ol {
+  color: var(--text-dim);
+  margin: 12px 0;
+  padding-left: 22px;
+}
+
+.prose li {
+  margin: 7px 0;
+}
+
+.prose li::marker {
+  color: var(--brand);
+}
+
+.prose a.link {
+  color: var(--brand);
+  border-bottom: 1px solid rgba(46, 230, 166, 0.35);
+}
+
+.prose a.link:hover {
+  border-bottom-color: var(--brand);
+}
+
+.prose strong {
+  color: var(--text);
+}
+
+.prose code:not(pre code) {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1.5px 6px;
+  color: #cdd6e4;
+}
+
+.prose .code {
+  margin: 18px 0;
+}
+
+/* Callout */
+.callout {
+  display: flex;
+  gap: 14px;
+  margin: 22px 0;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  background: var(--brand-soft);
+  border: 1px solid rgba(46, 230, 166, 0.25);
+}
+
+.callout svg {
+  flex-shrink: 0;
+  color: var(--brand);
+  margin-top: 2px;
+}
+
+.callout p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.94rem;
+}
+
+.callout.warn {
+  background: rgba(240, 168, 104, 0.1);
+  border-color: rgba(240, 168, 104, 0.3);
+}
+
+.callout.warn svg {
+  color: #f0a868;
+}
+
+/* Doc tables */
+.doc-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 20px 0;
+}
+
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 480px;
+}
+
+.doc-table th,
+.doc-table td {
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+
+.doc-table th {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+.doc-table td {
+  color: var(--text-dim);
+}
+
+.doc-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.doc-table code {
+  white-space: nowrap;
+}
+
+/* Next/prev + cards on docs home */
+.doc-next {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 56px;
+  padding-top: 26px;
+  border-top: 1px solid var(--border);
+}
+
+.doc-next a {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.docs-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 32px;
+}
+
+.docs-card {
+  display: block;
+  padding: 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.docs-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--brand);
+}
+
+.docs-card h3 {
+  font-size: 1.12rem;
+  margin-bottom: 6px;
+}
+
+.docs-card p {
+  color: var(--text-dim);
+  font-size: 0.94rem;
+  margin: 0;
+}
+
+.docs-card .tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+/* Mobile docs: collapse the sidebar into a scrollable strip on top */
+.docs-mobile-nav {
+  display: none;
+}
+
+@media (max-width: 880px) {
+  .docs {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .docs-side {
+    display: none;
+  }
+  .docs-mobile-nav {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .docs-mobile-nav a {
+    white-space: nowrap;
+    padding: 7px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    font-size: 0.86rem;
+    color: var(--text-dim);
+  }
+  .docs-mobile-nav a.active {
+    color: var(--brand);
+    border-color: var(--brand);
+    background: var(--brand-soft);
+  }
+  .docs-cards {
+    grid-template-columns: 1fr;
+  }
+}
