@@ -76,6 +76,12 @@ export function buildGroupChildren(
   const defaultFill = imageColor ?? textBgColor ?? (shouldFill ? colors.fill : 'transparent')
   const defaultStroke = colors.stroke
   const defaultStrokeWidth = 1
+  // When the fill is the user's REAL colour (a text background #167 or a
+  // solid-colour image #81) it appears in the PDF, which paints a SQUARE
+  // rect — so drop the 2px design-time rounding to match. The rounding
+  // stays only for the transparent / design-tint chrome the PDF never shows.
+  const userControlledFill = imageColor !== null || textBgColor !== null
+  const corner = userControlledFill ? 0 : 2
   const bgRect = new Rect({
     left: 0,
     top: 0,
@@ -85,8 +91,8 @@ export function buildGroupChildren(
     stroke: defaultStroke,
     strokeWidth: defaultStrokeWidth,
     strokeUniform: true,
-    rx: 2,
-    ry: 2,
+    rx: corner,
+    ry: corner,
     selectable: false,
     evented: false,
     originX: 'left',
@@ -99,7 +105,7 @@ export function buildGroupChildren(
   // bgRect's fill IS the user's chosen colour, not a design-time tint. Mark
   // it so `applySelectionVisuals` doesn't paint over it with the selection
   // emphasis fill.
-  bgRect.__userControlledFill = imageColor !== null || textBgColor !== null
+  bgRect.__userControlledFill = userControlledFill
 
   const children: FabricObject[] = [bgRect]
 
