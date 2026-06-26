@@ -1,0 +1,86 @@
+name: Deploy site + playground to GitHub Pages
+
+# Builds two halves into one Pages deployment:
+#   /template-goblin/             → the static marketing + docs site (packages/site)
+#   /template-goblin/playground/  → the React visual editor          (packages/ui)
+# The site is the front door; the editor lives under /playground.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/site/**'
+      - 'packages/ui/**'
+      - 'packages/types/**'
+      - 'packages/core/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+# GitHub project-pages base path (repo name).
+env:
+  PAGES_BASE: /template-goblin/
+
+jobs:
+  build:
+    name: Build site + playground
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The UI imports `template-goblin/validateManifest` (a subpath export)
+      # whose .d.ts lives under packages/core/dist — build types + core first.
+      - name: Build types
+        run: pnpm --filter @template-goblin/types build
+      - name: Build core (template-goblin)
+        run: pnpm --filter template-goblin build
+
+      - name: Build the marketing site
+        run: pnpm --filter template-goblin-site build
+        env:
+          VITE_BASE: ${{ env.PAGES_BASE }}
+
+      - name: Build the playground (editor)
+        run: pnpm --filter template-goblin-ui build
+        env:
+          VITE_BASE: ${{ env.PAGES_BASE }}playground/
+
+      - name: Assemble the deploy folder
+        run: |
+          rm -rf _deploy
+          mkdir -p _deploy
+          cp -r packages/site/dist/. _deploy/
+          mkdir -p _deploy/playground
+          cp -r packages/ui/dist/. _deploy/playground/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _deploy
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
