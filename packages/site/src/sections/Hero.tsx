@@ -1,7 +1,31 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { EditorMock } from '../components/EditorMock'
-import { ArrowRight, Bolt, Check, Sparkles } from '../components/Icons'
+import { ArrowRight, Bolt, Check, Sparkles, Copy } from '../components/Icons'
 import { PLAYGROUND_URL } from '../lib/constants'
+
+function InstallCommand() {
+  const [copied, setCopied] = useState(false)
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText('npm i template-goblin')
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1600)
+    } catch {
+      // Clipboard blocked (insecure context / permissions) — no-op.
+    }
+  }
+
+  return (
+    <code>
+      npm i template-goblin
+      <button onClick={copy} aria-label="Copy command" className="inline-copy" type="button">
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </button>
+    </code>
+  )
+}
 
 /** Above-the-fold pitch — must make the project clear in one glance. */
 export function Hero() {
@@ -38,7 +62,7 @@ export function Hero() {
               <Bolt size={16} /> No headless browser
             </span>
             <span>
-              <Check size={16} /> <code>npm i template-goblin</code>
+              <Check size={16} /> <InstallCommand />
             </span>
           </div>
         </div>

@@ -49,6 +49,37 @@
   gap: 7px;
 }
 
+.hero-meta code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1.5px 4px 1.5px 6px;
+  color: #0f1729;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inline-copy {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+
+.inline-copy:hover {
+  color: var(--brand-strong);
+  background: rgba(15, 23, 42, 0.08);
+}
+
 .hero-meta svg {
   color: var(--brand);
 }

@@ -201,18 +201,11 @@
   background: var(--bg-3);
 }
 
-.code-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #cdd3db;
-}
-
 .code-file {
-  margin-left: 8px;
   font-family: var(--font-mono);
   font-size: 0.78rem;
-  color: var(--text-faint);
+  color: var(--text);
+  font-weight: 500;
 }
 
 .code-copy {

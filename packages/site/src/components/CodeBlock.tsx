@@ -31,9 +31,6 @@ export function CodeBlock({
   return (
     <div className="code">
       <div className="code-bar">
-        <span className="code-dot" />
-        <span className="code-dot" />
-        <span className="code-dot" />
         <span className="code-file">{file ?? lang}</span>
         <button className="code-copy" onClick={copy} type="button" aria-label="Copy code">
           {copied ? '✓ copied' : 'copy'}
