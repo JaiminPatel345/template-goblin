@@ -33,4 +33,5 @@
 # Agent specific rules
 
 - Do not push, raise PR, or merge PR without the user's explicit permission. You may commit without permission, but any interaction with the remote repository requires confirmation.
+- When the user says "merge", it means a full pipeline: push the branch, raise a PR (ensuring it closes the relevant issues in the description), and merge that PR.
 - When searching for a function's implementation based on UI interactions, do not just search for the function name globally. Instead, follow the component flow (e.g., start from the sidebar component, see which child component it calls, and trace it down to the function). This ensures you catch any side-effects or errors in the calling components.
