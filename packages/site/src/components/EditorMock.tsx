@@ -14,13 +14,21 @@ export function EditorMock() {
         <i />
         <span className="mock-url">template-goblin · certificate.tgbl</span>
       </div>
+      <div className="mock-toolbar">
+        <span className="mt-btn" />
+        <span className="mt-btn" />
+        <span className="mt-btn" />
+        <span className="mt-spacer" />
+        <span className="mt-btn" style={{ width: '60px' }} />
+      </div>
       <div className="mock-body">
-        <div className="mock-rail">
-          <span className="mock-tool on" />
-          <span className="mock-tool" />
-          <span className="mock-tool" />
-          <span className="mock-tool" />
-          <span className="mock-tool" />
+        <div className="mock-left-panel">
+          <span className="pp-label">Field · name</span>
+          <span className="pp-field" />
+          <span className="pp-label">Font</span>
+          <span className="pp-field" />
+          <span className="pp-label">Color</span>
+          <span className="pp-swatch" />
         </div>
         <div className="mock-canvas">
           <div className="mock-page">
@@ -47,15 +55,13 @@ export function EditorMock() {
             </div>
           </div>
         </div>
-        <div className="mock-props">
-          <span className="pp-label">Field · name</span>
-          <span className="pp-field" />
-          <span className="pp-label">Font</span>
-          <span className="pp-field" />
-          <span className="pp-label">Color</span>
-          <span className="pp-swatch" />
-          <span className="pp-label">Source</span>
-          <span className="pp-field" />
+        <div className="mock-right-panel">
+          <span className="pp-label">Structure</span>
+          <span className="rp-item">Logo</span>
+          <span className="rp-item">Title</span>
+          <span className="rp-item">Subtitle</span>
+          <span className="rp-item on">Name Field</span>
+          <span className="rp-item">Table</span>
         </div>
       </div>
     </div>

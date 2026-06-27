@@ -120,30 +120,58 @@
 
 .mock-body {
   display: grid;
-  grid-template-columns: 48px 1fr 132px;
+  grid-template-columns: 120px 1fr 132px;
   height: 318px;
 }
 
-.mock-rail {
-  border-right: 1px solid var(--border);
-  padding: 12px 0;
+.mock-toolbar {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 14px;
-  background: var(--bg-1);
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
 }
 
-.mock-tool {
-  width: 24px;
-  height: 24px;
-  border-radius: 7px;
+.mock-toolbar .mt-btn {
+  height: 20px;
+  width: 28px;
+  border-radius: 4px;
   background: rgba(15, 23, 42, 0.06);
 }
 
-.mock-tool.on {
-  background: var(--brand-soft);
-  box-shadow: inset 0 0 0 1px var(--brand);
+.mock-toolbar .mt-spacer {
+  flex: 1;
+}
+
+.mock-left-panel {
+  border-right: 1px solid var(--border);
+  background: var(--bg-1);
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.mock-left-panel .pp-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.mock-left-panel .pp-field {
+  height: 22px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+}
+
+.mock-left-panel .pp-swatch {
+  height: 22px;
+  border-radius: 6px;
+  background: var(--brand);
 }
 
 .mock-canvas {
@@ -226,34 +254,41 @@
   background: #cfd6e0;
 }
 
-.mock-props {
+.mock-right-panel {
   border-left: 1px solid var(--border);
   background: var(--bg-1);
   padding: 12px 10px;
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 8px;
 }
 
-.mock-props .pp-label {
+.mock-right-panel .pp-label {
   font-family: var(--font-mono);
   font-size: 0.6rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-faint);
+  margin-bottom: 2px;
 }
 
-.mock-props .pp-field {
+.mock-right-panel .rp-item {
   height: 22px;
   border-radius: 6px;
-  background: #ffffff;
-  border: 1px solid var(--border);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--text-dim);
+  padding: 0 8px;
+  border: 1px solid transparent;
 }
 
-.mock-props .pp-swatch {
-  height: 22px;
-  border-radius: 6px;
-  background: var(--brand);
+.mock-right-panel .rp-item.on {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  border-color: rgba(13, 148, 136, 0.2);
 }
 
 /* ---------- Frameworks / runtimes strip ---------- */
