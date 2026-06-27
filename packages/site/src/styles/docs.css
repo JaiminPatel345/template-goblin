@@ -2,7 +2,7 @@
 
 .docs {
   display: grid;
-  grid-template-columns: 244px 1fr;
+  grid-template-columns: max-content 1fr;
   gap: 48px;
   align-items: start;
   padding-block: 44px 80px;
@@ -31,6 +31,8 @@
 
 .docs-nav-link {
   display: block;
+  width: 230px;
+  flex-shrink: 0;
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 0.92rem;
@@ -52,20 +54,22 @@
   font-weight: 600;
 }
 
-/* Nested TOC inside left sidebar */
+/* Nested TOC inside left sidebar, appearing on X axis */
 .docs-nav-item {
   margin-bottom: 4px;
+  display: flex;
+  align-items: flex-start;
 }
 
 .docs-toc-nested {
-  margin-top: 4px;
-  margin-bottom: 8px;
-  margin-left: 18px; /* Indent under the main link */
-  padding-left: 12px;
+  margin-left: 20px;
+  padding-left: 16px;
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  width: 200px;
+  padding-top: 6px; /* align with the top of the nav link */
 }
 
 .docs-toc-link {
@@ -90,7 +94,7 @@
 .docs-toc-link::before {
   content: '';
   position: absolute;
-  left: -13px; /* Pull back precisely over the border */
+  left: -17px; /* Pull back precisely over the border */
   top: 50%;
   transform: translateY(-50%) scaleY(0);
   width: 2px;
