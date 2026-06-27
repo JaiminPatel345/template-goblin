@@ -56,7 +56,7 @@ export function Footer() {
               Issues & requests
             </a>
             <a href={`${GITHUB_URL}/blob/main/LICENSE`} target="_blank" rel="noreferrer">
-              MIT License
+              License
             </a>
           </div>
         </div>
@@ -72,7 +72,7 @@ export function Footer() {
             >
               <GitHub size={17} />
             </a>
-            © {new Date().getFullYear()} TemplateGoblin · MIT Licensed
+            © {new Date().getFullYear()} TemplateGoblin · Non-Commercial License
           </span>
           <span>
             Built by{' '}

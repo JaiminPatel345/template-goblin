@@ -39,4 +39,4 @@ Types live in [`@template-goblin/types`](https://www.npmjs.com/package/@template
 
 - 📖 **Full docs, examples, and the visual builder** — https://github.com/JaiminPatel345/template-goblin
 - 🐛 **Issues & feature requests** — https://github.com/JaiminPatel345/template-goblin/issues
-- 📄 **License** — MIT
+- 📄 **License** — Non-Commercial (Commercial permission required)
