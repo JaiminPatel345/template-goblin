@@ -13,7 +13,7 @@ import { loadTemplate, generatePDF } from 'template-goblin'
 const template = await loadTemplate('./result.tgbl')
 
 const pdf = await generatePDF(template, {
-  text: { studentName: 'Aisha Khan', grade: 'A' },
+  texts: { studentName: 'Aisha Khan', grade: 'A' },
   tables: { subjects: [{ subject: 'Math', marks: '95' }] },
 })
 
@@ -26,13 +26,12 @@ A `.tgbl` is a ZIP archive containing the layout, fonts, and images needed to re
 
 ## API
 
-| Function                               | Purpose                                                               |
-| -------------------------------------- | --------------------------------------------------------------------- |
-| `loadTemplate(path)`                   | Parse a `.tgbl` file into an in-memory `LoadedTemplate`               |
-| `generatePDF(template, input)`         | Render a single PDF as a `Buffer`                                     |
-| `generatePDFBatch(template, inputs[])` | Render many PDFs from a shared template                               |
-| `validateData(template, input)`        | Validate input JSON against the template's required keys              |
-| `preflight(template)`                  | Static checks (overflow, missing fonts, broken refs) before rendering |
+| Function                                   | Purpose                                                  |
+| ------------------------------------------ | -------------------------------------------------------- |
+| `loadTemplate(path)`                       | Parse a `.tgbl` file into an in-memory `LoadedTemplate`  |
+| `generatePDF(template, input)`             | Render a single PDF as a `Buffer`                        |
+| `generateBatchPDF(template, inputs, opts)` | Render many PDFs from a shared template                  |
+| `validateData(template, input)`            | Validate input JSON against the template's required keys |
 
 Types live in [`@template-goblin/types`](https://www.npmjs.com/package/@template-goblin/types).
 

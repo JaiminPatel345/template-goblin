@@ -143,7 +143,7 @@ npx template-goblin-ui
 
 ### Hosted Version
 
-Visit the hosted UI at your deployment URL to design templates in the browser.
+Visit the hosted UI at [jaiminpatel345.github.io/template-goblin/playground/](https://jaiminpatel345.github.io/template-goblin/playground/) to design templates in the browser.
 
 ### What You Can Do
 
@@ -382,6 +382,7 @@ const students = [
 
 const results = await generateBatchPDF(template, students, {
   concurrency: 4,
+  workerPath: './node_modules/template-goblin/dist/batch-worker.js',
   onProgress: (done, total) => console.log(`${done}/${total}`),
 })
 
