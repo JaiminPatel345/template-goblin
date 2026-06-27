@@ -1,9 +1,13 @@
 /* Documentation: sidebar layout + readable prose. */
 
+.container.docs {
+  max-width: 1380px;
+}
+
 .docs {
   display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 48px;
+  grid-template-columns: 420px 1fr;
+  gap: 64px;
   align-items: start;
   padding-block: 44px 80px;
 }
@@ -31,7 +35,7 @@
 
 .docs-nav-link {
   display: block;
-  width: 230px;
+  width: 190px;
   flex-shrink: 0;
   padding: 8px 12px;
   border-radius: 8px;
@@ -63,12 +67,12 @@
 
 .docs-toc-nested {
   margin-left: 0;
-  padding-left: 16px;
+  padding-left: 18px;
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  width: 200px;
+  width: 230px;
   padding-top: 6px; /* align with the top of the nav link */
   position: relative;
 }
@@ -352,6 +356,19 @@
 /* Mobile docs: collapse the sidebar into a scrollable strip on top */
 .docs-mobile-nav {
   display: none;
+}
+
+@media (max-width: 1140px) {
+  .docs {
+    grid-template-columns: 220px 1fr;
+    gap: 40px;
+  }
+  .docs-toc-nested {
+    display: none;
+  }
+  .docs-nav-link {
+    width: auto;
+  }
 }
 
 @media (max-width: 880px) {
