@@ -21,8 +21,8 @@ export function Footer() {
               <img
                 src="/logo-full.png"
                 alt="TemplateGoblin"
-                height={34}
-                style={{ objectFit: 'contain' }}
+                width={220}
+                style={{ objectFit: 'contain', mixBlendMode: 'multiply' }}
               />
             </Link>
             <p>
