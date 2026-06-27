@@ -99,7 +99,8 @@ export function computeVisibleText(
 
   ctx.font = `${fontSize}px ${style.fontFamily}`
   const lineHeightPt = fontSize * style.lineHeight
-  const maxLines = Math.max(1, Math.floor(labelH / lineHeightPt))
+  const maxLines = Math.floor(labelH / lineHeightPt)
+  if (maxLines <= 0) return null
 
   const wrapped = wrapToLines(ctx, text, labelW)
   if (wrapped.length === 0) return null

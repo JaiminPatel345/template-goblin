@@ -90,9 +90,9 @@ export function renderText(
   // canvas applies the same 1.2 fallback.
   const lineHeightFactor = style.lineHeight > 0 ? style.lineHeight : 1.2
   const lineHeightPt = fontSize * lineHeightFactor
-  const maxLinesByHeight = Math.max(1, Math.floor(height / lineHeightPt))
+  const maxLinesByHeight = Math.floor(height / lineHeightPt)
   if (lines.length > maxLinesByHeight) {
-    lines = lines.slice(0, maxLinesByHeight)
+    lines = lines.slice(0, Math.max(0, maxLinesByHeight))
   }
 
   // Font ascent (the y we pass to `doc.text` is the line top; PDFKit places
