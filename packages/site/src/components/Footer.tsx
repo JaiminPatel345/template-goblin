@@ -72,7 +72,7 @@ export function Footer() {
             >
               <GitHub size={17} />
             </a>
-            © {new Date().getFullYear()} TemplateGoblin · Non-Commercial License
+            © {new Date().getFullYear()} TemplateGoblin · GPLv3 Licensed
           </span>
           <span>
             Built by{' '}

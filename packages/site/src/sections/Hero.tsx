@@ -54,7 +54,7 @@ export function Hero() {
         </div>
         <div className="hero-meta">
           <span>
-            <Check size={16} /> Free for non-commercial
+            <Check size={16} /> GPLv3 licensed
           </span>
           <span>
             <Bolt size={16} /> No headless browser

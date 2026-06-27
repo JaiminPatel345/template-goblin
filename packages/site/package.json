@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Marketing landing page + documentation for TemplateGoblin (static React site, deployed to GitHub Pages)",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "GPL-3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -434,4 +434,4 @@ The UI includes an advanced image compression dialog when uploading background i
 
 ## License
 
-[Non-Commercial License (with commercial permission required)](./LICENSE)
+[GNU General Public License v3.0 (GPLv3)](./LICENSE)
