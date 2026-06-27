@@ -52,16 +52,56 @@
   font-weight: 600;
 }
 
-/* On-this-page scroll-spy links — lighter, slightly smaller than page nav. */
-.docs-toc {
-  margin-top: 22px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
+/* Nested TOC inside left sidebar */
+.docs-nav-item {
+  margin-bottom: 4px;
+}
+
+.docs-toc-nested {
+  margin-top: 4px;
+  margin-bottom: 8px;
+  margin-left: 18px; /* Indent under the main link */
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .docs-toc-link {
-  font-size: 0.86rem;
+  display: block;
+  font-size: 0.84rem;
   color: var(--text-faint);
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: relative;
+  line-height: 1.4;
+}
+
+.docs-toc-link:hover {
+  color: var(--text-dim);
+}
+
+.docs-toc-link.active {
+  color: var(--brand-strong);
+  font-weight: 500;
+}
+
+/* Subtle active indicator line that scales up */
+.docs-toc-link::before {
+  content: '';
+  position: absolute;
+  left: -13px; /* Pull back precisely over the border */
+  top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 2px;
+  height: 14px;
+  background: var(--brand);
+  transition: transform 0.2s ease;
+  border-radius: 4px;
+}
+
+.docs-toc-link.active::before {
+  transform: translateY(-50%) scaleY(1);
 }
 
 /* Prose */
