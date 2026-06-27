@@ -1,5 +1,4 @@
 import { Check } from '../components/Icons'
-import { GoblinMark } from '../components/GoblinMark'
 
 type Cell = { kind: 'yes' | 'no' | 'meh'; label: string }
 const yes = (label = 'Yes'): Cell => ({ kind: 'yes', label })
@@ -62,7 +61,8 @@ export function Compare() {
                 <th>pdf-lib</th>
                 <th className="us">
                   <span className="compare-head-us">
-                    <GoblinMark size={20} /> TemplateGoblin
+                    <img src="/logo.png" alt="" height={20} style={{ borderRadius: '4px' }} />{' '}
+                    TemplateGoblin
                   </span>
                 </th>
               </tr>

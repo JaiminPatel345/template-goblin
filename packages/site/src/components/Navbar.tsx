@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
-import { GoblinMark } from './GoblinMark'
+
 import { ArrowRight, ChevronDown, GitHub, Menu, Npm } from './Icons'
 import { GITHUB_URL, NPM_URL, PLAYGROUND_URL, STARS_BADGE } from '../lib/constants'
 
@@ -23,7 +23,12 @@ export function Navbar() {
     <header className="nav">
       <div className="container nav-inner">
         <Link to="/" className="brand" aria-label="TemplateGoblin home">
-          <GoblinMark size={30} className="brand-mark" />
+          <img
+            src="/logo.png"
+            alt="TemplateGoblin logo"
+            height={32}
+            style={{ borderRadius: '6px' }}
+          />
           Template<span className="grad-text">Goblin</span>
         </Link>
 
@@ -57,9 +62,6 @@ export function Navbar() {
               ))}
             </div>
           </div>
-          <a className="nav-link" href={PLAYGROUND_URL}>
-            Playground
-          </a>
         </nav>
 
         <span className="nav-spacer" />
@@ -86,8 +88,8 @@ export function Navbar() {
           <a className="nav-icon" href={NPM_URL} target="_blank" rel="noreferrer" aria-label="npm">
             <Npm size={20} />
           </a>
-          <a className="btn btn-primary" href={PLAYGROUND_URL}>
-            Open editor <ArrowRight size={16} />
+          <a className="btn btn-primary" href={PLAYGROUND_URL} title="Open Editor">
+            Playground <ArrowRight size={16} />
           </a>
           <button
             className="nav-burger"
@@ -114,9 +116,6 @@ export function Navbar() {
               </NavLink>
             ))}
             <div className="mobile-sub">More</div>
-            <a className="nav-link" href={PLAYGROUND_URL}>
-              Playground
-            </a>
             <a className="nav-link" href={GITHUB_URL} target="_blank" rel="noreferrer">
               GitHub
             </a>

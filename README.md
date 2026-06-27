@@ -1,5 +1,9 @@
 # TemplateGoblin
 
+<div align="center">
+  <img src="./packages/site/public/logo-full.png" alt="TemplateGoblin Logo" width="500" />
+</div>
+
 [![npm](https://img.shields.io/npm/v/template-goblin.svg)](https://www.npmjs.com/package/template-goblin)
 
 Open-source PDF template engine for generating PDFs at scale. Non-technical users design templates with a visual drag-and-drop builder, developers use the npm library to generate millions of PDFs from JSON data. Templates are saved as `.tgbl` files — portable ZIP archives containing the layout, fonts, and images needed for rendering.
@@ -143,7 +147,7 @@ npx template-goblin-ui
 
 ### Hosted Version
 
-Visit the hosted UI at your deployment URL to design templates in the browser.
+Visit the hosted UI at [jaiminpatel345.github.io/template-goblin/playground/](https://jaiminpatel345.github.io/template-goblin/playground/) to design templates in the browser.
 
 ### What You Can Do
 
@@ -382,6 +386,7 @@ const students = [
 
 const results = await generateBatchPDF(template, students, {
   concurrency: 4,
+  workerPath: './node_modules/template-goblin/dist/batch-worker.js',
   onProgress: (done, total) => console.log(`${done}/${total}`),
 })
 
@@ -433,4 +438,4 @@ The UI includes an advanced image compression dialog when uploading background i
 
 ## License
 
-MIT
+[GNU General Public License v3.0 (GPLv3)](./LICENSE)

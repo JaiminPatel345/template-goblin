@@ -34,34 +34,39 @@ export function DocsLayout() {
         {DOC_SECTIONS.map((section) => (
           <div key={section.title}>
             <h4>{section.title}</h4>
-            {section.links.map((l) => (
-              <NavLink
-                key={l.to}
-                to={l.to}
-                end={l.end}
-                className={({ isActive }) => `docs-nav-link${isActive ? ' active' : ''}`}
-              >
-                {l.label}
-              </NavLink>
-            ))}
+            {section.links.map((l) => {
+              // Ensure we accurately match the active route for nesting the TOC
+              const isActiveRoute = l.end ? pathname === l.to : pathname.startsWith(l.to)
+
+              return (
+                <div key={l.to} className="docs-nav-item">
+                  <NavLink
+                    to={l.to}
+                    end={l.end}
+                    className={({ isActive }) => `docs-nav-link${isActive ? ' active' : ''}`}
+                  >
+                    {l.label}
+                  </NavLink>
+
+                  {/* Render TOC as nested sub-options under the active link */}
+                  {isActiveRoute && toc.length > 1 && (
+                    <div className="docs-toc-nested">
+                      {toc.map((h) => (
+                        <a
+                          key={h.id}
+                          href={`#${h.id}`}
+                          className={`docs-toc-link${activeId === h.id ? ' active' : ''}`}
+                        >
+                          {h.text}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         ))}
-
-        {/* On-this-page scroll-spy — follows the reader down the current page. */}
-        {toc.length > 1 && (
-          <div className="docs-toc">
-            <h4>On this page</h4>
-            {toc.map((h) => (
-              <a
-                key={h.id}
-                href={`#${h.id}`}
-                className={`docs-nav-link docs-toc-link${activeId === h.id ? ' active' : ''}`}
-              >
-                {h.text}
-              </a>
-            ))}
-          </div>
-        )}
       </aside>
 
       <nav className="docs-mobile-nav" aria-label="Documentation">
