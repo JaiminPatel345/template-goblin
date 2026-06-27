@@ -1,5 +1,9 @@
 # template-goblin
 
+<div align="center">
+  <img src="../../packages/site/public/logo-full.png" alt="TemplateGoblin Logo" width="400" />
+</div>
+
 PDF template engine for Node.js — load a `.tgbl` template + JSON data and generate a PDF.
 
 ```bash

@@ -24,11 +24,12 @@ export function Navbar() {
       <div className="container nav-inner">
         <Link to="/" className="brand" aria-label="TemplateGoblin home">
           <img
-            src="/logo-full.png"
-            alt="TemplateGoblin"
-            height={34}
-            style={{ objectFit: 'contain' }}
+            src="/logo.png"
+            alt="TemplateGoblin logo"
+            height={32}
+            style={{ borderRadius: '6px' }}
           />
+          Template<span className="grad-text">Goblin</span>
         </Link>
 
         <nav className="nav-links" aria-label="Primary">

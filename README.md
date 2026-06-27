@@ -1,5 +1,9 @@
 # TemplateGoblin
 
+<div align="center">
+  <img src="./packages/site/public/logo-full.png" alt="TemplateGoblin Logo" width="500" />
+</div>
+
 [![npm](https://img.shields.io/npm/v/template-goblin.svg)](https://www.npmjs.com/package/template-goblin)
 
 Open-source PDF template engine for generating PDFs at scale. Non-technical users design templates with a visual drag-and-drop builder, developers use the npm library to generate millions of PDFs from JSON data. Templates are saved as `.tgbl` files — portable ZIP archives containing the layout, fonts, and images needed for rendering.
