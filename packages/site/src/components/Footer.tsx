@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { GoblinMark } from './GoblinMark'
-import { Heart } from './Icons'
+import { Heart, GitHub } from './Icons'
 import {
   AUTHOR_URL,
   GITHUB_URL,
@@ -62,7 +62,18 @@ export function Footer() {
         </div>
 
         <div className="footer-bottom">
-          <span>© {new Date().getFullYear()} TemplateGoblin · MIT Licensed</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: 'inherit', display: 'flex' }}
+              title="GitHub Repository"
+            >
+              <GitHub size={17} />
+            </a>
+            © {new Date().getFullYear()} TemplateGoblin · MIT Licensed
+          </span>
           <span>
             Built by{' '}
             <a href={AUTHOR_URL} target="_blank" rel="noreferrer">
