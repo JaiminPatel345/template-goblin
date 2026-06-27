@@ -37,7 +37,7 @@ function checkOne(value: number, label: string): string | null {
  * The component is fully controlled — callers own the `value` and the
  * custom-width/height inputs so the picker has no internal state.
  */
-export type PageSizeChoice = 'previous' | 'match' | PageSize
+export type PageSizeChoice = 'previous' | 'match' | PageSize | 'A4-Landscape' | 'Letter-Landscape'
 
 export interface PageSizePickerProps {
   value: PageSizeChoice
@@ -76,23 +76,25 @@ export function PageSizePicker({
   matchImage,
 }: PageSizePickerProps) {
   const { widthError, heightError } = validateCustomDims(customWidth, customHeight)
-  // Effective dimensions of the current choice — drives the orientation
-  // toggle and the swap it performs.
   const resolved = resolveChoice(value, customWidth, customHeight, previousSize, matchImage)
+
   const handleSwapOrientation = () => {
     const swapped = swapDimensions(resolved.width, resolved.height)
     setCustomWidth(swapped.width)
     setCustomHeight(swapped.height)
-    // A swapped preset is no longer that named size — land on Custom with the
-    // rotated dimensions (the schema has no "A4 landscape").
-    onChange('custom')
+
+    if (value === 'A4') onChange('A4-Landscape')
+    else if (value === 'Letter') onChange('Letter-Landscape')
+    else if (value === 'A4-Landscape') onChange('A4')
+    else if (value === 'Letter-Landscape') onChange('Letter')
+    else onChange('custom')
   }
-  const presets: { key: PageSize; label: string }[] = [
+
+  const presets: { key: PageSizeChoice; label: string }[] = [
     { key: 'A4', label: 'A4 (595 × 842 pt)' },
-    { key: 'A3', label: 'A3 (842 × 1191 pt)' },
-    { key: 'A5', label: 'A5 (420 × 595 pt)' },
+    { key: 'A4-Landscape', label: 'A4 Landscape (842 × 595 pt)' },
     { key: 'Letter', label: 'Letter (612 × 792 pt)' },
-    { key: 'Legal', label: 'Legal (612 × 1008 pt)' },
+    { key: 'Letter-Landscape', label: 'Letter Landscape (792 × 612 pt)' },
   ]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -232,6 +234,9 @@ export function resolveChoice(
   previousSize?: { width: number; height: number },
   matchImage?: { width: number; height: number },
 ): { pageSize: PageSize; width: number; height: number } {
+  if (choice === 'A4-Landscape') return { pageSize: 'custom', width: 842, height: 595 }
+  if (choice === 'Letter-Landscape') return { pageSize: 'custom', width: 792, height: 612 }
+
   if (choice === 'match' && matchImage) {
     return { pageSize: 'custom', width: matchImage.width, height: matchImage.height }
   }
@@ -245,8 +250,8 @@ export function resolveChoice(
     // Fallback: no previous size supplied. Treat as A4.
     return { pageSize: 'A4', ...PAGE_SIZE_PRESETS.A4 }
   }
-  const preset = PAGE_SIZE_PRESETS[choice]
-  return { pageSize: choice, width: preset.width, height: preset.height }
+  const preset = PAGE_SIZE_PRESETS[choice as Exclude<PageSize, 'custom'>]
+  return { pageSize: choice as PageSize, width: preset.width, height: preset.height }
 }
 
 function Radio({
