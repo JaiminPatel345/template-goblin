@@ -164,12 +164,30 @@ function makeLoopField(
   }
 }
 
-function makeGroup(overrides: Partial<GroupDefinition> = {}): GroupDefinition {
+function makeGroup(overrides: any = {}): GroupDefinition {
   return {
     id: 'group-1',
     name: 'Test Group',
+    type: 'text',
+    style: {
+      fontId: null,
+      fontFamily: 'Helvetica',
+      fontSize: 12,
+      fontSizeMin: 11,
+      lineHeight: 1.2,
+      fontWeight: 'normal',
+      fontStyle: 'normal',
+      textDecoration: 'none',
+      color: '#000000',
+      backgroundColor: null,
+      align: 'center',
+      verticalAlign: 'middle',
+      maxRows: 3,
+      overflowMode: 'truncate',
+      snapToGrid: true,
+    },
     ...overrides,
-  }
+  } as GroupDefinition
 }
 
 function makeFont(overrides: Partial<FontDefinition> = {}): FontDefinition {

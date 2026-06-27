@@ -5,7 +5,7 @@
 - The `main` branch can only be updated by raising a PR from the `dev` branch.
 - Never merge directly into the `main` branch.
 
-- When raising a PR, always write the PR description such that it explicitly closes the relevant issue (e.g., using keywords like "Closes #123" or "Fixes #123").
+- When raising a PR, always write the PR description such that it explicitly closes the relevant issue (e.g., using exactly "close #123" on its own line).
 
 # TemplateGoblin Core Rules (from CLAUDE.md)
 
@@ -35,3 +35,8 @@
 - Do not push, raise PR, or merge PR without the user's explicit permission. You may commit without permission, but any interaction with the remote repository requires confirmation.
 - When the user says "merge", it means a full pipeline: push the branch, raise a PR (ensuring it closes the relevant issues in the description), and merge that PR.
 - When searching for a function's implementation based on UI interactions, do not just search for the function name globally. Instead, follow the component flow (e.g., start from the sidebar component, see which child component it calls, and trace it down to the function). This ensures you catch any side-effects or errors in the calling components.
+
+- When the user asks to "start execution" with an issue link, you must:
+  1. Create a new branch for the issue.
+  2. Implement the fix or feature described in the issue.
+  3. Do NOT push or raise a PR. Just commit your meaningful changes locally.

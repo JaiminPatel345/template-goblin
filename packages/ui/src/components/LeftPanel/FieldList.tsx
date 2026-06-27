@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { useTemplateStore, getFieldDynamicMemo } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
-import { useDialogs } from '../Dialogs/index.js'
+// import { useDialogs } from '../Dialogs/index.js'
+import { DialogShell } from '../Dialogs/DialogShell.js'
+import { DialogButton } from '../Dialogs/DialogButton.js'
+import { defaultTextStyle, defaultImageStyle, defaultTableStyle } from '../../utils/defaults.js'
 import type { FieldDefinition, GroupDefinition } from '@template-goblin/types'
 
 const TYPE_LABELS: Record<string, string> = {
@@ -150,7 +153,6 @@ export function LeftPanel() {
   const header = useTemplateStore((s) => s.header)
   const footer = useTemplateStore((s) => s.footer)
   const addGroup = useTemplateStore((s) => s.addGroup)
-  const { prompt: promptDialog } = useDialogs()
   const updateField = useTemplateStore((s) => s.updateField)
   const selectedFieldIds = useUiStore((s) => s.selectedFieldIds)
   // Clicking a row in the left panel is equivalent to picking the element
@@ -177,21 +179,50 @@ export function LeftPanel() {
   const headerFields = header?.enabled ? header.fields : []
   const footerFields = footer?.enabled ? footer.fields : []
 
-  async function handleNewGroup() {
-    const name = await promptDialog({
-      title: 'New field group',
-      label: 'Group name',
-      placeholder: 'e.g. Header content',
-      validate: (v) => (v.trim().length === 0 ? 'Group name cannot be empty.' : null),
-    })
-    if (name === null) return
-    const trimmed = name.trim()
+  const [showNewGroup, setShowNewGroup] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [newGroupType, setNewGroupType] = useState<'text' | 'image' | 'table'>('text')
+
+  function handleNewGroup() {
+    setNewGroupName('')
+    setNewGroupType('text')
+    setShowNewGroup(true)
+  }
+
+  function submitNewGroup() {
+    const trimmed = newGroupName.trim()
     if (trimmed.length === 0) return
     const id = `group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    addGroup({ id, name: trimmed })
+
+    let style: unknown
+    if (newGroupType === 'text') style = defaultTextStyle()
+    else if (newGroupType === 'image') style = defaultImageStyle()
+    else style = defaultTableStyle()
+
+    addGroup({ id, name: trimmed, type: newGroupType, style } as unknown as GroupDefinition)
+    setShowNewGroup(false)
   }
 
   function handleDropField(fieldId: string, groupId: string | null) {
+    if (groupId) {
+      const field =
+        fields.find((f) => f.id === fieldId) ||
+        header?.fields.find((f) => f.id === fieldId) ||
+        footer?.fields.find((f) => f.id === fieldId)
+      const group = groups.find((g) => g.id === groupId)
+      // If group has a type (new strict groups), enforce type match
+      const typedGroup = group as unknown as GroupDefinition
+      if (
+        typedGroup &&
+        'type' in typedGroup &&
+        typedGroup.type &&
+        field &&
+        field.type !== typedGroup.type
+      ) {
+        alert(`Cannot add a ${field.type} field to a ${typedGroup.type} group.`)
+        return
+      }
+    }
     updateField(fieldId, { groupId })
   }
 
@@ -253,6 +284,51 @@ export function LeftPanel() {
           onDropField={handleDropField}
         />
       </div>
+
+      {showNewGroup && (
+        <DialogShell
+          open={showNewGroup}
+          onOpenChange={setShowNewGroup}
+          title="New Field Group"
+          actions={
+            <>
+              <DialogButton variant="ghost" onClick={() => setShowNewGroup(false)}>
+                Cancel
+              </DialogButton>
+              <DialogButton
+                variant="primary"
+                onClick={submitNewGroup}
+                disabled={newGroupName.trim().length === 0}
+              >
+                Create
+              </DialogButton>
+            </>
+          }
+        >
+          <div className="tg-form-row">
+            <label>Name</label>
+            <input
+              className="tg-input"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              placeholder="e.g. Header content"
+              autoFocus
+            />
+          </div>
+          <div className="tg-form-row" style={{ marginTop: 16 }}>
+            <label>Type</label>
+            <select
+              className="tg-select"
+              value={newGroupType}
+              onChange={(e) => setNewGroupType(e.target.value as 'text' | 'image' | 'table')}
+            >
+              <option value="text">Text Fields</option>
+              <option value="image">Image Fields</option>
+              <option value="table">Table Fields</option>
+            </select>
+          </div>
+        </DialogShell>
+      )}
     </>
   )
 }

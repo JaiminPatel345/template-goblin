@@ -872,6 +872,16 @@ export const useTemplateStore = create<TemplateState>()(
 
       updateField: (id, updates) =>
         set((state) => {
+          const finalUpdates = { ...updates }
+          if (finalUpdates.groupId !== undefined && finalUpdates.groupId !== null) {
+            const group = state.groups.find(
+              (g) => g.id === finalUpdates.groupId,
+            ) as unknown as GroupDefinition
+            if (group && 'style' in group) {
+              finalUpdates.style = group.style
+            }
+          }
+
           // #61 — route to whichever pool owns this id (body / header / footer).
           // Field-props components (TextFieldProps etc.) only know `updateField`;
           // making the router transparent means they keep working for band fields
@@ -880,7 +890,7 @@ export const useTemplateStore = create<TemplateState>()(
             const header = {
               ...state.header,
               fields: state.header.fields.map((f) =>
-                f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+                f.id === id ? ({ ...f, ...finalUpdates } as FieldDefinition) : f,
               ),
             }
             return { header, ...pushHistory({ ...state, header }) }
@@ -889,7 +899,7 @@ export const useTemplateStore = create<TemplateState>()(
             const footer = {
               ...state.footer,
               fields: state.footer.fields.map((f) =>
-                f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+                f.id === id ? ({ ...f, ...finalUpdates } as FieldDefinition) : f,
               ),
             }
             return { footer, ...pushHistory({ ...state, footer }) }
@@ -903,36 +913,59 @@ export const useTemplateStore = create<TemplateState>()(
           // shape). See templateStore.discriminator.test.ts for the pinned
           // behaviour.
           const fields = state.fields.map((f) =>
-            f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+            f.id === id ? ({ ...f, ...finalUpdates } as FieldDefinition) : f,
           )
           return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
         }),
 
       updateFieldStyle: (id, updates) =>
         set((state) => {
-          // #61 — route through the band pool when the field lives there.
-          if (state.header?.fields.some((f) => f.id === id)) {
-            const header = {
-              ...state.header,
-              fields: state.header.fields.map((f) =>
-                f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
-              ),
+          const field =
+            state.fields.find((f) => f.id === id) ||
+            state.header?.fields.find((f) => f.id === id) ||
+            state.footer?.fields.find((f) => f.id === id)
+          if (!field) return state
+
+          let nextGroups = state.groups
+          let finalStyle = { ...field.style, ...updates }
+          const targetGroupId = field.groupId
+
+          if (targetGroupId) {
+            const group = state.groups.find(
+              (g) => g.id === targetGroupId,
+            ) as unknown as GroupDefinition
+            if (group && 'style' in group) {
+              finalStyle = { ...group.style, ...updates }
+              nextGroups = state.groups.map((g) =>
+                g.id === targetGroupId
+                  ? ({ ...g, style: finalStyle } as unknown as GroupDefinition)
+                  : g,
+              )
             }
-            return { header, ...pushHistory({ ...state, header }) }
           }
-          if (state.footer?.fields.some((f) => f.id === id)) {
-            const footer = {
-              ...state.footer,
-              fields: state.footer.fields.map((f) =>
-                f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
-              ),
+
+          const mapField = (f: FieldDefinition) => {
+            if (f.id === id || (targetGroupId && f.groupId === targetGroupId)) {
+              return { ...f, style: finalStyle } as FieldDefinition
             }
-            return { footer, ...pushHistory({ ...state, footer }) }
+            return f
           }
-          const fields = state.fields.map((f) =>
-            f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
-          )
-          return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
+
+          const fields = state.fields.map(mapField)
+          const header = state.header
+            ? { ...state.header, fields: state.header.fields.map(mapField) }
+            : state.header
+          const footer = state.footer
+            ? { ...state.footer, fields: state.footer.fields.map(mapField) }
+            : state.footer
+
+          return {
+            groups: nextGroups,
+            fields,
+            header,
+            footer,
+            ...pushHistory({ ...state, groups: nextGroups, fields, header, footer }),
+          }
         }),
 
       setFieldMode: (id, mode) =>
