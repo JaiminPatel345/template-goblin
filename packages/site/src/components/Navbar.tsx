@@ -83,41 +83,8 @@ export function Navbar() {
           <a className="nav-icon" href={NPM_URL} target="_blank" rel="noreferrer" aria-label="npm">
             <Npm size={20} />
           </a>
-          <a
-            className="btn btn-primary"
-            href={PLAYGROUND_URL}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '3px',
-              padding: '8px 20px',
-              lineHeight: '1.1',
-            }}
-          >
-            <span
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                fontWeight: 600,
-                fontSize: '0.95rem',
-              }}
-            >
-              Open editor <ArrowRight size={16} />
-            </span>
-            <span
-              style={{
-                fontSize: '0.58rem',
-                opacity: 0.7,
-                fontWeight: 700,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Playground
-            </span>
+          <a className="btn btn-primary" href={PLAYGROUND_URL} title="Open Editor">
+            Playground <ArrowRight size={16} />
           </a>
           <button
             className="nav-burger"
