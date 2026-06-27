@@ -91,24 +91,32 @@ export function Navbar() {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '2px',
-              padding: '6px 16px',
-              lineHeight: '1',
+              gap: '3px',
+              padding: '8px 20px',
+              lineHeight: '1.1',
             }}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
-              Open editor <ArrowRight size={14} />
+            <span
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontWeight: 600,
+                fontSize: '0.95rem',
+              }}
+            >
+              Open editor <ArrowRight size={16} />
             </span>
             <span
               style={{
-                fontSize: '0.65rem',
-                opacity: 0.85,
-                fontWeight: 500,
-                letterSpacing: '0.05em',
+                fontSize: '0.58rem',
+                opacity: 0.7,
+                fontWeight: 700,
+                letterSpacing: '0.08em',
                 textTransform: 'uppercase',
               }}
             >
-              PlayGround
+              Playground
             </span>
           </a>
           <button
