@@ -95,7 +95,20 @@ export function pushTextLabel(
     lineHeight: textStyle.lineHeight,
   })
 
-  const textGroup = new Group([textbox], {
+  const boundsRect = new Rect({
+    left: 0,
+    top: 0,
+    width: labelW,
+    height: labelH,
+    originX: 'left',
+    originY: 'top',
+    fill: 'transparent',
+    stroke: 'transparent',
+    selectable: false,
+    evented: false,
+  })
+
+  const textGroup = new Group([boundsRect, textbox], {
     left: 0,
     top: 0,
     width: labelW,

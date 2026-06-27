@@ -17,6 +17,7 @@ export interface ResolvedTextStyle {
   align: 'left' | 'center' | 'right'
   verticalAlign: 'top' | 'middle' | 'bottom'
   lineHeight: number
+  maxRows: number
   overflowMode: 'truncate' | 'dynamic_font'
 }
 
@@ -51,6 +52,7 @@ export function resolveTextStyle(field: FieldDefinition): ResolvedTextStyle {
     verticalAlign:
       raw.verticalAlign === 'top' || raw.verticalAlign === 'bottom' ? raw.verticalAlign : 'middle',
     lineHeight: typeof raw.lineHeight === 'number' && raw.lineHeight > 0 ? raw.lineHeight : 1.2,
+    maxRows: typeof raw.maxRows === 'number' && raw.maxRows > 0 ? raw.maxRows : 3,
     overflowMode: raw.overflowMode === 'dynamic_font' ? 'dynamic_font' : 'truncate',
   }
 }
@@ -74,8 +76,11 @@ export function fitDynamicFontSize(
   while (size >= min) {
     ctx.font = `${size}px ${style.fontFamily}`
     const lines = wrapToLines(ctx, text, labelW)
-    const totalH = lines.length * size * style.lineHeight
-    if (totalH <= labelH) return size
+    const lineHeightPt = size * style.lineHeight
+    const maxLinesByBox = Math.floor(labelH / lineHeightPt)
+    const effectiveMaxRows = Math.min(style.maxRows, Math.max(0, maxLinesByBox))
+
+    if (lines.length <= effectiveMaxRows) return size
     size -= 1
   }
   return min
@@ -99,7 +104,8 @@ export function computeVisibleText(
 
   ctx.font = `${fontSize}px ${style.fontFamily}`
   const lineHeightPt = fontSize * style.lineHeight
-  const maxLines = Math.floor(labelH / lineHeightPt)
+  const maxLinesByBox = Math.floor(labelH / lineHeightPt)
+  const maxLines = Math.min(style.maxRows, Math.max(0, maxLinesByBox))
   if (maxLines <= 0) return null
 
   const wrapped = wrapToLines(ctx, text, labelW)
