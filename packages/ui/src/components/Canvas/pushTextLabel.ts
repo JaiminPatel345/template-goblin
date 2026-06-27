@@ -18,7 +18,7 @@
  *     (with explicit `\n` line breaks) to a Fabric Textbox. Same outcome
  *     as the PDFKit renderer for the same inputs.
  */
-import { Textbox } from 'fabric'
+import { Textbox, Group, Rect } from 'fabric'
 import type { FabricObject } from 'fabric'
 import type { FieldDefinition } from '@template-goblin/types'
 import { resolveTextStyle, fitDynamicFontSize, computeVisibleText } from './textMeasure.js'
@@ -75,25 +75,45 @@ export function pushTextLabel(
   const top = verticalAlign === 'top' ? 0 : verticalAlign === 'bottom' ? h : h / 2
   const originY = verticalAlign === 'top' ? 'top' : verticalAlign === 'bottom' ? 'bottom' : 'center'
 
-  children.push(
-    new Textbox(visible, {
-      left: w / 2,
-      top,
+  const textbox = new Textbox(visible, {
+    left: w / 2,
+    top,
+    width: labelW,
+    fontSize,
+    fontFamily: textStyle.fontFamily,
+    fill: textStyle.color || colors.text,
+    fontWeight: textStyle.fontWeight,
+    fontStyle: textStyle.fontStyle,
+    underline: textStyle.textDecoration === 'underline',
+    linethrough: textStyle.textDecoration === 'line-through',
+    textAlign: textStyle.align,
+    selectable: false,
+    evented: false,
+    originX: 'center',
+    originY,
+    splitByGrapheme: false,
+    lineHeight: textStyle.lineHeight,
+  })
+
+  const textGroup = new Group([textbox], {
+    left: 0,
+    top: 0,
+    width: labelW,
+    height: labelH,
+    originX: 'left',
+    originY: 'top',
+    selectable: false,
+    evented: false,
+    clipPath: new Rect({
+      left: 0,
+      top: 0,
       width: labelW,
-      fontSize,
-      fontFamily: textStyle.fontFamily,
-      fill: textStyle.color || colors.text,
-      fontWeight: textStyle.fontWeight,
-      fontStyle: textStyle.fontStyle,
-      underline: textStyle.textDecoration === 'underline',
-      linethrough: textStyle.textDecoration === 'line-through',
-      textAlign: textStyle.align,
-      selectable: false,
-      evented: false,
+      height: labelH,
       originX: 'center',
-      originY,
-      splitByGrapheme: false,
-      lineHeight: textStyle.lineHeight,
+      originY: 'center',
+      absolutePositioned: false,
     }),
-  )
+  })
+
+  children.push(textGroup)
 }
