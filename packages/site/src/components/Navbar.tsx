@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router'
-import { GoblinMark } from './GoblinMark'
+
 import { ArrowRight, ChevronDown, GitHub, Menu, Npm } from './Icons'
 import { GITHUB_URL, NPM_URL, PLAYGROUND_URL, STARS_BADGE } from '../lib/constants'
 
@@ -23,8 +23,12 @@ export function Navbar() {
     <header className="nav">
       <div className="container nav-inner">
         <Link to="/" className="brand" aria-label="TemplateGoblin home">
-          <GoblinMark size={30} className="brand-mark" />
-          Template<span className="grad-text">Goblin</span>
+          <img
+            src="/logo-full.png"
+            alt="TemplateGoblin"
+            height={34}
+            style={{ objectFit: 'contain' }}
+          />
         </Link>
 
         <nav className="nav-links" aria-label="Primary">

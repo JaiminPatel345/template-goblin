@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { GoblinMark } from './GoblinMark'
+
 import { Heart, GitHub } from './Icons'
 import {
   AUTHOR_URL,
@@ -18,8 +18,12 @@ export function Footer() {
         <div className="footer-grid">
           <div className="footer-brand">
             <Link to="/" className="brand">
-              <GoblinMark size={28} className="brand-mark" />
-              Template<span className="grad-text">Goblin</span>
+              <img
+                src="/logo-full.png"
+                alt="TemplateGoblin"
+                height={34}
+                style={{ objectFit: 'contain' }}
+              />
             </Link>
             <p>
               Design PDF templates visually, generate them at scale from JSON — open source, pure
