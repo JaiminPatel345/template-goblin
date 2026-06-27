@@ -6,16 +6,17 @@ import { computeVisibleText, type ResolvedTextStyle } from '../textMeasure.js'
 
 describe('computeVisibleText', () => {
   const baseStyle: ResolvedTextStyle = {
-    fontFamily: 'sans-serif',
+    fontFamily: 'Helvetica',
     fontSize: 12,
     fontSizeMin: 6,
-    color: '#000',
+    color: '#000000',
     fontWeight: 'normal',
     fontStyle: 'normal',
     textDecoration: 'none',
     align: 'center',
     verticalAlign: 'middle',
     lineHeight: 1.2,
+    maxRows: 3,
     overflowMode: 'truncate',
   }
 

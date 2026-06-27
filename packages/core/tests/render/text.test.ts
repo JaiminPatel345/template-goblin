@@ -352,6 +352,7 @@ describe('Text taller than its box is capped to fit and vertically aligned', () 
       fontSize: 60,
       lineHeight: 1.2,
       maxRows: 2,
+      overflowMode: 'truncate',
     })
     ;(field as FieldDefinition).height = 50 // 72pt line height > 50pt box height
     renderText(doc, field, 'Hello World', new Map())
