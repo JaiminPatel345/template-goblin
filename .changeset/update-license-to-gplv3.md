@@ -1,6 +1,5 @@
 ---
 'template-goblin': patch
-'@template-goblin/core': patch
 '@template-goblin/types': patch
 'template-goblin-ui': patch
 ---
