@@ -77,8 +77,19 @@
   position: relative;
 }
 
-/* Caret pointing right (>) on the border */
+/* Mask to break the straight vertical border line */
 .docs-toc-nested::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 16px;
+  width: 1px;
+  height: 12px;
+  background: var(--bg);
+}
+
+/* Hollow caret pointing right (>) on the border */
+.docs-toc-nested::after {
   content: '';
   position: absolute;
   left: -5px; /* center horizontally on the border */
@@ -88,7 +99,7 @@
   border-top: 1px solid var(--border);
   border-right: 1px solid var(--border);
   transform: rotate(45deg);
-  background: var(--bg); /* masks the straight border line underneath */
+  /* No background, so it doesn't overlap the left pill with a white < shape */
 }
 
 .docs-toc-link {
