@@ -61,7 +61,12 @@ export function Compare() {
                 <th>pdf-lib</th>
                 <th className="us">
                   <span className="compare-head-us">
-                    <img src="/logo.png" alt="" height={20} style={{ borderRadius: '4px' }} />{' '}
+                    <img
+                      src={`${import.meta.env.BASE_URL}logo.png`}
+                      alt=""
+                      height={20}
+                      style={{ borderRadius: '4px' }}
+                    />{' '}
                     TemplateGoblin
                   </span>
                 </th>

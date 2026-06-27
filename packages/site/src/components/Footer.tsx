@@ -19,7 +19,7 @@ export function Footer() {
           <div className="footer-brand">
             <Link to="/" className="brand">
               <img
-                src="/logo-full.png"
+                src={`${import.meta.env.BASE_URL}logo-full.png`}
                 alt="TemplateGoblin"
                 width={220}
                 style={{ objectFit: 'contain', mixBlendMode: 'multiply' }}
