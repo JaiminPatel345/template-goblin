@@ -1,5 +1,11 @@
 # template-goblin-ui
 
+## 2.6.2
+
+### Patch Changes
+
+- ae2b7c6: docs: update license to GNU General Public License v3.0 (GPLv3)
+
 ## 2.6.1
 
 ### Patch Changes

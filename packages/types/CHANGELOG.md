@@ -1,5 +1,11 @@
 # @template-goblin/types
 
+## 2.5.1
+
+### Patch Changes
+
+- ae2b7c6: docs: update license to GNU General Public License v3.0 (GPLv3)
+
 ## 2.5.0
 
 ### Minor Changes
