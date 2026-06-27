@@ -13,6 +13,7 @@ const students = [
 
 const results = await generateBatchPDF(template, students, {
   concurrency: 4,
+  workerPath: './node_modules/template-goblin/dist/batch-worker.js',
   onProgress: (done, total) => console.log(\`\${done}/\${total}\`),
 })
 

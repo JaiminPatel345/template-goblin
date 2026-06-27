@@ -33,7 +33,9 @@ export function UseTheUi() {
       </Callout>
 
       <h2>3. Add fields</h2>
-      <p>Pick a tool from the left rail and draw a box on the page. There are three field types:</p>
+      <p>
+        Pick a tool from the top toolbar and draw a box on the page. There are three field types:
+      </p>
       <ul>
         <li>
           <strong>Text</strong> — a heading, a name, a date. Set the font, size, colour, alignment,
