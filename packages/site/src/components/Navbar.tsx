@@ -57,9 +57,6 @@ export function Navbar() {
               ))}
             </div>
           </div>
-          <a className="nav-link" href={PLAYGROUND_URL}>
-            Playground
-          </a>
         </nav>
 
         <span className="nav-spacer" />
@@ -86,8 +83,33 @@ export function Navbar() {
           <a className="nav-icon" href={NPM_URL} target="_blank" rel="noreferrer" aria-label="npm">
             <Npm size={20} />
           </a>
-          <a className="btn btn-primary" href={PLAYGROUND_URL}>
-            Open editor <ArrowRight size={16} />
+          <a
+            className="btn btn-primary"
+            href={PLAYGROUND_URL}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '2px',
+              padding: '6px 16px',
+              lineHeight: '1',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+              Open editor <ArrowRight size={14} />
+            </span>
+            <span
+              style={{
+                fontSize: '0.65rem',
+                opacity: 0.85,
+                fontWeight: 500,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+              }}
+            >
+              PlayGround
+            </span>
           </a>
           <button
             className="nav-burger"
@@ -114,9 +136,6 @@ export function Navbar() {
               </NavLink>
             ))}
             <div className="mobile-sub">More</div>
-            <a className="nav-link" href={PLAYGROUND_URL}>
-              Playground
-            </a>
             <a className="nav-link" href={GITHUB_URL} target="_blank" rel="noreferrer">
               GitHub
             </a>
