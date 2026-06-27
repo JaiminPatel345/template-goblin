@@ -92,6 +92,7 @@
 .runs-on {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 10px;
   padding-block: 26px;
