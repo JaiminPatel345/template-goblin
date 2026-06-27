@@ -62,7 +62,7 @@
 }
 
 .docs-toc-nested {
-  margin-left: 20px;
+  margin-left: 0;
   padding-left: 16px;
   border-left: 1px solid var(--border);
   display: flex;
@@ -70,6 +70,21 @@
   gap: 8px;
   width: 200px;
   padding-top: 6px; /* align with the top of the nav link */
+  position: relative;
+}
+
+/* Caret pointing right (>) on the border */
+.docs-toc-nested::before {
+  content: '';
+  position: absolute;
+  left: -5px; /* center horizontally on the border */
+  top: 16px; /* align vertically with the pill */
+  width: 8px;
+  height: 8px;
+  border-top: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  transform: rotate(45deg);
+  background: var(--bg); /* masks the straight border line underneath */
 }
 
 .docs-toc-link {
