@@ -935,7 +935,10 @@ export const useTemplateStore = create<TemplateState>()(
               (g) => g.id === targetGroupId,
             ) as unknown as GroupDefinition
             if (group && 'style' in group) {
-              finalStyle = { ...group.style, ...updates }
+              finalStyle = {
+                ...(group.style as unknown as TextFieldStyle | ImageFieldStyle | TableFieldStyle),
+                ...updates,
+              } as unknown as TextFieldStyle | ImageFieldStyle | TableFieldStyle
               nextGroups = state.groups.map((g) =>
                 g.id === targetGroupId
                   ? ({ ...g, style: finalStyle } as unknown as GroupDefinition)

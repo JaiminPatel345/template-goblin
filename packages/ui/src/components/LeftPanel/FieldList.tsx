@@ -104,29 +104,35 @@ function GroupSection({
   defaultCollapsed?: boolean
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed ?? false)
-  const [dragOver, setDragOver] = useState(false)
+  const [dragCounter, setDragCounter] = useState(0)
 
   const targetGroupId = group.id === '__ungrouped__' ? null : group.id
+  const dragOver = dragCounter > 0
 
   return (
-    <div className={`tg-field-group${dragOver ? ' tg-field-group--drag-over' : ''}`}>
-      <div
-        className="tg-field-group-header"
-        onClick={() => setCollapsed(!collapsed)}
-        onDragOver={(e) => {
-          e.preventDefault()
-          setDragOver(true)
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault()
-          setDragOver(false)
-          const fieldId = e.dataTransfer.getData('fieldId')
-          if (fieldId) {
-            onDropField(fieldId, targetGroupId)
-          }
-        }}
-      >
+    <div
+      className={`tg-field-group${dragOver ? ' tg-field-group--drag-over' : ''}`}
+      onDragEnter={(e) => {
+        e.preventDefault()
+        setDragCounter((prev) => prev + 1)
+      }}
+      onDragOver={(e) => {
+        e.preventDefault()
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault()
+        setDragCounter((prev) => prev - 1)
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragCounter(0)
+        const fieldId = e.dataTransfer.getData('fieldId')
+        if (fieldId) {
+          onDropField(fieldId, targetGroupId)
+        }
+      }}
+    >
+      <div className="tg-field-group-header" onClick={() => setCollapsed(!collapsed)}>
         <span className="tg-field-group-toggle">{collapsed ? '\u25B6' : '\u25BC'}</span>
         <span className="tg-field-group-name">{group.name}</span>
         <span className="tg-field-group-count">({fields.length})</span>
@@ -182,6 +188,11 @@ export function LeftPanel() {
   const [showNewGroup, setShowNewGroup] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
   const [newGroupType, setNewGroupType] = useState<'text' | 'image' | 'table'>('text')
+  const [overrideConfirm, setOverrideConfirm] = useState<{
+    fieldId: string
+    groupId: string
+    groupName: string
+  } | null>(null)
 
   function handleNewGroup() {
     setNewGroupName('')
@@ -209,6 +220,10 @@ export function LeftPanel() {
         fields.find((f) => f.id === fieldId) ||
         header?.fields.find((f) => f.id === fieldId) ||
         footer?.fields.find((f) => f.id === fieldId)
+
+      // If the field is already in this group, do nothing
+      if (field && field.groupId === groupId) return
+
       const group = groups.find((g) => g.id === groupId)
       // If group has a type (new strict groups), enforce type match
       const typedGroup = group as unknown as GroupDefinition
@@ -222,8 +237,21 @@ export function LeftPanel() {
         alert(`Cannot add a ${field.type} field to a ${typedGroup.type} group.`)
         return
       }
+
+      // If moving to a different group, prompt for style override
+      if (group && field) {
+        setOverrideConfirm({ fieldId, groupId, groupName: group.name })
+        return
+      }
     }
     updateField(fieldId, { groupId })
+  }
+
+  function confirmOverride() {
+    if (overrideConfirm) {
+      updateField(overrideConfirm.fieldId, { groupId: overrideConfirm.groupId })
+      setOverrideConfirm(null)
+    }
   }
 
   // Separate groups that have fields from those that are empty, and handle ungrouped
@@ -326,6 +354,31 @@ export function LeftPanel() {
               <option value="image">Image Fields</option>
               <option value="table">Table Fields</option>
             </select>
+          </div>
+        </DialogShell>
+      )}
+
+      {overrideConfirm && (
+        <DialogShell
+          open={!!overrideConfirm}
+          onOpenChange={(o) => {
+            if (!o) setOverrideConfirm(null)
+          }}
+          title="Confirm Style Override"
+          actions={
+            <>
+              <DialogButton variant="ghost" onClick={() => setOverrideConfirm(null)}>
+                Cancel
+              </DialogButton>
+              <DialogButton variant="primary" onClick={confirmOverride}>
+                Confirm
+              </DialogButton>
+            </>
+          }
+        >
+          <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+            This element's style will be overwritten by the{' '}
+            <strong>{overrideConfirm.groupName}</strong> group's style. Do you want to proceed?
           </div>
         </DialogShell>
       )}
