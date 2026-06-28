@@ -188,6 +188,7 @@ export function LeftPanel() {
   const [showNewGroup, setShowNewGroup] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
   const [newGroupType, setNewGroupType] = useState<'text' | 'image' | 'table'>('text')
+  const [useSelectedConfig, setUseSelectedConfig] = useState(false)
   const [overrideConfirm, setOverrideConfirm] = useState<{
     fieldId: string
     groupId: string
@@ -196,7 +197,13 @@ export function LeftPanel() {
 
   function handleNewGroup() {
     setNewGroupName('')
-    setNewGroupType('text')
+    setNewGroupType(
+      selectedFieldIds.length === 1
+        ? (fields.find((f) => f.id === selectedFieldIds[0])?.type as 'text' | 'image' | 'table') ||
+            'text'
+        : 'text',
+    )
+    setUseSelectedConfig(selectedFieldIds.length === 1)
     setShowNewGroup(true)
   }
 
@@ -206,9 +213,25 @@ export function LeftPanel() {
     const id = `group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
     let style: unknown
-    if (newGroupType === 'text') style = defaultTextStyle()
-    else if (newGroupType === 'image') style = defaultImageStyle()
-    else style = defaultTableStyle()
+
+    if (useSelectedConfig && selectedFieldIds.length === 1) {
+      const selectedField =
+        fields.find((f) => f.id === selectedFieldIds[0]) ||
+        header?.fields.find((f) => f.id === selectedFieldIds[0]) ||
+        footer?.fields.find((f) => f.id === selectedFieldIds[0])
+
+      if (selectedField && 'style' in selectedField) {
+        style = selectedField.style
+      } else {
+        if (newGroupType === 'text') style = defaultTextStyle()
+        else if (newGroupType === 'image') style = defaultImageStyle()
+        else style = defaultTableStyle()
+      }
+    } else {
+      if (newGroupType === 'text') style = defaultTextStyle()
+      else if (newGroupType === 'image') style = defaultImageStyle()
+      else style = defaultTableStyle()
+    }
 
     addGroup({ id, name: trimmed, type: newGroupType, style } as unknown as GroupDefinition)
     setShowNewGroup(false)
@@ -260,8 +283,8 @@ export function LeftPanel() {
   return (
     <>
       <div className="tg-left-panel-header">
-        <span>Fields</span>
-        <button className="tg-btn" onClick={handleNewGroup}>
+        <span>Groups</span>
+        <button className="tg-btn tg-btn--primary" onClick={handleNewGroup}>
           New Group
         </button>
       </div>
@@ -349,12 +372,36 @@ export function LeftPanel() {
               className="tg-select"
               value={newGroupType}
               onChange={(e) => setNewGroupType(e.target.value as 'text' | 'image' | 'table')}
+              disabled={useSelectedConfig}
             >
               <option value="text">Text Fields</option>
               <option value="image">Image Fields</option>
               <option value="table">Table Fields</option>
             </select>
           </div>
+          {selectedFieldIds.length === 1 && (
+            <div className="tg-form-row" style={{ marginTop: 16 }}>
+              <label>Style</label>
+              <label
+                style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 'normal' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={useSelectedConfig}
+                  onChange={(e) => {
+                    setUseSelectedConfig(e.target.checked)
+                    if (e.target.checked) {
+                      const selectedField = fields.find((f) => f.id === selectedFieldIds[0])
+                      if (selectedField) {
+                        setNewGroupType(selectedField.type as 'text' | 'image' | 'table')
+                      }
+                    }
+                  }}
+                />
+                Use selected element's config
+              </label>
+            </div>
+          )}
         </DialogShell>
       )}
 
