@@ -13,6 +13,7 @@ import { useTemplateStore } from '../../store/templateStore.js'
 import { autoShrinkStaticField } from '../../utils/autoShrinkDispatch.js'
 import { InfoTip } from './InfoTip.js'
 import { AlignButtonGroup } from './AlignButtonGroup.js'
+import { GroupAssignmentSelect } from './GroupAssignmentSelect.js'
 import { TextTypographySection } from './TextTypographySection.js'
 
 // `InfoTip` is re-exported for backward compatibility with sibling files
@@ -28,7 +29,6 @@ const BUILTIN_FONTS = ['Helvetica', 'Times-Roman', 'Courier']
 export function TextFieldProps({ field }: Props) {
   const updateField = useTemplateStore((s) => s.updateField)
   const updateFieldStyle = useTemplateStore((s) => s.updateFieldStyle)
-  const groups = useTemplateStore((s) => s.groups)
   const fonts = useTemplateStore((s) => s.fonts)
   const resizeField = useTemplateStore((s) => s.resizeField)
 
@@ -179,21 +179,7 @@ export function TextFieldProps({ field }: Props) {
           </div>
         )}
 
-        <div className="tg-form-row">
-          <label>Group</label>
-          <select
-            className="tg-select"
-            value={field.groupId ?? ''}
-            onChange={(e) => updateField(field.id, { groupId: e.target.value || null })}
-          >
-            <option value="">None</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <GroupAssignmentSelect field={field} />
 
         {isDynamic && (
           <>
