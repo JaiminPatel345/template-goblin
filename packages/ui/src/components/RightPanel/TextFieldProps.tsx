@@ -30,7 +30,6 @@ export function TextFieldProps({ field }: Props) {
   const updateField = useTemplateStore((s) => s.updateField)
   const updateFieldStyle = useTemplateStore((s) => s.updateFieldStyle)
   const fonts = useTemplateStore((s) => s.fonts)
-  const resizeField = useTemplateStore((s) => s.resizeField)
 
   // QA BUG-08: legacy fields rehydrated from an older format used to be
   // labelled 'cannot be edited' with no recourse. Surface a one-click
@@ -119,23 +118,14 @@ export function TextFieldProps({ field }: Props) {
   // would silently move the rect out from under the author's hands.
   function onMaxRowsChange(maxRows: number) {
     updateFieldStyle(field.id, { maxRows })
-    if (!isStatic) return
-    const newHeight = maxRows * style.fontSize * style.lineHeight
-    resizeField(field.id, field.width, newHeight)
   }
 
   function onLineHeightChange(lineHeight: number) {
     updateFieldStyle(field.id, { lineHeight })
-    if (!isStatic) return
-    const newHeight = style.maxRows * style.fontSize * lineHeight
-    resizeField(field.id, field.width, newHeight)
   }
 
   function onFontSizeChange(fontSize: number) {
     updateFieldStyle(field.id, { fontSize })
-    if (!isStatic) return
-    const newHeight = style.maxRows * fontSize * style.lineHeight
-    resizeField(field.id, field.width, newHeight)
   }
 
   const allFontFamilies = [...BUILTIN_FONTS, ...fonts.map((f) => f.name)]

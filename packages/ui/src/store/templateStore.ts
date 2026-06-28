@@ -949,7 +949,21 @@ export const useTemplateStore = create<TemplateState>()(
 
           const mapField = (f: FieldDefinition) => {
             if (f.id === id || (targetGroupId && f.groupId === targetGroupId)) {
-              return { ...f, style: finalStyle } as FieldDefinition
+              const updatedField = { ...f, style: finalStyle } as FieldDefinition
+              // GH #73: auto-resize static text fields on typography change
+              // We do this centrally so that group updates resize all members.
+              if (updatedField.type === 'text' && updatedField.source?.mode === 'static') {
+                const ts = finalStyle as unknown as {
+                  maxRows?: number
+                  fontSize?: number
+                  lineHeight?: number
+                }
+                const maxRows = ts.maxRows ?? 3
+                const fontSize = ts.fontSize ?? 12
+                const lineHeight = ts.lineHeight ?? 1.2
+                updatedField.height = maxRows * fontSize * lineHeight
+              }
+              return updatedField
             }
             return f
           }

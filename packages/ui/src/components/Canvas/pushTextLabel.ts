@@ -69,15 +69,34 @@ export function pushTextLabel(
   const visible = computeVisibleText(label, textStyle, fontSize, labelW, labelH)
   if (!visible) return
 
-  // Anchor the block to the full box edges (PDF parity): top → field top,
-  // bottom → field bottom, middle → field centre.
-  const verticalAlign = textStyle.verticalAlign
-  const top = verticalAlign === 'top' ? 0 : verticalAlign === 'bottom' ? h : h / 2
-  const originY = verticalAlign === 'top' ? 'top' : verticalAlign === 'bottom' ? 'bottom' : 'center'
+  // Anchor the block to the full box edges (PDF parity).
+  // We explicitly calculate the block height to match the PDF renderer (`text.ts`).
+  const linesCount = visible.split('\n').length
+  const lineHeightPt = fontSize * textStyle.lineHeight
+  const blockHeight = linesCount * lineHeightPt
+
+  let blockTop: number
+  switch (textStyle.verticalAlign) {
+    case 'middle':
+      blockTop = (h - blockHeight) / 2
+      break
+    case 'bottom':
+      blockTop = h - blockHeight
+      break
+    case 'top':
+    default:
+      blockTop = 0
+      break
+  }
+
+  // To fix "text seem above then center", we match PDFKit's exact optical centering.
+  // PDFKit draws the glyph at the top of the slot, plus `(lineHeightPt - ascent) / 2`.
+  // Fabric draws the glyph centered in the slot by default.
+  // We'll place the Textbox's top exactly at `blockTop` which perfectly bounds the slots.
 
   const textbox = new Textbox(visible, {
     left: w / 2,
-    top,
+    top: blockTop,
     width: labelW,
     fontSize,
     fontFamily: textStyle.fontFamily,
@@ -90,7 +109,7 @@ export function pushTextLabel(
     selectable: false,
     evented: false,
     originX: 'center',
-    originY,
+    originY: 'top',
     splitByGrapheme: false,
     lineHeight: textStyle.lineHeight,
   })
