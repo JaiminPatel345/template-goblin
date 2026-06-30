@@ -303,6 +303,73 @@ describe('updateField', () => {
 // ----------------------------- updateFieldStyle ----------------------------
 
 describe('updateFieldStyle', () => {
+  it('updateFieldStyle resizes static text fields when maxRows changes for a group', () => {
+    const grp = makeGroup({ id: 'g-1', type: 'text' })
+    state().addGroup(grp)
+    state().addField(
+      makeTextField({
+        id: 'tf-1',
+        groupId: 'g-1',
+        source: { mode: 'static' } as unknown as FieldSource<any>,
+      }),
+    )
+    state().addField(
+      makeTextField({
+        id: 'tf-2',
+        groupId: 'g-1',
+        source: { mode: 'static' } as unknown as FieldSource<any>,
+      }),
+    )
+
+    // Update maxRows via one field in the group
+    state().updateFieldStyle('tf-1', { maxRows: 5, fontSize: 10, lineHeight: 1.5 })
+
+    const f1 = state().fields.find((f) => f.id === 'tf-1')
+    const f2 = state().fields.find((f) => f.id === 'tf-2')
+
+    // Both fields should receive the updated style and be auto-resized
+    expect(f1?.height).toBe(5 * 10 * 1.5)
+    expect(f2?.height).toBe(5 * 10 * 1.5)
+    expect((f2?.style as TextFieldStyle).maxRows).toBe(5)
+  })
+
+  it('updateGroupStyle resizes static text fields when maxRows changes for a group', () => {
+    const grp = makeGroup({ id: 'g-2', type: 'text' })
+    state().addGroup(grp)
+    state().addField(
+      makeTextField({
+        id: 'tf-3',
+        groupId: 'g-2',
+        source: { mode: 'static' } as unknown as FieldSource<any>,
+      }),
+    )
+    state().addField(
+      makeTextField({
+        id: 'tf-4',
+        groupId: 'g-2',
+        source: { mode: 'static' } as unknown as FieldSource<any>,
+      }),
+    )
+
+    // Update maxRows directly via the group
+    state().updateGroupStyle('g-2', { maxRows: 4, fontSize: 12, lineHeight: 1.2 })
+
+    const f3 = state().fields.find((f) => f.id === 'tf-3')
+    const f4 = state().fields.find((f) => f.id === 'tf-4')
+
+    // Both fields should receive the updated style and be auto-resized
+    expect(f3?.height).toBe(4 * 12 * 1.2)
+    expect(f4?.height).toBe(4 * 12 * 1.2)
+    expect((f4?.style as TextFieldStyle).maxRows).toBe(4)
+  })
+
+  it('updateFieldStyle leaves non-group fields alone', () => {
+    state().addField(makeTextField({ id: 'fs1' }))
+    state().updateFieldStyle('fs1', { fontSize: 20 })
+    const s = state().fields[0]?.style as TextFieldStyle
+    expect(s.fontSize).toBe(20)
+  })
+
   it('updates fontSize on a text field style', () => {
     state().addField(makeTextField({ id: 'fs1' }))
     state().updateFieldStyle('fs1', { fontSize: 20 })

@@ -116,6 +116,7 @@ export interface TemplateState {
   addGroup: (group: GroupDefinition) => void
   removeGroup: (id: string) => void
   updateGroup: (id: string, name: string) => void
+  updateGroupStyle: (id: string, updates: Partial<unknown>) => void
 
   addFont: (font: FontDefinition, buffer: ArrayBuffer) => void
   removeFont: (id: string) => void
@@ -1202,6 +1203,59 @@ export const useTemplateStore = create<TemplateState>()(
         set((state) => ({
           groups: state.groups.map((g) => (g.id === id ? { ...g, name } : g)),
         })),
+
+      updateGroupStyle: (id, updates) =>
+        set((state) => {
+          const nextGroups = state.groups.map((g) => {
+            if (g.id === id) {
+              const newStyle = { ...(g.style as object), ...updates }
+              return { ...g, style: newStyle } as unknown as GroupDefinition
+            }
+            return g
+          })
+
+          // Update fields belonging to this group
+          const targetGroup = nextGroups.find((g) => g.id === id)
+          if (!targetGroup) return state
+
+          const finalStyle = targetGroup.style
+
+          const mapField = (f: FieldDefinition) => {
+            if (f.groupId === id) {
+              const updatedField = { ...f, style: finalStyle } as FieldDefinition
+              // GH #73: auto-resize static text fields on typography change
+              if (updatedField.type === 'text' && updatedField.source?.mode === 'static') {
+                const ts = finalStyle as unknown as {
+                  maxRows?: number
+                  fontSize?: number
+                  lineHeight?: number
+                }
+                const maxRows = ts.maxRows ?? 3
+                const fontSize = ts.fontSize ?? 12
+                const lineHeight = ts.lineHeight ?? 1.2
+                updatedField.height = maxRows * fontSize * lineHeight
+              }
+              return updatedField
+            }
+            return f
+          }
+
+          const fields = state.fields.map(mapField)
+          const header = state.header
+            ? { ...state.header, fields: state.header.fields.map(mapField) }
+            : state.header
+          const footer = state.footer
+            ? { ...state.footer, fields: state.footer.fields.map(mapField) }
+            : state.footer
+
+          return {
+            groups: nextGroups,
+            fields,
+            header,
+            footer,
+            ...pushHistory({ ...state, groups: nextGroups, fields, header, footer }),
+          }
+        }),
 
       addFont: (font, buffer) =>
         set((state) => {
