@@ -306,20 +306,13 @@ describe('updateFieldStyle', () => {
   it('updateFieldStyle resizes static text fields when maxRows changes for a group', () => {
     const grp = makeGroup({ id: 'g-1', type: 'text' })
     state().addGroup(grp)
-    state().addField(
-      makeTextField({
-        id: 'tf-1',
-        groupId: 'g-1',
-        source: { mode: 'static' } as unknown as FieldSource<any>,
-      }),
-    )
-    state().addField(
-      makeTextField({
-        id: 'tf-2',
-        groupId: 'g-1',
-        source: { mode: 'static' } as unknown as FieldSource<any>,
-      }),
-    )
+    const tf1 = makeTextField({ id: 'tf-1', groupId: 'g-1' }) as TextField
+    tf1.source = { mode: 'static', required: false }
+    state().addField(tf1)
+
+    const tf2 = makeTextField({ id: 'tf-2', groupId: 'g-1' }) as TextField
+    tf2.source = { mode: 'static', required: false }
+    state().addField(tf2)
 
     // Update maxRows via one field in the group
     state().updateFieldStyle('tf-1', { maxRows: 5, fontSize: 10, lineHeight: 1.5 })
@@ -336,20 +329,13 @@ describe('updateFieldStyle', () => {
   it('updateGroupStyle resizes static text fields when maxRows changes for a group', () => {
     const grp = makeGroup({ id: 'g-2', type: 'text' })
     state().addGroup(grp)
-    state().addField(
-      makeTextField({
-        id: 'tf-3',
-        groupId: 'g-2',
-        source: { mode: 'static' } as unknown as FieldSource<any>,
-      }),
-    )
-    state().addField(
-      makeTextField({
-        id: 'tf-4',
-        groupId: 'g-2',
-        source: { mode: 'static' } as unknown as FieldSource<any>,
-      }),
-    )
+    const tf3 = makeTextField({ id: 'tf-3', groupId: 'g-2' }) as TextField
+    tf3.source = { mode: 'static', required: false }
+    state().addField(tf3)
+
+    const tf4 = makeTextField({ id: 'tf-4', groupId: 'g-2' }) as TextField
+    tf4.source = { mode: 'static', required: false }
+    state().addField(tf4)
 
     // Update maxRows directly via the group
     state().updateGroupStyle('g-2', { maxRows: 4, fontSize: 12, lineHeight: 1.2 })
