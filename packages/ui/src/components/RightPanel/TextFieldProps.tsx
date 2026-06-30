@@ -13,6 +13,7 @@ import { useTemplateStore } from '../../store/templateStore.js'
 import { autoShrinkStaticField } from '../../utils/autoShrinkDispatch.js'
 import { InfoTip } from './InfoTip.js'
 import { AlignButtonGroup } from './AlignButtonGroup.js'
+import { GroupAssignmentSelect } from './GroupAssignmentSelect.js'
 import { TextTypographySection } from './TextTypographySection.js'
 
 // `InfoTip` is re-exported for backward compatibility with sibling files
@@ -28,9 +29,7 @@ const BUILTIN_FONTS = ['Helvetica', 'Times-Roman', 'Courier']
 export function TextFieldProps({ field }: Props) {
   const updateField = useTemplateStore((s) => s.updateField)
   const updateFieldStyle = useTemplateStore((s) => s.updateFieldStyle)
-  const groups = useTemplateStore((s) => s.groups)
   const fonts = useTemplateStore((s) => s.fonts)
-  const resizeField = useTemplateStore((s) => s.resizeField)
 
   // QA BUG-08: legacy fields rehydrated from an older format used to be
   // labelled 'cannot be edited' with no recourse. Surface a one-click
@@ -119,23 +118,14 @@ export function TextFieldProps({ field }: Props) {
   // would silently move the rect out from under the author's hands.
   function onMaxRowsChange(maxRows: number) {
     updateFieldStyle(field.id, { maxRows })
-    if (!isStatic) return
-    const newHeight = maxRows * style.fontSize * style.lineHeight
-    resizeField(field.id, field.width, newHeight)
   }
 
   function onLineHeightChange(lineHeight: number) {
     updateFieldStyle(field.id, { lineHeight })
-    if (!isStatic) return
-    const newHeight = style.maxRows * style.fontSize * lineHeight
-    resizeField(field.id, field.width, newHeight)
   }
 
   function onFontSizeChange(fontSize: number) {
     updateFieldStyle(field.id, { fontSize })
-    if (!isStatic) return
-    const newHeight = style.maxRows * fontSize * style.lineHeight
-    resizeField(field.id, field.width, newHeight)
   }
 
   const allFontFamilies = [...BUILTIN_FONTS, ...fonts.map((f) => f.name)]
@@ -179,21 +169,7 @@ export function TextFieldProps({ field }: Props) {
           </div>
         )}
 
-        <div className="tg-form-row">
-          <label>Group</label>
-          <select
-            className="tg-select"
-            value={field.groupId ?? ''}
-            onChange={(e) => updateField(field.id, { groupId: e.target.value || null })}
-          >
-            <option value="">None</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <GroupAssignmentSelect field={field} />
 
         {isDynamic && (
           <>

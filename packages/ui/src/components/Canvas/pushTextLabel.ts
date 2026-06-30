@@ -18,7 +18,7 @@
  *     (with explicit `\n` line breaks) to a Fabric Textbox. Same outcome
  *     as the PDFKit renderer for the same inputs.
  */
-import { Textbox, Group, Rect } from 'fabric'
+import { FabricText, Group, Rect } from 'fabric'
 import type { FabricObject } from 'fabric'
 import type { FieldDefinition } from '@template-goblin/types'
 import { resolveTextStyle, fitDynamicFontSize, computeVisibleText } from './textMeasure.js'
@@ -69,16 +69,44 @@ export function pushTextLabel(
   const visible = computeVisibleText(label, textStyle, fontSize, labelW, labelH)
   if (!visible) return
 
-  // Anchor the block to the full box edges (PDF parity): top → field top,
-  // bottom → field bottom, middle → field centre.
-  const verticalAlign = textStyle.verticalAlign
-  const top = verticalAlign === 'top' ? 0 : verticalAlign === 'bottom' ? h : h / 2
-  const originY = verticalAlign === 'top' ? 'top' : verticalAlign === 'bottom' ? 'bottom' : 'center'
+  // Anchor the block to the full box edges (PDF parity).
+  // We explicitly calculate the block height to match the PDF renderer (`text.ts`).
+  const linesCount = visible.split('\n').length
+  const lineHeightPt = fontSize * textStyle.lineHeight
+  const blockHeight = linesCount * lineHeightPt
 
-  const textbox = new Textbox(visible, {
-    left: w / 2,
-    top,
-    width: labelW,
+  let blockTop: number
+  switch (textStyle.verticalAlign) {
+    case 'middle':
+      blockTop = (h - blockHeight) / 2
+      break
+    case 'bottom':
+      blockTop = h - blockHeight
+      break
+    case 'top':
+    default:
+      blockTop = 0
+      break
+  }
+
+  // To fix "text seem above then center", we match PDFKit's exact optical centering.
+  // PDFKit draws the glyph at the top of the slot, plus `(lineHeightPt - ascent) / 2`.
+  // Fabric draws the glyph centered in the slot by default.
+  // We'll place the Textbox's top exactly at `blockTop` which perfectly bounds the slots.
+
+  let textLeft = w / 2
+  let originX: 'left' | 'center' | 'right' = 'center'
+  if (textStyle.align === 'left') {
+    textLeft = 0
+    originX = 'left'
+  } else if (textStyle.align === 'right') {
+    textLeft = w
+    originX = 'right'
+  }
+
+  const textNode = new FabricText(visible, {
+    left: textLeft,
+    top: blockTop,
     fontSize,
     fontFamily: textStyle.fontFamily,
     fill: textStyle.color || colors.text,
@@ -89,9 +117,8 @@ export function pushTextLabel(
     textAlign: textStyle.align,
     selectable: false,
     evented: false,
-    originX: 'center',
-    originY,
-    splitByGrapheme: false,
+    originX,
+    originY: 'top',
     lineHeight: textStyle.lineHeight,
   })
 
@@ -108,7 +135,7 @@ export function pushTextLabel(
     evented: false,
   })
 
-  const textGroup = new Group([boundsRect, textbox], {
+  const textGroup = new Group([boundsRect, textNode], {
     left: 0,
     top: 0,
     width: labelW,

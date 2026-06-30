@@ -74,7 +74,7 @@ export function fitDynamicFontSize(
   let size = style.fontSize
   const min = Math.max(1, style.fontSizeMin)
   while (size >= min) {
-    ctx.font = `${size}px ${style.fontFamily}`
+    ctx.font = `${style.fontStyle} ${style.fontWeight} ${size}px ${style.fontFamily}`
     const lines = wrapToLines(ctx, text, labelW)
     const lineHeightPt = size * style.lineHeight
     const maxLinesByBox = Math.floor(labelH / lineHeightPt)
@@ -102,7 +102,7 @@ export function computeVisibleText(
   const ctx = getMeasureCtx()
   if (!ctx || labelW <= 0 || labelH <= 0) return text
 
-  ctx.font = `${fontSize}px ${style.fontFamily}`
+  ctx.font = `${style.fontStyle} ${style.fontWeight} ${fontSize}px ${style.fontFamily}`
   const lineHeightPt = fontSize * style.lineHeight
   const maxLinesByBox = Math.floor(labelH / lineHeightPt)
   const maxLines = Math.min(style.maxRows, Math.max(0, maxLinesByBox))

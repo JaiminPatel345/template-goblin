@@ -49,10 +49,39 @@ export interface FontDefinition {
 }
 
 /** Group definition for organizing fields */
-export interface GroupDefinition {
+export interface LegacyGroupDefinition {
   id: string
   name: string
+  type?: undefined
+  style?: undefined
 }
+
+export interface TextGroupDefinition {
+  id: string
+  name: string
+  type: 'text'
+  style: TextFieldStyle
+}
+
+export interface ImageGroupDefinition {
+  id: string
+  name: string
+  type: 'image'
+  style: ImageFieldStyle
+}
+
+export interface TableGroupDefinition {
+  id: string
+  name: string
+  type: 'table'
+  style: TableFieldStyle
+}
+
+export type GroupDefinition =
+  | LegacyGroupDefinition
+  | TextGroupDefinition
+  | ImageGroupDefinition
+  | TableGroupDefinition
 
 /**
  * Shared cell style used by header, row, odd/even rows, and per-column overrides

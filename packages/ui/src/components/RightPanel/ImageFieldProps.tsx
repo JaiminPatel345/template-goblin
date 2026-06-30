@@ -8,6 +8,7 @@ import { useDialogs } from '../Dialogs/index.js'
 import { SourceModeToggle } from './SourceModeToggle.js'
 import { HyperlinkSection } from './HyperlinkSection.js'
 import { ColorPickerPopover } from '../ColorPickerPopover.js'
+import { GroupAssignmentSelect } from './GroupAssignmentSelect.js'
 
 interface Props {
   field: ImageField
@@ -43,7 +44,7 @@ export function ImageFieldProps({ field }: Props) {
     }
     return true
   }
-  const groups = useTemplateStore((s) => s.groups)
+
   // Separate file inputs per mode so the static and dynamic buttons don't
   // share a hidden <input ref>.
   const staticFileInputRef = useRef<HTMLInputElement>(null)
@@ -252,21 +253,7 @@ export function ImageFieldProps({ field }: Props) {
           </div>
         )}
 
-        <div className="tg-form-row">
-          <label>Group</label>
-          <select
-            className="tg-select"
-            value={field.groupId ?? ''}
-            onChange={(e) => updateField(field.id, { groupId: e.target.value || null })}
-          >
-            <option value="">None</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <GroupAssignmentSelect field={field} />
 
         {isDynamic && (
           <div className="tg-toggle-row">
