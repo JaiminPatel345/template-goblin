@@ -4,6 +4,8 @@ import { TextTypographySection } from '../RightPanel/TextTypographySection.js'
 import type { GroupDefinition, TextFieldStyle, TextField } from '@template-goblin/types'
 import { defaultTextStyle, defaultImageStyle, defaultTableStyle } from '../../utils/defaults.js'
 
+const BUILTIN_FONTS = ['Helvetica', 'Times-Roman', 'Courier']
+
 export function GroupPropertiesPanel() {
   const groups = useTemplateStore((s) => s.groups)
   const addGroup = useTemplateStore((s) => s.addGroup)
@@ -16,7 +18,7 @@ export function GroupPropertiesPanel() {
   const [newGroupType, setNewGroupType] = useState<'text' | 'image' | 'table'>('text')
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId)
-  const allFontFamilies = Array.from(new Set(fonts.map((f) => f.name)))
+  const allFontFamilies = Array.from(new Set([...BUILTIN_FONTS, ...fonts.map((f) => f.name)]))
 
   function submitNewGroup() {
     const trimmed = newGroupName.trim()
