@@ -123,7 +123,8 @@ export function GroupPropertiesPanel() {
       </div>
 
       {selectedGroup &&
-        ('type' in selectedGroup ? selectedGroup.type : 'legacy') === 'text' &&
+        (('type' in selectedGroup ? selectedGroup.type : 'legacy') === 'text' ||
+          ('type' in selectedGroup ? selectedGroup.type : 'legacy') === 'legacy') &&
         mockFieldForTypography && (
           <TextTypographySection
             field={mockFieldForTypography}
