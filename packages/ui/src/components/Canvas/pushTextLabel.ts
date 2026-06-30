@@ -18,7 +18,7 @@
  *     (with explicit `\n` line breaks) to a Fabric Textbox. Same outcome
  *     as the PDFKit renderer for the same inputs.
  */
-import { Textbox, Group, Rect } from 'fabric'
+import { FabricText, Group, Rect } from 'fabric'
 import type { FabricObject } from 'fabric'
 import type { FieldDefinition } from '@template-goblin/types'
 import { resolveTextStyle, fitDynamicFontSize, computeVisibleText } from './textMeasure.js'
@@ -94,10 +94,19 @@ export function pushTextLabel(
   // Fabric draws the glyph centered in the slot by default.
   // We'll place the Textbox's top exactly at `blockTop` which perfectly bounds the slots.
 
-  const textbox = new Textbox(visible, {
-    left: w / 2,
+  let textLeft = w / 2
+  let originX: 'left' | 'center' | 'right' = 'center'
+  if (textStyle.align === 'left') {
+    textLeft = 0
+    originX = 'left'
+  } else if (textStyle.align === 'right') {
+    textLeft = w
+    originX = 'right'
+  }
+
+  const textNode = new FabricText(visible, {
+    left: textLeft,
     top: blockTop,
-    width: labelW,
     fontSize,
     fontFamily: textStyle.fontFamily,
     fill: textStyle.color || colors.text,
@@ -108,9 +117,8 @@ export function pushTextLabel(
     textAlign: textStyle.align,
     selectable: false,
     evented: false,
-    originX: 'center',
+    originX,
     originY: 'top',
-    splitByGrapheme: false,
     lineHeight: textStyle.lineHeight,
   })
 
@@ -127,7 +135,7 @@ export function pushTextLabel(
     evented: false,
   })
 
-  const textGroup = new Group([boundsRect, textbox], {
+  const textGroup = new Group([boundsRect, textNode], {
     left: 0,
     top: 0,
     width: labelW,
