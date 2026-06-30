@@ -307,11 +307,11 @@ describe('updateFieldStyle', () => {
     const grp = makeGroup({ id: 'g-1', type: 'text' })
     state().addGroup(grp)
     const tf1 = makeTextField({ id: 'tf-1', groupId: 'g-1' }) as TextField
-    tf1.source = { mode: 'static', required: false }
+    tf1.source = { mode: 'static', value: '' }
     state().addField(tf1)
 
     const tf2 = makeTextField({ id: 'tf-2', groupId: 'g-1' }) as TextField
-    tf2.source = { mode: 'static', required: false }
+    tf2.source = { mode: 'static', value: '' }
     state().addField(tf2)
 
     // Update maxRows via one field in the group
@@ -330,11 +330,11 @@ describe('updateFieldStyle', () => {
     const grp = makeGroup({ id: 'g-2', type: 'text' })
     state().addGroup(grp)
     const tf3 = makeTextField({ id: 'tf-3', groupId: 'g-2' }) as TextField
-    tf3.source = { mode: 'static', required: false }
+    tf3.source = { mode: 'static', value: '' }
     state().addField(tf3)
 
     const tf4 = makeTextField({ id: 'tf-4', groupId: 'g-2' }) as TextField
-    tf4.source = { mode: 'static', required: false }
+    tf4.source = { mode: 'static', value: '' }
     state().addField(tf4)
 
     // Update maxRows directly via the group
