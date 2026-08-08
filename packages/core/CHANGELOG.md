@@ -1,14 +1,12 @@
 # template-goblin
 
-## 6.0.1
+## 0.6.0
 
 ### Patch Changes
 
 - ae2b7c6: docs: update license to GNU General Public License v3.0 (GPLv3)
 - Updated dependencies [ae2b7c6]
-  - @template-goblin/types@2.5.1
-
-## 6.0.0
+  - @template-goblin/types@0.6.0
 
 ### Minor Changes
 
@@ -32,9 +30,9 @@
 ### Patch Changes
 
 - Updated dependencies [a2aab90]
-  - @template-goblin/types@2.5.0
+  - @template-goblin/types@0.5.2
 
-## 5.1.0
+## 0.5.2
 
 ### Minor Changes
 
@@ -50,7 +48,7 @@
   - `saveTemplate` sweeps orphaned image assets: only placeholder/static images referenced by the manifest's fields (body + bands) are written into the `.tgbl`, so archives no longer bloat with bytes from deleted, replaced, or mode-flipped fields.
   - New export `collectReferencedImageAssets(manifest)` (also available via the browser-safe `template-goblin/assetRefs` subpath) returns the referenced image filenames per pool.
 
-## 5.0.1
+## 0.5.1
 
 ### Patch Changes
 
@@ -58,9 +56,9 @@
   every published package — the packages are published and stable. The repo
   README gains an npm version badge in place of the construction notice.
 - Updated dependencies [834d25b]
-  - @template-goblin/types@2.4.1
+  - @template-goblin/types@0.5.1
 
-## 5.0.0
+## 0.5.0
 
 ### Minor Changes
 
@@ -82,9 +80,9 @@
 ### Patch Changes
 
 - Updated dependencies [03083eb]
-  - @template-goblin/types@2.4.0
+  - @template-goblin/types@0.5.0
 
-## 4.0.0
+## 0.4.0
 
 ### Minor Changes
 
@@ -226,9 +224,9 @@
   render identically for bold + italic + underline.
 
 - Updated dependencies [cd98487]
-  - @template-goblin/types@2.3.0
+  - @template-goblin/types@0.4.0
 
-## 3.0.0
+## 0.3.0
 
 ### Minor Changes
 
@@ -237,9 +235,9 @@
 ### Patch Changes
 
 - Updated dependencies [a006138]
-  - @template-goblin/types@2.2.0
+  - @template-goblin/types@0.3.0
 
-## 2.1.0
+## 0.2.1
 
 ### Minor Changes
 
@@ -254,9 +252,9 @@
 ### Patch Changes
 
 - Updated dependencies [740933c]
-  - @template-goblin/types@2.1.0
+  - @template-goblin/types@0.2.1
 
-## 2.0.0
+## 0.2.0
 
 ### Major Changes
 
@@ -411,4 +409,4 @@ value, headers? }`) is the escape hatch when auto-detection picks the
 - Updated dependencies [688f31d]
 - Updated dependencies [fb662a2]
 - Updated dependencies [cb6d6fc]
-  - @template-goblin/types@2.0.0
+  - @template-goblin/types@0.2.0

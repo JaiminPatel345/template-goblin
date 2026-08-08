@@ -1,6 +1,6 @@
 # template-goblin-ui
 
-## 2.7.0
+## 0.6.0
 
 ### Minor Changes
 
@@ -13,13 +13,13 @@
   rotated dimensions.
 - 7b1105c: feat: simplify page size presets and add explicit landscape options
 
-## 2.6.2
+## 0.5.2
 
 ### Patch Changes
 
 - ae2b7c6: docs: update license to GNU General Public License v3.0 (GPLv3)
 
-## 2.6.1
+## 0.5.1
 
 ### Patch Changes
 
@@ -40,7 +40,7 @@
   - Properties-panel editors re-mount per field, fixing hyperlink drafts leaking across selections (which could silently overwrite or delete a field's link).
   - Footer drag/draw math uses the viewed page's own height; bands with "not on first page" no longer swallow fields drawn on page 1; File→Open resets the page view; the first action after a reload is undoable; image/font uploads are validated up front; JSON-panel table edits no longer stamp fallback strings into sparse placeholders.
 
-## 2.6.0
+## 0.5.0
 
 ### Minor Changes
 
@@ -56,7 +56,7 @@
   - `saveTemplate` sweeps orphaned image assets: only placeholder/static images referenced by the manifest's fields (body + bands) are written into the `.tgbl`, so archives no longer bloat with bytes from deleted, replaced, or mode-flipped fields.
   - New export `collectReferencedImageAssets(manifest)` (also available via the browser-safe `template-goblin/assetRefs` subpath) returns the referenced image filenames per pool.
 
-## 2.5.1
+## 0.4.1
 
 ### Patch Changes
 
@@ -64,7 +64,7 @@
   every published package — the packages are published and stable. The repo
   README gains an npm version badge in place of the construction notice.
 
-## 2.5.0
+## 0.4.0
 
 ### Minor Changes
 
@@ -83,7 +83,7 @@
     optically centre text (including overflowing text) so the generated PDF
     matches the canvas. Dropped the 6px text inset for true WYSIWYG.
 
-## 2.4.0
+## 0.3.1
 
 ### Minor Changes
 
@@ -631,7 +631,7 @@ ContainedFieldIds` — pure helpers any future custom marquee impl
     repro, recovery on correction, zero-equivalence, both-side errors,
     and switching back to a preset clearing the disabled state.
 
-## 2.3.0
+## 0.3.0
 
 ### Minor Changes
 
@@ -647,13 +647,13 @@ ContainedFieldIds` — pure helpers any future custom marquee impl
   Resize-time snap is intentionally deferred — guides render visually during
   resize but the active field's scale is not mutated. (#41)
 
-## 2.2.0
+## 0.2.2
 
 ### Minor Changes
 
 - a006138: Add README
 
-## 2.1.0
+## 0.2.1
 
 ### Minor Changes
 
@@ -665,7 +665,7 @@ ContainedFieldIds` — pure helpers any future custom marquee impl
   - **Color picker** — replaced the native `<input type="color">` (which froze the page on some browsers) with an in-page SketchPicker popover via `react-color`.
   - **UI polish** — clearer labels (Header Text Color, Header Row Background, Row Text Color, Row Background, Cell Border, Table Border), themed border on the transparent "Clear / Color" toggle, and a collapsible Columns section in the table properties panel.
 
-## 2.0.0
+## 0.2.0
 
 ### Major Changes
 
