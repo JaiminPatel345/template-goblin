@@ -79,11 +79,10 @@ export const useUiStore = create<UiState>()(
       setShowFontManager: (show) => set({ showFontManager: show }),
       setActiveMenuTab: (tab) =>
         set((s) => {
-          // QA BUG-16: clicking the already-active tab collapses the
-          // ribbon (Office Online convention). Clicking a different tab
-          // re-expands.
-          if (s.activeMenuTab === tab) {
-            return { ribbonCollapsed: !s.ribbonCollapsed }
+          // QA BUG-16: clicking the already-active tab when expanded collapses the
+          // ribbon. Clicking any tab when collapsed expands it.
+          if (!s.ribbonCollapsed && s.activeMenuTab === tab) {
+            return { ribbonCollapsed: true }
           }
           return { activeMenuTab: tab, ribbonCollapsed: false }
         }),
