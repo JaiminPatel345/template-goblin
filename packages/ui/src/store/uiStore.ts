@@ -18,7 +18,7 @@ export const useUiStore = create<UiState>()(
       theme: getSystemTheme(),
       selectedFieldIds: [],
       activeTool: 'select',
-      showGrid: true,
+      showGrid: false,
       gridSize: 5,
       zoom: 1.0,
       showPreview: false,
