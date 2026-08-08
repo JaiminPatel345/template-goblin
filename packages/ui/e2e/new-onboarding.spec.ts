@@ -137,4 +137,43 @@ test.describe('New Direct Onboarding & Change Background Rules', () => {
     expect(p1?.backgroundColor).toBe('#ffffff')
     expect(p2?.backgroundColor).toBe('#ff0000')
   })
+
+  test('Grid overlay is disabled by default in new template', async ({ page }) => {
+    const showGrid = await page.evaluate(() => {
+      const store = (
+        window as unknown as {
+          __uiStore?: {
+            getState: () => { showGrid: boolean }
+          }
+        }
+      ).__uiStore
+      return store?.getState().showGrid
+    })
+    expect(showGrid).toBe(false)
+  })
+
+  test('Change Background wizard shows "Upload image" button label', async ({ page }) => {
+    await page.locator('[data-testid="toolbar-change-background"]').click()
+    await expect(page.locator('button:has-text("Upload image")')).toBeVisible()
+    await expect(page.locator('button:has-text("Upload new image")')).toHaveCount(0)
+  })
+
+  test('clicking active tab toggles activeMenuTab to null and back', async ({ page }) => {
+    const fileTab = page.locator('[data-testid="menu-tab-file"]')
+    const ribbon = page.locator('[data-testid="ribbon-file"]')
+
+    // Initially active
+    await expect(fileTab).toHaveAttribute('data-active', 'true')
+    await expect(ribbon).toBeVisible()
+
+    // Click active File tab -> collapses ribbon and de-highlights tab
+    await fileTab.click()
+    await expect(fileTab).not.toHaveAttribute('data-active', 'true')
+    await expect(ribbon).toHaveCount(0)
+
+    // Click File tab again -> expands ribbon and re-highlights tab
+    await fileTab.click()
+    await expect(fileTab).toHaveAttribute('data-active', 'true')
+    await expect(ribbon).toBeVisible()
+  })
 })
