@@ -283,7 +283,7 @@ export function MenuTabBar() {
           <MenuButton
             key={t.id}
             label={t.label}
-            active={!ribbonCollapsed && activeTab === t.id}
+            active={activeTab === t.id}
             onClick={() => setActiveMenuTab(t.id)}
             testid={`menu-tab-${t.id}`}
           />

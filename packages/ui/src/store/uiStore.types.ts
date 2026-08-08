@@ -9,6 +9,8 @@ export type ActiveTool = 'select' | 'addText' | 'addImage' | 'addLoop'
 
 export type Theme = 'light' | 'dark'
 
+export type MenuTab = 'file' | 'edit' | 'insert' | 'format' | 'view' | 'help'
+
 export interface UiState {
   /** Light or dark theme */
   theme: Theme
@@ -46,9 +48,10 @@ export interface UiState {
   showFontManager: boolean
   /**
    * Which top-level tab is active in the menu bar (#128). The ribbon below
-   * the tab strip shows that tab's controls. Defaults to `'file'`.
+   * the tab strip shows that tab's controls. When null, no tab is active and
+   * the ribbon is collapsed. Defaults to `'file'`.
    */
-  activeMenuTab: 'file' | 'edit' | 'insert' | 'format' | 'view' | 'help'
+  activeMenuTab: MenuTab | null
   /**
    * Whether the ribbon row below the menu tabs is collapsed (QA BUG-16).
    * Defaults to false — the ribbon is visible. Toggled by:

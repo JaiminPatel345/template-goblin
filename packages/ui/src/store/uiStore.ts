@@ -79,14 +79,17 @@ export const useUiStore = create<UiState>()(
       setShowFontManager: (show) => set({ showFontManager: show }),
       setActiveMenuTab: (tab) =>
         set((s) => {
-          // QA BUG-16: clicking the already-active tab when expanded collapses the
-          // ribbon. Clicking any tab when collapsed expands it.
-          if (!s.ribbonCollapsed && s.activeMenuTab === tab) {
-            return { ribbonCollapsed: true }
-          }
-          return { activeMenuTab: tab, ribbonCollapsed: false }
+          const nextTab = s.activeMenuTab === tab ? null : tab
+          return { activeMenuTab: nextTab, ribbonCollapsed: nextTab === null }
         }),
-      setRibbonCollapsed: (ribbonCollapsed) => set({ ribbonCollapsed }),
+      setRibbonCollapsed: (ribbonCollapsed) =>
+        set((s) => {
+          if (ribbonCollapsed) {
+            return { activeMenuTab: null, ribbonCollapsed: true }
+          }
+          const nextTab = s.activeMenuTab ?? 'file'
+          return { activeMenuTab: nextTab, ribbonCollapsed: false }
+        }),
       setPageLayoutMenu: (next) => set({ pageLayoutMenu: next }),
       setPageLayoutSettings: (target) =>
         set((state) => ({
