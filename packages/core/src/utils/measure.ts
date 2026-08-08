@@ -159,6 +159,7 @@ export function truncateLines(
   maxRows: number,
   maxWidth: number,
 ): string[] {
+  if (maxRows <= 0) return []
   if (lines.length <= maxRows) return lines
 
   const truncated = lines.slice(0, maxRows)

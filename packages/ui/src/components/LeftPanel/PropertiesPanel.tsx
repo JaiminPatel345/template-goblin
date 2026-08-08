@@ -4,6 +4,7 @@ import { TextFieldProps } from '../RightPanel/TextFieldProps.js'
 import { ImageFieldProps } from '../RightPanel/ImageFieldProps.js'
 import { LoopFieldProps } from '../RightPanel/LoopFieldProps.js'
 import { RotationSection } from './RotationSection.js'
+import { GroupPropertiesPanel } from './GroupPropertiesPanel.js'
 
 /**
  * Left-panel content under the new layout (GH #19): the styling / properties
@@ -34,25 +35,45 @@ export function PropertiesPanel() {
 
   if (selectedField === null) {
     return (
-      <div className="tg-panel-section">
+      <>
         <div
-          style={{
-            color: 'var(--text-muted)',
-            fontSize: 12,
-            textAlign: 'center',
-            padding: '24px 8px',
-          }}
+          className="tg-panel-section-title"
+          style={{ padding: '16px 16px 0', margin: 0, textTransform: 'none' }}
         >
-          {selectedIds.length > 1
-            ? 'Multiple fields selected'
-            : 'Select a field to edit its properties'}
+          Group properties
         </div>
-      </div>
+        <div className="tg-panel-section">
+          <div
+            style={{
+              color: 'var(--text-muted)',
+              fontSize: 12,
+              textAlign: 'center',
+              padding: '0 8px 16px',
+            }}
+          >
+            {selectedIds.length > 1
+              ? 'Multiple fields selected'
+              : 'Select a field to edit its properties'}
+          </div>
+        </div>
+        <GroupPropertiesPanel />
+      </>
     )
   }
 
+  let title = 'Field properties'
+  if (selectedField.type === 'text') title = 'Text properties'
+  else if (selectedField.type === 'image') title = 'Image properties'
+  else if (selectedField.type === 'table') title = 'Table properties'
+
   return (
     <>
+      <div
+        className="tg-panel-section-title"
+        style={{ padding: '16px 16px 0', margin: 0, textTransform: 'none' }}
+      >
+        {title}
+      </div>
       {/* key={id} — the props components hold per-field draft state (e.g.
           HyperlinkSection's URL/key inputs, seeded once per mount). Without
           remounting on selection change, switching between two same-type

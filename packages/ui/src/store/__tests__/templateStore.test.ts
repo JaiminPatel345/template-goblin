@@ -164,12 +164,30 @@ function makeLoopField(
   }
 }
 
-function makeGroup(overrides: Partial<GroupDefinition> = {}): GroupDefinition {
+function makeGroup(overrides: any = {}): GroupDefinition {
   return {
     id: 'group-1',
     name: 'Test Group',
+    type: 'text',
+    style: {
+      fontId: null,
+      fontFamily: 'Helvetica',
+      fontSize: 12,
+      fontSizeMin: 11,
+      lineHeight: 1.2,
+      fontWeight: 'normal',
+      fontStyle: 'normal',
+      textDecoration: 'none',
+      color: '#000000',
+      backgroundColor: null,
+      align: 'center',
+      verticalAlign: 'middle',
+      maxRows: 3,
+      overflowMode: 'truncate',
+      snapToGrid: true,
+    },
     ...overrides,
-  }
+  } as GroupDefinition
 }
 
 function makeFont(overrides: Partial<FontDefinition> = {}): FontDefinition {
@@ -285,6 +303,59 @@ describe('updateField', () => {
 // ----------------------------- updateFieldStyle ----------------------------
 
 describe('updateFieldStyle', () => {
+  it('updateFieldStyle resizes static text fields when maxRows changes for a group', () => {
+    const grp = makeGroup({ id: 'g-1', type: 'text' })
+    state().addGroup(grp)
+    const tf1 = makeTextField({ id: 'tf-1', groupId: 'g-1' }) as TextField
+    tf1.source = { mode: 'static', value: '' }
+    state().addField(tf1)
+
+    const tf2 = makeTextField({ id: 'tf-2', groupId: 'g-1' }) as TextField
+    tf2.source = { mode: 'static', value: '' }
+    state().addField(tf2)
+
+    // Update maxRows via one field in the group
+    state().updateFieldStyle('tf-1', { maxRows: 5, fontSize: 10, lineHeight: 1.5 })
+
+    const f1 = state().fields.find((f) => f.id === 'tf-1')
+    const f2 = state().fields.find((f) => f.id === 'tf-2')
+
+    // Both fields should receive the updated style and be auto-resized
+    expect(f1?.height).toBe(5 * 10 * 1.5)
+    expect(f2?.height).toBe(5 * 10 * 1.5)
+    expect((f2?.style as TextFieldStyle).maxRows).toBe(5)
+  })
+
+  it('updateGroupStyle resizes static text fields when maxRows changes for a group', () => {
+    const grp = makeGroup({ id: 'g-2', type: 'text' })
+    state().addGroup(grp)
+    const tf3 = makeTextField({ id: 'tf-3', groupId: 'g-2' }) as TextField
+    tf3.source = { mode: 'static', value: '' }
+    state().addField(tf3)
+
+    const tf4 = makeTextField({ id: 'tf-4', groupId: 'g-2' }) as TextField
+    tf4.source = { mode: 'static', value: '' }
+    state().addField(tf4)
+
+    // Update maxRows directly via the group
+    state().updateGroupStyle('g-2', { maxRows: 4, fontSize: 12, lineHeight: 1.2 })
+
+    const f3 = state().fields.find((f) => f.id === 'tf-3')
+    const f4 = state().fields.find((f) => f.id === 'tf-4')
+
+    // Both fields should receive the updated style and be auto-resized
+    expect(f3?.height).toBe(4 * 12 * 1.2)
+    expect(f4?.height).toBe(4 * 12 * 1.2)
+    expect((f4?.style as TextFieldStyle).maxRows).toBe(4)
+  })
+
+  it('updateFieldStyle leaves non-group fields alone', () => {
+    state().addField(makeTextField({ id: 'fs1' }))
+    state().updateFieldStyle('fs1', { fontSize: 20 })
+    const s = state().fields[0]?.style as TextFieldStyle
+    expect(s.fontSize).toBe(20)
+  })
+
   it('updates fontSize on a text field style', () => {
     state().addField(makeTextField({ id: 'fs1' }))
     state().updateFieldStyle('fs1', { fontSize: 20 })
