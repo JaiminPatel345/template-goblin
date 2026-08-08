@@ -46,8 +46,7 @@ export interface UiState {
   showFontManager: boolean
   /**
    * Which top-level tab is active in the menu bar (#128). The ribbon below
-   * the tab strip shows that tab's controls. Defaults to `'insert'` —
-   * empty canvases bias toward "add something next".
+   * the tab strip shows that tab's controls. Defaults to `'file'`.
    */
   activeMenuTab: 'file' | 'edit' | 'insert' | 'format' | 'view' | 'help'
   /**

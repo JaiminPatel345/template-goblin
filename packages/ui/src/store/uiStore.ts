@@ -28,7 +28,7 @@ export const useUiStore = create<UiState>()(
       showPageSizeDialog: false,
       showChangeBgDialog: false,
       showFontManager: false,
-      activeMenuTab: 'insert' as const,
+      activeMenuTab: 'file' as const,
       ribbonCollapsed: false,
       pageLayoutMenu: { kind: 'closed' },
       pageLayoutSettings: null,

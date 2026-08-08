@@ -77,7 +77,8 @@ describe('templateStore.reset — last-page delete', () => {
 
     const after = useTemplateStore.getState()
     expect(after.fields).toEqual([])
-    expect(after.pages).toEqual([])
+    expect(after.pages).toHaveLength(1)
+    expect(after.pages[0]?.backgroundColor).toBe('#ffffff')
     expect(after.backgroundDataUrl).toBeNull()
     expect(after.backgroundBuffer).toBeNull()
     expect(after.fonts).toEqual([])

@@ -875,7 +875,7 @@ describe('setFieldZIndex', () => {
 
 describe('setPage0BackgroundColor', () => {
   it('creates a page 0 PageDefinition with backgroundType: "color" when none exists', () => {
-    expect(state().pages).toHaveLength(0)
+    expect(state().pages).toHaveLength(1)
     state().setPage0BackgroundColor('#ff0000')
     const page0 = state().pages.find((p) => p.index === 0)
     expect(page0).toBeDefined()

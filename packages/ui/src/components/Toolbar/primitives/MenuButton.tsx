@@ -25,6 +25,7 @@ export const MenuButton = forwardRef<HTMLButtonElement, MenuButtonProps>(functio
       type="button"
       onClick={onClick}
       data-testid={testid}
+      data-active={active ? 'true' : undefined}
       aria-haspopup="menu"
       aria-expanded={active}
       aria-controls={ariaControls}

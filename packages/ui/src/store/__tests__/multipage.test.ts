@@ -187,10 +187,11 @@ describe('addPage', () => {
     })
     state().addPage(page)
 
-    expect(state().pages).toHaveLength(1)
-    expect(state().pages[0]?.backgroundType).toBe('inherit')
-    expect(state().pages[0]?.backgroundColor).toBeNull()
-    expect(state().pages[0]?.backgroundFilename).toBeNull()
+    expect(state().pages).toHaveLength(2)
+    const p1 = state().pages.find((p) => p.id === 'pg-inherit')
+    expect(p1?.backgroundType).toBe('inherit')
+    expect(p1?.backgroundColor).toBeNull()
+    expect(p1?.backgroundFilename).toBeNull()
   })
 
   it('pages array grows correctly when adding multiple pages', () => {
@@ -559,7 +560,7 @@ describe('loadFromManifest with pages', () => {
       // pages, pageBackgroundDataUrls, pageBackgroundBuffers all omitted
     )
 
-    expect(state().pages).toHaveLength(0)
+    expect(state().pages).toHaveLength(1)
     expect(state().pageBackgroundDataUrls.size).toBe(0)
     expect(state().pageBackgroundBuffers.size).toBe(0)
   })
@@ -579,7 +580,7 @@ describe('reset clears multi-page state', () => {
 
     state().reset()
 
-    expect(state().pages).toHaveLength(0)
+    expect(state().pages).toHaveLength(1)
     expect(state().pageBackgroundDataUrls.size).toBe(0)
     expect(state().pageBackgroundBuffers.size).toBe(0)
     expect(state().fields).toHaveLength(0)
