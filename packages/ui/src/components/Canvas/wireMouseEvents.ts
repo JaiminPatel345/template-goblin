@@ -29,10 +29,48 @@ export function wireMouseEvents(
   panLastRef: React.MutableRefObject<{ x: number; y: number } | null>,
   setPendingDraft: React.Dispatch<React.SetStateAction<FieldCreationDraft | null>>,
 ) {
-  // Double-click → selectAndFocus
+  // Double-click → open header/footer settings if clicked in band area, else selectAndFocus
   fc.on('mouse:dblclick', (opt) => {
+    const e = opt.e as MouseEvent
+    const pt = fc.getScenePoint(e)
+    const templateState = useTemplateStore.getState()
+    const uiState = useUiStore.getState()
+
+    const pages = templateState.pages
+    const currentPageId = uiState.currentPageId
+    const currentPageIndex = Math.max(
+      0,
+      pages.findIndex((p) => p.id === currentPageId),
+    )
+    const pageHeight = templateState.meta.height
+
+    const header = templateState.header
+    const footer = templateState.footer
+
+    const targetBandKind = (opt.target as unknown as { __bandKind?: 'header' | 'footer' })
+      ?.__bandKind
+
+    const headerActive = header && header.enabled !== false && header.style.height > 0
+    const headerRenders = headerActive && !(currentPageIndex === 0 && !header.applyToFirstPage)
+    const inHeaderArea = headerRenders && pt.y >= 0 && pt.y <= header.style.height
+
+    if (targetBandKind === 'header' || inHeaderArea) {
+      uiState.setPageLayoutSettings('header')
+      return
+    }
+
+    const footerActive = footer && footer.enabled !== false && footer.style.height > 0
+    const footerRenders = footerActive && !(currentPageIndex === 0 && !footer.applyToFirstPage)
+    const footerTop = pageHeight - (footer?.style.height ?? 0)
+    const inFooterArea = footerRenders && pt.y >= footerTop && pt.y <= pageHeight
+
+    if (targetBandKind === 'footer' || inFooterArea) {
+      uiState.setPageLayoutSettings('footer')
+      return
+    }
+
     if (opt.target?.__fieldId) {
-      useUiStore.getState().selectAndFocus(opt.target.__fieldId)
+      uiState.selectAndFocus(opt.target.__fieldId)
     }
   })
 
