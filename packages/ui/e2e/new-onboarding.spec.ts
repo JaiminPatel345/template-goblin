@@ -54,7 +54,7 @@ test.describe('New Direct Onboarding & Change Background Rules', () => {
     await expect(page.locator('[data-testid="toolbar-change-background"]')).toBeVisible()
   })
 
-  test('clicking canvas de-highlights navbar tab and hides ribbon sub-options', async ({
+  test('clicking canvas keeps ribbon sub-options visible permanently until active tab is clicked again', async ({
     page,
   }) => {
     const fileTab = page.locator('[data-testid="menu-tab-file"]')
@@ -64,17 +64,16 @@ test.describe('New Direct Onboarding & Change Background Rules', () => {
     await expect(fileTab).toHaveAttribute('data-active', 'true')
     await expect(ribbon).toBeVisible()
 
-    // Click outside on canvas area
+    // Click outside on canvas area -> ribbon remains visible
     await page.locator('[data-testid="canvas-stage-wrapper"]').click()
 
-    // Ribbon is hidden and File tab is de-highlighted
-    await expect(ribbon).toHaveCount(0)
-    await expect(fileTab).not.toHaveAttribute('data-active', 'true')
-
-    // Clicking File tab re-expands ribbon and re-highlights File tab
-    await fileTab.click()
     await expect(ribbon).toBeVisible()
     await expect(fileTab).toHaveAttribute('data-active', 'true')
+
+    // Clicking File tab again collapses ribbon and de-highlights File tab
+    await fileTab.click()
+    await expect(ribbon).toHaveCount(0)
+    await expect(fileTab).not.toHaveAttribute('data-active', 'true')
   })
 
   test('Change Background on Page 1 does NOT show "Same as previous"', async ({ page }) => {
