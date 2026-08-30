@@ -7,6 +7,10 @@
  *   - `loadTemplate` / `readManifest` / `saveTemplate` — fs-backed I/O.
  *   - `generateAndStore` / `S3StorageProvider` — disk + cloud storage.
  *   - `generateBatchPDF` — Worker pool + filesystem batching.
+ *   - `prepareTemplate` / `generatePreparedPDF` — the static/dynamic split
+ *     pulls in `pdf-lib`, which the UI preview doesn't use. Keeping it out
+ *     of this entry keeps `pdf-lib` (hundreds of KB) out of the web bundle;
+ *     browser SDK consumers who want it can import from the main entry.
  *
  * Included:
  *   - `generatePDF` — the only fs-free render entry. `generatePDFFromFile`

@@ -199,18 +199,20 @@ export function buildTableCanvasParts(
   pushTablePerimeter(parts, field, width, height, headerH, rows)
 
   if (showHeader && headerH > 0) {
-    const padL = Math.max(0, headerStyle?.paddingLeft ?? 0)
-    const padR = Math.max(0, headerStyle?.paddingRight ?? 0)
-    const userFontSize =
-      typeof headerStyle?.fontSize === 'number' && headerStyle.fontSize > 0
-        ? headerStyle.fontSize
-        : null
     const fontCap = Math.max(8, Math.min(HEADER_MAX_FONT_PT, headerH * 0.6))
-    const fontSize = userFontSize !== null ? Math.min(userFontSize, fontCap) : fontCap
 
     let leftCum = 0
     for (let i = 0; i < columns.length; i++) {
       const colWidth = widths[i] ?? 0
+      // Per-column `headerStyle` overrides merge over the table-level
+      // header style — mirrors core/render/loop.ts `mergeStyle(headerStyle,
+      // col.headerStyle)`. Without this a column's distinct header colour /
+      // align / weight rendered in the PDF but not on the canvas.
+      const hs: Partial<CellStyle> = { ...(headerStyle ?? {}), ...(columns[i]?.headerStyle ?? {}) }
+      const padL = Math.max(0, hs.paddingLeft ?? 0)
+      const padR = Math.max(0, hs.paddingRight ?? 0)
+      const userFontSize = typeof hs.fontSize === 'number' && hs.fontSize > 0 ? hs.fontSize : null
+      const fontSize = userFontSize !== null ? Math.min(userFontSize, fontCap) : fontCap
       const labelText = columns[i]?.label || columns[i]?.key || ''
       const innerW = Math.max(1, colWidth - padL - padR)
       if (labelText && colWidth > padL + padR + 2) {
@@ -220,13 +222,13 @@ export function buildTableCanvasParts(
             top: headerH / 2,
             width: innerW,
             fontSize,
-            fontFamily: headerStyle?.fontFamily || DEFAULT_HEADER_FONT_FAMILY,
-            fontWeight: headerStyle?.fontWeight || 'bold',
-            fontStyle: headerStyle?.fontStyle || 'normal',
-            underline: headerStyle?.textDecoration === 'underline',
-            linethrough: headerStyle?.textDecoration === 'line-through',
-            fill: headerStyle?.color || DEFAULT_HEADER_COLOR,
-            textAlign: headerStyle?.align || 'center',
+            fontFamily: hs.fontFamily || DEFAULT_HEADER_FONT_FAMILY,
+            fontWeight: hs.fontWeight || 'bold',
+            fontStyle: hs.fontStyle || 'normal',
+            underline: hs.textDecoration === 'underline',
+            linethrough: hs.textDecoration === 'line-through',
+            fill: hs.color || DEFAULT_HEADER_COLOR,
+            textAlign: hs.align || 'center',
             originX: 'center',
             originY: 'center',
             selectable: false,

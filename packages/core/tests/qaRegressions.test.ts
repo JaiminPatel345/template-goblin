@@ -227,8 +227,50 @@ describe('generateBatchPDF worker death', () => {
     expect(batch).toHaveLength(2)
     for (const r of batch) {
       expect(r.success).toBe(false)
-      expect(r.error).toContain('exited before replying')
+      // Persistent-pool workers that die at init drain the queue with a
+      // 'exited before…' failure rather than hanging.
+      expect(r.error).toContain('exited before')
     }
+  }, 20_000)
+
+  it('reuses ONE worker across many jobs (persistent pool, not fork-per-PDF)', async () => {
+    // A worker that records how many jobs it served in its lifetime. If the
+    // pool forks per-PDF (the old behaviour) every PID sees exactly 1 job;
+    // with the persistent pool a single worker serves many.
+    const countingWorker = join(tmpDir, 'counting-worker.cjs')
+    writeFileSync(
+      countingWorker,
+      [
+        'let served = 0',
+        "process.on('message', (m) => {",
+        "  if (m.type === 'init') { process.send({ type: 'ready' }); return }",
+        "  if (m.type === 'shutdown') { process.exit(0) }",
+        '  served++',
+        // Encode this worker PID + its lifetime job count in the error field
+        // so the test can inspect distribution without a real PDF.
+        "  process.send({ type: 'result', success: false, error: `pid:${process.pid} served:${served}` })",
+        '})',
+      ].join('\n'),
+    )
+
+    const manifest = makeManifest({ fields: [dynText('t', 'a', false)] })
+    const input = { texts: {}, images: {}, tables: {} }
+    const jobs = Array.from({ length: 12 }, () => input)
+    const batch = await generateBatchPDF(loadedFrom(manifest), jobs, {
+      workerPath: countingWorker,
+      concurrency: 2,
+    })
+
+    expect(batch).toHaveLength(12)
+    const maxServed = Math.max(
+      ...batch.map((r) => Number(/served:(\d+)/.exec(r.error ?? '')?.[1] ?? '0')),
+    )
+    // With 2 persistent workers over 12 jobs, at least one worker serves
+    // several jobs in its lifetime — impossible under fork-per-PDF (max 1).
+    expect(maxServed).toBeGreaterThan(1)
+    const distinctPids = new Set(batch.map((r) => /pid:(\d+)/.exec(r.error ?? '')?.[1]))
+    // Only ~concurrency processes, NOT one per job.
+    expect(distinctPids.size).toBeLessThanOrEqual(3)
   }, 20_000)
 })
 

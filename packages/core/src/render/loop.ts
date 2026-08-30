@@ -20,9 +20,8 @@ import { resolveCellTextY } from './cellVerticalAlign.js'
  * Handles header rendering, data rows with per-column style overrides,
  * cell borders/padding, and multi-page overflow.
  *
- * Note: advanced styling (showHeader, oddRowStyle, evenRowStyle, per-column
- * headerStyle) will be layered in during Phase 3. This version honours the
- * v2.0 shared CellStyle shape and the `Partial<CellStyle>` column override.
+ * Honours `showHeader`, per-column `style` + `headerStyle` overrides, and
+ * `oddRowStyle` / `evenRowStyle` zebra striping (merged over `rowStyle`).
  */
 export function renderLoop(
   doc: InstanceType<typeof PDFDocument>,
@@ -84,7 +83,7 @@ export function renderLoop(
       }
     }
 
-    currentY = renderDataRow(doc, columns, row, style, x, currentY, scaleFactor)
+    currentY = renderDataRow(doc, columns, row, style, x, currentY, scaleFactor, rowIndex)
     rowIndex++
     void headerRowHeight
   }
@@ -229,13 +228,21 @@ function renderDataRow(
   startX: number,
   startY: number,
   scaleFactor: number,
+  rowIndex: number,
 ): number {
+  // Zebra striping: 1-based odd rows (1st, 3rd, …) take `oddRowStyle`, even
+  // rows `evenRowStyle`, each merged OVER `rowStyle` (so they need only
+  // override what differs, typically `backgroundColor`). Row HEIGHT stays
+  // based on `rowStyle` so the pagination math (`dataRowHeight`) is
+  // unaffected. `null` zebra styles fall straight through to `rowStyle`.
+  const zebra = rowIndex % 2 === 0 ? style.oddRowStyle : style.evenRowStyle
+  const rowBase = mergeStyle(style.rowStyle, zebra)
   const rowHeight = cellRowHeight(style.rowStyle)
   let colX = startX
 
   for (const col of columns) {
     const colWidth = col.width * scaleFactor
-    const rs = mergeStyle(style.rowStyle, col.style)
+    const rs = mergeStyle(rowBase, col.style)
     const cellValue = row[col.key] ?? ''
 
     if (rs.backgroundColor) {

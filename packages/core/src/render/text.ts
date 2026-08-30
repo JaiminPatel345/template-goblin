@@ -97,15 +97,16 @@ export function renderText(
   }
 
   // Cap the rendered lines to those that FIT the box height (like the editor
-  // canvas's `pushTextLabel`, which keeps `floor(innerHeight / lineHeight)`
-  // lines and centres that block). Without this the PDF wraps to `maxRows`
-  // lines, the block overflows the box, and the vertical-align maths below
-  // pushes it off the top — so a centred field on the canvas rendered at the
-  // top (or empty) in the PDF. Capping first means a `middle` / `bottom`
-  // block stays inside the rect and is genuinely centred / bottom-anchored.
-  // NOTE: the canvas uses a 6px inner padding (`height - 12`) and the PDF the
-  // full height, so the line count can differ by one at boundary box sizes —
-  // a known WYSIWYG gap tracked separately, not introduced here.
+  // canvas's `pushTextLabel`, which keeps `floor(height / lineHeight)` lines
+  // and centres that block). Without this the PDF wraps to `maxRows` lines,
+  // the block overflows the box, and the vertical-align maths below pushes it
+  // off the top — so a centred field on the canvas rendered at the top (or
+  // empty) in the PDF. Capping first means a `middle` / `bottom` block stays
+  // inside the rect and is genuinely centred / bottom-anchored.
+  // NOTE: the canvas now measures against the FULL box height (matching this
+  // path); the residual WYSIWYG gap is only that PDFKit's `widthOfString`
+  // and the browser's `ctx.measureText` can choose a wrap point a word apart
+  // for the same font — a metrics-engine difference, not a padding mismatch.
   // Guard a malformed `lineHeight` (0 / negative / NaN) — otherwise the cap
   // below divides to Infinity/NaN, no-ops, and the overflow bug returns. The
   // canvas applies the same 1.2 fallback.

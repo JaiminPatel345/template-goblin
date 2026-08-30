@@ -1,4 +1,4 @@
-import { fork } from 'node:child_process'
+import { fork, type ChildProcess } from 'node:child_process'
 import { cpus } from 'node:os'
 import { TemplateGoblinError } from '@template-goblin/types'
 import type { LoadedTemplate, InputJSON } from '@template-goblin/types'
@@ -114,71 +114,106 @@ export async function generateBatchPDF(
   }
   const resolvedWorkerPath: string = workerPath
 
-  return new Promise((resolve) => {
+  // Persistent worker pool. PRE-FIX this forked a brand-new process PER PDF
+  // (fork + Node startup + PDFKit module load + template deserialize ≈ 300ms
+  // each), so a 1000-PDF batch paid ~5 minutes of pure startup overhead.
+  // Now we fork `maxWorkers` long-lived workers ONCE, hand each the
+  // serialized template a single time, and stream jobs to whichever worker
+  // is free — the heavy per-process setup happens `maxWorkers` times total
+  // instead of `dataArray.length` times.
+  return new Promise<BatchResult[]>((resolve) => {
     const maxWorkers = Math.min(concurrency, dataArray.length)
+    // Job index each worker is currently processing (-1 = idle / none).
+    const inFlight = new WeakMap<ChildProcess, number>()
+    const finished = new WeakSet<ChildProcess>() // guards exit/error double-cleanup
+    let aliveWorkers = 0
 
-    function spawnNext() {
-      if (nextIndex >= dataArray.length) return
+    function recordResult(index: number, result: BatchResult): void {
+      if (results[index] !== undefined) return // settle-once per job
+      results[index] = result
+      completed++
+      onProgress?.(completed, dataArray.length)
+      if (completed === dataArray.length) resolve(results)
+    }
 
-      const index = nextIndex++
-      const data = dataArray[index]
-
-      const child = fork(resolvedWorkerPath, [], { serialization: 'json' })
-
-      // Exactly ONE settlement per worker slot — `message`, `error`, and
-      // `exit` can all fire for the same child, and a child killed by the
-      // OS (OOM, segfault) fires ONLY `exit`. Without the exit handler a
-      // dead worker left `completed` short forever and the batch promise
-      // never resolved.
-      let settled = false
-      function settle(result: BatchResult) {
-        if (settled) return
-        settled = true
-        results[index] = result
-        completed++
-        onProgress?.(completed, dataArray.length)
-
-        if (completed === dataArray.length) {
-          resolve(results)
-        } else {
-          spawnNext()
-        }
+    // Give a ready worker the next queued job, or shut it down when the
+    // queue is drained. Jobs carry ONLY data — the template was sent once
+    // at init and is cached inside the worker.
+    function assign(child: ChildProcess): void {
+      if (nextIndex >= dataArray.length) {
+        inFlight.set(child, -1)
+        child.send({ type: 'shutdown' })
+        return
       }
+      const index = nextIndex++
+      inFlight.set(child, index)
+      child.send({ type: 'job', index, data: dataArray[index] })
+    }
 
-      child.on('message', (msg: { success: boolean; pdf?: string; error?: string }) => {
-        settle({
-          index,
-          success: msg.success,
-          pdf: msg.pdf ? Buffer.from(msg.pdf, 'base64') : undefined,
-          error: msg.error,
+    // If the pool empties while jobs remain (e.g. every worker died at
+    // init), nothing can make progress — fail the unfinished jobs so the
+    // batch always settles instead of hanging.
+    function drainIfStuck(): void {
+      if (aliveWorkers > 0 || completed >= dataArray.length) return
+      for (let i = 0; i < dataArray.length; i++) {
+        recordResult(i, {
+          index: i,
+          success: false,
+          error: 'All worker processes exited before this job could be processed',
         })
-      })
-
-      child.on('error', (err) => {
-        settle({ index, success: false, error: err.message })
-      })
-
-      child.on('exit', (code, signal) => {
-        // A healthy worker sends its result and exits immediately — give an
-        // already-delivered `message` event one tick of priority so a clean
-        // exit can't race its own reply into a false failure.
-        setImmediate(() =>
-          settle({
-            index,
-            success: false,
-            error: `Worker exited before replying (code ${code ?? 'null'}, signal ${signal ?? 'null'})`,
-          }),
-        )
-      })
-
-      child.send({ template: serialized, data })
+      }
     }
 
-    for (let i = 0; i < maxWorkers; i++) {
-      spawnNext()
+    function cleanup(child: ChildProcess): void {
+      if (finished.has(child)) return
+      finished.add(child)
+      aliveWorkers--
+      const idx = inFlight.get(child) ?? -1
+      inFlight.delete(child)
+      // A job mid-flight when the worker died → fail it (settle-once guards
+      // against a result that already arrived just before the exit).
+      if (idx >= 0) {
+        recordResult(idx, { index: idx, success: false, error: 'Worker exited before replying' })
+      }
+      drainIfStuck()
     }
+
+    function spawn(): void {
+      const child = fork(resolvedWorkerPath, [], { serialization: 'json' })
+      aliveWorkers++
+      inFlight.set(child, -1)
+
+      child.on('message', (msg: WorkerToMain) => {
+        if (msg.type === 'ready') {
+          assign(child)
+          return
+        }
+        const idx = inFlight.get(child) ?? -1
+        if (idx >= 0) {
+          recordResult(idx, {
+            index: idx,
+            success: msg.success,
+            pdf: msg.pdf ? Buffer.from(msg.pdf, 'base64') : undefined,
+            error: msg.error,
+          })
+        }
+        assign(child)
+      })
+
+      child.on('error', () => cleanup(child))
+      child.on('exit', () => cleanup(child))
+
+      child.send({ type: 'init', template: serialized })
+    }
+
+    for (let i = 0; i < maxWorkers; i++) spawn()
   })
 }
+
+/** Message a worker sends back to the pool. */
+type WorkerToMain =
+  | { type: 'ready' }
+  | { type: 'result'; success: boolean; pdf?: string; error?: string }
 
 /**
  * In-process batch generation (no child processes). Used when parallel=false

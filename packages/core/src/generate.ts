@@ -5,7 +5,7 @@ import type {
   FieldDefinition,
   PageDefinition,
 } from '@template-goblin/types'
-import { TemplateGoblinError, getPageSize } from '@template-goblin/types'
+import { getPageSize, TemplateGoblinError } from '@template-goblin/types'
 import { validateData } from './validate.js'
 import { validateManifest } from './validateManifest.js'
 import { preflightImages, type PreflightOptions } from './preflight.js'
@@ -28,15 +28,11 @@ export type GeneratePDFOptions = PreflightOptions
  * Process:
  * 1. Validate input data against manifest
  * 2. Pre-flight image-bytes check (catches PDFKit format errors with context)
- * 3. Create PDFKit document with page dimensions from manifest
- * 4. Register custom fonts
- * 5. Render background image
+ * 3. Create PDFDocument with page dimensions
+ * 4. Register custom TTF fonts once
+ * 5. Group fields by pageId
  * 6. Render all fields in zIndex order (lowest first)
- *
- * @param template - LoadedTemplate returned by loadTemplate()
- * @param data - Input JSON with texts, images, and tables
- * @returns PDF as a Buffer
- * @throws TemplateGoblinError with code MISSING_REQUIRED_FIELD, INVALID_DATA_TYPE, INVALID_FORMAT, MISSING_ASSET, MAX_PAGES_EXCEEDED, or PDF_GENERATION_FAILED
+ * 7. Return Buffer
  */
 export async function generatePDF(
   template: LoadedTemplate,
@@ -74,7 +70,7 @@ export async function generatePDF(
   const { meta } = manifest
   const pages = manifest.pages && manifest.pages.length > 0 ? manifest.pages : null
   const sortedPages = pages ? [...pages].sort((a, b) => a.index - b.index) : []
-  const firstPageSize = getPageSize(sortedPages[0], meta)
+  const firstPageSize = getPageSize(sortedPages[0] ?? null, meta)
 
   try {
     const doc = new PDFDocument({
