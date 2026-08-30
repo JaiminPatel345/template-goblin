@@ -46,4 +46,30 @@ describe('Text field trim whitespace option (issue #20)', () => {
     const updated2 = useTemplateStore.getState().fields[0] as TextField
     expect(updated2.style.trim).toBe(true)
   })
+
+  it('resolveTextStyle correctly reflects trim state for canvas rendering', async () => {
+    const { resolveTextStyle } = await import('../../components/Canvas/textMeasure.js')
+
+    const fieldTrimTrue: TextField = {
+      id: 'tf-1',
+      type: 'text',
+      groupId: null,
+      pageId: null,
+      label: 'Test',
+      source: { mode: 'static', value: '   Hello   ' },
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 30,
+      zIndex: 0,
+      style: { ...defaultTextStyle(), trim: true },
+    }
+    expect(resolveTextStyle(fieldTrimTrue).trim).toBe(true)
+
+    const fieldTrimFalse: TextField = {
+      ...fieldTrimTrue,
+      style: { ...defaultTextStyle(), trim: false },
+    }
+    expect(resolveTextStyle(fieldTrimFalse).trim).toBe(false)
+  })
 })

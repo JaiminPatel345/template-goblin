@@ -15,6 +15,7 @@ describe('computeVisibleText', () => {
     lineHeight: 1.2,
     maxRows: 3,
     overflowMode: 'truncate',
+    trim: true,
   }
 
   function mockDocumentCanvas() {
