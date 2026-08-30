@@ -18,7 +18,12 @@
  * Pure: no DOM/Fabric dependency. Driven solely by store state + fields.
  */
 import { useMemo, useRef } from 'react'
-import type { FieldDefinition, InputJSON } from '@template-goblin/types'
+import {
+  type FieldDefinition,
+  type InputJSON,
+  type LinkInputs,
+  isSafeKey,
+} from '@template-goblin/types'
 import { generateExampleJson } from '../../utils/jsonGenerator.js'
 
 export interface EffectiveDataDeps {
@@ -82,11 +87,28 @@ export function tryParseInputJson(text: string): InputJSON | null {
   }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const obj = raw as Record<string, unknown>
+
   return {
-    texts: (isPlainObject(obj.texts) ? obj.texts : {}) as InputJSON['texts'],
-    images: (isPlainObject(obj.images) ? obj.images : {}) as InputJSON['images'],
-    tables: (isPlainObject(obj.tables) ? obj.tables : {}) as InputJSON['tables'],
+    texts: sanitizeBucket(obj.texts) as InputJSON['texts'],
+    images: sanitizeBucket(obj.images) as InputJSON['images'],
+    tables: sanitizeBucket(obj.tables) as InputJSON['tables'],
+    links: sanitizeBucket(obj.links) as LinkInputs,
   }
+}
+
+/**
+ * Filter a bucket object to ensure it only contains safe keys (no prototype
+ * pollution). Returns an empty object if the input is not a plain object.
+ */
+function sanitizeBucket(val: unknown): Record<string, unknown> {
+  if (!isPlainObject(val)) return {}
+  const out: Record<string, unknown> = {}
+  for (const key of Object.keys(val)) {
+    if (isSafeKey(key)) {
+      out[key] = val[key]
+    }
+  }
+  return out
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

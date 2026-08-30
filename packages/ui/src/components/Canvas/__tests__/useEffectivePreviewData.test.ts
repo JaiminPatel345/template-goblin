@@ -45,4 +45,31 @@ describe('tryParseInputJson', () => {
     expect(parsed?.texts).toEqual({})
     expect(parsed?.tables).toEqual({})
   })
+
+  it('filters out prototype-polluting keys from buckets (security fix)', () => {
+    const payload = JSON.stringify({
+      texts: {
+        normal: 'value',
+        __proto__: { polluted: true },
+        constructor: { prototype: { polluted: true } },
+      },
+      tables: {
+        __proto__: [],
+      },
+    })
+    const parsed = tryParseInputJson(payload)
+    expect(parsed).not.toBeNull()
+    expect(parsed?.texts).toEqual({ normal: 'value' })
+    expect(Object.keys(parsed?.texts ?? {})).not.toContain('__proto__')
+    expect(Object.keys(parsed?.texts ?? {})).not.toContain('constructor')
+    expect(parsed?.tables).toEqual({})
+  })
+
+  it('includes and sanitizes the links bucket', () => {
+    const parsed = tryParseInputJson(
+      '{ "links": { "home": "https://example.com", "__proto__": "bad" } }',
+    )
+    expect(parsed).not.toBeNull()
+    expect(parsed?.links).toEqual({ home: 'https://example.com' })
+  })
 })
