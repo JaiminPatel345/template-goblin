@@ -13,8 +13,8 @@ name: Release
 #
 # This removes the old two-step dance (merge feature PR → a bot opens a
 # "version packages" PR → a human merges THAT PR → publish). Authors still
-# add a changeset at push time (CLAUDE.md Rule #12); everything after the
-# merge to `main` is automatic.
+# add a changeset at push time; everything after the merge to `main` is
+# automatic.
 #
 # ── Publish auth (the E403 fix) ───────────────────────────────────────────
 # Publishing fails with `E403 … Two-factor authentication or granular access
@@ -43,7 +43,7 @@ permissions:
   id-token: write
 
 env:
-  NODE_VERSION: 22
+  NODE_VERSION: 24
 
 jobs:
   release:

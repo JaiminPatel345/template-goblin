@@ -29,34 +29,29 @@ export function AddPageDialog({
   onAdd,
   previousSize,
   mode = 'add',
+  pageIndex = 0,
 }: {
   onClose: () => void
   onAdd: (bgType: PageBackgroundType, size: AddPageSize, bgColor?: string, bgFile?: File) => void
   previousSize: { width: number; height: number }
-  /**
-   * `'add'` (default) — the dialog adds a brand-new page after the current
-   * sheet; the title reads "Add New Page" and the action button reads
-   * "Add Page".
-   * `'edit'` — the dialog changes the *current* page's background; the
-   * title reads "Change Background" and the action button reads "Apply".
-   * `inherit` in this mode means "match the previous page's background"
-   * — the same semantics it has in add mode.
-   */
   mode?: 'add' | 'edit'
+  pageIndex?: number
 }) {
   type Step1 =
     | { kind: 'image'; bgFile: File }
     | { kind: 'inherit' }
     | { kind: 'color'; color: string }
 
+  const showPreviousOption = !(mode === 'edit' && pageIndex === 0)
+
   const [step, setStep] = useState<'choose' | 'color' | 'size'>('choose')
   const [color, setColor] = useState('#ffffff')
   const [bgPick, setBgPick] = useState<Step1 | null>(null)
 
-  // Step-2 state — default to "match previous" since most sheets in a
-  // multi-page doc keep the same paper size. Image uploads override this
-  // to "match" (the uploaded image's natural dimensions) below.
-  const [sizeChoice, setSizeChoice] = useState<PageSizeChoice>('previous')
+  // Step-2 state — default to "match previous" if available, else A4.
+  const [sizeChoice, setSizeChoice] = useState<PageSizeChoice>(
+    showPreviousOption ? 'previous' : 'A4',
+  )
   const [customWidth, setCustomWidth] = useState(previousSize.width)
   const [customHeight, setCustomHeight] = useState(previousSize.height)
   // Decoded natural dimensions of the user's uploaded image — drives the
@@ -152,7 +147,7 @@ export function AddPageDialog({
                   <circle cx="8.5" cy="8.5" r="1.5" />
                   <polyline points="21 15 16 10 5 21" />
                 </svg>
-                Upload new image
+                Upload image
               </button>
               <input
                 ref={fileInputRef}
@@ -166,33 +161,35 @@ export function AddPageDialog({
                 }}
               />
 
-              <button
-                className="tg-btn"
-                style={{ justifyContent: 'flex-start', padding: '10px 14px' }}
-                onClick={() =>
-                  // Inherit means "same as previous page" — including
-                  // dimensions. Skip the size dialog entirely (#47).
-                  onAdd('inherit', {
-                    pageSize: 'custom',
-                    width: previousSize.width,
-                    height: previousSize.height,
-                  })
-                }
-                data-testid="add-page-inherit"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
+              {showPreviousOption && (
+                <button
+                  className="tg-btn"
+                  style={{ justifyContent: 'flex-start', padding: '10px 14px' }}
+                  onClick={() =>
+                    // Inherit means "same as previous page" — including
+                    // dimensions. Skip the size dialog entirely (#47).
+                    onAdd('inherit', {
+                      pageSize: 'custom',
+                      width: previousSize.width,
+                      height: previousSize.height,
+                    })
+                  }
+                  data-testid="add-page-inherit"
                 >
-                  <rect x="2" y="2" width="20" height="20" rx="2" />
-                  <path d="M7 12h10M12 7v10" />
-                </svg>
-                Same as previous page
-              </button>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <rect x="2" y="2" width="20" height="20" rx="2" />
+                    <path d="M7 12h10M12 7v10" />
+                  </svg>
+                  Same as previous page
+                </button>
+              )}
 
               <button
                 className="tg-btn"
@@ -259,7 +256,7 @@ export function AddPageDialog({
             <PageSizePicker
               value={sizeChoice}
               onChange={setSizeChoice}
-              previousSize={previousSize}
+              previousSize={showPreviousOption ? previousSize : undefined}
               previousSizeLabel={mode === 'edit' ? 'Same as Current' : 'Same as previous'}
               matchImage={imageNatural ?? undefined}
               customWidth={customWidth}

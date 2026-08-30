@@ -91,10 +91,10 @@ export default defineConfig(({ mode }) => ({
     ],
   },
   test: {
-    include: ['src/**/__tests__/**/*.test.ts'],
-    // `fake-indexeddb/auto` polyfills `indexedDB` and `IDBKeyRange` on
-    // globalThis.  Required by the templateStore persist adapter (GH #11)
-    // which is now backed by IndexedDB instead of localStorage.
-    setupFiles: ['fake-indexeddb/auto'],
+    include: ['src/**/__tests__/**/*.test.ts', 'src/**/__tests__/**/*.test.tsx'],
+    setupFiles: ['src/test-setup.ts'],
+    teardownTimeout: 1000,
+    clearMocks: true,
+    restoreMocks: true,
   },
 }))

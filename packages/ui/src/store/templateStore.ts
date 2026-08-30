@@ -339,6 +339,17 @@ const defaultMeta: TemplateMeta = {
   updatedAt: new Date().toISOString(),
 }
 
+export const defaultPage0: PageDefinition = {
+  id: 'page-0-default',
+  index: 0,
+  backgroundType: 'color',
+  backgroundColor: '#ffffff',
+  backgroundFilename: null,
+  width: 595,
+  height: 842,
+  pageSize: 'A4',
+}
+
 let fieldCounter = 0
 
 /**
@@ -557,7 +568,7 @@ export const useTemplateStore = create<TemplateState>()(
       fields: [],
       fonts: [],
       groups: [],
-      pages: [],
+      pages: [defaultPage0],
       backgroundDataUrl: null,
       backgroundBuffer: null,
       pageBackgroundDataUrls: new Map(),
@@ -1310,7 +1321,16 @@ export const useTemplateStore = create<TemplateState>()(
             console.warn('[templateStore.addPage] ignored: missing or invalid page argument', page)
             return {}
           }
-          const pages = [...state.pages, page]
+          const existingIndex = state.pages.findIndex(
+            (p) => p.id === page.id || p.index === page.index,
+          )
+          let pages: PageDefinition[]
+          if (existingIndex >= 0) {
+            pages = [...state.pages]
+            pages[existingIndex] = page
+          } else {
+            pages = [...state.pages, page]
+          }
           const pageBackgroundDataUrls = new Map(state.pageBackgroundDataUrls)
           const pageBackgroundBuffers = new Map(state.pageBackgroundBuffers)
           if (bgDataUrl) pageBackgroundDataUrls.set(page.id, bgDataUrl)
@@ -1330,7 +1350,7 @@ export const useTemplateStore = create<TemplateState>()(
           // Re-index remaining pages
           const reindexed = pages.map((p, i) => ({ ...p, index: i }))
           return {
-            pages: reindexed,
+            pages: reindexed.length > 0 ? reindexed : [defaultPage0],
             fields,
             pageBackgroundDataUrls,
             pageBackgroundBuffers,
@@ -1436,7 +1456,7 @@ export const useTemplateStore = create<TemplateState>()(
           fields: [],
           fonts: [],
           groups: [],
-          pages: [],
+          pages: [defaultPage0],
           backgroundDataUrl: null,
           backgroundBuffer: null,
           pageBackgroundDataUrls: new Map(),
@@ -1481,7 +1501,7 @@ export const useTemplateStore = create<TemplateState>()(
           fields,
           fonts,
           groups,
-          pages: pages ?? [],
+          pages: pages && pages.length > 0 ? pages : [defaultPage0],
           backgroundDataUrl,
           backgroundBuffer,
           pageBackgroundDataUrls: pageBackgroundDataUrls ?? new Map(),
