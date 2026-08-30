@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useTemplateStore } from '../../../store/templateStore.js'
 import { useUiStore } from '../../../store/uiStore.js'

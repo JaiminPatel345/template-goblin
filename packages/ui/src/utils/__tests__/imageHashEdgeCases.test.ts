@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
 import {
   computeBufferHash,
@@ -6,6 +5,29 @@ import {
   readFileAsDataUrlAndBuffer,
 } from '../imageHash.js'
 import type { PageDefinition } from '@template-goblin/types'
+
+if (typeof globalThis.FileReader === 'undefined') {
+  class MockFileReader {
+    onload: (() => void) | null = null
+    onerror: (() => void) | null = null
+    result: string | ArrayBuffer | null = null
+
+    readAsDataURL(blob: Blob) {
+      blob.arrayBuffer().then((buf) => {
+        this.result = 'data:image/png;base64,' + Buffer.from(buf).toString('base64')
+        if (this.onload) this.onload()
+      })
+    }
+
+    readAsArrayBuffer(blob: Blob) {
+      blob.arrayBuffer().then((buf) => {
+        this.result = buf
+        if (this.onload) this.onload()
+      })
+    }
+  }
+  globalThis.FileReader = MockFileReader as unknown as typeof FileReader
+}
 
 describe('imageHash — comprehensive edge cases', () => {
   it('handles empty 0-byte buffer without error', async () => {
