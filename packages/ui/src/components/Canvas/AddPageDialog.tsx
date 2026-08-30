@@ -52,8 +52,8 @@ export function AddPageDialog({
   const [sizeChoice, setSizeChoice] = useState<PageSizeChoice>(
     showPreviousOption ? 'previous' : 'A4',
   )
-  const [customWidth, setCustomWidth] = useState(previousSize.width)
-  const [customHeight, setCustomHeight] = useState(previousSize.height)
+  const [customWidth, setCustomWidth] = useState<number | ''>(previousSize.width)
+  const [customHeight, setCustomHeight] = useState<number | ''>(previousSize.height)
   // Decoded natural dimensions of the user's uploaded image — drives the
   // "Match image" radio in the size picker.
   const [imageNatural, setImageNatural] = useState<{ width: number; height: number } | null>(null)
