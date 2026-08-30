@@ -20,6 +20,7 @@ import type {
   PageBand,
   TemplateManifest,
 } from '@template-goblin/types'
+import { getPageSize } from '@template-goblin/types'
 import { renderField } from './field.js'
 import { renderBandDivider } from './bandDivider.js'
 import { stampPageNumber } from './pageNumberStamp.js'
@@ -110,12 +111,16 @@ export function stampBands(
   if (!hasHeader && !hasFooter && !manifest.pageNumber?.enabled) return
 
   const { start, count } = doc.bufferedPageRange()
-  const pageWidth = manifest.meta.width
-  const pageHeight = manifest.meta.height
+  const sortedPages =
+    manifest.pages && manifest.pages.length > 0
+      ? [...manifest.pages].sort((a, b) => a.index - b.index)
+      : []
 
   for (let i = 0; i < count; i++) {
     doc.switchToPage(start + i)
     const pageCtx: PageContext = { pageId: null, pageIndex: i }
+    const pageDef = sortedPages[i]
+    const { width: pageWidth, height: pageHeight } = getPageSize(pageDef, manifest.meta)
 
     if (manifest.header && bandRendersOnPage(manifest.header, i)) {
       stampBand(
