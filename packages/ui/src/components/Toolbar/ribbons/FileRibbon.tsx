@@ -5,7 +5,7 @@ import { openTemplate } from '../../../utils/saveOpen.js'
 import { RibbonGroup } from '../primitives/RibbonGroup.js'
 import { RibbonButton } from '../primitives/RibbonButton.js'
 import { useDialogs } from '../../Dialogs/index.js'
-import { NewIcon, OpenIcon, BackgroundIcon } from '../icons.js'
+import { NewIcon, OpenIcon, BackgroundIcon, DimensionsIcon } from '../icons.js'
 import { surfaceError } from '../../../utils/friendlyError.js'
 
 /**
@@ -17,6 +17,7 @@ import { surfaceError } from '../../../utils/friendlyError.js'
 export function FileRibbon() {
   const openInputRef = useRef<HTMLInputElement>(null)
   const setShowChangeBgDialog = useUiStore((s) => s.setShowChangeBgDialog)
+  const setPageLayoutSettings = useUiStore((s) => s.setPageLayoutSettings)
   const { alert: showAlert, confirm: showConfirm } = useDialogs()
 
   async function handleOpenFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -65,13 +66,20 @@ export function FileRibbon() {
         />
         <input ref={openInputRef} type="file" accept=".tgbl" hidden onChange={handleOpenFile} />
       </RibbonGroup>
-      <RibbonGroup label="Page background">
+      <RibbonGroup label="Page background & dimensions">
         <RibbonButton
           icon={<BackgroundIcon />}
           label="Change Background"
           onClick={() => setShowChangeBgDialog(true)}
           title="Change the current page's background"
           testid="toolbar-change-background"
+        />
+        <RibbonButton
+          icon={<DimensionsIcon />}
+          label="Change Dimensions"
+          onClick={() => setPageLayoutSettings('resizePage')}
+          title="Change the current page's dimensions (width & height)"
+          testid="toolbar-change-dimensions"
         />
       </RibbonGroup>
     </div>
