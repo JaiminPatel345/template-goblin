@@ -11,6 +11,7 @@ import type {
   TemplateManifest,
 } from '@template-goblin/types'
 import { dynText, makeManifest } from './helpers/fixtures.js'
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.js'
 
 const TEST_DIR = join(tmpdir(), 'tg-test-multipage-' + Date.now())
 
@@ -400,5 +401,52 @@ describe('Multi-page PDF generation', () => {
     expect(pdf).toBeInstanceOf(Buffer)
     expect(pdf.length).toBeGreaterThan(0)
     expect(pdf.toString('utf-8', 0, 5)).toBe('%PDF-')
+  })
+
+  it('should render PDF pages with different page dimensions when specified', async () => {
+    const pages: PageDefinition[] = [
+      {
+        id: 'p0',
+        index: 0,
+        backgroundType: 'color',
+        backgroundColor: '#ffffff',
+        backgroundFilename: null,
+        width: 595,
+        height: 842,
+      },
+      {
+        id: 'p1',
+        index: 1,
+        backgroundType: 'color',
+        backgroundColor: '#ff0000',
+        backgroundFilename: null,
+        width: 1000,
+        height: 1200,
+      },
+    ]
+
+    const manifest = createManifest({
+      pages,
+      fields: [textField('t0', 'page0', 'p0', 1), textField('t1', 'page1', 'p1', 1)],
+    })
+
+    const zip = buildZip(manifest)
+    const path = writeTgbl('diff-dimensions.tgbl', zip)
+    const template = await loadTemplate(path)
+    const data: InputJSON = { texts: { page0: 'Page 1', page1: 'Page 2' }, tables: {}, images: {} }
+
+    const pdfBuffer = await generatePDF(template, data)
+    const pdfDoc = await getDocument({ data: new Uint8Array(pdfBuffer), verbosity: 0 }).promise
+
+    expect(pdfDoc.numPages).toBe(2)
+    const p1 = await pdfDoc.getPage(1)
+    const p2 = await pdfDoc.getPage(2)
+
+    expect(p1.getViewport({ scale: 1 }).width).toBe(595)
+    expect(p1.getViewport({ scale: 1 }).height).toBe(842)
+    expect(p2.getViewport({ scale: 1 }).width).toBe(1000)
+    expect(p2.getViewport({ scale: 1 }).height).toBe(1200)
+
+    await pdfDoc.destroy()
   })
 })

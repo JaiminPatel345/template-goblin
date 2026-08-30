@@ -1,6 +1,6 @@
 import type PDFDocument from 'pdfkit'
 import type { PageDefinition, TemplateMeta } from '@template-goblin/types'
-import { TemplateGoblinError } from '@template-goblin/types'
+import { TemplateGoblinError, getPageSize } from '@template-goblin/types'
 import { renderBackground, renderColorBackground } from './background.js'
 import { pageLabel, type PageContext } from '../utils/errorContext.js'
 
@@ -17,20 +17,22 @@ export function renderPageBackground(
   backgroundImage: Buffer | null,
   previousBackground: Buffer | null,
 ): Buffer | null {
+  const pageSize = getPageSize(page, meta)
+
   switch (page.backgroundType) {
     case 'image': {
       const bgBuffer = pageBackgrounds.get(page.id) ?? (page.index === 0 ? backgroundImage : null)
-      renderBackground(doc, bgBuffer, meta)
+      renderBackground(doc, bgBuffer, meta, pageSize)
       return bgBuffer
     }
     case 'color': {
       if (page.backgroundColor) {
-        renderColorBackground(doc, page.backgroundColor, meta)
+        renderColorBackground(doc, page.backgroundColor, meta, pageSize)
       }
       return null
     }
     case 'inherit': {
-      renderBackground(doc, previousBackground, meta)
+      renderBackground(doc, previousBackground, meta, pageSize)
       return previousBackground
     }
     default:

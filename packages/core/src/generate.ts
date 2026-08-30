@@ -5,7 +5,7 @@ import type {
   FieldDefinition,
   PageDefinition,
 } from '@template-goblin/types'
-import { TemplateGoblinError } from '@template-goblin/types'
+import { TemplateGoblinError, getPageSize } from '@template-goblin/types'
 import { validateData } from './validate.js'
 import { validateManifest } from './validateManifest.js'
 import { preflightImages, type PreflightOptions } from './preflight.js'
@@ -73,10 +73,12 @@ export async function generatePDF(
   const { manifest, backgroundImage, pageBackgrounds } = template
   const { meta } = manifest
   const pages = manifest.pages && manifest.pages.length > 0 ? manifest.pages : null
+  const sortedPages = pages ? [...pages].sort((a, b) => a.index - b.index) : []
+  const firstPageSize = getPageSize(sortedPages[0], meta)
 
   try {
     const doc = new PDFDocument({
-      size: [meta.width, meta.height],
+      size: [firstPageSize.width, firstPageSize.height],
       margin: 0,
       autoFirstPage: true,
       bufferPages: true,
@@ -114,11 +116,11 @@ export async function generatePDF(
         fieldsByPage.get(key)?.push(field)
       }
 
-      const sortedPages = [...pages].sort((a, b) => a.index - b.index)
       let previousBackground: Buffer | null = backgroundImage
 
       for (let i = 0; i < sortedPages.length; i++) {
         const page = sortedPages[i] as PageDefinition
+        const pageSize = getPageSize(page, meta)
 
         if (i > 0) {
           // `addPage(options)` REPLACES the constructor options — without an
@@ -126,7 +128,7 @@ export async function generatePDF(
           // after the first, shrinking the writable area: content in the
           // bottom 72pt triggered auto-pagination (phantom pages) and split
           // clip save/restore pairs across pages (corrupt q/Q nesting).
-          doc.addPage({ size: [meta.width, meta.height], margin: 0 })
+          doc.addPage({ size: [pageSize.width, pageSize.height], margin: 0 })
         }
 
         const pageCtx: PageContext = { pageId: page.id, pageIndex: page.index }
