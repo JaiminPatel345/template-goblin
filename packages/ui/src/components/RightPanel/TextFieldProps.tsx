@@ -193,6 +193,17 @@ export function TextFieldProps({ field }: Props) {
             </div>
           </>
         )}
+
+        <div className="tg-toggle-row">
+          <label>Trim whitespace</label>
+          <input
+            type="checkbox"
+            className="tg-checkbox"
+            checked={style.trim !== false}
+            onChange={(e) => updateFieldStyle(field.id, { trim: e.target.checked })}
+            data-testid="text-trim-whitespace"
+          />
+        </div>
       </div>
 
       {/* Layout */}

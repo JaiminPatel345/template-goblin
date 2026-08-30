@@ -68,6 +68,7 @@ export function defaultTextStyle(): TextFieldStyle {
     // the dropdown to 'Dynamic Font'.
     overflowMode: 'truncate',
     snapToGrid: true,
+    trim: true,
   }
 }
 
