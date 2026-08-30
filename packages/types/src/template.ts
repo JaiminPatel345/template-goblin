@@ -144,6 +144,11 @@ export interface TextFieldStyle {
   maxRows: number
   overflowMode: OverflowMode
   snapToGrid: boolean
+  /**
+   * Strip leading and trailing whitespace before rendering text. Defaults to
+   * `true` when `undefined` for backwards-compatibility (#20).
+   */
+  trim?: boolean
 }
 
 /**

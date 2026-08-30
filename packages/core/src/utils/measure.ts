@@ -38,11 +38,12 @@ export function wrapText(
       continue
     }
 
-    const words = paragraph.split(/\s+/)
+    const words = paragraph.split(' ')
     let currentLine = ''
 
-    for (const word of words) {
-      const testLine = currentLine ? `${currentLine} ${word}` : word
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i] ?? ''
+      const testLine = i === 0 ? word : `${currentLine} ${word}`
       const testWidth = doc.widthOfString(testLine)
 
       if (testWidth <= maxWidth) {

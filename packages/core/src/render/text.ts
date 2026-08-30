@@ -58,6 +58,9 @@ export function renderText(
   const lineHeightFactor = style.lineHeight > 0 ? style.lineHeight : 1.2
   const maxStyleRows = typeof style.maxRows === 'number' && style.maxRows > 0 ? style.maxRows : 3
 
+  const shouldTrim = style.trim !== false
+  const textValue = shouldTrim ? value.trim() : value
+
   if (style.overflowMode === 'dynamic_font') {
     // GH #91: shrink `fontSize` to `fontSizeMin` until the text fits.
     // If it still doesn't fit at min, fall through to a character-
@@ -65,7 +68,7 @@ export function renderText(
     // the user explicitly didn't want).
     const result = fitTextDynamic(
       doc,
-      value,
+      textValue,
       fontSize,
       style.fontSizeMin,
       width,
@@ -89,7 +92,7 @@ export function renderText(
     const lineHeightPt = fontSize * lineHeightFactor
     const maxLinesByBox = Math.floor(height / lineHeightPt)
     const effectiveMaxRows = Math.min(maxStyleRows, Math.max(0, maxLinesByBox))
-    const result = measureText(doc, value, fontSize, width, effectiveMaxRows)
+    const result = measureText(doc, textValue, fontSize, width, effectiveMaxRows)
     lines = result.fits ? result.lines : truncateLines(doc, result.lines, effectiveMaxRows, width)
   }
 

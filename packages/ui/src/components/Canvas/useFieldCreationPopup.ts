@@ -89,6 +89,13 @@ export function useFieldCreationPopup() {
         } as FieldDefinition
       })()
 
+      if (base.type === 'text' && source.trim !== undefined) {
+        withUserInput.style = {
+          ...withUserInput.style,
+          trim: source.trim,
+        }
+      }
+
       // #61 — route the new field to the band store when the draw rect
       // landed inside a header / footer band. Body fields keep the legacy
       // path. Band fields' x/y are stored band-local so the renderer can
