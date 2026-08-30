@@ -70,10 +70,7 @@ export async function generatePDF(
   const { meta } = manifest
   const pages = manifest.pages && manifest.pages.length > 0 ? manifest.pages : null
   const sortedPages = pages ? [...pages].sort((a, b) => a.index - b.index) : []
-  const firstPageSize = getPageSize(sortedPages[0], meta)
-
-  const firstPageSize =
-    pages && pages[0] ? getPageSize(pages[0], meta) : { width: meta.width, height: meta.height }
+  const firstPageSize = getPageSize(sortedPages[0] ?? null, meta)
 
   try {
     const doc = new PDFDocument({
