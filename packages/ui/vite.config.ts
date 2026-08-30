@@ -4,9 +4,11 @@ import tailwindcss from '@tailwindcss/vite'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import { resolve } from 'node:path'
 
-export default defineConfig({
-  // GitHub Pages base path (set via VITE_BASE env var in CI)
-  base: process.env.VITE_BASE || '/',
+export default defineConfig(({ mode }) => ({
+  // GitHub Pages base path (set via VITE_BASE env var in CI). In local dev the
+  // editor is served under /playground/ so the marketing site's dev server
+  // (port 4242) can proxy it there — one origin: / = home, /playground/* = editor.
+  base: process.env.VITE_BASE || (mode === 'development' ? '/playground/' : '/'),
   plugins: [
     react(),
     tailwindcss(),
@@ -40,7 +42,10 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 4242,
+    // Internal dev port. Users hit the unified site server on 4242, which
+    // proxies /playground here. HMR connects straight back to this port.
+    port: 5174,
+    hmr: { clientPort: 5174 },
   },
   build: {
     outDir: 'dist',
@@ -86,10 +91,10 @@ export default defineConfig({
     ],
   },
   test: {
-    include: ['src/**/__tests__/**/*.test.ts'],
-    // `fake-indexeddb/auto` polyfills `indexedDB` and `IDBKeyRange` on
-    // globalThis.  Required by the templateStore persist adapter (GH #11)
-    // which is now backed by IndexedDB instead of localStorage.
-    setupFiles: ['fake-indexeddb/auto'],
+    include: ['src/**/__tests__/**/*.test.ts', 'src/**/__tests__/**/*.test.tsx'],
+    setupFiles: ['src/test-setup.ts'],
+    teardownTimeout: 1000,
+    clearMocks: true,
+    restoreMocks: true,
   },
-})
+}))

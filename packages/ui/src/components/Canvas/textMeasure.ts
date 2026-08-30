@@ -17,7 +17,9 @@ export interface ResolvedTextStyle {
   align: 'left' | 'center' | 'right'
   verticalAlign: 'top' | 'middle' | 'bottom'
   lineHeight: number
+  maxRows: number
   overflowMode: 'truncate' | 'dynamic_font'
+  trim: boolean
 }
 
 /**
@@ -51,7 +53,9 @@ export function resolveTextStyle(field: FieldDefinition): ResolvedTextStyle {
     verticalAlign:
       raw.verticalAlign === 'top' || raw.verticalAlign === 'bottom' ? raw.verticalAlign : 'middle',
     lineHeight: typeof raw.lineHeight === 'number' && raw.lineHeight > 0 ? raw.lineHeight : 1.2,
+    maxRows: typeof raw.maxRows === 'number' && raw.maxRows > 0 ? raw.maxRows : 3,
     overflowMode: raw.overflowMode === 'dynamic_font' ? 'dynamic_font' : 'truncate',
+    trim: raw.trim !== false,
   }
 }
 
@@ -72,10 +76,13 @@ export function fitDynamicFontSize(
   let size = style.fontSize
   const min = Math.max(1, style.fontSizeMin)
   while (size >= min) {
-    ctx.font = `${size}px ${style.fontFamily}`
+    ctx.font = `${style.fontStyle} ${style.fontWeight} ${size}px ${style.fontFamily}`
     const lines = wrapToLines(ctx, text, labelW)
-    const totalH = lines.length * size * style.lineHeight
-    if (totalH <= labelH) return size
+    const lineHeightPt = size * style.lineHeight
+    const maxLinesByBox = Math.floor(labelH / lineHeightPt)
+    const effectiveMaxRows = Math.min(style.maxRows, Math.max(0, maxLinesByBox))
+
+    if (lines.length <= effectiveMaxRows) return size
     size -= 1
   }
   return min
@@ -97,9 +104,11 @@ export function computeVisibleText(
   const ctx = getMeasureCtx()
   if (!ctx || labelW <= 0 || labelH <= 0) return text
 
-  ctx.font = `${fontSize}px ${style.fontFamily}`
+  ctx.font = `${style.fontStyle} ${style.fontWeight} ${fontSize}px ${style.fontFamily}`
   const lineHeightPt = fontSize * style.lineHeight
-  const maxLines = Math.max(1, Math.floor(labelH / lineHeightPt))
+  const maxLinesByBox = Math.floor(labelH / lineHeightPt)
+  const maxLines = Math.min(style.maxRows, Math.max(0, maxLinesByBox))
+  if (maxLines <= 0) return null
 
   const wrapped = wrapToLines(ctx, text, labelW)
   if (wrapped.length === 0) return null
@@ -151,10 +160,11 @@ export function wrapToLines(
       lines.push('')
       continue
     }
-    const words = paragraph.split(/\s+/).filter(Boolean)
+    const words = paragraph.split(' ')
     let current = ''
-    for (const word of words) {
-      const test = current ? `${current} ${word}` : word
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i] ?? ''
+      const test = i === 0 ? word : `${current} ${word}`
       if (ctx.measureText(test).width <= maxWidth) {
         current = test
       } else if (!current) {

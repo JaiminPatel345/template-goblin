@@ -9,6 +9,8 @@ export type ActiveTool = 'select' | 'addText' | 'addImage' | 'addLoop'
 
 export type Theme = 'light' | 'dark'
 
+export type MenuTab = 'file' | 'edit' | 'insert' | 'format' | 'view' | 'help'
+
 export interface UiState {
   /** Light or dark theme */
   theme: Theme
@@ -46,10 +48,10 @@ export interface UiState {
   showFontManager: boolean
   /**
    * Which top-level tab is active in the menu bar (#128). The ribbon below
-   * the tab strip shows that tab's controls. Defaults to `'insert'` —
-   * empty canvases bias toward "add something next".
+   * the tab strip shows that tab's controls. When null, no tab is active and
+   * the ribbon is collapsed. Defaults to `'file'`.
    */
-  activeMenuTab: 'file' | 'edit' | 'insert' | 'format' | 'view' | 'help'
+  activeMenuTab: MenuTab | null
   /**
    * Whether the ribbon row below the menu tabs is collapsed (QA BUG-16).
    * Defaults to false — the ribbon is visible. Toggled by:
@@ -72,14 +74,14 @@ export interface UiState {
   pageLayoutMenu:
     | { kind: 'closed' }
     | { kind: 'main' }
-    | { kind: 'flyout'; target: 'header' | 'footer' | 'pageNumber' }
+    | { kind: 'flyout'; target: 'header' | 'footer' | 'pageNumber' | 'resizePage' }
   /**
    * Which band's full settings modal is currently open. `null` when the
    * modal is closed. Independent of `pageLayoutMenu` — opening the modal
    * closes the menu, but the modal then lives until the user dismisses
    * it.
    */
-  pageLayoutSettings: 'header' | 'footer' | 'pageNumber' | null
+  pageLayoutSettings: 'header' | 'footer' | 'pageNumber' | 'resizePage' | null
   /** Pending background image for page size dialog */
   pendingBackground: { dataUrl: string; buffer: ArrayBuffer; width: number; height: number } | null
   /** Context menu state */
@@ -139,10 +141,10 @@ export interface UiState {
     next:
       | { kind: 'closed' }
       | { kind: 'main' }
-      | { kind: 'flyout'; target: 'header' | 'footer' | 'pageNumber' },
+      | { kind: 'flyout'; target: 'header' | 'footer' | 'pageNumber' | 'resizePage' },
   ) => void
   /** Open / close the full settings modal for one band or page number. */
-  setPageLayoutSettings: (target: 'header' | 'footer' | 'pageNumber' | null) => void
+  setPageLayoutSettings: (target: 'header' | 'footer' | 'pageNumber' | 'resizePage' | null) => void
   setPendingBackground: (bg: UiState['pendingBackground']) => void
   setContextMenu: (menu: UiState['contextMenu']) => void
   startDrawing: (x: number, y: number) => void

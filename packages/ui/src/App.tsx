@@ -6,6 +6,7 @@ import { StructurePanel } from './components/RightPanel/StructurePanel.js'
 import { PageSizeDialog } from './components/Toolbar/PageSizeDialog.js'
 import { PageLayoutMenu } from './components/Toolbar/PageLayoutMenu.js'
 import { BandSettingsModal } from './components/Toolbar/BandSettingsModal.js'
+import { ResizePageModal } from './components/Toolbar/ResizePageModal.js'
 import { ContextMenu } from './components/Canvas/ContextMenu.js'
 import { FontManager } from './components/Toolbar/FontManager.js'
 import { PdfPreview } from './components/Preview/PdfPreview.js'
@@ -121,6 +122,7 @@ export function App() {
       {showFontManager && <FontManager />}
       <PageLayoutMenu />
       <BandSettingsModal />
+      <ResizePageModal />
 
       <ImageCompressor />
       {contextMenu && <ContextMenu />}

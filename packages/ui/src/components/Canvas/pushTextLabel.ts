@@ -18,7 +18,7 @@
  *     (with explicit `\n` line breaks) to a Fabric Textbox. Same outcome
  *     as the PDFKit renderer for the same inputs.
  */
-import { Textbox } from 'fabric'
+import { FabricText, Group, Rect } from 'fabric'
 import type { FabricObject } from 'fabric'
 import type { FieldDefinition } from '@template-goblin/types'
 import { resolveTextStyle, fitDynamicFontSize, computeVisibleText } from './textMeasure.js'
@@ -58,42 +58,104 @@ export function pushTextLabel(
   const isDynamicSource = field.source?.mode === 'dynamic'
   const useDynamicFont = isDynamicSource && textStyle.overflowMode === 'dynamic_font'
 
+  const labelToRender = textStyle.trim ? label.trim() : label
+
   // Pick the rendered font size. Dynamic-font shrinks to `fontSizeMin`;
   // truncate-mode keeps the authored size.
   const fontSize = useDynamicFont
-    ? fitDynamicFontSize(label, textStyle, labelW, labelH)
+    ? fitDynamicFontSize(labelToRender, textStyle, labelW, labelH)
     : textStyle.fontSize
 
   // Always run the truncation pass against the chosen font size — even
   // dynamic-font may not fit at `fontSizeMin`, in which case we cut.
-  const visible = computeVisibleText(label, textStyle, fontSize, labelW, labelH)
+  const visible = computeVisibleText(labelToRender, textStyle, fontSize, labelW, labelH)
   if (!visible) return
 
-  // Anchor the block to the full box edges (PDF parity): top → field top,
-  // bottom → field bottom, middle → field centre.
-  const verticalAlign = textStyle.verticalAlign
-  const top = verticalAlign === 'top' ? 0 : verticalAlign === 'bottom' ? h : h / 2
-  const originY = verticalAlign === 'top' ? 'top' : verticalAlign === 'bottom' ? 'bottom' : 'center'
+  // Anchor the block to the full box edges (PDF parity).
+  // We explicitly calculate the block height to match the PDF renderer (`text.ts`).
+  const linesCount = visible.split('\n').length
+  const lineHeightPt = fontSize * textStyle.lineHeight
+  const blockHeight = linesCount * lineHeightPt
 
-  children.push(
-    new Textbox(visible, {
-      left: w / 2,
-      top,
+  let blockTop: number
+  switch (textStyle.verticalAlign) {
+    case 'middle':
+      blockTop = (h - blockHeight) / 2
+      break
+    case 'bottom':
+      blockTop = h - blockHeight
+      break
+    case 'top':
+    default:
+      blockTop = 0
+      break
+  }
+
+  // To fix "text seem above then center", we match PDFKit's exact optical centering.
+  // PDFKit draws the glyph at the top of the slot, plus `(lineHeightPt - ascent) / 2`.
+  // Fabric draws the glyph centered in the slot by default.
+  // We'll place the Textbox's top exactly at `blockTop` which perfectly bounds the slots.
+
+  let textLeft = w / 2
+  let originX: 'left' | 'center' | 'right' = 'center'
+  if (textStyle.align === 'left') {
+    textLeft = 0
+    originX = 'left'
+  } else if (textStyle.align === 'right') {
+    textLeft = w
+    originX = 'right'
+  }
+
+  const textNode = new FabricText(visible, {
+    left: textLeft,
+    top: blockTop,
+    fontSize,
+    fontFamily: textStyle.fontFamily,
+    fill: textStyle.color || colors.text,
+    fontWeight: textStyle.fontWeight,
+    fontStyle: textStyle.fontStyle,
+    underline: textStyle.textDecoration === 'underline',
+    linethrough: textStyle.textDecoration === 'line-through',
+    textAlign: textStyle.align,
+    selectable: false,
+    evented: false,
+    originX,
+    originY: 'top',
+    lineHeight: textStyle.lineHeight,
+  })
+
+  const boundsRect = new Rect({
+    left: 0,
+    top: 0,
+    width: labelW,
+    height: labelH,
+    originX: 'left',
+    originY: 'top',
+    fill: 'transparent',
+    stroke: 'transparent',
+    selectable: false,
+    evented: false,
+  })
+
+  const textGroup = new Group([boundsRect, textNode], {
+    left: 0,
+    top: 0,
+    width: labelW,
+    height: labelH,
+    originX: 'left',
+    originY: 'top',
+    selectable: false,
+    evented: false,
+    clipPath: new Rect({
+      left: 0,
+      top: 0,
       width: labelW,
-      fontSize,
-      fontFamily: textStyle.fontFamily,
-      fill: textStyle.color || colors.text,
-      fontWeight: textStyle.fontWeight,
-      fontStyle: textStyle.fontStyle,
-      underline: textStyle.textDecoration === 'underline',
-      linethrough: textStyle.textDecoration === 'line-through',
-      textAlign: textStyle.align,
-      selectable: false,
-      evented: false,
+      height: labelH,
       originX: 'center',
-      originY,
-      splitByGrapheme: false,
-      lineHeight: textStyle.lineHeight,
+      originY: 'center',
+      absolutePositioned: false,
     }),
-  )
+  })
+
+  children.push(textGroup)
 }

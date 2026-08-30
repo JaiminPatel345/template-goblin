@@ -1,0 +1,334 @@
+/* Landing page: hero, editor mock, feature grids, steps, comparison table,
+   CTA band. */
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative;
+  padding-block: 84px 64px;
+  overflow: hidden;
+}
+
+.hero-centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: clamp(2.4rem, 5.4vw, 3.9rem);
+  margin: 22px 0 0;
+}
+
+.hero-lead {
+  margin-top: 22px;
+  font-size: 1.18rem;
+  color: var(--text-dim);
+  max-width: 640px;
+}
+
+.hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 34px;
+  justify-content: center;
+}
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  margin-top: 34px;
+  color: var(--text-faint);
+  font-size: 0.9rem;
+  justify-content: center;
+}
+
+.hero-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hero-meta code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1.5px 4px 1.5px 6px;
+  color: #0f1729;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inline-copy {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+
+.inline-copy:hover {
+  color: var(--brand-strong);
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.hero-meta svg {
+  color: var(--brand);
+}
+
+
+
+/* ---------- Frameworks / runtimes strip ---------- */
+.runs-on {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding-block: 26px;
+  border-block: 1px solid var(--border);
+}
+
+.runs-on .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  background: var(--bg-2);
+}
+
+/* Planned, not shipped yet — clearly de-emphasised with a "Soon" badge. */
+.runs-on .tag-soon {
+  border-style: dashed;
+  color: var(--text-faint);
+  background: transparent;
+}
+
+.runs-on .tag-soon em {
+  font-style: normal;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+
+/* ---------- Feature / why grid ---------- */
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+
+/* ---------- Split rows (what-is / motivation) ---------- */
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 56px;
+  align-items: center;
+}
+
+.split.reverse .split-media {
+  order: -1;
+}
+
+.prose-lead p {
+  color: var(--text-dim);
+  font-size: 1.06rem;
+  margin-top: 16px;
+}
+
+.check-list {
+  list-style: none;
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.check-list li {
+  display: flex;
+  gap: 12px;
+  color: var(--text-dim);
+}
+
+.check-list svg {
+  flex-shrink: 0;
+  color: var(--brand);
+  margin-top: 3px;
+}
+
+.check-list b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---------- Steps ---------- */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  counter-reset: step;
+}
+
+.step {
+  position: relative;
+  padding-top: 18px;
+}
+
+.step::before {
+  counter-increment: step;
+  content: '0' counter(step);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.step h3 {
+  font-size: 1.15rem;
+  margin: 10px 0 8px;
+}
+
+.step p {
+  color: var(--text-dim);
+  font-size: 0.96rem;
+}
+
+/* ---------- Comparison table ---------- */
+.compare-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-1);
+}
+
+.compare {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 560px;
+}
+
+.compare th,
+.compare td {
+  padding: 16px 18px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare thead th {
+  font-family: var(--font-display);
+  font-size: 1.04rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.compare thead th.us {
+  color: var(--brand);
+}
+
+.compare .us {
+  background: rgba(46, 230, 166, 0.06);
+}
+
+.compare tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.compare td.feat {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.compare .yes {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.compare .no {
+  color: var(--text-faint);
+}
+
+.compare .meh {
+  color: #f0a868;
+}
+
+.compare-head-us {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ---------- CTA band ---------- */
+.cta-band {
+  position: relative;
+  margin-block: 30px;
+  padding: 64px 40px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-1);
+  text-align: center;
+  overflow: hidden;
+}
+
+.cta-band h2 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+}
+
+.cta-band p {
+  color: var(--text-dim);
+  margin: 16px auto 30px;
+  max-width: 520px;
+  font-size: 1.08rem;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 940px) {
+  .split {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .split.reverse .split-media {
+    order: 0;
+  }
+  .mock {
+    transform: none;
+  }
+  .grid-3,
+  .steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+  .section {
+    padding-block: 64px;
+  }
+}

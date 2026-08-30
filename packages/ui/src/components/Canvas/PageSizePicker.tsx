@@ -1,5 +1,6 @@
 import React from 'react'
 import { PAGE_SIZE_PRESETS, type PageSize } from '@template-goblin/types'
+import { OrientationToggle, swapDimensions } from './OrientationToggle.js'
 
 /**
  * Per-field validation of the custom Width / Height inputs (#112).
@@ -15,16 +16,63 @@ export interface CustomDimValidation {
   hasError: boolean
 }
 
-export function validateCustomDims(width: number, height: number): CustomDimValidation {
+export function validateCustomDims(
+  width: number | string | '',
+  height: number | string | '',
+): CustomDimValidation {
   const widthError = checkOne(width, 'Width')
   const heightError = checkOne(height, 'Height')
   return { widthError, heightError, hasError: !!(widthError || heightError) }
 }
 
-function checkOne(value: number, label: string): string | null {
-  if (!Number.isFinite(value)) return `${label} must be a number.`
-  if (value < 1) return `${label} must be at least 1 pt.`
+function checkOne(value: number | string | '', label: string): string | null {
+  if (value === '' || value === null || value === undefined) return `${label} is required.`
+  const num = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(num)) return `${label} must be a number.`
+  if (num < 1) return `${label} must be at least 1 pt.`
   return null
+}
+
+/** A page size that equals a named preset, possibly rotated to landscape. */
+export interface PresetMatch {
+  name: Exclude<PageSize, 'custom'>
+  landscape: boolean
+}
+
+/**
+ * Identify whether `width × height` equals a known preset in either
+ * orientation (#118). Portrait presets in `PAGE_SIZE_PRESETS` also match
+ * their rotated (landscape) dimensions. Returns `null` for genuine custom
+ * sizes.
+ */
+export function matchPreset(
+  width: number | string | '',
+  height: number | string | '',
+): PresetMatch | null {
+  const w = typeof width === 'number' ? width : Number(width)
+  const h = typeof height === 'number' ? height : Number(height)
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w < 1 || h < 1) return null
+  for (const name of Object.keys(PAGE_SIZE_PRESETS) as Exclude<PageSize, 'custom'>[]) {
+    const dims = PAGE_SIZE_PRESETS[name]
+    if (dims.width === w && dims.height === h) return { name, landscape: false }
+    if (dims.width === h && dims.height === w) return { name, landscape: true }
+  }
+  return null
+}
+
+/**
+ * Human-readable hint for a preset match — e.g. `"Same as A4"` or
+ * `"Same as A4 (landscape)"`. `null` when the dimensions are genuinely
+ * custom. Used to reassure users that the pre-filled custom defaults
+ * (595 × 842) are in fact A4.
+ */
+export function presetMatchLabel(
+  width: number | string | '',
+  height: number | string | '',
+): string | null {
+  const match = matchPreset(width, height)
+  if (!match) return null
+  return `Same as ${match.name}${match.landscape ? ' (landscape)' : ''}`
 }
 
 /**
@@ -36,15 +84,15 @@ function checkOne(value: number, label: string): string | null {
  * The component is fully controlled — callers own the `value` and the
  * custom-width/height inputs so the picker has no internal state.
  */
-export type PageSizeChoice = 'previous' | 'match' | PageSize
+export type PageSizeChoice = 'previous' | 'match' | PageSize | 'A4-Landscape' | 'Letter-Landscape'
 
 export interface PageSizePickerProps {
   value: PageSizeChoice
   onChange: (next: PageSizeChoice) => void
-  customWidth: number
-  customHeight: number
-  setCustomWidth: (v: number) => void
-  setCustomHeight: (v: number) => void
+  customWidth: number | ''
+  customHeight: number | ''
+  setCustomWidth: (v: number | '') => void
+  setCustomHeight: (v: number | '') => void
   previousSize?: { width: number; height: number }
   /**
    * Wording for the `previousSize` radio. Defaults to "Same as previous"
@@ -75,15 +123,38 @@ export function PageSizePicker({
   matchImage,
 }: PageSizePickerProps) {
   const { widthError, heightError } = validateCustomDims(customWidth, customHeight)
-  const presets: { key: PageSize; label: string }[] = [
+  // #118 — reassure the user that the pre-filled custom defaults map to a
+  // known preset (e.g. 595 × 842 = A4) so the numbers aren't a mystery.
+  const customMatch = presetMatchLabel(customWidth, customHeight)
+  const resolved = resolveChoice(value, customWidth, customHeight, previousSize, matchImage)
+
+  const handleSwapOrientation = () => {
+    const swapped = swapDimensions(resolved.width, resolved.height)
+    setCustomWidth(swapped.width)
+    setCustomHeight(swapped.height)
+
+    if (value === 'A4') onChange('A4-Landscape')
+    else if (value === 'Letter') onChange('Letter-Landscape')
+    else if (value === 'A4-Landscape') onChange('A4')
+    else if (value === 'Letter-Landscape') onChange('Letter')
+    else onChange('custom')
+  }
+
+  const presets: { key: PageSizeChoice; label: string }[] = [
     { key: 'A4', label: 'A4 (595 × 842 pt)' },
-    { key: 'A3', label: 'A3 (842 × 1191 pt)' },
-    { key: 'A5', label: 'A5 (420 × 595 pt)' },
+    { key: 'A4-Landscape', label: 'A4 Landscape (842 × 595 pt)' },
     { key: 'Letter', label: 'Letter (612 × 792 pt)' },
-    { key: 'Legal', label: 'Legal (612 × 1008 pt)' },
+    { key: 'Letter-Landscape', label: 'Letter Landscape (792 × 612 pt)' },
   ]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ marginBottom: 8 }}>
+        <OrientationToggle
+          width={resolved.width}
+          height={resolved.height}
+          onSwap={handleSwapOrientation}
+        />
+      </div>
       {matchImage && (
         <Radio
           checked={value === 'match'}
@@ -117,83 +188,95 @@ export function PageSizePicker({
       <div style={{ minHeight: 60, marginTop: 8 }}>
         <div
           style={{
-            display: 'flex',
-            gap: 12,
             visibility: value === 'custom' ? 'visible' : 'hidden',
             pointerEvents: value === 'custom' ? 'auto' : 'none',
           }}
           aria-hidden={value !== 'custom'}
         >
-          <div style={{ flex: 1 }}>
-            <label
-              style={{
-                fontSize: 12,
-                color: 'var(--text-secondary)',
-                display: 'block',
-                marginBottom: 4,
-              }}
-            >
-              Width (pt)
-            </label>
-            <input
-              className="tg-input"
-              type="number"
-              min={1}
-              value={customWidth}
-              onChange={(e) => setCustomWidth(Number(e.target.value))}
-              tabIndex={value === 'custom' ? 0 : -1}
-              aria-invalid={value === 'custom' && !!widthError}
-              aria-describedby={
-                value === 'custom' && widthError ? 'page-size-width-error' : undefined
-              }
-              data-testid="page-size-custom-width"
-            />
-            {value === 'custom' && widthError && (
-              <div
-                id="page-size-width-error"
-                data-testid="page-size-width-error"
-                role="alert"
-                style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-secondary)',
+                  display: 'block',
+                  marginBottom: 4,
+                }}
               >
-                {widthError}
-              </div>
-            )}
-          </div>
-          <div style={{ flex: 1 }}>
-            <label
-              style={{
-                fontSize: 12,
-                color: 'var(--text-secondary)',
-                display: 'block',
-                marginBottom: 4,
-              }}
-            >
-              Height (pt)
-            </label>
-            <input
-              className="tg-input"
-              type="number"
-              min={1}
-              value={customHeight}
-              onChange={(e) => setCustomHeight(Number(e.target.value))}
-              tabIndex={value === 'custom' ? 0 : -1}
-              aria-invalid={value === 'custom' && !!heightError}
-              aria-describedby={
-                value === 'custom' && heightError ? 'page-size-height-error' : undefined
-              }
-              data-testid="page-size-custom-height"
-            />
-            {value === 'custom' && heightError && (
-              <div
-                id="page-size-height-error"
-                data-testid="page-size-height-error"
-                role="alert"
-                style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+                Width (pt)
+              </label>
+              <input
+                className="tg-input"
+                type="number"
+                min={1}
+                value={customWidth}
+                onChange={(e) =>
+                  setCustomWidth(e.target.value === '' ? '' : Number(e.target.value))
+                }
+                tabIndex={value === 'custom' ? 0 : -1}
+                aria-invalid={value === 'custom' && !!widthError}
+                aria-describedby={
+                  value === 'custom' && widthError ? 'page-size-width-error' : undefined
+                }
+                data-testid="page-size-custom-width"
+              />
+              {value === 'custom' && widthError && (
+                <div
+                  id="page-size-width-error"
+                  data-testid="page-size-width-error"
+                  role="alert"
+                  style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+                >
+                  {widthError}
+                </div>
+              )}
+            </div>
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-secondary)',
+                  display: 'block',
+                  marginBottom: 4,
+                }}
               >
-                {heightError}
-              </div>
-            )}
+                Height (pt)
+              </label>
+              <input
+                className="tg-input"
+                type="number"
+                min={1}
+                value={customHeight}
+                onChange={(e) =>
+                  setCustomHeight(e.target.value === '' ? '' : Number(e.target.value))
+                }
+                tabIndex={value === 'custom' ? 0 : -1}
+                aria-invalid={value === 'custom' && !!heightError}
+                aria-describedby={
+                  value === 'custom' && heightError ? 'page-size-height-error' : undefined
+                }
+                data-testid="page-size-custom-height"
+              />
+              {value === 'custom' && heightError && (
+                <div
+                  id="page-size-height-error"
+                  data-testid="page-size-height-error"
+                  role="alert"
+                  style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}
+                >
+                  {heightError}
+                </div>
+              )}
+            </div>
           </div>
+          {customMatch && (
+            <div
+              data-testid="page-size-preset-match"
+              style={{ fontSize: 11, color: 'var(--text-primary)', marginTop: 6 }}
+            >
+              {customMatch}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -208,11 +291,14 @@ export function PageSizePicker({
  */
 export function resolveChoice(
   choice: PageSizeChoice,
-  customWidth: number,
-  customHeight: number,
+  customWidth: number | '',
+  customHeight: number | '',
   previousSize?: { width: number; height: number },
   matchImage?: { width: number; height: number },
 ): { pageSize: PageSize; width: number; height: number } {
+  if (choice === 'A4-Landscape') return { pageSize: 'custom', width: 842, height: 595 }
+  if (choice === 'Letter-Landscape') return { pageSize: 'custom', width: 792, height: 612 }
+
   if (choice === 'match' && matchImage) {
     return { pageSize: 'custom', width: matchImage.width, height: matchImage.height }
   }
@@ -220,14 +306,20 @@ export function resolveChoice(
     return { pageSize: 'custom', width: previousSize.width, height: previousSize.height }
   }
   if (choice === 'custom') {
-    return { pageSize: 'custom', width: customWidth, height: customHeight }
+    const w = typeof customWidth === 'number' ? customWidth : Number(customWidth)
+    const h = typeof customHeight === 'number' ? customHeight : Number(customHeight)
+    return {
+      pageSize: 'custom',
+      width: Number.isFinite(w) && w > 0 ? w : 0,
+      height: Number.isFinite(h) && h > 0 ? h : 0,
+    }
   }
   if (choice === 'match' || choice === 'previous') {
     // Fallback: no previous size supplied. Treat as A4.
     return { pageSize: 'A4', ...PAGE_SIZE_PRESETS.A4 }
   }
-  const preset = PAGE_SIZE_PRESETS[choice]
-  return { pageSize: choice, width: preset.width, height: preset.height }
+  const preset = PAGE_SIZE_PRESETS[choice as Exclude<PageSize, 'custom'>]
+  return { pageSize: choice as PageSize, width: preset.width, height: preset.height }
 }
 
 function Radio({

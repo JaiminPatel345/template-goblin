@@ -9,7 +9,6 @@
 import { getPageSize } from '@template-goblin/types'
 import { FieldCreationPopup } from './FieldCreationPopup.js'
 import { FloatingSelectionToolbar } from './FloatingSelectionToolbar.js'
-import { OnboardingPicker } from './OnboardingPicker.js'
 import { AddPageDialog } from './AddPageDialog.js'
 import { PageBar } from './PageBar.js'
 import { useCanvasModel } from './useCanvasModel.js'
@@ -21,10 +20,6 @@ export function CanvasArea() {
     currentPageId,
     activeTool,
     isPlacing,
-    backgroundDataUrl,
-    page0HasConcreteBg,
-    setPage0BackgroundColor,
-    setCurrentPage,
     pageHandlers,
     fabricInstance,
     setCanvasEl,
@@ -33,39 +28,16 @@ export function CanvasArea() {
 
   // The "previous" page size pre-fill for the add / edit dialogs: whichever
   // sheet the user is looking at, falling back to the highest-indexed page,
-  // then template meta (legacy onboarding).
+  // then template meta.
   const previousPageSize = () => {
     const cur = pages.find((p) => p.id === currentPageId)
     const last = [...pages].sort((a, b) => b.index - a.index)[0]
     return getPageSize(cur ?? last ?? null, meta)
   }
 
-  // ── Empty state: no background chosen ──────────────────────────────────
-  // A template with an image `pages[0]` and no legacy `backgroundDataUrl`
-  // (e.g. after closing the legacy tab in a 2-page template — GH #23) must
-  // NOT be mis-classified as onboarding, hence the `page0HasConcreteBg` check.
-  if (!backgroundDataUrl && !page0HasConcreteBg) {
-    return (
-      <OnboardingPicker
-        isDragOver={pageHandlers.isDragOver}
-        onDrop={pageHandlers.handleDrop}
-        onDragOver={pageHandlers.handleDragOver}
-        onDragLeave={pageHandlers.handleDragLeave}
-        onChooseImage={() => pageHandlers.fileInputRef.current?.click()}
-        onChooseColor={(hex, size) => {
-          // Reset currentPageId to null so stale persisted ids don't prevent
-          // useCurrentBackground from resolving the newly created page 0.
-          setCurrentPage(null)
-          setPage0BackgroundColor(hex, size)
-        }}
-        fileInputRef={pageHandlers.fileInputRef}
-        onFileChange={pageHandlers.handleInputChange}
-        setContainerRef={setContainerRef}
-      />
-    )
-  }
+  const curPage = pages.find((p) => p.id === currentPageId) ?? pages[0]
+  const currentPageIndex = curPage ? curPage.index : 0
 
-  // ── Canvas state: background set ──────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
       <div
@@ -137,6 +109,7 @@ export function CanvasArea() {
           onClose={() => pageHandlers.setShowAddPageDialog(false)}
           onAdd={pageHandlers.handleAddPage}
           previousSize={previousPageSize()}
+          pageIndex={currentPageIndex}
         />
       )}
 
@@ -146,6 +119,7 @@ export function CanvasArea() {
           onClose={() => pageHandlers.setShowChangeBgDialog(false)}
           onAdd={pageHandlers.handleChangeBackground}
           previousSize={previousPageSize()}
+          pageIndex={currentPageIndex}
         />
       )}
 

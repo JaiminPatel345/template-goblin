@@ -1,8 +1,9 @@
 {
   "name": "template-goblin-ui",
-  "version": "2.6.0",
+  "version": "0.6.0",
   "description": "Visual template builder for TemplateGoblin — design PDF templates with drag-and-drop",
   "type": "module",
+  "license": "GPL-3.0",
   "bin": {
     "template-goblin-ui": "./bin/cli.js"
   },

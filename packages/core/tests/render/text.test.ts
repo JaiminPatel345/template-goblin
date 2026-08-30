@@ -344,4 +344,62 @@ describe('Text taller than its box is capped to fit and vertically aligned', () 
     expect(top).toBeLessThan(middle)
     expect(middle).toBeLessThan(bottom)
   })
+
+  it('does not render any text if the box is too small to fit even one line', () => {
+    const doc = createDoc()
+    const textSpy = jest.spyOn(doc, 'text')
+    const field = createTextField({
+      fontSize: 60,
+      lineHeight: 1.2,
+      maxRows: 2,
+      overflowMode: 'truncate',
+    })
+    ;(field as FieldDefinition).height = 50 // 72pt line height > 50pt box height
+    renderText(doc, field, 'Hello World', new Map())
+    expect(textSpy).not.toHaveBeenCalled()
+    doc.end()
+  })
+})
+
+describe('Text trimming behavior (issue #20)', () => {
+  it('trims leading and trailing whitespace when trim is true or undefined', () => {
+    const doc = createDoc()
+    const textSpy = jest.spyOn(doc, 'text')
+
+    const fieldTrimTrue = createTextField({ trim: true })
+    renderText(doc, fieldTrimTrue, '   Hello World   ', new Map())
+    expect(textSpy).toHaveBeenLastCalledWith(
+      'Hello World',
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Object),
+    )
+
+    const fieldTrimUndefined = createTextField({ trim: undefined })
+    renderText(doc, fieldTrimUndefined, '   Hello World   ', new Map())
+    expect(textSpy).toHaveBeenLastCalledWith(
+      'Hello World',
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Object),
+    )
+
+    doc.end()
+  })
+
+  it('preserves leading and trailing whitespace when trim is false', () => {
+    const doc = createDoc()
+    const textSpy = jest.spyOn(doc, 'text')
+
+    const fieldTrimFalse = createTextField({ trim: false })
+    renderText(doc, fieldTrimFalse, '   Hello World   ', new Map())
+    expect(textSpy).toHaveBeenLastCalledWith(
+      '   Hello World   ',
+      expect.any(Number),
+      expect.any(Number),
+      expect.any(Object),
+    )
+
+    doc.end()
+  })
 })

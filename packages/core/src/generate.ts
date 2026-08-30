@@ -69,6 +69,8 @@ export async function generatePDF(
   const { manifest, backgroundImage, pageBackgrounds } = template
   const { meta } = manifest
   const pages = manifest.pages && manifest.pages.length > 0 ? manifest.pages : null
+  const sortedPages = pages ? [...pages].sort((a, b) => a.index - b.index) : []
+  const firstPageSize = getPageSize(sortedPages[0], meta)
 
   const firstPageSize =
     pages && pages[0] ? getPageSize(pages[0], meta) : { width: meta.width, height: meta.height }
@@ -113,7 +115,6 @@ export async function generatePDF(
         fieldsByPage.get(key)?.push(field)
       }
 
-      const sortedPages = [...pages].sort((a, b) => a.index - b.index)
       let previousBackground: Buffer | null = backgroundImage
 
       for (let i = 0; i < sortedPages.length; i++) {

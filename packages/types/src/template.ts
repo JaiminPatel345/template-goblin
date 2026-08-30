@@ -49,10 +49,39 @@ export interface FontDefinition {
 }
 
 /** Group definition for organizing fields */
-export interface GroupDefinition {
+export interface LegacyGroupDefinition {
   id: string
   name: string
+  type?: undefined
+  style?: undefined
 }
+
+export interface TextGroupDefinition {
+  id: string
+  name: string
+  type: 'text'
+  style: TextFieldStyle
+}
+
+export interface ImageGroupDefinition {
+  id: string
+  name: string
+  type: 'image'
+  style: ImageFieldStyle
+}
+
+export interface TableGroupDefinition {
+  id: string
+  name: string
+  type: 'table'
+  style: TableFieldStyle
+}
+
+export type GroupDefinition =
+  | LegacyGroupDefinition
+  | TextGroupDefinition
+  | ImageGroupDefinition
+  | TableGroupDefinition
 
 /**
  * Shared cell style used by header, row, odd/even rows, and per-column overrides
@@ -115,6 +144,11 @@ export interface TextFieldStyle {
   maxRows: number
   overflowMode: OverflowMode
   snapToGrid: boolean
+  /**
+   * Strip leading and trailing whitespace before rendering text. Defaults to
+   * `true` when `undefined` for backwards-compatibility (#20).
+   */
+  trim?: boolean
 }
 
 /**

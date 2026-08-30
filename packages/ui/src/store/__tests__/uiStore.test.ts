@@ -8,7 +8,7 @@ function resetStore(): void {
   useUiStore.setState({
     selectedFieldIds: [],
     activeTool: 'select',
-    showGrid: true,
+    showGrid: false,
     gridSize: 5,
     zoom: 1.0,
     showPreview: false,
