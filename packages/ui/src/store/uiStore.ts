@@ -6,7 +6,11 @@ import type { ActiveTool, Theme, UiState } from './uiStore.types.js'
 export type { ActiveTool, Theme, UiState }
 
 function getSystemTheme(): Theme {
-  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  ) {
     return 'dark'
   }
   return 'light'
@@ -18,7 +22,7 @@ export const useUiStore = create<UiState>()(
       theme: getSystemTheme(),
       selectedFieldIds: [],
       activeTool: 'select',
-      showGrid: true,
+      showGrid: false,
       gridSize: 5,
       zoom: 1.0,
       showPreview: false,
@@ -28,7 +32,7 @@ export const useUiStore = create<UiState>()(
       showPageSizeDialog: false,
       showChangeBgDialog: false,
       showFontManager: false,
-      activeMenuTab: 'insert' as const,
+      activeMenuTab: 'file' as const,
       ribbonCollapsed: false,
       pageLayoutMenu: { kind: 'closed' },
       pageLayoutSettings: null,
@@ -79,15 +83,17 @@ export const useUiStore = create<UiState>()(
       setShowFontManager: (show) => set({ showFontManager: show }),
       setActiveMenuTab: (tab) =>
         set((s) => {
-          // QA BUG-16: clicking the already-active tab collapses the
-          // ribbon (Office Online convention). Clicking a different tab
-          // re-expands.
-          if (s.activeMenuTab === tab) {
-            return { ribbonCollapsed: !s.ribbonCollapsed }
-          }
-          return { activeMenuTab: tab, ribbonCollapsed: false }
+          const nextTab = s.activeMenuTab === tab ? null : tab
+          return { activeMenuTab: nextTab, ribbonCollapsed: nextTab === null }
         }),
-      setRibbonCollapsed: (ribbonCollapsed) => set({ ribbonCollapsed }),
+      setRibbonCollapsed: (ribbonCollapsed) =>
+        set((s) => {
+          if (ribbonCollapsed) {
+            return { activeMenuTab: null, ribbonCollapsed: true }
+          }
+          const nextTab = s.activeMenuTab ?? 'file'
+          return { activeMenuTab: nextTab, ribbonCollapsed: false }
+        }),
       setPageLayoutMenu: (next) => set({ pageLayoutMenu: next }),
       setPageLayoutSettings: (target) =>
         set((state) => ({

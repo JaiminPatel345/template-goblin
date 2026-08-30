@@ -55,24 +55,42 @@ export function renderText(
   let fontSize = style.fontSize
   let lines: string[]
 
+  const lineHeightFactor = style.lineHeight > 0 ? style.lineHeight : 1.2
+  const maxStyleRows = typeof style.maxRows === 'number' && style.maxRows > 0 ? style.maxRows : 3
+
   if (style.overflowMode === 'dynamic_font') {
     // GH #91: shrink `fontSize` to `fontSizeMin` until the text fits.
     // If it still doesn't fit at min, fall through to a character-
     // boundary truncation (no ellipsis — that was the pre-#91 behaviour
     // the user explicitly didn't want).
-    const result = fitTextDynamic(doc, value, fontSize, style.fontSizeMin, width, style.maxRows)
+    const result = fitTextDynamic(
+      doc,
+      value,
+      fontSize,
+      style.fontSizeMin,
+      width,
+      maxStyleRows,
+      height,
+      lineHeightFactor,
+    )
     fontSize = result.fontSize
     lines = result.lines
     if (!result.fits) {
       doc.fontSize(fontSize)
-      lines = truncateLines(doc, lines, style.maxRows, width)
+      const lineHeightPt = fontSize * lineHeightFactor
+      const maxLinesByBox = Math.floor(height / lineHeightPt)
+      const effectiveMaxRows = Math.min(maxStyleRows, Math.max(0, maxLinesByBox))
+      lines = truncateLines(doc, lines, effectiveMaxRows, width)
     }
   } else {
     // GH #91: 'truncate' mode — fixed `fontSize`, cut characters from the
     // end at a character boundary until the content fits.
     doc.fontSize(fontSize)
-    const result = measureText(doc, value, fontSize, width, style.maxRows)
-    lines = result.fits ? result.lines : truncateLines(doc, result.lines, style.maxRows, width)
+    const lineHeightPt = fontSize * lineHeightFactor
+    const maxLinesByBox = Math.floor(height / lineHeightPt)
+    const effectiveMaxRows = Math.min(maxStyleRows, Math.max(0, maxLinesByBox))
+    const result = measureText(doc, value, fontSize, width, effectiveMaxRows)
+    lines = result.fits ? result.lines : truncateLines(doc, result.lines, effectiveMaxRows, width)
   }
 
   // Cap the rendered lines to those that FIT the box height (like the editor
@@ -88,11 +106,11 @@ export function renderText(
   // Guard a malformed `lineHeight` (0 / negative / NaN) — otherwise the cap
   // below divides to Infinity/NaN, no-ops, and the overflow bug returns. The
   // canvas applies the same 1.2 fallback.
-  const lineHeightFactor = style.lineHeight > 0 ? style.lineHeight : 1.2
   const lineHeightPt = fontSize * lineHeightFactor
-  const maxLinesByHeight = Math.max(1, Math.floor(height / lineHeightPt))
-  if (lines.length > maxLinesByHeight) {
-    lines = lines.slice(0, maxLinesByHeight)
+  const maxLinesByHeight = Math.floor(height / lineHeightPt)
+  const effectiveMaxRows = Math.min(maxStyleRows, Math.max(0, maxLinesByHeight))
+  if (lines.length > effectiveMaxRows) {
+    lines = lines.slice(0, effectiveMaxRows)
   }
 
   // Font ascent (the y we pass to `doc.text` is the line top; PDFKit places
@@ -167,13 +185,19 @@ function fitTextDynamic(
   startFontSize: number,
   minFontSize: number,
   maxWidth: number,
-  maxRows: number,
+  maxStyleRows: number,
+  height: number,
+  lineHeightFactor: number,
 ): { lines: string[]; fits: boolean; fontSize: number } {
   let fontSize = startFontSize
 
   while (fontSize >= minFontSize) {
     doc.fontSize(fontSize)
-    const result = measureText(doc, text, fontSize, maxWidth, maxRows)
+    const lineHeightPt = fontSize * lineHeightFactor
+    const maxLinesByBox = Math.floor(height / lineHeightPt)
+    const effectiveMaxRows = Math.min(maxStyleRows, Math.max(0, maxLinesByBox))
+
+    const result = measureText(doc, text, fontSize, maxWidth, effectiveMaxRows)
     if (result.fits) {
       return { lines: result.lines, fits: true, fontSize }
     }
@@ -183,6 +207,9 @@ function fitTextDynamic(
   // At minimum font size, return what we have (caller will truncate)
   fontSize = minFontSize
   doc.fontSize(fontSize)
-  const result = measureText(doc, text, fontSize, maxWidth, maxRows)
+  const lineHeightPt = fontSize * lineHeightFactor
+  const maxLinesByBox = Math.floor(height / lineHeightPt)
+  const effectiveMaxRows = Math.min(maxStyleRows, Math.max(0, maxLinesByBox))
+  const result = measureText(doc, text, fontSize, maxWidth, effectiveMaxRows)
   return { lines: result.lines, fits: result.fits, fontSize }
 }

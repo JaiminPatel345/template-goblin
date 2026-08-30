@@ -1,0 +1,113 @@
+/* Design tokens + reset + base typography.
+   Clean, professional LIGHT theme. A solid teal brand drives all real UI
+   (buttons, links, accents). The teal→violet gradient is reserved for a
+   couple of text accents (`.grad-text`) and the logo mark — never buttons,
+   never surfaces. */
+
+:root {
+  /* Surfaces — off-white page, white cards for subtle layering */
+  --bg: #fbfcfd;
+  --bg-1: #f3f5f8;
+  --bg-2: #ffffff;
+  --bg-3: #eceff3;
+  --border: rgba(15, 23, 42, 0.1);
+  --border-strong: rgba(15, 23, 42, 0.16);
+
+  /* Text */
+  --text: #0f1729;
+  --text-dim: #51607a;
+  --text-faint: #8a94a6;
+
+  /* Brand — solid teal for buttons / links / accents */
+  --brand: #0d9488;
+  --brand-strong: #0f766e;
+  --brand-hover: #115e59;
+  --brand-teal: #0d9488;
+  --brand-violet: #6d5cff;
+  --brand-soft: rgba(13, 148, 136, 0.1);
+
+  /* Gradient — ONLY for `.grad-text` accents and the logo mark. */
+  --gradient: linear-gradient(115deg, #0d9488 0%, #14b8a6 45%, #6d5cff 100%);
+
+  /* Shape + rhythm */
+  --radius-sm: 9px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --maxw: 1140px;
+  --nav-h: 64px;
+
+  /* Type */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Space Grotesk', var(--font-sans);
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  /* Elevation — soft, neutral (no coloured glows) */
+  --shadow: 0 12px 30px -16px rgba(15, 23, 42, 0.16);
+  --shadow-glow: 0 1px 0 var(--border), 0 28px 56px -32px rgba(15, 23, 42, 0.28);
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  color: var(--text);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+::selection {
+  background: rgba(13, 148, 136, 0.18);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

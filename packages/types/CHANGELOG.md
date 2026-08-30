@@ -1,6 +1,12 @@
 # @template-goblin/types
 
-## 2.5.0
+## 0.6.0
+
+### Patch Changes
+
+- ae2b7c6: docs: update license to GNU General Public License v3.0 (GPLv3)
+
+## 0.5.2
 
 ### Minor Changes
 
@@ -21,7 +27,7 @@
   - Properties-panel editors re-mount per field, fixing hyperlink drafts leaking across selections (which could silently overwrite or delete a field's link).
   - Footer drag/draw math uses the viewed page's own height; bands with "not on first page" no longer swallow fields drawn on page 1; File→Open resets the page view; the first action after a reload is undoable; image/font uploads are validated up front; JSON-panel table edits no longer stamp fallback strings into sparse placeholders.
 
-## 2.4.1
+## 0.5.1
 
 ### Patch Changes
 
@@ -29,7 +35,7 @@
   every published package — the packages are published and stable. The repo
   README gains an npm version badge in place of the construction notice.
 
-## 2.4.0
+## 0.5.0
 
 ### Minor Changes
 
@@ -48,7 +54,7 @@
     optically centre text (including overflowing text) so the generated PDF
     matches the canvas. Dropped the 6px text inset for true WYSIWYG.
 
-## 2.3.0
+## 0.4.0
 
 ### Minor Changes
 
@@ -86,13 +92,13 @@
 
   Closes #172. Supersedes #33.
 
-## 2.2.0
+## 0.3.0
 
 ### Minor Changes
 
 - a006138: Add README
 
-## 2.1.0
+## 0.2.1
 
 ### Minor Changes
 
@@ -104,7 +110,7 @@
   - **Color picker** — replaced the native `<input type="color">` (which froze the page on some browsers) with an in-page SketchPicker popover via `react-color`.
   - **UI polish** — clearer labels (Header Text Color, Header Row Background, Row Text Color, Row Background, Cell Border, Table Border), themed border on the transparent "Clear / Color" toggle, and a collapsible Columns section in the table properties panel.
 
-## 2.0.0
+## 0.2.0
 
 ### Major Changes
 

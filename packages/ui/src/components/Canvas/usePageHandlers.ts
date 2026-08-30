@@ -1,12 +1,7 @@
-/**
- * usePageHandlers — page management + onboarding file upload, extracted from
- * CanvasArea for separation of concerns. The element-creation popup lives in
- * its own hook (`useFieldCreationPopup`) so this file stays under the
- * 300-line cap (CLAUDE.md Hard Rule #11).
- */
 import { useState, useCallback, useRef } from 'react'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
+import { findDuplicateBackground, readFileAsDataUrlAndBuffer } from '../../utils/imageHash.js'
 import { snapshotSameAsPrevious } from '../../utils/pageSnapshot.js'
 import { type PageDefinition, type PageBackgroundType, type PageSize } from '@template-goblin/types'
 import { useFieldCreationPopup } from './useFieldCreationPopup.js'
@@ -41,9 +36,6 @@ export function usePageHandlers() {
   const { confirm: showConfirm } = useDialogs()
 
   const [showAddPageDialog, setShowAddPageDialog] = useState(false)
-  // The Change Background dialog is global (uiStore) so the Toolbar
-  // button — which lives outside CanvasArea — can open it without prop
-  // drilling through the layout tree.
   const showChangeBgDialog = useUiStore((s) => s.showChangeBgDialog)
   const setShowChangeBgDialog = useUiStore((s) => s.setShowChangeBgDialog)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -116,12 +108,6 @@ export function usePageHandlers() {
     ) => {
       setShowAddPageDialog(false)
       const pageId = generatePageId()
-      // If the user onboarded via image there's a legacy background stored in
-      // `backgroundDataUrl` and NO explicit entry in `pages[]`. The implicit
-      // legacy occupies tab 1 in PageBar — so a newly-added page must take
-      // the NEXT slot (index 1), otherwise it would sit at index 0 and hide
-      // the legacy tab entirely. Clicking ✕ on the shadowed tab used to
-      // trigger the "last page" reset and wipe both pages (GH #23).
       const legacyBg = useTemplateStore.getState().backgroundDataUrl
       const hasLegacyPage0 = legacyBg !== null && !pages.some((p) => p.index === 0)
       const index = pages.length + (hasLegacyPage0 ? 1 : 0)
@@ -156,17 +142,20 @@ export function usePageHandlers() {
       }
 
       if (bgType === 'image' && bgFile) {
-        const reader = new FileReader()
-        reader.onload = () => {
-          const dataUrl = reader.result as string
-          const bufReader = new FileReader()
-          bufReader.onload = () => {
-            addPage(page, dataUrl, bufReader.result as ArrayBuffer)
-            setCurrentPage(pageId)
+        readFileAsDataUrlAndBuffer(bgFile).then(async ({ dataUrl, buffer }) => {
+          const match = await findDuplicateBackground(
+            buffer,
+            pages,
+            pageBackgroundBuffers,
+            pageBackgroundDataUrls,
+          )
+          if (match) {
+            addPage({ ...page, backgroundFilename: match.filename }, match.dataUrl, match.buffer)
+          } else {
+            addPage(page, dataUrl, buffer)
           }
-          bufReader.readAsArrayBuffer(bgFile)
-        }
-        reader.readAsDataURL(bgFile)
+          setCurrentPage(pageId)
+        })
       } else {
         addPage(page)
         setCurrentPage(pageId)
@@ -177,16 +166,6 @@ export function usePageHandlers() {
 
   // ── Change background of the current page (#58) ────────────────────────
 
-  /**
-   * Replace the *current page's* background. Mirrors `handleAddPage`'s
-   * branching on `bgType` but updates the existing page entry instead of
-   * appending a new one. Also updates the legacy `backgroundDataUrl`
-   * fields as a backstop for code paths that still consult them.
-   *
-   * Pre-#58 the BG button hit `setBackground` which writes only the legacy
-   * fields, so multi-page templates (where the canvas reads from
-   * `pageBackgroundDataUrls`) saw no change at all.
-   */
   const handleChangeBackground = useCallback(
     (
       bgType: PageBackgroundType,
@@ -226,37 +205,40 @@ export function usePageHandlers() {
       }
 
       if (bgType === 'image' && bgFile) {
-        const reader = new FileReader()
-        reader.onload = () => {
-          const dataUrl = reader.result as string
-          const bufReader = new FileReader()
-          bufReader.onload = () => {
+        readFileAsDataUrlAndBuffer(bgFile).then(async ({ dataUrl, buffer }) => {
+          const match = await findDuplicateBackground(
+            buffer,
+            allPages,
+            pageBackgroundBuffers,
+            pageBackgroundDataUrls,
+          )
+          if (match) {
+            updatePage(targetId, {
+              backgroundType: 'image',
+              backgroundColor: null,
+              backgroundFilename: match.filename,
+              ...sized,
+            })
+            setPageBackground(targetId, match.dataUrl, match.buffer)
+            setBackground(match.dataUrl, match.buffer)
+          } else {
             updatePage(targetId, {
               backgroundType: 'image',
               backgroundColor: null,
               backgroundFilename: `backgrounds/${targetId}.png`,
               ...sized,
             })
-            setPageBackground(targetId, dataUrl, bufReader.result as ArrayBuffer)
-            // Backstop: pre-pages-schema saved templates (and the single-page
-            // legacy preview path) still consult `backgroundDataUrl`. Keep
-            // it in sync so neither path renders a stale image.
-            setBackground(dataUrl, bufReader.result as ArrayBuffer)
+            setPageBackground(targetId, dataUrl, buffer)
+            setBackground(dataUrl, buffer)
           }
-          bufReader.readAsArrayBuffer(bgFile)
-        }
-        reader.readAsDataURL(bgFile)
+        })
       }
     },
     [currentPageId, updatePage, setPageBackground, setBackground],
   )
 
-  // ── Remove page ────────────────────────────────────────────────────────
-
   const handleRemovePage = useCallback(
     async (pageId: string | null) => {
-      // Mirror what PageBar renders: every explicit page gets a tab, plus
-      // one implicit tab when no explicit page sits at index 0.
       const page0IsExplicit = pages.some((p) => p.index === 0)
       const visiblePageCount = pages.length + (page0IsExplicit ? 0 : 1)
 
@@ -298,11 +280,6 @@ export function usePageHandlers() {
       }
 
       removePage(pageId)
-      // After the reducer runs, land on whichever page ended up at index 0
-      // instead of dropping back to null. Leaving `currentPageId` null when
-      // explicit pages remain is what caused GH #23 — the canvas
-      // background-resolver had no page to look at and rendered blank,
-      // making it look like the remaining page had also been closed.
       const nextPages = useTemplateStore.getState().pages
       const nextFirst = [...nextPages].sort((a, b) => a.index - b.index)[0]
       setCurrentPage(nextFirst?.id ?? null)

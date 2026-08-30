@@ -344,4 +344,19 @@ describe('Text taller than its box is capped to fit and vertically aligned', () 
     expect(top).toBeLessThan(middle)
     expect(middle).toBeLessThan(bottom)
   })
+
+  it('does not render any text if the box is too small to fit even one line', () => {
+    const doc = createDoc()
+    const textSpy = jest.spyOn(doc, 'text')
+    const field = createTextField({
+      fontSize: 60,
+      lineHeight: 1.2,
+      maxRows: 2,
+      overflowMode: 'truncate',
+    })
+    ;(field as FieldDefinition).height = 50 // 72pt line height > 50pt box height
+    renderText(doc, field, 'Hello World', new Map())
+    expect(textSpy).not.toHaveBeenCalled()
+    doc.end()
+  })
 })

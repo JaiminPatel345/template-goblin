@@ -166,6 +166,7 @@ describe('GH #23 — closing the middle of three pages', () => {
 describe('GH #23 — legacy-image onboarding + added page does not shadow', () => {
   it('adding a page after legacy image keeps the legacy page reachable', () => {
     // Seed a legacy image background (what PageSizeDialog sets up).
+    useTemplateStore.setState({ pages: [] })
     state().setBackground('data:image/png;base64,LEGACY', makeBuffer(0x55))
     expect(state().backgroundDataUrl).not.toBeNull()
     expect(state().pages).toHaveLength(0)
@@ -185,6 +186,7 @@ describe('GH #23 — legacy-image onboarding + added page does not shadow', () =
   })
 
   it('closing the legacy page after an added index-1 page leaves the added page intact', () => {
+    useTemplateStore.setState({ pages: [] })
     state().setBackground('data:image/png;base64,LEGACY', makeBuffer(0x55))
     addPageWithBg('added', 1, 'image', 0x44)
 
@@ -203,11 +205,12 @@ describe('GH #23 — legacy-image onboarding + added page does not shadow', () =
   })
 
   it('closing the added page (index 1) after legacy image leaves the legacy reachable', () => {
+    useTemplateStore.setState({ pages: [] })
     state().setBackground('data:image/png;base64,LEGACY', makeBuffer(0x55))
     addPageWithBg('added', 1, 'image', 0x44)
 
     state().removePage('added')
-    expect(state().pages).toHaveLength(0)
+    expect(state().pages).toHaveLength(1)
     // Legacy bg still there — implicit page 1 covers it.
     expect(state().backgroundDataUrl).not.toBeNull()
     expect(state().backgroundBuffer).not.toBeNull()

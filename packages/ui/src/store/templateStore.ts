@@ -116,6 +116,7 @@ export interface TemplateState {
   addGroup: (group: GroupDefinition) => void
   removeGroup: (id: string) => void
   updateGroup: (id: string, name: string) => void
+  updateGroupStyle: (id: string, updates: Partial<unknown>) => void
 
   addFont: (font: FontDefinition, buffer: ArrayBuffer) => void
   removeFont: (id: string) => void
@@ -338,6 +339,17 @@ const defaultMeta: TemplateMeta = {
   updatedAt: new Date().toISOString(),
 }
 
+export const defaultPage0: PageDefinition = {
+  id: 'page-0-default',
+  index: 0,
+  backgroundType: 'color',
+  backgroundColor: '#ffffff',
+  backgroundFilename: null,
+  width: 595,
+  height: 842,
+  pageSize: 'A4',
+}
+
 let fieldCounter = 0
 
 /**
@@ -556,7 +568,7 @@ export const useTemplateStore = create<TemplateState>()(
       fields: [],
       fonts: [],
       groups: [],
-      pages: [],
+      pages: [defaultPage0],
       backgroundDataUrl: null,
       backgroundBuffer: null,
       pageBackgroundDataUrls: new Map(),
@@ -872,6 +884,16 @@ export const useTemplateStore = create<TemplateState>()(
 
       updateField: (id, updates) =>
         set((state) => {
+          const finalUpdates = { ...updates }
+          if (finalUpdates.groupId !== undefined && finalUpdates.groupId !== null) {
+            const group = state.groups.find(
+              (g) => g.id === finalUpdates.groupId,
+            ) as unknown as GroupDefinition
+            if (group && 'style' in group) {
+              finalUpdates.style = group.style
+            }
+          }
+
           // #61 — route to whichever pool owns this id (body / header / footer).
           // Field-props components (TextFieldProps etc.) only know `updateField`;
           // making the router transparent means they keep working for band fields
@@ -880,7 +902,7 @@ export const useTemplateStore = create<TemplateState>()(
             const header = {
               ...state.header,
               fields: state.header.fields.map((f) =>
-                f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+                f.id === id ? ({ ...f, ...finalUpdates } as FieldDefinition) : f,
               ),
             }
             return { header, ...pushHistory({ ...state, header }) }
@@ -889,7 +911,7 @@ export const useTemplateStore = create<TemplateState>()(
             const footer = {
               ...state.footer,
               fields: state.footer.fields.map((f) =>
-                f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+                f.id === id ? ({ ...f, ...finalUpdates } as FieldDefinition) : f,
               ),
             }
             return { footer, ...pushHistory({ ...state, footer }) }
@@ -903,36 +925,76 @@ export const useTemplateStore = create<TemplateState>()(
           // shape). See templateStore.discriminator.test.ts for the pinned
           // behaviour.
           const fields = state.fields.map((f) =>
-            f.id === id ? ({ ...f, ...updates } as FieldDefinition) : f,
+            f.id === id ? ({ ...f, ...finalUpdates } as FieldDefinition) : f,
           )
           return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
         }),
 
       updateFieldStyle: (id, updates) =>
         set((state) => {
-          // #61 — route through the band pool when the field lives there.
-          if (state.header?.fields.some((f) => f.id === id)) {
-            const header = {
-              ...state.header,
-              fields: state.header.fields.map((f) =>
-                f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
-              ),
+          const field =
+            state.fields.find((f) => f.id === id) ||
+            state.header?.fields.find((f) => f.id === id) ||
+            state.footer?.fields.find((f) => f.id === id)
+          if (!field) return state
+
+          let nextGroups = state.groups
+          let finalStyle = { ...field.style, ...updates }
+          const targetGroupId = field.groupId
+
+          if (targetGroupId) {
+            const group = state.groups.find(
+              (g) => g.id === targetGroupId,
+            ) as unknown as GroupDefinition
+            if (group && 'style' in group) {
+              finalStyle = {
+                ...(group.style as unknown as TextFieldStyle | ImageFieldStyle | TableFieldStyle),
+                ...updates,
+              } as unknown as TextFieldStyle | ImageFieldStyle | TableFieldStyle
+              nextGroups = state.groups.map((g) =>
+                g.id === targetGroupId
+                  ? ({ ...g, style: finalStyle } as unknown as GroupDefinition)
+                  : g,
+              )
             }
-            return { header, ...pushHistory({ ...state, header }) }
           }
-          if (state.footer?.fields.some((f) => f.id === id)) {
-            const footer = {
-              ...state.footer,
-              fields: state.footer.fields.map((f) =>
-                f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
-              ),
+
+          const mapField = (f: FieldDefinition) => {
+            if (f.id === id || (targetGroupId && f.groupId === targetGroupId)) {
+              const updatedField = { ...f, style: finalStyle } as FieldDefinition
+              // GH #73: auto-resize static text fields on typography change
+              // We do this centrally so that group updates resize all members.
+              if (updatedField.type === 'text' && updatedField.source?.mode === 'static') {
+                const ts = finalStyle as unknown as {
+                  maxRows?: number
+                  fontSize?: number
+                  lineHeight?: number
+                }
+                const maxRows = ts.maxRows ?? 3
+                const fontSize = ts.fontSize ?? 12
+                const lineHeight = ts.lineHeight ?? 1.2
+                updatedField.height = maxRows * fontSize * lineHeight
+              }
+              return updatedField
             }
-            return { footer, ...pushHistory({ ...state, footer }) }
+            return f
           }
-          const fields = state.fields.map((f) =>
-            f.id === id ? ({ ...f, style: { ...f.style, ...updates } } as FieldDefinition) : f,
-          )
-          return { fields, ...pushHistory({ ...state, fields, groups: state.groups }) }
+
+          const fields = state.fields.map(mapField)
+          const header = state.header
+            ? { ...state.header, fields: state.header.fields.map(mapField) }
+            : state.header
+          const footer = state.footer
+            ? { ...state.footer, fields: state.footer.fields.map(mapField) }
+            : state.footer
+
+          return {
+            groups: nextGroups,
+            fields,
+            header,
+            footer,
+            ...pushHistory({ ...state, groups: nextGroups, fields, header, footer }),
+          }
         }),
 
       setFieldMode: (id, mode) =>
@@ -1153,6 +1215,59 @@ export const useTemplateStore = create<TemplateState>()(
           groups: state.groups.map((g) => (g.id === id ? { ...g, name } : g)),
         })),
 
+      updateGroupStyle: (id, updates) =>
+        set((state) => {
+          const nextGroups = state.groups.map((g) => {
+            if (g.id === id) {
+              const newStyle = { ...(g.style as object), ...updates }
+              return { ...g, style: newStyle } as unknown as GroupDefinition
+            }
+            return g
+          })
+
+          // Update fields belonging to this group
+          const targetGroup = nextGroups.find((g) => g.id === id)
+          if (!targetGroup) return state
+
+          const finalStyle = targetGroup.style
+
+          const mapField = (f: FieldDefinition) => {
+            if (f.groupId === id) {
+              const updatedField = { ...f, style: finalStyle } as FieldDefinition
+              // GH #73: auto-resize static text fields on typography change
+              if (updatedField.type === 'text' && updatedField.source?.mode === 'static') {
+                const ts = finalStyle as unknown as {
+                  maxRows?: number
+                  fontSize?: number
+                  lineHeight?: number
+                }
+                const maxRows = ts.maxRows ?? 3
+                const fontSize = ts.fontSize ?? 12
+                const lineHeight = ts.lineHeight ?? 1.2
+                updatedField.height = maxRows * fontSize * lineHeight
+              }
+              return updatedField
+            }
+            return f
+          }
+
+          const fields = state.fields.map(mapField)
+          const header = state.header
+            ? { ...state.header, fields: state.header.fields.map(mapField) }
+            : state.header
+          const footer = state.footer
+            ? { ...state.footer, fields: state.footer.fields.map(mapField) }
+            : state.footer
+
+          return {
+            groups: nextGroups,
+            fields,
+            header,
+            footer,
+            ...pushHistory({ ...state, groups: nextGroups, fields, header, footer }),
+          }
+        }),
+
       addFont: (font, buffer) =>
         set((state) => {
           const fontBuffers = new Map(state.fontBuffers)
@@ -1206,7 +1321,16 @@ export const useTemplateStore = create<TemplateState>()(
             console.warn('[templateStore.addPage] ignored: missing or invalid page argument', page)
             return {}
           }
-          const pages = [...state.pages, page]
+          const existingIndex = state.pages.findIndex(
+            (p) => p.id === page.id || p.index === page.index,
+          )
+          let pages: PageDefinition[]
+          if (existingIndex >= 0) {
+            pages = [...state.pages]
+            pages[existingIndex] = page
+          } else {
+            pages = [...state.pages, page]
+          }
           const pageBackgroundDataUrls = new Map(state.pageBackgroundDataUrls)
           const pageBackgroundBuffers = new Map(state.pageBackgroundBuffers)
           if (bgDataUrl) pageBackgroundDataUrls.set(page.id, bgDataUrl)
@@ -1226,7 +1350,7 @@ export const useTemplateStore = create<TemplateState>()(
           // Re-index remaining pages
           const reindexed = pages.map((p, i) => ({ ...p, index: i }))
           return {
-            pages: reindexed,
+            pages: reindexed.length > 0 ? reindexed : [defaultPage0],
             fields,
             pageBackgroundDataUrls,
             pageBackgroundBuffers,
@@ -1332,7 +1456,7 @@ export const useTemplateStore = create<TemplateState>()(
           fields: [],
           fonts: [],
           groups: [],
-          pages: [],
+          pages: [defaultPage0],
           backgroundDataUrl: null,
           backgroundBuffer: null,
           pageBackgroundDataUrls: new Map(),
@@ -1377,7 +1501,7 @@ export const useTemplateStore = create<TemplateState>()(
           fields,
           fonts,
           groups,
-          pages: pages ?? [],
+          pages: pages && pages.length > 0 ? pages : [defaultPage0],
           backgroundDataUrl,
           backgroundBuffer,
           pageBackgroundDataUrls: pageBackgroundDataUrls ?? new Map(),

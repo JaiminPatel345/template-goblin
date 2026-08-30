@@ -3,6 +3,7 @@ import { useTemplateStore } from '../../store/templateStore.js'
 import { useUiStore } from '../../store/uiStore.js'
 import type { PageSize } from '@template-goblin/types'
 import { validateCustomDims, presetMatchLabel } from '../Canvas/PageSizePicker.js'
+import { OrientationToggle, swapDimensions } from '../Canvas/OrientationToggle.js'
 
 interface PageSizeOption {
   label: string
@@ -43,6 +44,25 @@ export function PageSizeDialog() {
     { label: 'Letter (612 x 792 pt)', pageSize: 'Letter', width: 612, height: 792 },
     { label: 'Legal (612 x 1008 pt)', pageSize: 'Legal', width: 612, height: 1008 },
   ]
+
+  // Effective dimensions of the current selection — drives the orientation
+  // toggle. Flipping swaps width/height and lands on Custom (a rotated preset
+  // is no longer that named size).
+  const currentDims =
+    selected === 'custom'
+      ? { width: customWidth, height: customHeight }
+      : selected === 'match'
+        ? { width: matchWidth, height: matchHeight }
+        : (presetOptions.find((o) => o.pageSize === selected) ?? {
+            width: customWidth,
+            height: customHeight,
+          })
+  const handleSwapOrientation = () => {
+    const swapped = swapDimensions(currentDims.width, currentDims.height)
+    setCustomWidth(swapped.width)
+    setCustomHeight(swapped.height)
+    setSelected('custom')
+  }
 
   function handleApply() {
     let chosenPageSize: PageSize
@@ -109,6 +129,14 @@ export function PageSizeDialog() {
             checked={selected === 'custom'}
             onChange={() => setSelected('custom')}
             label="Custom"
+          />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <OrientationToggle
+            width={currentDims.width}
+            height={currentDims.height}
+            onSwap={handleSwapOrientation}
           />
         </div>
 
