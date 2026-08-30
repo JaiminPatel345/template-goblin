@@ -90,13 +90,9 @@ test.describe('Page Layout — Resize page (issue #111)', () => {
     const modal = page.locator('[data-testid="resize-page-modal"]')
     await expect(modal).toBeVisible()
 
-    // Pick Custom preset
-    const customRadio = page.locator('[data-testid="resize-preset-custom"]')
-    await customRadio.click()
-
     // Fill width and height
-    const widthInput = page.locator('[data-testid="resize-page-width-input"]')
-    const heightInput = page.locator('[data-testid="resize-page-height-input"]')
+    const widthInput = page.locator('[data-testid="page-size-custom-width"]')
+    const heightInput = page.locator('[data-testid="page-size-custom-height"]')
 
     await widthInput.fill('700')
     await heightInput.fill('1000')
