@@ -180,6 +180,8 @@ export interface TemplateState {
   ) => void
   /** Remove a page and reassign its fields to page 0 (null) */
   removePage: (pageId: string) => void
+  /** Reorder pages array from fromIndex to toIndex and rewrite indices contiguously (#59) */
+  reorderPages: (fromIndex: number, toIndex: number) => void
   /** Update page properties */
   updatePage: (pageId: string, updates: Partial<PageDefinition>) => void
   /** Set the background image for a specific page */
@@ -1355,6 +1357,28 @@ export const useTemplateStore = create<TemplateState>()(
             pageBackgroundDataUrls,
             pageBackgroundBuffers,
             ...pushHistory({ ...state, fields, groups: state.groups }),
+          }
+        }),
+
+      reorderPages: (fromIndex, toIndex) =>
+        set((state) => {
+          const sorted = [...state.pages].sort((a, b) => a.index - b.index)
+          if (
+            fromIndex < 0 ||
+            fromIndex >= sorted.length ||
+            toIndex < 0 ||
+            toIndex >= sorted.length ||
+            fromIndex === toIndex
+          ) {
+            return {}
+          }
+          const [moved] = sorted.splice(fromIndex, 1)
+          if (!moved) return {}
+          sorted.splice(toIndex, 0, moved)
+          const reindexed = sorted.map((p, i) => ({ ...p, index: i }))
+          return {
+            pages: reindexed,
+            ...pushHistory({ ...state, fields: state.fields, groups: state.groups }),
           }
         }),
 
