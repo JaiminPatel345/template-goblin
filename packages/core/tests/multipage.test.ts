@@ -449,4 +449,74 @@ describe('Multi-page PDF generation', () => {
 
     await pdfDoc.destroy()
   })
+
+  it('should render PDF with 3 pages of mixed dimensions and backgrounds', async () => {
+    const pages: PageDefinition[] = [
+      {
+        id: 'p0',
+        index: 0,
+        backgroundType: 'color',
+        backgroundColor: '#ffffff',
+        backgroundFilename: null,
+        width: 595,
+        height: 842,
+      },
+      {
+        id: 'p1',
+        index: 1,
+        backgroundType: 'image',
+        backgroundColor: null,
+        backgroundFilename: 'bg1.png',
+        width: 842,
+        height: 1191,
+      },
+      {
+        id: 'p2',
+        index: 2,
+        backgroundType: 'inherit',
+        backgroundColor: null,
+        backgroundFilename: null,
+        width: 1000,
+        height: 1200,
+      },
+    ]
+
+    const manifest = createManifest({
+      pages,
+      fields: [
+        textField('t0', 'page0', 'p0', 1),
+        textField('t1', 'page1', 'p1', 1),
+        textField('t2', 'page2', 'p2', 1),
+      ],
+    })
+
+    const pageImages = new Map<string, Buffer>([['bg1.png', TINY_PNG]])
+    const zip = buildZip(manifest, pageImages)
+    const path = writeTgbl('three-pages-mixed-dims.tgbl', zip)
+    const template = await loadTemplate(path)
+    const data: InputJSON = {
+      texts: { page0: 'A4 Page', page1: 'A3 Page', page2: 'Custom Page' },
+      tables: {},
+      images: {},
+    }
+
+    const pdfBuffer = await generatePDF(template, data)
+    const pdfDoc = await getDocument({ data: new Uint8Array(pdfBuffer), verbosity: 0 }).promise
+
+    expect(pdfDoc.numPages).toBe(3)
+    const page1 = await pdfDoc.getPage(1)
+    const page2 = await pdfDoc.getPage(2)
+    const page3 = await pdfDoc.getPage(3)
+
+    expect(page1.getViewport({ scale: 1 }).width).toBe(595)
+    expect(page1.getViewport({ scale: 1 }).height).toBe(842)
+
+    expect(page2.getViewport({ scale: 1 }).width).toBe(842)
+    expect(page2.getViewport({ scale: 1 }).height).toBe(1191)
+
+    expect(page3.getViewport({ scale: 1 }).width).toBe(1000)
+    expect(page3.getViewport({ scale: 1 }).height).toBe(1200)
+
+    await pdfDoc.destroy()
+  })
 })

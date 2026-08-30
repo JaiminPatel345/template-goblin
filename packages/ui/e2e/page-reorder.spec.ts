@@ -152,4 +152,31 @@ test.describe('Page bar drag-and-drop reordering (issue #59)', () => {
     expect(sorted[2]?.id).toBe('p1')
     expect(sorted[2]?.index).toBe(2)
   })
+
+  test('drags a non-active page tab and verifies currently-active page remains active', async ({
+    page,
+  }) => {
+    await seedThreePages(page)
+    await page.goto('/')
+
+    // Click tab 1 (Page 2) to make it active
+    const tab1Btn = page.locator('[data-testid="page-tab-1"]')
+    await tab1Btn.click()
+
+    // Assert tab 1 has active class
+    await expect(tab1Btn).toHaveClass(/tg-btn--active/)
+
+    // Drag tab 2 (Page 3) to tab 0 (Page 1)
+    const tab0Wrapper = page.locator('[data-testid="page-tab-wrapper-0"]')
+    const tab2Wrapper = page.locator('[data-testid="page-tab-wrapper-2"]')
+    await tab2Wrapper.dragTo(tab0Wrapper)
+
+    // Wait for update
+    await page.waitForTimeout(500)
+
+    // The active page ('p1') is now rendered at tab index 2, but its tab button should still be active
+    const activeTabBtn = page.locator('button.tg-btn--active')
+    await expect(activeTabBtn).toBeVisible()
+    await expect(activeTabBtn).toHaveText('Page 3')
+  })
 })
