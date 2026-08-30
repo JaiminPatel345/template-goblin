@@ -7,9 +7,12 @@ const template = await loadTemplate('./certificate.tgbl')
 
 // Fill it with data and render — millions of times, zero disk I/O
 const pdf = await generatePDF(template, {
-  texts: { name: 'Aisha Khan', course: 'Advanced TypeScript' },
-  tables: { modules: [{ title: 'Generics', score: '98' }] },
-})`
+  texts: { name: 'Jaimin Detroja', course: 'Advanced TypeScript' },
+  tables: { modules: [
+    { title: 'Generics', score: '98' }, 
+    { title: 'Async-Await', score: '92' }, 
+    { title: 'Interface', score: '85' } 
+    ]})`
 
 /** Explains the two-surface model: design visually, generate from code. */
 export function WhatIs() {
