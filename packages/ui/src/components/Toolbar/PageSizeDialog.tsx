@@ -21,8 +21,8 @@ export function PageSizeDialog() {
   const setBackground = useTemplateStore((s) => s.setBackground)
 
   const [selected, setSelected] = useState<string>('match')
-  const [customWidth, setCustomWidth] = useState(595)
-  const [customHeight, setCustomHeight] = useState(842)
+  const [customWidth, setCustomWidth] = useState<number | ''>(595)
+  const [customHeight, setCustomHeight] = useState<number | ''>(842)
 
   // #112 — block Apply on a sub-1 / non-finite custom dimension. The store
   // clamp + manifest validator catch bad values defence-in-depth, but the
@@ -50,12 +50,12 @@ export function PageSizeDialog() {
   // is no longer that named size).
   const currentDims =
     selected === 'custom'
-      ? { width: customWidth, height: customHeight }
+      ? { width: Number(customWidth) || 0, height: Number(customHeight) || 0 }
       : selected === 'match'
         ? { width: matchWidth, height: matchHeight }
         : (presetOptions.find((o) => o.pageSize === selected) ?? {
-            width: customWidth,
-            height: customHeight,
+            width: Number(customWidth) || 0,
+            height: Number(customHeight) || 0,
           })
   const handleSwapOrientation = () => {
     const swapped = swapDimensions(currentDims.width, currentDims.height)
@@ -70,9 +70,10 @@ export function PageSizeDialog() {
     let chosenHeight: number
 
     if (selected === 'custom') {
+      if (customDimValidation.hasError) return
       chosenPageSize = 'custom'
-      chosenWidth = customWidth
-      chosenHeight = customHeight
+      chosenWidth = Number(customWidth)
+      chosenHeight = Number(customHeight)
     } else if (selected === 'match') {
       chosenPageSize = 'custom'
       chosenWidth = matchWidth
@@ -159,7 +160,9 @@ export function PageSizeDialog() {
                   type="number"
                   min={1}
                   value={customWidth}
-                  onChange={(e) => setCustomWidth(Number(e.target.value))}
+                  onChange={(e) =>
+                    setCustomWidth(e.target.value === '' ? '' : Number(e.target.value))
+                  }
                   aria-invalid={!!customDimValidation.widthError}
                   aria-describedby={
                     customDimValidation.widthError ? 'toolbar-page-size-width-error' : undefined
@@ -193,7 +196,9 @@ export function PageSizeDialog() {
                   type="number"
                   min={1}
                   value={customHeight}
-                  onChange={(e) => setCustomHeight(Number(e.target.value))}
+                  onChange={(e) =>
+                    setCustomHeight(e.target.value === '' ? '' : Number(e.target.value))
+                  }
                   aria-invalid={!!customDimValidation.heightError}
                   aria-describedby={
                     customDimValidation.heightError ? 'toolbar-page-size-height-error' : undefined
@@ -215,7 +220,7 @@ export function PageSizeDialog() {
             {customMatch && (
               <div
                 data-testid="toolbar-page-size-preset-match"
-                style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}
+                style={{ fontSize: 11, color: 'var(--text-primary)', marginTop: 6 }}
               >
                 {customMatch}
               </div>
