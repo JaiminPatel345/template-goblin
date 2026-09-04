@@ -328,6 +328,7 @@ export interface ConditionStyleRule<S> {
 export interface ConditionalStyleConfig<S> {
   enabled: boolean
   conditions: ConditionStyleRule<S>[]
+  activeConditionId?: string
 }
 
 /** A text field — static value is the literal rendered string. */

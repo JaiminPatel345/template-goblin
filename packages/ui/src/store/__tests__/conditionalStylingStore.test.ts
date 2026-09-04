@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useTemplateStore } from '../templateStore.js'
 import type {
+  FieldDefinition,
   TextField,
   ImageField,
   TableField,
@@ -219,5 +220,73 @@ describe('Conditional Styling UI Store Operations', () => {
     const field = useTemplateStore.getState().fields.find((f) => f.id === 'field-3')
     expect(field?.conditionalStyles?.enabled).toBe(false)
     expect(field?.conditionalStyles?.conditions).toHaveLength(1)
+  })
+
+  it('updates active condition style overrides when activeConditionId is changed', () => {
+    const textF: TextField = {
+      id: 'field-4',
+      type: 'text',
+      groupId: null,
+      pageId: null,
+      label: 'Text 4',
+      x: 10,
+      y: 10,
+      width: 100,
+      height: 20,
+      zIndex: 0,
+      style: {
+        fontId: null,
+        fontFamily: 'Helvetica',
+        fontSize: 12,
+        fontSizeMin: 8,
+        lineHeight: 1.2,
+        fontWeight: 'normal',
+        fontStyle: 'normal',
+        textDecoration: 'none',
+        color: '#000000',
+        align: 'left',
+        verticalAlign: 'top',
+        maxRows: 1,
+        overflowMode: 'truncate',
+        snapToGrid: false,
+      },
+      source: { mode: 'static', value: 'Active Test' },
+    }
+
+    useTemplateStore.getState().addField(textF)
+
+    useTemplateStore.getState().updateField('field-4', {
+      conditionalStyles: {
+        enabled: true,
+        activeConditionId: 'c1',
+        conditions: [
+          { id: 'c1', name: 'condition-1', isDefault: true, style: { color: '#ff0000' } },
+          { id: 'c2', name: 'condition-2', isDefault: false, style: { color: '#0000ff' } },
+        ],
+      },
+    })
+
+    // Edit style while c1 is active
+    useTemplateStore.getState().updateFieldStyle('field-4', { fontSize: 16 })
+    let field = useTemplateStore.getState().fields.find((f) => f.id === 'field-4') as TextField
+    expect(field.conditionalStyles?.conditions[0]?.style.fontSize).toBe(16)
+    expect(field.conditionalStyles?.conditions[1]?.style.fontSize).toBeUndefined()
+
+    // Switch active condition to c2
+    useTemplateStore.getState().updateField('field-4', {
+      conditionalStyles: {
+        ...field.conditionalStyles!,
+        activeConditionId: 'c2',
+      },
+    } as Partial<FieldDefinition>)
+
+    // Edit style while c2 is active
+    useTemplateStore.getState().updateFieldStyle('field-4', { fontSize: 24, color: '#00ff00' })
+    field = useTemplateStore.getState().fields.find((f) => f.id === 'field-4') as TextField
+    expect(field.conditionalStyles?.conditions[1]?.style.fontSize).toBe(24)
+    expect(field.conditionalStyles?.conditions[1]?.style.color).toBe('#00ff00')
+    // c1 style remains intact
+    expect(field.conditionalStyles?.conditions[0]?.style.fontSize).toBe(16)
+    expect(field.conditionalStyles?.conditions[0]?.style.color).toBe('#ff0000')
   })
 })

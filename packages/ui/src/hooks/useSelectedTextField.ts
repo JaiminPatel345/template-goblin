@@ -16,6 +16,8 @@ import { useTemplateStore } from '../store/templateStore.js'
 import { useUiStore } from '../store/uiStore.js'
 import type { TextField, TextFieldStyle } from '@template-goblin/types'
 
+import { resolveUiField } from '../utils/conditionalStyle.js'
+
 export interface SelectedTextField {
   field: TextField
   updateStyle: (patch: Partial<TextFieldStyle>) => void
@@ -37,7 +39,7 @@ export function useSelectedTextField(): SelectedTextField | null {
     null
   if (!found || found.type !== 'text') return null
 
-  const field = found as TextField
+  const field = resolveUiField(found as TextField)
   return {
     field,
     updateStyle: (patch) => updateFieldStyle(field.id, patch),

@@ -23,6 +23,8 @@ import { buildTableCanvasParts } from './tableCanvasParts.js'
 import { pushTextLabel } from './pushTextLabel.js'
 import { resolveImagePaint, loadFabricImage, type ImageResolver } from './fabricImage.js'
 
+import { resolveUiField } from '../../utils/conditionalStyle.js'
+
 // Re-exported so existing imports via `fabricUtils` keep resolving.
 export { loadFabricImage, type ImageResolver }
 
@@ -30,11 +32,12 @@ export { loadFabricImage, type ImageResolver }
  * Build the child objects for a field Group.
  */
 export function buildGroupChildren(
-  field: FieldDefinition,
+  rawField: FieldDefinition,
   resolveImage: ImageResolver,
   onAsyncUpdate?: (img: FabricImage, placeholderId: string) => void,
   data: InputJSON | null = null,
 ): FabricObject[] {
+  const field = resolveUiField(rawField, data)
   const colors = FIELD_COLORS[field.type]
   const w = field.width
   const h = field.height

@@ -20,6 +20,8 @@ import { ConditionalStylingSection } from '../RightPanel/ConditionalStylingSecti
  * "Page Layout" toolbar dialog rather than this sidebar (matches the
  * Word / Google Docs "Insert > Header & Footer" pattern).
  */
+import { resolveUiField } from '../../utils/conditionalStyle.js'
+
 export function PropertiesPanel() {
   const selectedIds = useUiStore((s) => s.selectedFieldIds)
   const fields = useTemplateStore((s) => s.fields)
@@ -62,6 +64,8 @@ export function PropertiesPanel() {
     )
   }
 
+  const effectiveField = resolveUiField(selectedField)
+
   let title = 'Field properties'
   if (selectedField.type === 'text') title = 'Text properties'
   else if (selectedField.type === 'image') title = 'Image properties'
@@ -80,17 +84,17 @@ export function PropertiesPanel() {
           remounting on selection change, switching between two same-type
           fields showed (and on blur, COMMITTED) field A's drafts onto
           field B — including silently deleting B's link when A had none. */}
-      {selectedField.type === 'text' && (
-        <TextFieldProps key={selectedField.id} field={selectedField} />
+      {effectiveField.type === 'text' && (
+        <TextFieldProps key={selectedField.id} field={effectiveField} />
       )}
-      {selectedField.type === 'image' && (
-        <ImageFieldProps key={selectedField.id} field={selectedField} />
+      {effectiveField.type === 'image' && (
+        <ImageFieldProps key={selectedField.id} field={effectiveField} />
       )}
-      {selectedField.type === 'table' && (
-        <LoopFieldProps key={selectedField.id} field={selectedField} />
+      {effectiveField.type === 'table' && (
+        <LoopFieldProps key={selectedField.id} field={effectiveField} />
       )}
       {/* #172 — field-type-agnostic rotation control. */}
-      <RotationSection field={selectedField} />
+      <RotationSection field={effectiveField} />
       {/* Condition-based styling section for selected field */}
       <ConditionalStylingSection key={`cond-${selectedField.id}`} field={selectedField} />
     </>

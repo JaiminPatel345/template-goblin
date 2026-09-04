@@ -961,9 +961,34 @@ export const useTemplateStore = create<TemplateState>()(
             }
           }
 
+          let nextConditionalStyles = field.conditionalStyles
+          if (field.conditionalStyles?.enabled && field.conditionalStyles.conditions.length > 0) {
+            finalStyle = field.style as unknown as
+              | TextFieldStyle
+              | ImageFieldStyle
+              | TableFieldStyle
+            const conds = field.conditionalStyles.conditions
+            const activeId = field.conditionalStyles.activeConditionId
+            let targetIdx = activeId
+              ? conds.findIndex((c) => c.id === activeId)
+              : conds.findIndex((c) => c.isDefault)
+            if (targetIdx < 0) targetIdx = 0
+            const updatedConds = conds.map((c, i) =>
+              i === targetIdx ? { ...c, style: { ...c.style, ...updates } } : c,
+            )
+            nextConditionalStyles = {
+              ...field.conditionalStyles,
+              conditions: updatedConds,
+            } as FieldDefinition['conditionalStyles']
+          }
+
           const mapField = (f: FieldDefinition) => {
             if (f.id === id || (targetGroupId && f.groupId === targetGroupId)) {
-              const updatedField = { ...f, style: finalStyle } as FieldDefinition
+              const updatedField = {
+                ...f,
+                style: finalStyle,
+                conditionalStyles: nextConditionalStyles,
+              } as FieldDefinition
               // GH #73: auto-resize static text fields on typography change
               // We do this centrally so that group updates resize all members.
               if (updatedField.type === 'text' && updatedField.source?.mode === 'static') {
