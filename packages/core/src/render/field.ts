@@ -4,6 +4,7 @@ import { TemplateGoblinError, isValidHyperlinkUrl } from '@template-goblin/types
 import { resolveValue } from '../utils/resolveValue.js'
 import { fieldErrorDetails, pageLabel, type PageContext } from '../utils/errorContext.js'
 import { parseImageColorMarker } from '../utils/imageColorMarker.js'
+import { resolveEffectiveField } from '../utils/conditionalStyle.js'
 import { renderText } from './text.js'
 import { renderImage } from './image.js'
 import { renderLoop } from './loop.js'
@@ -45,13 +46,14 @@ function resolveHyperlinkUrl(field: FieldDefinition, data: InputJSON): string | 
  */
 export function renderField(
   doc: InstanceType<typeof PDFDocument>,
-  field: FieldDefinition,
+  rawField: FieldDefinition,
   data: InputJSON,
   fontMap: Map<string, string>,
   template: LoadedTemplate,
   pageCtx: PageContext,
   resolvedImages: Map<string, Buffer>,
 ): void {
+  const field = resolveEffectiveField(rawField, data)
   const value = resolveValue(field as FieldDefinition, data) as unknown
 
   // Skip if value is not provided (optional dynamic field or unresolved static)

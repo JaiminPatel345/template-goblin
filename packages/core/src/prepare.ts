@@ -84,6 +84,9 @@ function eligibilityReason(template: LoadedTemplate): string | null {
   if (fields.some((f) => f.type === 'table' && f.style?.multiPage)) {
     return 'template has a multiPage table (data-dependent page count)'
   }
+  if (fields.some((f) => f.conditionalStyles?.enabled)) {
+    return 'template has conditional styles (data-dependent style rendering)'
+  }
   // PDF link annotations don't survive being drawn as a Form XObject, so a
   // DYNAMIC hyperlink in the overlay would be lost. (Static links live in
   // the base page and are preserved by copyPages.)

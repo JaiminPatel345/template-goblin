@@ -188,6 +188,37 @@ function validateHyperlink(field: FieldDefinition): void {
   }
 }
 
+function validateConditionalStyles(field: FieldDefinition): void {
+  const condConfig = field.conditionalStyles
+  if (!condConfig) return
+  if (typeof condConfig.enabled !== 'boolean') {
+    fail('INVALID_MANIFEST', `Field ${field.id}: conditionalStyles.enabled must be a boolean`, {
+      fieldId: field.id,
+    })
+  }
+  if (!Array.isArray(condConfig.conditions)) {
+    fail('INVALID_MANIFEST', `Field ${field.id}: conditionalStyles.conditions must be an array`, {
+      fieldId: field.id,
+    })
+  }
+  for (const c of condConfig.conditions) {
+    if (typeof c.name !== 'string' || !c.name.trim()) {
+      fail(
+        'INVALID_MANIFEST',
+        `Field ${field.id}: condition rule name must be a non-empty string`,
+        {
+          fieldId: field.id,
+        },
+      )
+    }
+    if (typeof c.isDefault !== 'boolean') {
+      fail('INVALID_MANIFEST', `Field ${field.id}: condition rule isDefault must be a boolean`, {
+        fieldId: field.id,
+      })
+    }
+  }
+}
+
 function validateField(field: FieldDefinition): void {
   switch (field.type) {
     case 'text':
@@ -206,6 +237,7 @@ function validateField(field: FieldDefinition): void {
     }
   }
   validateHyperlink(field)
+  validateConditionalStyles(field)
 }
 
 function checkDuplicateJsonKeys(fields: FieldDefinition[]): void {

@@ -5,6 +5,7 @@ import { ImageFieldProps } from '../RightPanel/ImageFieldProps.js'
 import { LoopFieldProps } from '../RightPanel/LoopFieldProps.js'
 import { RotationSection } from './RotationSection.js'
 import { GroupPropertiesPanel } from './GroupPropertiesPanel.js'
+import { ConditionalStylingSection } from '../RightPanel/ConditionalStylingSection.js'
 
 /**
  * Left-panel content under the new layout (GH #19): the styling / properties
@@ -88,10 +89,10 @@ export function PropertiesPanel() {
       {selectedField.type === 'table' && (
         <LoopFieldProps key={selectedField.id} field={selectedField} />
       )}
-      {/* #172 — field-type-agnostic rotation control. Lives in PropertiesPanel
-          rather than each *FieldProps.tsx so a single section serves all three
-          field types without bloating any one file past the 300-LOC cap. */}
+      {/* #172 — field-type-agnostic rotation control. */}
       <RotationSection field={selectedField} />
+      {/* Condition-based styling section for selected field */}
+      <ConditionalStylingSection key={`cond-${selectedField.id}`} field={selectedField} />
     </>
   )
 }

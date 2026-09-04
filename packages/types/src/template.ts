@@ -316,10 +316,25 @@ export interface FieldBase {
   rotation?: number | null
 }
 
+/** A single condition-based styling rule */
+export interface ConditionStyleRule<S> {
+  id: string
+  name: string
+  isDefault: boolean
+  style: Partial<S>
+}
+
+/** Container for condition-based styling configuration on a field */
+export interface ConditionalStyleConfig<S> {
+  enabled: boolean
+  conditions: ConditionStyleRule<S>[]
+}
+
 /** A text field — static value is the literal rendered string. */
 export interface TextField extends FieldBase {
   type: 'text'
   style: TextFieldStyle
+  conditionalStyles?: ConditionalStyleConfig<TextFieldStyle>
   source: FieldSource<string>
 }
 
@@ -331,6 +346,7 @@ export interface TextField extends FieldBase {
 export interface ImageField extends FieldBase {
   type: 'image'
   style: ImageFieldStyle
+  conditionalStyles?: ConditionalStyleConfig<ImageFieldStyle>
   source: FieldSource<ImageSourceValue>
 }
 
@@ -338,6 +354,7 @@ export interface ImageField extends FieldBase {
 export interface TableField extends FieldBase {
   type: 'table'
   style: TableFieldStyle
+  conditionalStyles?: ConditionalStyleConfig<TableFieldStyle>
   source: FieldSource<TableRow[]>
 }
 

@@ -37,6 +37,8 @@ export type {
   PageNumberPlacement,
   PageNumberAlign,
   PageNumberNumeralStyle,
+  ConditionStyleRule,
+  ConditionalStyleConfig,
 } from './template.js'
 export { toRoman, formatPageNumber, defaultPageNumberConfig } from './pageNumber.js'
 export type {

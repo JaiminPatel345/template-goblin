@@ -60,6 +60,16 @@ export interface InputJSON {
   images: ImageInputs
   tables: TableInputs
   /**
+   * Optional global active condition name (case-sensitive) for condition-based styling.
+   * If a field has condition-based styling enabled, matching rules are applied.
+   */
+  condition?: string
+  /**
+   * Optional per-field condition names keyed by field ID or jsonKey (case-sensitive).
+   * Overrides global `condition` for specific fields.
+   */
+  conditions?: Record<string, string>
+  /**
    * Optional hyperlink URLs, keyed by `field.hyperlink.jsonKey`. Sits
    * alongside `texts` rather than nested inside it so the JSON preview
    * can render URLs as a visually distinct section. Empty / missing
