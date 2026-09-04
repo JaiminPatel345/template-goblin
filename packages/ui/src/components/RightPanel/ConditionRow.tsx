@@ -31,22 +31,30 @@ export function ConditionRow({
         display: 'flex',
         alignItems: 'center',
         gap: 6,
-        padding: '4px 6px',
-        borderRadius: 4,
+        padding: '5px 8px',
+        borderRadius: 6,
         background: isSelected ? 'var(--bg-hover)' : 'transparent',
         border: isSelected ? '1px solid var(--primary, #0284c7)' : '1px solid var(--border)',
         cursor: 'pointer',
+        transition: 'background 0.15s ease, border-color 0.15s ease',
       }}
     >
+      {/* Radio button selects the active style for editing and canvas preview */}
       <input
         type="radio"
-        name={`default-cond-${fieldId}`}
-        data-testid={`condition-default-toggle-${cond.id}`}
-        checked={cond.isDefault}
-        onChange={onSetDefault}
-        onClick={(e) => e.stopPropagation()}
-        title="Mark as default condition"
+        name={`active-cond-${fieldId}`}
+        data-testid={`condition-radio-${idx}`}
+        checked={isSelected}
+        onChange={onSelect}
+        onClick={(e) => {
+          e.stopPropagation()
+          onSelect()
+        }}
+        title="Select this condition to edit and preview"
+        style={{ cursor: 'pointer', margin: 0 }}
       />
+
+      {/* Editable condition name */}
       <input
         type="text"
         className="tg-input"
@@ -57,21 +65,45 @@ export function ConditionRow({
           e.stopPropagation()
           onSelect()
         }}
-        style={{ flex: 1, height: 24, fontSize: 12, padding: '2px 4px' }}
+        style={{ flex: 1, height: 24, fontSize: 12, padding: '2px 6px' }}
       />
-      {cond.isDefault && (
-        <span
-          style={{
-            fontSize: 10,
-            padding: '1px 4px',
-            background: 'var(--primary-light, #e0f2fe)',
-            color: 'var(--primary, #0284c7)',
-            borderRadius: 3,
-          }}
-        >
-          Default
-        </span>
-      )}
+
+      {/* Default text button: click to set as default fallback condition */}
+      <button
+        type="button"
+        data-testid={`condition-default-toggle-${cond.id}`}
+        onClick={(e) => {
+          e.stopPropagation()
+          onSetDefault()
+        }}
+        title={
+          cond.isDefault
+            ? 'Default condition (used when no condition is specified at generation)'
+            : 'Click to make this the default condition'
+        }
+        style={{
+          fontSize: 10,
+          fontWeight: cond.isDefault ? 600 : 400,
+          padding: '2px 8px',
+          borderRadius: 10,
+          border: cond.isDefault ? '1px solid var(--primary, #0284c7)' : '1px solid var(--border)',
+          background: cond.isDefault
+            ? 'var(--primary-light, #e0f2fe)'
+            : 'var(--bg-tertiary, #f8fafc)',
+          color: cond.isDefault ? 'var(--primary, #0284c7)' : 'var(--text-muted)',
+          cursor: cond.isDefault ? 'default' : 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 3,
+          whiteSpace: 'nowrap',
+          lineHeight: '16px',
+        }}
+      >
+        {cond.isDefault && <span style={{ fontSize: 8 }}>●</span>}
+        Default
+      </button>
+
+      {/* Delete condition */}
       <button
         type="button"
         className="tg-btn tg-btn--icon tg-btn--sm"
@@ -82,7 +114,16 @@ export function ConditionRow({
           onDelete()
         }}
         title="Delete condition"
-        style={{ opacity: canDelete ? 1 : 0.4 }}
+        style={{
+          opacity: canDelete ? 1 : 0.4,
+          padding: 0,
+          width: 22,
+          height: 22,
+          minWidth: 22,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
       >
         ✕
       </button>

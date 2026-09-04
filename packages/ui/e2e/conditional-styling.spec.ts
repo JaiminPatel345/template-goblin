@@ -133,7 +133,7 @@ test.describe('Condition-Based Styling E2E', () => {
     // Set condition-2 (VIP) as default
     const defaultToggle2 = page.locator('[data-testid="condition-default-toggle-cond-2"]')
     if (await defaultToggle2.isVisible()) {
-      await defaultToggle2.check()
+      await defaultToggle2.click()
     }
 
     condConfig = await page.evaluate(() => {
@@ -187,9 +187,9 @@ test.describe('Condition-Based Styling E2E', () => {
     const toggle = page.locator('[data-testid="toggle-conditional-styling"]')
     await toggle.check()
 
-    // Click condition row 1 (condition-2)
-    const row2 = page.locator('[data-testid="condition-row-1"]')
-    await row2.click()
+    // Click radio button for condition-2 (row index 1)
+    const radio2 = page.locator('[data-testid="condition-radio-1"]')
+    await radio2.click()
 
     let condConfig = await page.evaluate(() => {
       return window.__templateStore.getState().fields.find((f) => f.id === 'f-cond-test')
