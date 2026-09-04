@@ -144,6 +144,7 @@ Every field (text, image, table) includes the following common properties in add
 - `groupId: string | null` — optional group assignment (Spec 020).
 - `pageId: string | null` — the `id` of the page this field belongs to. `null` resolves to the first page (index 0). Must reference a valid page `id` from the `pages` array.
 - `x`, `y`, `width`, `height`, `zIndex: number` — geometry.
+- `conditionalStyles?: { enabled: boolean, activeConditionId?: string, conditions: Array<{ id: string, name: string, isDefault: boolean, style: Partial<Style> }> }` — optional condition-based style rules.
 
 #### Text Field
 

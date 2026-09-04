@@ -17,7 +17,10 @@ import { renderPageBackground, renderPageBackgroundSafely } from './render/page.
 import { stampBands } from './render/bands.js'
 
 /** Per-call options for {@link generatePDF}. */
-export type GeneratePDFOptions = PreflightOptions
+export type GeneratePDFOptions = PreflightOptions & {
+  /** Optional global condition name (case-sensitive) for condition-based styling */
+  condition?: string
+}
 
 /**
  * Generate a PDF from an in-memory template and input data.
@@ -36,9 +39,13 @@ export type GeneratePDFOptions = PreflightOptions
  */
 export async function generatePDF(
   template: LoadedTemplate,
-  data: InputJSON,
+  inputData: InputJSON,
   options: GeneratePDFOptions = {},
 ): Promise<Buffer> {
+  const data: InputJSON =
+    options.condition && !inputData.condition
+      ? { ...inputData, condition: options.condition }
+      : inputData
   // Defence-in-depth: run the FULL manifest validator at the renderer
   // boundary too. `loadTemplate` already calls this on `.tgbl` open, but
   // SDK consumers that construct a `LoadedTemplate` programmatically (or

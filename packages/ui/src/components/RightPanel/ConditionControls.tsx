@@ -132,6 +132,36 @@ export function TableStyleControls({
           onChange={(e) => onChange({ multiPage: e.target.checked })}
         />
       </div>
+      <div className="tg-form-row">
+        <label>Show Header</label>
+        <input
+          type="checkbox"
+          data-testid="cond-table-showheader"
+          checked={style.showHeader ?? true}
+          onChange={(e) => onChange({ showHeader: e.target.checked })}
+        />
+      </div>
+      <div className="tg-form-row">
+        <label>Fit to Content</label>
+        <input
+          type="checkbox"
+          data-testid="cond-table-fittocontent"
+          checked={style.fitToContent ?? true}
+          onChange={(e) => onChange({ fitToContent: e.target.checked })}
+        />
+      </div>
+      {typeof style.maxRows === 'number' && (
+        <div className="tg-form-row">
+          <label>Max Rows</label>
+          <NumberInput
+            value={style.maxRows}
+            min={1}
+            defaultValue={10}
+            onChange={(v) => onChange({ maxRows: v })}
+            data-testid="cond-table-maxrows"
+          />
+        </div>
+      )}
     </div>
   )
 }

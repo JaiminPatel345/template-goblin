@@ -180,4 +180,32 @@ test.describe('Condition-Based Styling E2E', () => {
 
     expect(isEnabled).toBe(true)
   })
+
+  test('selecting different conditions switches active condition and updates its styling', async ({
+    page,
+  }) => {
+    const toggle = page.locator('[data-testid="toggle-conditional-styling"]')
+    await toggle.check()
+
+    // Click condition row 1 (condition-2)
+    const row2 = page.locator('[data-testid="condition-row-1"]')
+    await row2.click()
+
+    let condConfig = await page.evaluate(() => {
+      return window.__templateStore.getState().fields.find((f) => f.id === 'f-cond-test')
+        ?.conditionalStyles
+    })
+    expect(condConfig?.activeConditionId).toBe('cond-2')
+
+    // Update style for condition-2
+    const fontSizeInput = page.locator('[data-testid="cond-font-size"]')
+    await fontSizeInput.fill('32')
+    await fontSizeInput.blur()
+
+    condConfig = await page.evaluate(() => {
+      return window.__templateStore.getState().fields.find((f) => f.id === 'f-cond-test')
+        ?.conditionalStyles
+    })
+    expect(condConfig?.conditions[1]?.style.fontSize).toBe(32)
+  })
 })

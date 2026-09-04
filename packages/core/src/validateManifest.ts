@@ -201,6 +201,7 @@ function validateConditionalStyles(field: FieldDefinition): void {
       fieldId: field.id,
     })
   }
+  const seenNames = new Set<string>()
   for (const c of condConfig.conditions) {
     if (typeof c.name !== 'string' || !c.name.trim()) {
       fail(
@@ -211,6 +212,12 @@ function validateConditionalStyles(field: FieldDefinition): void {
         },
       )
     }
+    if (seenNames.has(c.name)) {
+      fail('INVALID_MANIFEST', `Field ${field.id}: duplicate condition name '${c.name}'`, {
+        fieldId: field.id,
+      })
+    }
+    seenNames.add(c.name)
     if (typeof c.isDefault !== 'boolean') {
       fail('INVALID_MANIFEST', `Field ${field.id}: condition rule isDefault must be a boolean`, {
         fieldId: field.id,

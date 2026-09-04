@@ -194,6 +194,10 @@ Binary assets are stored as real files inside the ZIP — ~33% smaller than base
   },
   "images": {
     "student_photo": "<see formats below>"
+  },
+  "condition": "honor_roll",
+  "conditions": {
+    "student_photo": "portrait_mode"
   }
 }
 ```
@@ -201,6 +205,8 @@ Binary assets are stored as real files inside the ZIP — ~33% smaller than base
 - `texts` — string values for text fields
 - `tables` — arrays of row objects for table fields
 - `images` — see image input formats below
+- `condition` — optional global active condition name (case-sensitive) for condition-based styling
+- `conditions` — optional per-field condition names keyed by field ID or jsonKey
 - Keys must match `jsonKey` values in the template (dot notation: `texts.name`)
 
 #### Image input formats
@@ -249,8 +255,40 @@ interface GeneratePDFOptions {
   imageFetchTimeoutMs?: number
   /** Concurrency cap when resolving a batch of image inputs (default 6). */
   imageResolveConcurrency?: number
+  /** Optional global active condition name (case-sensitive) for condition-based styling. */
+  condition?: string
 }
 ```
+
+### Condition-Based Styling
+
+Fields (text, image, table) support condition-based style overrides:
+
+1. **In the Playground / Visual Builder**:
+   - Select any field and toggle **"Condition-based styling"** in the left property panel or top **Format** ribbon.
+   - Initialized with default conditions (`condition-1` [Default] and `condition-2`).
+   - Add, delete, rename, and set any condition as default.
+   - Click any condition row to activate it: all inspector controls and the canvas preview immediately reflect and edit that specific condition's style overrides.
+
+2. **In the SDK (`generatePDF`)**:
+   - Specify active conditions via `data.condition` (global condition name), `data.conditions` (per-field map), or `options.condition`:
+
+```ts
+// Apply global condition rule to all matching fields
+const pdf = await generatePDF(template, data, { condition: 'highlight' })
+
+// Or specify conditions per field in input data:
+const pdf = await generatePDF(template, {
+  ...data,
+  condition: 'dark_theme',
+  conditions: {
+    status_text: 'warning',
+    avatar_image: 'compact',
+  },
+})
+```
+
+- **Resolution hierarchy**: Per-field condition (`data.conditions[field.id]` or `data.conditions[jsonKey]`) → Global condition (`data.condition` or `options.condition`) → Default condition (`isDefault: true`) → Base field style.
 
 ### `generatePDFFromFile(path: string, data: InputJSON): Promise<Buffer>`
 

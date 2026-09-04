@@ -78,6 +78,8 @@ interface InputJSON {
   texts: Record<string, string>
   tables: Record<string, Array<Record<string, string>>>
   images: Record<string, Buffer | string> // Buffer or base64-encoded string
+  condition?: string // Optional global condition rule name (case-sensitive)
+  conditions?: Record<string, string> // Optional per-field condition names
 }
 ```
 

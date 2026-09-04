@@ -16,10 +16,15 @@ import { loadTemplate, generatePDF } from 'template-goblin'
 
 const template = await loadTemplate('./result.tgbl')
 
-const pdf = await generatePDF(template, {
-  texts: { studentName: 'Aisha Khan', grade: 'A' },
-  tables: { subjects: [{ subject: 'Math', marks: '95' }] },
-})
+const pdf = await generatePDF(
+  template,
+  {
+    texts: { studentName: 'Aisha Khan', grade: 'A' },
+    tables: { subjects: [{ subject: 'Math', marks: '95' }] },
+    condition: 'honors', // optional condition-based styling
+  },
+  { condition: 'honors' }, // or pass in options
+)
 
 await writeFile('result.pdf', pdf)
 ```

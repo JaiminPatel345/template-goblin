@@ -43,6 +43,7 @@ export function FormatRibbon() {
       updateField(selectedField.id, {
         conditionalStyles: {
           enabled: true,
+          activeConditionId: 'cond-1',
           conditions: [
             { id: 'cond-1', name: 'condition-1', isDefault: true, style: {} },
             { id: 'cond-2', name: 'condition-2', isDefault: false, style: {} },
@@ -55,6 +56,9 @@ export function FormatRibbon() {
           ...selectedField.conditionalStyles,
           enabled: nextState,
           conditions: selectedField.conditionalStyles?.conditions ?? [],
+          activeConditionId:
+            selectedField.conditionalStyles?.activeConditionId ??
+            selectedField.conditionalStyles?.conditions?.[0]?.id,
         },
       } as Partial<FieldDefinition>)
     }

@@ -16,6 +16,7 @@ Opens the visual builder in your browser at `http://localhost:4242`. Design your
 - Text fields with dynamic font-fitting, alignment, decoration, and JSON-key bindings
 - Image fields with `fill` / `contain` / `cover` modes and static or dynamic sources
 - Table fields with per-column styling, header/row themes, transparent fills, table-level borders, and fit-to-content layout
+- Condition-based styling: configure multiple styling variants per field with custom names and defaults
 - Hyperlinks that open URLs from the input JSON
 - Page-level backgrounds (solid colour, image, or inherit from the previous page)
 

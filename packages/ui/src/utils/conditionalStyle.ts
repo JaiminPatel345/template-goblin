@@ -53,9 +53,45 @@ export function resolveUiField<T extends FieldDefinition>(field: T, data?: Input
 
   return {
     ...field,
-    style: {
-      ...field.style,
-      ...matchedRule.style,
-    },
+    style: mergeFieldStyles(field, matchedRule.style as Record<string, unknown>),
   }
+}
+
+/**
+ * Merges condition style overrides onto the base field style.
+ * For tables, deep merges nested cell and row styles so partial overrides don't wipe out other properties.
+ */
+function mergeFieldStyles<T extends FieldDefinition>(
+  field: T,
+  ruleStyle: Record<string, unknown>,
+): T['style'] {
+  if (field.type === 'table') {
+    const baseTableStyle = field.style as unknown as Record<string, unknown>
+    const patchTableStyle = ruleStyle as Record<string, unknown>
+    const merged = {
+      ...baseTableStyle,
+      ...patchTableStyle,
+    }
+
+    if (baseTableStyle.headerStyle || patchTableStyle.headerStyle) {
+      merged.headerStyle = {
+        ...((baseTableStyle.headerStyle as Record<string, unknown>) ?? {}),
+        ...((patchTableStyle.headerStyle as Record<string, unknown>) ?? {}),
+      }
+    }
+
+    if (baseTableStyle.rowStyle || patchTableStyle.rowStyle) {
+      merged.rowStyle = {
+        ...((baseTableStyle.rowStyle as Record<string, unknown>) ?? {}),
+        ...((patchTableStyle.rowStyle as Record<string, unknown>) ?? {}),
+      }
+    }
+
+    return merged as unknown as T['style']
+  }
+
+  return {
+    ...field.style,
+    ...ruleStyle,
+  } as unknown as T['style']
 }
