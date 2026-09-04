@@ -95,6 +95,39 @@ describe('resolveEffectiveField Unit Logic', () => {
     expect(resolved.style.color).toBe('#0000ff')
     expect(resolved.style.fontSize).toBe(14)
   })
+
+  it('resolves condition when data.condition is an array of key-value objects', () => {
+    const resolved = resolveEffectiveField(baseTextField, {
+      texts: { user_role: 'Guest' },
+      images: {},
+      tables: {},
+      condition: [{ user_role: 'Guest' }],
+    })
+    expect(resolved.style.color).toBe('#888888')
+    expect(resolved.style.fontSize).toBe(10)
+  })
+
+  it('matches field.id in condition array when jsonKey is absent or different', () => {
+    const resolved = resolveEffectiveField(baseTextField, {
+      texts: { user_role: 'User' },
+      images: {},
+      tables: {},
+      condition: [{ txt1: 'User' }],
+    })
+    expect(resolved.style.color).toBe('#0000ff')
+    expect(resolved.style.fontSize).toBe(14)
+  })
+
+  it('falls back to default condition if array has no entry for this field', () => {
+    const resolved = resolveEffectiveField(baseTextField, {
+      texts: { user_role: 'Test' },
+      images: {},
+      tables: {},
+      condition: [{ other_key: 'User' }],
+    })
+    expect(resolved.style.color).toBe('#ff0000')
+    expect(resolved.style.fontSize).toBe(20)
+  })
 })
 
 describe('Manifest Validation for Conditional Styles', () => {

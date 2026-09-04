@@ -16,6 +16,8 @@ const pdf = await generatePDF(template, {
   texts: { name: 'John Doe', course: 'Advanced TypeScript' },
   tables: { modules: [{ title: 'Generics', score: 'A' }] },
   images: {},
+  // Condition-based styling: override styles per field or globally
+  condition: [{ course: 'honors' }],
 })
 
 await writeFile('./out.pdf', pdf)`

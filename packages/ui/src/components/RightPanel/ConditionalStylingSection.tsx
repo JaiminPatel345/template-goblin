@@ -1,13 +1,14 @@
-import type {
-  FieldDefinition,
-  ConditionStyleRule,
-  TextFieldStyle,
-  ImageFieldStyle,
-  TableFieldStyle,
-} from '@template-goblin/types'
+import { useMemo } from 'react'
+import type { FieldDefinition, ConditionStyleRule } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
-import { TextStyleControls, ImageStyleControls, TableStyleControls } from './ConditionControls.js'
 import { ConditionRow } from './ConditionRow.js'
+import { getAvailableProperties } from './propertyDefinitions.js'
+import { ConditionOverridesSection } from './ConditionOverridesSection.js'
+import {
+  extractSelectedPropIds,
+  togglePropertyOverride,
+  removePropertyOverride,
+} from './propertyOverrideHelpers.js'
 
 interface Props {
   field: FieldDefinition
@@ -63,17 +64,26 @@ export function ConditionalStylingSection({ field }: Props) {
     }
   }
 
+  function getNextConditionName(existing: ConditionStyleRule<unknown>[]): string {
+    let num = 1
+    while (existing.some((c) => c.name === `condition-${num}`)) {
+      num++
+    }
+    return `condition-${num}`
+  }
+
   function handleAddCondition() {
-    const nextNum = conditions.length + 1
+    const nextName = getNextConditionName(conditions as ConditionStyleRule<unknown>[])
     const newCond: ConditionStyleRule<unknown> = {
-      id: `cond-${Date.now()}`,
-      name: `condition-${nextNum}`,
+      id: `cond-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: nextName,
       isDefault: false,
       style: {},
     }
     const nextList = [...conditions, newCond]
     updateField(field.id, {
       conditionalStyles: {
+        ...condConfig,
         enabled: true,
         conditions: nextList,
         activeConditionId: newCond.id,
@@ -85,12 +95,19 @@ export function ConditionalStylingSection({ field }: Props) {
     if (conditions.length <= 1) return
     const wasDefault = conditions.find((c) => c.id === condId)?.isDefault
     const filtered = conditions.filter((c) => c.id !== condId)
+    // If the deleted condition was default, promote the first remaining condition to default
     if (wasDefault && filtered[0]) {
       filtered[0] = { ...filtered[0], isDefault: true }
     }
-    const nextActiveId = activeCondId === condId ? (filtered[0]?.id ?? '') : activeCondId
+    // If the deleted condition was active, select the new default (or first remaining)
+    const nextActiveId =
+      activeCondId === condId
+        ? (filtered.find((c) => c.isDefault)?.id ?? filtered[0]?.id ?? '')
+        : activeCondId
+
     updateField(field.id, {
       conditionalStyles: {
+        ...condConfig,
         enabled: true,
         conditions: filtered,
         activeConditionId: nextActiveId,
@@ -105,7 +122,7 @@ export function ConditionalStylingSection({ field }: Props) {
         ...condConfig,
         enabled: true,
         conditions: updated,
-        activeConditionId: condId,
+        activeConditionId: activeCondId,
       },
     } as Partial<FieldDefinition>)
   }
@@ -141,6 +158,44 @@ export function ConditionalStylingSection({ field }: Props) {
     conditions.find((c) => c.id === activeCondId) ??
     conditions.find((c) => c.isDefault) ??
     conditions[0]
+
+  const availableProperties = useMemo(() => getAvailableProperties(field.type), [field.type])
+
+  const selectedPropIds = useMemo(
+    () => extractSelectedPropIds(activeRule?.style as Record<string, unknown> | undefined),
+    [activeRule?.style],
+  )
+
+  function handleToggleProp(propId: string, enabled: boolean) {
+    if (!activeRule) return
+    const currentStyle = (activeRule.style as Record<string, unknown>) ?? {}
+    const baseStyle = (field.style as unknown as Record<string, unknown>) ?? {}
+    const nextStyle = togglePropertyOverride(currentStyle, baseStyle, propId, enabled)
+    const updated = conditions.map((c) => (c.id === activeRule.id ? { ...c, style: nextStyle } : c))
+    updateField(field.id, {
+      conditionalStyles: {
+        ...condConfig,
+        enabled: true,
+        conditions: updated,
+        activeConditionId: activeRule.id,
+      },
+    } as Partial<FieldDefinition>)
+  }
+
+  function handleRemoveProp(propId: string) {
+    if (!activeRule) return
+    const currentStyle = (activeRule.style as Record<string, unknown>) ?? {}
+    const nextStyle = removePropertyOverride(currentStyle, propId)
+    const updated = conditions.map((c) => (c.id === activeRule.id ? { ...c, style: nextStyle } : c))
+    updateField(field.id, {
+      conditionalStyles: {
+        ...condConfig,
+        enabled: true,
+        conditions: updated,
+        activeConditionId: activeRule.id,
+      },
+    } as Partial<FieldDefinition>)
+  }
 
   return (
     <div className="tg-panel-section" data-testid="conditional-styling-section">
@@ -201,43 +256,16 @@ export function ConditionalStylingSection({ field }: Props) {
           </div>
 
           {activeRule && (
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: 'var(--text-muted)',
-                  marginBottom: 8,
-                }}
-              >
-                STYLE OVERRIDES:{' '}
-                <span style={{ color: 'var(--text-primary)' }}>{activeRule.name}</span>
-              </div>
-
-              {field.type === 'text' && (
-                <TextStyleControls
-                  style={(activeRule.style as Partial<TextFieldStyle>) ?? {}}
-                  baseStyle={field.style as TextFieldStyle}
-                  allFontFamilies={allFontFamilies}
-                  onChange={(patch) => handleUpdateConditionStyle(activeRule.id, patch)}
-                />
-              )}
-
-              {field.type === 'image' && (
-                <ImageStyleControls
-                  style={(activeRule.style as Partial<ImageFieldStyle>) ?? {}}
-                  baseStyle={field.style as ImageFieldStyle}
-                  onChange={(patch) => handleUpdateConditionStyle(activeRule.id, patch)}
-                />
-              )}
-
-              {field.type === 'table' && (
-                <TableStyleControls
-                  style={(activeRule.style as Partial<TableFieldStyle>) ?? {}}
-                  onChange={(patch) => handleUpdateConditionStyle(activeRule.id, patch)}
-                />
-              )}
-            </div>
+            <ConditionOverridesSection
+              field={field}
+              activeRule={activeRule as ConditionStyleRule<unknown>}
+              availableProperties={availableProperties}
+              selectedPropIds={selectedPropIds}
+              allFontFamilies={allFontFamilies}
+              onToggleProp={handleToggleProp}
+              onUpdateStyle={(patch) => handleUpdateConditionStyle(activeRule.id, patch)}
+              onRemoveProp={handleRemoveProp}
+            />
           )}
         </div>
       )}

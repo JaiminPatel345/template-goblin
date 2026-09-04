@@ -1,4 +1,4 @@
-import type { FieldDefinition, TableField, TableRow } from '@template-goblin/types'
+import type { FieldDefinition, TableField, TableRow, ConditionInput } from '@template-goblin/types'
 
 /**
  * JSON projection — the single derived view of the template's dynamic
@@ -23,6 +23,15 @@ export interface ProjectedJson {
    * distinct from rendered text content in the JSON preview.
    */
   links: Record<string, string>
+  /**
+   * Optional active/default condition array for condition-based styling (#43).
+   * Format: `[{ [keyName]: conditionName }, ...]`
+   */
+  condition?: ConditionInput
+  /**
+   * Optional per-field condition mapping (#43).
+   */
+  conditions?: Record<string, string>
 }
 
 /** Header / footer band field pools (#61) — band fields share the
@@ -114,6 +123,29 @@ export function projectFieldsToJson(
     ) {
       result.links[field.hyperlink.jsonKey] = LINK_SAMPLE_URL
     }
+  }
+
+  // Condition-based styling (#43): project active/default conditions as [{ [keyName]: conditionName }]
+  const conditionList: Record<string, string>[] = []
+  for (const field of collectFields(fields, bandFields)) {
+    if (field.conditionalStyles?.enabled && field.conditionalStyles.conditions.length > 0) {
+      const keyName =
+        field.source?.mode === 'dynamic' && 'jsonKey' in field.source && field.source.jsonKey
+          ? field.source.jsonKey
+          : field.id
+      const activeRule =
+        field.conditionalStyles.conditions.find(
+          (c) => c.id === field.conditionalStyles?.activeConditionId,
+        ) ??
+        field.conditionalStyles.conditions.find((c) => c.isDefault) ??
+        field.conditionalStyles.conditions[0]
+      if (activeRule?.name) {
+        conditionList.push({ [keyName]: activeRule.name })
+      }
+    }
+  }
+  if (conditionList.length > 0) {
+    result.condition = conditionList
   }
 
   return result

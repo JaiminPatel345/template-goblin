@@ -50,6 +50,15 @@ export type ImageInput =
 export type ImageInputs = Record<string, ImageInput>
 
 /**
+ * Condition-based styling input (#43).
+ * Can be:
+ * - Array of key-to-condition mappings: `[{ [keyName: string]: string }]` (e.g. `[{ order_status: 'cancelled' }]`)
+ * - Direct mapping object: `{ [keyName: string]: string }`
+ * - Global active condition name string: `'condition-name'`
+ */
+export type ConditionInput = string | Record<string, string> | Array<Record<string, string>>
+
+/**
  * Complete input JSON passed to `generatePDF()`.
  *
  * Static fields never appear here — their content is baked into the template.
@@ -60,10 +69,10 @@ export interface InputJSON {
   images: ImageInputs
   tables: TableInputs
   /**
-   * Optional global active condition name (case-sensitive) for condition-based styling.
-   * If a field has condition-based styling enabled, matching rules are applied.
+   * Condition-based styling input.
+   * Can be an array `[{ [keyName]: conditionName }]`, mapping object, or global string.
    */
-  condition?: string
+  condition?: ConditionInput
   /**
    * Optional per-field condition names keyed by field ID or jsonKey (case-sensitive).
    * Overrides global `condition` for specific fields.

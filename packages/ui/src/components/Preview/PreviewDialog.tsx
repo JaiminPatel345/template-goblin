@@ -15,27 +15,23 @@
 import { useState, useMemo, useEffect } from 'react'
 import type { ImageField } from '@template-goblin/types'
 import { useTemplateStore } from '../../store/templateStore.js'
-import {
-  projectFieldsToJson,
-  isPlaceholderImageSentinel,
-  IMAGE_REQUIRED_MARKER,
-} from '../../utils/jsonProjection.js'
+import { projectFieldsToJson } from '../../utils/jsonProjection.js'
 import { surfaceError } from '../../utils/friendlyError.js'
 import { runCorePreview, openPdfInNewTab } from '../../utils/runCorePreview.js'
 import {
   parseInputJson,
   readAsDataUrl,
-  getPlaceholderFilename,
   validateUpload,
+  findMissingRequiredFields,
+  buildPreviewInputData,
+  extractConditionalFields,
+  buildConditionMap,
+  updateConditionArray,
 } from './previewDialogHelpers.js'
 import { buildImageDataUrlMap } from '../../utils/previewInputs.js'
-import { PreviewImageUploadRow } from './PreviewImageUploadRow.js'
+import { PreviewImageUploadSection, type UploadedImage } from './PreviewImageUploadSection.js'
+import { PreviewConditionSelector } from './PreviewConditionSelector.js'
 import { PreviewDialogHeader } from './PreviewDialogHeader.js'
-
-/** A single user-uploaded image, kept in memory until Render or Reset. */
-interface UploadedImage {
-  dataUrl: string
-}
 
 export function PreviewDialog({ onClose }: { onClose: () => void }) {
   const fields = useTemplateStore((s) => s.fields)
@@ -94,29 +90,11 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
   // (for images) via the upload widget block the Render button. Without
   // this gate the user clicked Render and got a runtime SDK error —
   // not an obvious failure mode.
-  const missingRequired = useMemo<string[]>(() => {
-    if (!parseResult.ok) return []
-    const parsed = parseResult.data
-    const out: string[] = []
-    for (const f of allFields) {
-      if (!f.source || f.source.mode !== 'dynamic') continue
-      if (!f.source.required) continue
-      const bucket =
-        f.type === 'text'
-          ? (parsed.texts as Record<string, unknown> | undefined)
-          : f.type === 'image'
-            ? (parsed.images as Record<string, unknown> | undefined)
-            : (parsed.tables as Record<string, unknown> | undefined)
-      const v = bucket?.[f.source.jsonKey]
-      // The projected `<base64-image-data>` marker maps to no real bytes —
-      // it must NOT count as supplied, or Render passes the gate and dies
-      // in the engine's format sniff.
-      const hasJson = v !== undefined && v !== null && v !== '' && v !== IMAGE_REQUIRED_MARKER
-      const hasUpload = f.type === 'image' && imageOverrides.has(f.source.jsonKey)
-      if (!hasJson && !hasUpload) out.push(f.source.jsonKey)
-    }
-    return out
-  }, [allFields, parseResult, imageOverrides])
+  const missingRequired = useMemo(
+    () =>
+      !parseResult.ok ? [] : findMissingRequiredFields(allFields, parseResult.data, imageOverrides),
+    [allFields, parseResult, imageOverrides],
+  )
 
   const dynamicImageFields = useMemo(
     () =>
@@ -125,6 +103,25 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
       ),
     [allFields],
   )
+
+  const conditionalFields = useMemo(() => extractConditionalFields(allFields), [allFields])
+
+  const currentConditionMap = useMemo(
+    () => (!parseResult.ok ? {} : buildConditionMap(parseResult.data.condition, conditionalFields)),
+    [parseResult, conditionalFields],
+  )
+
+  function handleChangeFieldCondition(keyName: string, newCond: string) {
+    if (!parseResult.ok) return
+    const data = { ...parseResult.data }
+    const updated = updateConditionArray(currentConditionMap, keyName, newCond)
+    if (updated) {
+      data.condition = updated
+    } else {
+      delete data.condition
+    }
+    setJsonText(JSON.stringify(data, null, 2))
+  }
 
   // ESC dismiss.
   useEffect(() => {
@@ -173,55 +170,13 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
     setRenderError(null)
     setIsRendering(true)
     try {
-      const parsed = parseResult.data
-      // Build the InputJSON the SDK expects. Dynamic images: start from the
-      // template's placeholder bitmaps (so a fresh preview "just works"
-      // without forcing the user to supply every image), then overlay
-      // anything in the user-edited JSON, then overlay any explicit upload.
       const state = useTemplateStore.getState()
-      const data = {
-        texts: (parsed.texts ?? {}) as Record<string, string>,
-        tables: (parsed.tables ?? {}) as Record<string, Record<string, string>[]>,
-        images: {} as Record<string, string | ArrayBuffer>,
-        // GH #87 — carry the hyperlink URL bucket through to generatePDF
-        // so dynamic-link fields (mode: 'dynamic', jsonKey) actually
-        // become clickable in the rendered preview. Pre-fix this was
-        // silently dropped and the link annotations never made it into
-        // the PDF byte stream.
-        links: (parsed.links ?? {}) as Record<string, string>,
-      }
-      // Seed every dynamic image field with its placeholder as a
-      // FULL data URL. Core's resolveImageInput accepts data URLs
-      // directly (it does NOT consult template.placeholders for
-      // dynamic fields — preflightImages reads bytes only from
-      // data.images[jsonKey]), so a bare filename here would fail
-      // the format sniff with 'not a valid PNG / JPEG'. The data URL
-      // round-trips through Buffer.from(b64) cleanly when the
-      // underlying bitmap is real (any genuine PNG / JPEG bytes
-      // produced by the upload pipeline).
-      for (const field of dynamicImageFields) {
-        if (field.source.mode !== 'dynamic') continue
-        const ph = field.source.placeholder
-        if (ph && typeof ph === 'object' && 'filename' in ph) {
-          const fullDataUrl = baseImageDataUrls.get(ph.filename as string)
-          if (fullDataUrl) data.images[field.source.jsonKey] = fullDataUrl
-        }
-      }
-      // User-edited JSON.images takes precedence over the placeholder
-      // defaults; explicit uploads take precedence over both. Values
-      // that came from the projection rather than the user are skipped:
-      // the truncated-base64 sentinel (#165) so the full placeholder
-      // bytes set above win, and the `<base64-image-data>` required-
-      // marker, which maps to no bytes at all and would fail the
-      // engine's PNG/JPEG sniff if passed through as literal base64.
-      const parsedImages = (parsed.images ?? {}) as Record<string, unknown>
-      for (const [k, v] of Object.entries(parsedImages)) {
-        if (isPlaceholderImageSentinel(v) || v === IMAGE_REQUIRED_MARKER) continue
-        data.images[k] = v as string | ArrayBuffer
-      }
-      for (const [jsonKey, upload] of imageOverrides) {
-        data.images[jsonKey] = upload.dataUrl
-      }
+      const data = buildPreviewInputData(
+        parseResult.data,
+        dynamicImageFields,
+        baseImageDataUrls,
+        imageOverrides,
+      )
       const bytes = await runCorePreview(state, data as never)
       openPdfInNewTab(bytes)
       onClose()
@@ -248,6 +203,12 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
             take precedence over the JSON entries (#140).
           </span>
         </p>
+
+        <PreviewConditionSelector
+          conditionalFields={conditionalFields}
+          currentConditionMap={currentConditionMap}
+          onChangeFieldCondition={handleChangeFieldCondition}
+        />
 
         <label
           htmlFor="preview-json-editor"
@@ -281,49 +242,13 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {dynamicImageFields.length > 0 && (
-          <>
-            <label
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                marginTop: 16,
-                marginBottom: 4,
-                display: 'block',
-              }}
-            >
-              Images
-            </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {dynamicImageFields.map((f) => {
-                if (f.source.mode !== 'dynamic') return null
-                const jsonKey = f.source.jsonKey
-                const placeholder = getPlaceholderFilename(f.source)
-                const placeholderThumb = placeholder
-                  ? (baseImageDataUrls.get(placeholder) ?? null)
-                  : null
-                const override = imageOverrides.get(jsonKey)
-                return (
-                  <PreviewImageUploadRow
-                    key={f.id}
-                    jsonKey={jsonKey}
-                    thumbnail={override?.dataUrl ?? placeholderThumb}
-                    isOverride={!!override}
-                    onUpload={(file) => handleUpload(jsonKey, file)}
-                  />
-                )
-              })}
-            </div>
-            {uploadError && (
-              <div
-                data-testid="preview-upload-error"
-                style={{ color: '#d33', fontSize: 12, marginTop: 6 }}
-              >
-                {uploadError}
-              </div>
-            )}
-          </>
-        )}
+        <PreviewImageUploadSection
+          dynamicImageFields={dynamicImageFields}
+          baseImageDataUrls={baseImageDataUrls}
+          imageOverrides={imageOverrides}
+          uploadError={uploadError}
+          onUpload={handleUpload}
+        />
 
         {renderError && (
           <div

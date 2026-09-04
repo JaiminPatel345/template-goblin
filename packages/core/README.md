@@ -16,18 +16,29 @@ import { loadTemplate, generatePDF } from 'template-goblin'
 
 const template = await loadTemplate('./result.tgbl')
 
-const pdf = await generatePDF(
-  template,
-  {
-    texts: { studentName: 'Aisha Khan', grade: 'A' },
-    tables: { subjects: [{ subject: 'Math', marks: '95' }] },
-    condition: 'honors', // optional condition-based styling
-  },
-  { condition: 'honors' }, // or pass in options
-)
+const pdf = await generatePDF(template, {
+  texts: { studentName: 'Aisha Khan', grade: 'A' },
+  tables: { subjects: [{ subject: 'Math', marks: '95' }] },
+  // Condition-based styling: specify active condition per field or globally
+  condition: [{ grade: 'honors' }, { studentName: 'highlight' }],
+})
 
 await writeFile('result.pdf', pdf)
 ```
+
+### Condition-based styling
+
+Fields can define named style rules (e.g. `honors`, `warning`, `default`). Only overridden properties are stored sparsely in `.tgbl`.
+In the input JSON, specify conditions using the developer-friendly array format:
+
+```json
+{
+  "texts": { "grade": "A" },
+  "condition": [{ "grade": "honors" }]
+}
+```
+
+Global string conditions (`"condition": "honors"`) and key-value maps (`"condition": { "grade": "honors" }`) are also supported as fallbacks. If no condition is supplied, fields fall back to their marked default condition.
 
 ## What is a `.tgbl` template?
 

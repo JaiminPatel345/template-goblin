@@ -19,30 +19,71 @@ export function resolveUiField<T extends FieldDefinition>(field: T, data?: Input
     return field
   }
 
-  // 1. Check data.conditions map or data.condition
-  let reqName: string | undefined
-  if (data?.conditions) {
-    reqName = data.conditions[field.id]
-    if (!reqName && field.source?.mode === 'dynamic' && 'jsonKey' in field.source) {
-      reqName = data.conditions[field.source.jsonKey]
-    }
-  }
+  // 1. In Playground, prioritize the condition selected by the user (activeConditionId)
+  let matchedRule = condConfig.activeConditionId
+    ? condConfig.conditions.find((c) => c.id === condConfig.activeConditionId)
+    : undefined
 
-  if (!reqName && data?.condition) {
-    reqName = data.condition
-  }
-
-  let matchedRule = reqName ? condConfig.conditions.find((c) => c.name === reqName) : undefined
-
-  // 2. Check UI activeConditionId
+  // 2. If no activeConditionId, check data overrides
   if (!matchedRule) {
-    const activeId = condConfig.activeConditionId
-    if (activeId) {
-      matchedRule = condConfig.conditions.find((c) => c.id === activeId)
+    const jsonKey =
+      field.source?.mode === 'dynamic' && 'jsonKey' in field.source
+        ? field.source.jsonKey
+        : undefined
+
+    let reqName: string | undefined
+
+    // Check data.conditions map
+    if (data?.conditions) {
+      if (jsonKey && typeof data.conditions[jsonKey] === 'string') {
+        reqName = data.conditions[jsonKey]
+      } else if (typeof data.conditions[field.id] === 'string') {
+        reqName = data.conditions[field.id]
+      }
+    }
+
+    // Check data.condition array: [{ [keyName]: conditionName }]
+    if (!reqName && Array.isArray(data?.condition)) {
+      for (const item of data.condition) {
+        if (item && typeof item === 'object') {
+          if (jsonKey && typeof item[jsonKey] === 'string') {
+            reqName = item[jsonKey]
+            break
+          }
+          if (typeof item[field.id] === 'string') {
+            reqName = item[field.id]
+            break
+          }
+        }
+      }
+    }
+
+    // Check data.condition object
+    if (
+      !reqName &&
+      data?.condition &&
+      typeof data.condition === 'object' &&
+      !Array.isArray(data.condition)
+    ) {
+      const condObj = data.condition as Record<string, string>
+      if (jsonKey && typeof condObj[jsonKey] === 'string') {
+        reqName = condObj[jsonKey]
+      } else if (typeof condObj[field.id] === 'string') {
+        reqName = condObj[field.id]
+      }
+    }
+
+    // Check data.condition string
+    if (!reqName && typeof data?.condition === 'string' && data.condition.length > 0) {
+      reqName = data.condition
+    }
+
+    if (reqName) {
+      matchedRule = condConfig.conditions.find((c) => c.name === reqName)
     }
   }
 
-  // 3. Fallback to default condition rule
+  // 3. Fallback to default condition rule (default is only used if nothing selected/given)
   if (!matchedRule) {
     matchedRule = condConfig.conditions.find((c) => c.isDefault) ?? condConfig.conditions[0]
   }

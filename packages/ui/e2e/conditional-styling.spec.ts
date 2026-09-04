@@ -144,9 +144,25 @@ test.describe('Condition-Based Styling E2E', () => {
     expect(condConfig?.conditions.find((c) => c.name === 'VIP')?.isDefault).toBe(true)
   })
 
-  test('updating style overrides for a condition', async ({ page }) => {
+  test('updating style overrides for a condition using property picker dropdown', async ({
+    page,
+  }) => {
     const toggle = page.locator('[data-testid="toggle-conditional-styling"]')
     await toggle.check()
+
+    // Open property picker dropdown
+    const pickerToggle = page.locator('[data-testid="property-picker-toggle"]')
+    await expect(pickerToggle).toBeVisible()
+    await pickerToggle.click()
+
+    // Search for font size
+    const searchInput = page.locator('[data-testid="property-search-input"]')
+    await expect(searchInput).toBeVisible()
+    await searchInput.fill('Font Size')
+
+    // Check font size property
+    const checkbox = page.locator('[data-testid="property-checkbox-fontSize"]')
+    await checkbox.check()
 
     // Update font size for condition-1
     const fontSizeInput = page.locator('[data-testid="cond-font-size"]')
@@ -197,6 +213,10 @@ test.describe('Condition-Based Styling E2E', () => {
     })
     expect(condConfig?.activeConditionId).toBe('cond-2')
 
+    // Open property picker for condition-2 and select font size
+    await page.locator('[data-testid="property-picker-toggle"]').click()
+    await page.locator('[data-testid="property-checkbox-fontSize"]').check()
+
     // Update style for condition-2
     const fontSizeInput = page.locator('[data-testid="cond-font-size"]')
     await fontSizeInput.fill('32')
@@ -207,5 +227,59 @@ test.describe('Condition-Based Styling E2E', () => {
         ?.conditionalStyles
     })
     expect(condConfig?.conditions[1]?.style.fontSize).toBe(32)
+  })
+
+  test('deleting condition promotes remaining condition and disables delete on last condition', async ({
+    page,
+  }) => {
+    const toggle = page.locator('[data-testid="toggle-conditional-styling"]')
+    await toggle.check()
+
+    // Initially 2 conditions (condition-1 [default], condition-2). Delete condition-1.
+    const deleteBtn0 = page.locator('[data-testid^="condition-delete-"]').first()
+    await deleteBtn0.click()
+
+    const condConfig = await page.evaluate(() => {
+      return window.__templateStore.getState().fields.find((f) => f.id === 'f-cond-test')
+        ?.conditionalStyles
+    })
+    expect(condConfig?.conditions).toHaveLength(1)
+    expect(condConfig?.conditions[0]?.name).toBe('condition-2')
+    expect(condConfig?.conditions[0]?.isDefault).toBe(true)
+
+    // With only 1 condition remaining, the delete button must be disabled
+    const remainingDeleteBtn = page.locator('[data-testid^="condition-delete-"]').first()
+    await expect(remainingDeleteBtn).toBeDisabled()
+  })
+
+  test('preview dialog condition selector reflects and updates conditional styling', async ({
+    page,
+  }) => {
+    const toggle = page.locator('[data-testid="toggle-conditional-styling"]')
+    await toggle.check()
+
+    // Open Preview Dialog
+    const previewBtn = page.locator('[data-testid="toolbar-preview"]')
+    await previewBtn.click()
+
+    const previewDialog = page.locator('[data-testid="preview-dialog"]')
+    await expect(previewDialog).toBeVisible()
+
+    // Condition dropdown should be visible with condition options
+    const condSelect = page.locator('[data-testid="preview-condition-select"]')
+    await expect(condSelect).toBeVisible()
+
+    // Change condition to condition-2
+    await condSelect.selectOption('condition-2')
+
+    // Verify Input JSON textarea updated with condition array
+    const jsonEditor = page.locator('[data-testid="preview-json-editor"]')
+    await expect(jsonEditor).toHaveValue(
+      /"condition":\s*\[\s*\{\s*"f-cond-test":\s*"condition-2"\s*\}\s*\]/,
+    )
+
+    // Close preview
+    await page.locator('[data-testid="preview-cancel"]').click()
+    await expect(previewDialog).not.toBeVisible()
   })
 })

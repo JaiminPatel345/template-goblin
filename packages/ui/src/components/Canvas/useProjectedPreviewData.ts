@@ -25,6 +25,13 @@ export function useProjectedPreviewData(deps: ProjectedPreviewDeps): InputJSON {
   const { fields, headerFields, footerFields } = deps
   return useMemo(() => {
     const projected = projectFieldsToJson(fields, { header: headerFields, footer: footerFields })
-    return { texts: projected.texts, images: {}, tables: projected.tables, links: projected.links }
+    return {
+      texts: projected.texts,
+      images: {},
+      tables: projected.tables,
+      links: projected.links,
+      ...(projected.condition ? { condition: projected.condition } : {}),
+      ...(projected.conditions ? { conditions: projected.conditions } : {}),
+    }
   }, [fields, headerFields, footerFields])
 }

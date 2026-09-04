@@ -48,6 +48,7 @@ export type {
   ImageInputs,
   ImageInput,
   LinkInputs,
+  ConditionInput,
 } from './input.js'
 export type { StaticSource, DynamicSource, FieldSource } from './source.js'
 export { isStaticSource, isDynamicSource } from './source.js'

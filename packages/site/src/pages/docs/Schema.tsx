@@ -8,7 +8,10 @@ const INPUT = `{
     { "subject": "Science",     "grade": "B+" }
   ] },
   "images": { "photo": "https://cdn.example.com/aisha.png" },
-  "links":  { "verify": "https://verify.example.com/abc123" }
+  "links":  { "verify": "https://verify.example.com/abc123" },
+  "condition": [
+    { "grade": "honors" }
+  ]
 }`
 
 const IMAGES = `images: {
@@ -56,6 +59,11 @@ export function Schema() {
             'Dynamic image fields',
           ],
           [<code>links</code>, <code>Record&lt;string, string&gt;</code>, 'Dynamic hyperlink URLs'],
+          [
+            <code>condition</code>,
+            <code>Array&lt;Record&lt;string, string&gt;&gt; | string</code>,
+            'Condition-based styling overrides per field (e.g. [{ keyName: conditionName }]) or global condition string',
+          ],
         ]}
       />
       <Callout>

@@ -4,6 +4,7 @@ import {
   parseInputJson,
   validateUpload,
   getPlaceholderFilename,
+  buildPreviewInputData,
   MAX_UPLOAD_BYTES,
 } from '../previewDialogHelpers.js'
 
@@ -88,6 +89,36 @@ describe('parseInputJson', () => {
     const r = parseInputJson('{"links":"https://x.com"}')
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error).toMatch(/links/)
+  })
+
+  // ---- Condition-based styling (#43) ----
+
+  it('accepts a valid condition string', () => {
+    const r = parseInputJson('{"condition":"condition-2"}')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.condition).toBe('condition-2')
+    }
+  })
+
+  it('rejects condition if not a string', () => {
+    const r = parseInputJson('{"condition":123}')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/condition.*string/i)
+  })
+
+  it('accepts conditions mapping object', () => {
+    const r = parseInputJson('{"conditions":{"field-1":"urgent"}}')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.conditions).toEqual({ 'field-1': 'urgent' })
+    }
+  })
+
+  it('rejects conditions if not an object', () => {
+    const r = parseInputJson('{"conditions":"urgent"}')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error).toMatch(/conditions.*object/i)
   })
 
   it('rejects "links" as null', () => {
@@ -192,5 +223,19 @@ describe('getPlaceholderFilename', () => {
       value: { filename: 'pic.png' },
     }
     expect(getPlaceholderFilename(staticSrc)).toBeNull()
+  })
+})
+
+describe('buildPreviewInputData', () => {
+  it('passes condition and conditions through to the returned data', () => {
+    const parsed = {
+      texts: { title: 'Invoice' },
+      condition: 'condition-2',
+      conditions: { 'field-1': 'condition-1' },
+    }
+    const result = buildPreviewInputData(parsed, [], new Map(), new Map())
+    expect(result.condition).toBe('condition-2')
+    expect(result.conditions).toEqual({ 'field-1': 'condition-1' })
+    expect(result.texts).toEqual({ title: 'Invoice' })
   })
 })

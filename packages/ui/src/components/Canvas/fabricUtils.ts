@@ -41,6 +41,7 @@ import type { FieldDefinition, InputJSON } from '@template-goblin/types'
 import { FIELD_COLORS, SELECTED_STROKE_WIDTH } from '../../theme/fieldColors.js'
 import { buildGroupChildren, type ImageResolver } from './buildGroupChildren.js'
 import { centerCompensatedLeftTop, normaliseAngle, recoverUnrotatedXY } from './rotationGeometry.js'
+import { resolveUiField } from '../../utils/conditionalStyle.js'
 
 // Re-export the moved utilities so existing importers keep working without
 // having to update their import paths.
@@ -192,6 +193,8 @@ export function createFieldGroup(
 
   createdGroup.__fieldId = field.id
   createdGroup.__fieldType = field.type
+  createdGroup.__fieldHash = fieldRenderHash(field, resolveImage, data)
+  createdGroup.dirty = true
 
   return createdGroup
 }
@@ -267,14 +270,20 @@ function fieldRenderHash(
       if (typeof supplied === 'string') dataSlice = supplied
     }
   }
+
+  // #43: Compute effective field style with active condition so canvas Fabric
+  // immediately rebuilds when user selects a different condition in the UI.
+  const effective = resolveUiField(field, data)
+
   return JSON.stringify({
-    t: field.type,
-    w: field.width,
-    h: field.height,
-    s: field.style,
-    src: field.source,
+    t: effective.type,
+    w: effective.width,
+    h: effective.height,
+    s: effective.style,
+    src: effective.source,
     imgR: imageResolved,
     d: dataSlice,
+    condActive: field.conditionalStyles?.activeConditionId,
   })
 }
 
@@ -368,6 +377,10 @@ export function applyFieldToGroup(
   group.__fieldWidth = field.width
   group.__fieldHeight = field.height
   group.__fieldHash = newHash
+  group.dirty = true
+  group.getObjects().forEach((child) => {
+    child.dirty = true
+  })
   group.setCoords()
   group.__fieldType = field.type
 
