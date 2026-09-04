@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useTemplateStore } from '../templateStore.js'
-import type { TextField, TextFieldStyle } from '@template-goblin/types'
+import type {
+  TextField,
+  ImageField,
+  TableField,
+  ImageFieldStyle,
+  TableFieldStyle,
+} from '@template-goblin/types'
 
 describe('Conditional Styling UI Store Operations', () => {
   beforeEach(() => {
@@ -56,13 +62,115 @@ describe('Conditional Styling UI Store Operations', () => {
     expect(updated?.conditionalStyles?.conditions[0]?.isDefault).toBe(true)
   })
 
-  it('updates condition rules and style overrides', () => {
+  it('updates condition rules and style overrides for ImageField and TableField', () => {
+    const imgF: ImageField = {
+      id: 'img-1',
+      type: 'image',
+      groupId: null,
+      pageId: null,
+      label: 'Image 1',
+      x: 10,
+      y: 10,
+      width: 100,
+      height: 100,
+      zIndex: 0,
+      style: { fit: 'contain' },
+      source: { mode: 'static', value: { color: '#ffffff' } },
+    }
+
+    const tableF: TableField = {
+      id: 'tbl-1',
+      type: 'table',
+      groupId: null,
+      pageId: null,
+      label: 'Table 1',
+      x: 10,
+      y: 10,
+      width: 300,
+      height: 200,
+      zIndex: 0,
+      style: {
+        maxRows: 10,
+        maxColumns: 5,
+        multiPage: false,
+        showHeader: true,
+        headerStyle: {
+          fontFamily: 'Helvetica',
+          fontSize: 10,
+          fontWeight: 'bold',
+          fontStyle: 'normal',
+          textDecoration: 'none',
+          color: '#000000',
+          backgroundColor: '#eeeeee',
+          borderWidth: 1,
+          borderColor: '#cccccc',
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 4,
+          paddingRight: 4,
+          align: 'left',
+          verticalAlign: 'middle',
+        },
+        rowStyle: {
+          fontFamily: 'Helvetica',
+          fontSize: 10,
+          fontWeight: 'normal',
+          fontStyle: 'normal',
+          textDecoration: 'none',
+          color: '#000000',
+          backgroundColor: '#ffffff',
+          borderWidth: 1,
+          borderColor: '#cccccc',
+          paddingTop: 4,
+          paddingBottom: 4,
+          paddingLeft: 4,
+          paddingRight: 4,
+          align: 'left',
+          verticalAlign: 'middle',
+        },
+        oddRowStyle: null,
+        evenRowStyle: null,
+        cellStyle: { overflowMode: 'truncate' },
+        columns: [],
+      },
+      source: { mode: 'static', value: [] },
+    }
+
+    useTemplateStore.getState().addField(imgF)
+    useTemplateStore.getState().addField(tableF)
+
+    useTemplateStore.getState().updateField('img-1', {
+      conditionalStyles: {
+        enabled: true,
+        conditions: [{ id: 'c1', name: 'condition-1', isDefault: true, style: { fit: 'cover' } }],
+      },
+    })
+
+    useTemplateStore.getState().updateField('tbl-1', {
+      conditionalStyles: {
+        enabled: true,
+        conditions: [
+          { id: 'c1', name: 'condition-1', isDefault: true, style: { multiPage: true } },
+        ],
+      },
+    })
+
+    const updatedImg = useTemplateStore.getState().fields.find((f) => f.id === 'img-1')
+    const imgStyle = updatedImg?.conditionalStyles?.conditions[0]?.style as Partial<ImageFieldStyle>
+    expect(imgStyle?.fit).toBe('cover')
+
+    const updatedTbl = useTemplateStore.getState().fields.find((f) => f.id === 'tbl-1')
+    const tblStyle = updatedTbl?.conditionalStyles?.conditions[0]?.style as Partial<TableFieldStyle>
+    expect(tblStyle?.multiPage).toBe(true)
+  })
+
+  it('supports toggling conditional styling OFF without losing stored rules', () => {
     const textF: TextField = {
-      id: 'field-2',
+      id: 'field-3',
       type: 'text',
       groupId: null,
       pageId: null,
-      label: 'Text 2',
+      label: 'Text 3',
       x: 10,
       y: 10,
       width: 100,
@@ -84,25 +192,32 @@ describe('Conditional Styling UI Store Operations', () => {
         overflowMode: 'truncate',
         snapToGrid: false,
       },
-      source: { mode: 'static', value: 'World' },
+      source: { mode: 'static', value: 'Test' },
     }
 
     useTemplateStore.getState().addField(textF)
 
-    const initialRules = [
-      { id: 'c1', name: 'condition-1', isDefault: true, style: { fontSize: 14 } },
-    ]
-
-    useTemplateStore.getState().updateField('field-2', {
+    useTemplateStore.getState().updateField('field-3', {
       conditionalStyles: {
         enabled: true,
-        conditions: initialRules,
+        conditions: [
+          { id: 'c1', name: 'condition-1', isDefault: true, style: { color: '#112233' } },
+        ],
       },
     })
 
-    const fieldBefore = useTemplateStore.getState().fields.find((f) => f.id === 'field-2')
-    const condStyle = fieldBefore?.conditionalStyles?.conditions[0]
-      ?.style as Partial<TextFieldStyle>
-    expect(condStyle?.fontSize).toBe(14)
+    // Turn OFF
+    useTemplateStore.getState().updateField('field-3', {
+      conditionalStyles: {
+        enabled: false,
+        conditions: [
+          { id: 'c1', name: 'condition-1', isDefault: true, style: { color: '#112233' } },
+        ],
+      },
+    })
+
+    const field = useTemplateStore.getState().fields.find((f) => f.id === 'field-3')
+    expect(field?.conditionalStyles?.enabled).toBe(false)
+    expect(field?.conditionalStyles?.conditions).toHaveLength(1)
   })
 })
