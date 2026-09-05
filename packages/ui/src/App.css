@@ -52,6 +52,14 @@ html, body, #root {
 .tg-btn:disabled { @apply opacity-40 cursor-not-allowed; }
 .tg-btn:disabled:hover { background: transparent; }
 .tg-btn--danger:hover { background: var(--error); color: #fff; }
+.tg-remove-btn {
+  color: var(--text-muted);
+  transition: color 150ms ease, background-color 150ms ease;
+}
+.tg-remove-btn:hover:not(:disabled) {
+  color: var(--error) !important;
+  background: var(--error-soft) !important;
+}
 .tg-btn--primary { background: var(--accent); color: #fff; border: none; }
 .tg-btn--primary:hover { background: var(--accent-hover); }
 

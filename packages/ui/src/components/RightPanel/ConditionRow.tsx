@@ -99,7 +99,7 @@ export function ConditionRow({
       {/* Delete condition */}
       <button
         type="button"
-        className="tg-btn tg-btn--icon tg-btn--sm"
+        className="tg-btn tg-btn--icon tg-btn--sm tg-remove-btn"
         data-testid={`condition-delete-${cond.id}`}
         disabled={!canDelete}
         onClick={(e) => {
@@ -116,7 +116,7 @@ export function ConditionRow({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'var(--text-muted)',
+          cursor: canDelete ? 'pointer' : 'not-allowed',
         }}
       >
         ✕

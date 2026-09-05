@@ -20,12 +20,13 @@ export function PreviewDialogHeader({ onClose }: { onClose: () => void }) {
         onClick={onClose}
         aria-label="Close preview dialog"
         data-testid="preview-close"
+        className="tg-remove-btn"
         style={{
           background: 'transparent',
           border: 'none',
           cursor: 'pointer',
           padding: 4,
-          color: 'var(--text-muted, #888)',
+          borderRadius: 4,
           display: 'flex',
           alignItems: 'center',
         }}

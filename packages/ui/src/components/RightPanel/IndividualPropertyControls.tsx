@@ -60,7 +60,7 @@ export function IndividualPropertyControl({
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>{label}</span>
         <button
           type="button"
-          className="tg-btn tg-btn--icon tg-btn--sm"
+          className="tg-btn tg-btn--icon tg-btn--sm tg-remove-btn"
           data-testid={`remove-override-${propId}`}
           onClick={onRemove}
           title="Remove this property override"
@@ -70,7 +70,7 @@ export function IndividualPropertyControl({
             height: 18,
             minWidth: 18,
             fontSize: 10,
-            color: 'var(--text-muted)',
+            cursor: 'pointer',
           }}
         >
           ✕
