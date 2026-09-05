@@ -170,7 +170,10 @@ export function ConditionalStylingSection({ field }: Props) {
   function handleToggleProp(propId: string, enabled: boolean) {
     if (!activeRule) return
     const currentStyle = (activeRule.style as Record<string, unknown>) ?? {}
-    const baseStyle = (field.style as unknown as Record<string, unknown>) ?? {}
+    const baseStyle = {
+      ...((field.style as unknown as Record<string, unknown>) ?? {}),
+      rotation: field.rotation ?? 0,
+    }
     const nextStyle = togglePropertyOverride(currentStyle, baseStyle, propId, enabled)
     const updated = conditions.map((c) => (c.id === activeRule.id ? { ...c, style: nextStyle } : c))
     updateField(field.id, {

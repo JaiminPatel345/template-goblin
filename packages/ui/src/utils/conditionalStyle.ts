@@ -62,9 +62,16 @@ export function resolveUiField<T extends FieldDefinition>(field: T, data?: Input
     return field
   }
 
+  const ruleStyle = matchedRule.style as Record<string, unknown>
+  const effectiveRotation =
+    ruleStyle && ruleStyle.rotation !== undefined
+      ? (ruleStyle.rotation as number | null)
+      : field.rotation
+
   return {
     ...field,
-    style: mergeFieldStyles(field, matchedRule.style as Record<string, unknown>),
+    rotation: effectiveRotation,
+    style: mergeFieldStyles(field, ruleStyle),
   }
 }
 
@@ -95,6 +102,20 @@ function mergeFieldStyles<T extends FieldDefinition>(
       merged.rowStyle = {
         ...((baseTableStyle.rowStyle as Record<string, unknown>) ?? {}),
         ...((patchTableStyle.rowStyle as Record<string, unknown>) ?? {}),
+      }
+    }
+
+    if (baseTableStyle.tableBorder || patchTableStyle.tableBorder) {
+      merged.tableBorder = {
+        ...((baseTableStyle.tableBorder as Record<string, unknown>) ?? {}),
+        ...((patchTableStyle.tableBorder as Record<string, unknown>) ?? {}),
+      }
+    }
+
+    if (baseTableStyle.cellStyle || patchTableStyle.cellStyle) {
+      merged.cellStyle = {
+        ...((baseTableStyle.cellStyle as Record<string, unknown>) ?? {}),
+        ...((patchTableStyle.cellStyle as Record<string, unknown>) ?? {}),
       }
     }
 

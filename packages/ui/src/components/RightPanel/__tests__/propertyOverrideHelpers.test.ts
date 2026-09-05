@@ -53,14 +53,83 @@ describe('propertyOverrideHelpers', () => {
     expect(withoutHeaderColor.rowStyle).toBeDefined()
   })
 
-  it('togglePropertyOverride enables a property by pulling from baseStyle', () => {
-    const baseStyle = { color: '#123456', fontSize: 18 }
+  it('extractSelectedPropIds extracts all table settings, cell padding, and cell overflow mode', () => {
+    const fullTableStyle = {
+      maxRows: 20,
+      maxColumns: 8,
+      multiPage: false,
+      showHeader: false,
+      fitToContent: false,
+      headerStyle: {
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        textDecoration: 'underline',
+        verticalAlign: 'bottom',
+      },
+      rowStyle: {
+        fontWeight: 'normal',
+        borderWidth: 2,
+        borderColor: '#333333',
+        paddingTop: 8,
+        paddingBottom: 6,
+        paddingLeft: 10,
+        paddingRight: 10,
+      },
+      cellStyle: {
+        overflowMode: 'truncate',
+      },
+      rotation: 45,
+    }
+
+    const propIds = extractSelectedPropIds(fullTableStyle)
+    expect(propIds).toContain('maxRows')
+    expect(propIds).toContain('maxColumns')
+    expect(propIds).toContain('multiPage')
+    expect(propIds).toContain('showHeader')
+    expect(propIds).toContain('fitToContent')
+    expect(propIds).toContain('headerFontWeight')
+    expect(propIds).toContain('headerFontStyle')
+    expect(propIds).toContain('headerTextDecoration')
+    expect(propIds).toContain('headerVerticalAlign')
+    expect(propIds).toContain('rowFontWeight')
+    expect(propIds).toContain('cellBorderWidth')
+    expect(propIds).toContain('cellBorderColor')
+    expect(propIds).toContain('paddingTop')
+    expect(propIds).toContain('paddingBottom')
+    expect(propIds).toContain('paddingLeft')
+    expect(propIds).toContain('paddingRight')
+    expect(propIds).toContain('tableOverflowMode')
+    expect(propIds).toContain('rotation')
+  })
+
+  it('removePropertyOverride cleanly removes cell padding and pruning cellStyle', () => {
+    const tableStyle = {
+      cellStyle: { overflowMode: 'truncate' },
+      rowStyle: { paddingTop: 8 },
+    }
+    const withoutOverflow = removePropertyOverride(tableStyle, 'tableOverflowMode')
+    expect(withoutOverflow.cellStyle).toBeUndefined()
+    expect(withoutOverflow.rowStyle).toBeDefined()
+
+    const withoutPadding = removePropertyOverride(withoutOverflow, 'paddingTop')
+    expect(withoutPadding.rowStyle).toBeUndefined()
+  })
+
+  it('togglePropertyOverride supports rotation and table settings', () => {
+    const baseStyle = {
+      rotation: 90,
+      maxRows: 15,
+      rowStyle: { paddingTop: 6 },
+    }
     const initial: Record<string, unknown> = {}
 
-    const withColor = togglePropertyOverride(initial, baseStyle, 'color', true)
-    expect(withColor).toEqual({ color: '#123456' })
+    const withRotation = togglePropertyOverride(initial, baseStyle, 'rotation', true)
+    expect(withRotation.rotation).toBe(90)
 
-    const disabled = togglePropertyOverride(withColor, baseStyle, 'color', false)
-    expect(disabled).toEqual({})
+    const withPadding = togglePropertyOverride(withRotation, baseStyle, 'paddingTop', true)
+    expect((withPadding.rowStyle as Record<string, unknown>).paddingTop).toBe(6)
+
+    const removedRotation = togglePropertyOverride(withPadding, baseStyle, 'rotation', false)
+    expect(removedRotation.rotation).toBeUndefined()
   })
 })

@@ -39,9 +39,16 @@ export function resolveEffectiveField<T extends FieldDefinition>(
     return field
   }
 
+  const ruleStyle = matchedRule.style as Record<string, unknown>
+  const effectiveRotation =
+    ruleStyle && ruleStyle.rotation !== undefined
+      ? (ruleStyle.rotation as number | null)
+      : field.rotation
+
   return {
     ...field,
-    style: mergeFieldStyles(field, matchedRule.style as Record<string, unknown>),
+    rotation: effectiveRotation,
+    style: mergeFieldStyles(field, ruleStyle),
   }
 }
 
@@ -79,6 +86,13 @@ function mergeFieldStyles<T extends FieldDefinition>(
       merged.tableBorder = {
         ...((baseTableStyle.tableBorder as Record<string, unknown>) ?? {}),
         ...((patchTableStyle.tableBorder as Record<string, unknown>) ?? {}),
+      }
+    }
+
+    if (baseTableStyle.cellStyle || patchTableStyle.cellStyle) {
+      merged.cellStyle = {
+        ...((baseTableStyle.cellStyle as Record<string, unknown>) ?? {}),
+        ...((patchTableStyle.cellStyle as Record<string, unknown>) ?? {}),
       }
     }
 

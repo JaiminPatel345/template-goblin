@@ -3,15 +3,11 @@
  *
  * Extracted from `IndividualPropertyControls.tsx` to keep files under the 300-line cap (Rule #11).
  */
-import type {
-  TableFieldStyle,
-  TextAlign,
-  CellStyle,
-  TableBorderStyle,
-} from '@template-goblin/types'
+import type { TableFieldStyle, TextAlign, VerticalAlign, CellStyle } from '@template-goblin/types'
 import { NumberInput } from '../NumberInput.js'
 import { ColorPickerPopover } from '../ColorPickerPopover.js'
 import { NullableColorInput } from '../NullableColorInput.js'
+import { renderTableCellPropertyInput } from './TableCellPropertyInputs.js'
 
 /**
  * Renders an input control for an individual table property override.
@@ -34,6 +30,7 @@ export function renderTablePropertyInput(
       return (
         <select
           className="tg-select"
+          data-testid={`cond-${propId}`}
           value={targetObj?.fontFamily ?? baseObj?.fontFamily}
           onChange={(e) =>
             onChange(
@@ -72,6 +69,100 @@ export function renderTablePropertyInput(
             )
           }
         />
+      )
+    }
+
+    case 'headerFontWeight':
+    case 'rowFontWeight': {
+      const isHeader = propId === 'headerFontWeight'
+      const targetObj = (isHeader ? style.headerStyle : style.rowStyle) as
+        | Partial<CellStyle>
+        | undefined
+      const baseObj = isHeader ? baseStyle.headerStyle : baseStyle.rowStyle
+      const val = targetObj?.fontWeight ?? baseObj?.fontWeight ?? 'normal'
+      return (
+        <select
+          className="tg-select"
+          data-testid={`cond-${propId}`}
+          value={val}
+          onChange={(e) =>
+            onChange(
+              isHeader
+                ? { headerStyle: { ...targetObj, fontWeight: e.target.value as 'normal' | 'bold' } }
+                : { rowStyle: { ...targetObj, fontWeight: e.target.value as 'normal' | 'bold' } },
+            )
+          }
+        >
+          <option value="normal">Normal</option>
+          <option value="bold">Bold</option>
+        </select>
+      )
+    }
+
+    case 'headerFontStyle':
+    case 'rowFontStyle': {
+      const isHeader = propId === 'headerFontStyle'
+      const targetObj = (isHeader ? style.headerStyle : style.rowStyle) as
+        | Partial<CellStyle>
+        | undefined
+      const baseObj = isHeader ? baseStyle.headerStyle : baseStyle.rowStyle
+      const val = targetObj?.fontStyle ?? baseObj?.fontStyle ?? 'normal'
+      return (
+        <select
+          className="tg-select"
+          data-testid={`cond-${propId}`}
+          value={val}
+          onChange={(e) =>
+            onChange(
+              isHeader
+                ? {
+                    headerStyle: { ...targetObj, fontStyle: e.target.value as 'normal' | 'italic' },
+                  }
+                : { rowStyle: { ...targetObj, fontStyle: e.target.value as 'normal' | 'italic' } },
+            )
+          }
+        >
+          <option value="normal">Normal</option>
+          <option value="italic">Italic</option>
+        </select>
+      )
+    }
+
+    case 'headerTextDecoration':
+    case 'rowTextDecoration': {
+      const isHeader = propId === 'headerTextDecoration'
+      const targetObj = (isHeader ? style.headerStyle : style.rowStyle) as
+        | Partial<CellStyle>
+        | undefined
+      const baseObj = isHeader ? baseStyle.headerStyle : baseStyle.rowStyle
+      const val = targetObj?.textDecoration ?? baseObj?.textDecoration ?? 'none'
+      return (
+        <select
+          className="tg-select"
+          data-testid={`cond-${propId}`}
+          value={val}
+          onChange={(e) =>
+            onChange(
+              isHeader
+                ? {
+                    headerStyle: {
+                      ...targetObj,
+                      textDecoration: e.target.value as 'none' | 'underline' | 'line-through',
+                    },
+                  }
+                : {
+                    rowStyle: {
+                      ...targetObj,
+                      textDecoration: e.target.value as 'none' | 'underline' | 'line-through',
+                    },
+                  },
+            )
+          }
+        >
+          <option value="none">None</option>
+          <option value="underline">Underline</option>
+          <option value="line-through">Strikethrough</option>
+        </select>
       )
     }
 
@@ -129,6 +220,7 @@ export function renderTablePropertyInput(
       return (
         <select
           className="tg-select"
+          data-testid={`cond-${propId}`}
           value={targetObj?.align ?? baseObj?.align ?? 'left'}
           onChange={(e) =>
             onChange(
@@ -145,33 +237,34 @@ export function renderTablePropertyInput(
       )
     }
 
-    case 'tableBorderWidth': {
-      const border = (style.tableBorder as Partial<TableBorderStyle>) ?? {}
-      const baseBorder = baseStyle.tableBorder ?? { width: 1, color: '#000000' }
+    case 'headerVerticalAlign':
+    case 'rowVerticalAlign': {
+      const isHeader = propId === 'headerVerticalAlign'
+      const targetObj = (isHeader ? style.headerStyle : style.rowStyle) as
+        | Partial<CellStyle>
+        | undefined
+      const baseObj = isHeader ? baseStyle.headerStyle : baseStyle.rowStyle
       return (
-        <NumberInput
-          min={0}
-          step={0.5}
-          value={border.width ?? baseBorder.width}
-          defaultValue={1}
-          onChange={(v) => onChange({ tableBorder: { ...border, width: v } })}
-        />
-      )
-    }
-
-    case 'tableBorderColor': {
-      const border = (style.tableBorder as Partial<TableBorderStyle>) ?? {}
-      const baseBorder = baseStyle.tableBorder ?? { width: 1, color: '#000000' }
-      return (
-        <ColorPickerPopover
-          value={border.color ?? baseBorder.color ?? '#000000'}
-          onChange={(c) => onChange({ tableBorder: { ...border, color: c } })}
-          ariaLabel="Table Border Color"
-        />
+        <select
+          className="tg-select"
+          data-testid={`cond-${propId}`}
+          value={targetObj?.verticalAlign ?? baseObj?.verticalAlign ?? 'middle'}
+          onChange={(e) =>
+            onChange(
+              isHeader
+                ? { headerStyle: { ...targetObj, verticalAlign: e.target.value as VerticalAlign } }
+                : { rowStyle: { ...targetObj, verticalAlign: e.target.value as VerticalAlign } },
+            )
+          }
+        >
+          <option value="top">Top</option>
+          <option value="middle">Middle</option>
+          <option value="bottom">Bottom</option>
+        </select>
       )
     }
 
     default:
-      return null
+      return renderTableCellPropertyInput(propId, style, baseStyle, onChange)
   }
 }
