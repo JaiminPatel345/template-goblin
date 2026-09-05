@@ -203,9 +203,9 @@ test.describe('Condition-Based Styling E2E', () => {
     const toggle = page.locator('[data-testid="toggle-conditional-styling"]')
     await toggle.check()
 
-    // Click radio button for condition-2 (row index 1)
-    const radio2 = page.locator('[data-testid="condition-radio-1"]')
-    await radio2.click()
+    // Click condition row for condition-2 (row index 1)
+    const row2 = page.locator('[data-testid="condition-row-1"]')
+    await row2.click()
 
     let condConfig = await page.evaluate(() => {
       return window.__templateStore.getState().fields.find((f) => f.id === 'f-cond-test')

@@ -13,7 +13,7 @@ interface ConditionRowProps {
 }
 
 export function ConditionRow({
-  fieldId,
+  fieldId: _fieldId,
   cond,
   idx,
   isSelected,
@@ -30,30 +30,16 @@ export function ConditionRow({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 6,
-        padding: '5px 8px',
+        gap: 8,
+        padding: '6px 10px',
         borderRadius: 6,
-        background: isSelected ? 'var(--bg-hover)' : 'transparent',
-        border: isSelected ? '1px solid var(--primary, #0284c7)' : '1px solid var(--border)',
+        background: isSelected ? 'var(--accent-soft)' : 'var(--bg-secondary)',
+        border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
+        boxShadow: isSelected ? 'var(--shadow-xs)' : 'none',
         cursor: 'pointer',
-        transition: 'background 0.15s ease, border-color 0.15s ease',
+        transition: 'border-color 0.15s ease, background-color 0.15s ease',
       }}
     >
-      {/* Radio button selects the active style for editing and canvas preview */}
-      <input
-        type="radio"
-        name={`active-cond-${fieldId}`}
-        data-testid={`condition-radio-${idx}`}
-        checked={isSelected}
-        onChange={onSelect}
-        onClick={(e) => {
-          e.stopPropagation()
-          onSelect()
-        }}
-        title="Select this condition to edit and preview"
-        style={{ cursor: 'pointer', margin: 0 }}
-      />
-
       {/* Editable condition name */}
       <input
         type="text"
@@ -65,7 +51,16 @@ export function ConditionRow({
           e.stopPropagation()
           onSelect()
         }}
-        style={{ flex: 1, height: 24, fontSize: 12, padding: '2px 6px' }}
+        style={{
+          flex: 1,
+          height: 24,
+          fontSize: 12,
+          padding: '2px 8px',
+          color: 'var(--text-primary)',
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 4,
+        }}
       />
 
       {/* Default text button: click to set as default fallback condition */}
@@ -86,11 +81,9 @@ export function ConditionRow({
           fontWeight: cond.isDefault ? 600 : 400,
           padding: '2px 8px',
           borderRadius: 10,
-          border: cond.isDefault ? '1px solid var(--primary, #0284c7)' : '1px solid var(--border)',
-          background: cond.isDefault
-            ? 'var(--primary-light, #e0f2fe)'
-            : 'var(--bg-tertiary, #f8fafc)',
-          color: cond.isDefault ? 'var(--primary, #0284c7)' : 'var(--text-muted)',
+          border: cond.isDefault ? '1px solid var(--accent)' : '1px solid var(--border)',
+          background: cond.isDefault ? 'var(--accent-soft)' : 'var(--bg-tertiary)',
+          color: cond.isDefault ? 'var(--accent)' : 'var(--text-muted)',
           cursor: cond.isDefault ? 'default' : 'pointer',
           display: 'inline-flex',
           alignItems: 'center',
@@ -123,6 +116,7 @@ export function ConditionRow({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          color: 'var(--text-muted)',
         }}
       >
         ✕

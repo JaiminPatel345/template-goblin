@@ -38,7 +38,7 @@ In the input JSON, specify conditions using the developer-friendly array format:
 }
 ```
 
-Global string conditions (`"condition": "honors"`) and key-value maps (`"condition": { "grade": "honors" }`) are also supported as fallbacks. If no condition is supplied, fields fall back to their marked default condition.
+If no condition is supplied, fields fall back to their marked default condition.
 
 ## What is a `.tgbl` template?
 

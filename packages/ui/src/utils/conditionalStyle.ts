@@ -24,7 +24,7 @@ export function resolveUiField<T extends FieldDefinition>(field: T, data?: Input
     ? condConfig.conditions.find((c) => c.id === condConfig.activeConditionId)
     : undefined
 
-  // 2. If no activeConditionId, check data overrides
+  // 2. If no activeConditionId, check data.condition array
   if (!matchedRule) {
     const jsonKey =
       field.source?.mode === 'dynamic' && 'jsonKey' in field.source
@@ -33,17 +33,7 @@ export function resolveUiField<T extends FieldDefinition>(field: T, data?: Input
 
     let reqName: string | undefined
 
-    // Check data.conditions map
-    if (data?.conditions) {
-      if (jsonKey && typeof data.conditions[jsonKey] === 'string') {
-        reqName = data.conditions[jsonKey]
-      } else if (typeof data.conditions[field.id] === 'string') {
-        reqName = data.conditions[field.id]
-      }
-    }
-
-    // Check data.condition array: [{ [keyName]: conditionName }]
-    if (!reqName && Array.isArray(data?.condition)) {
+    if (Array.isArray(data?.condition)) {
       for (const item of data.condition) {
         if (item && typeof item === 'object') {
           if (jsonKey && typeof item[jsonKey] === 'string') {
@@ -56,26 +46,6 @@ export function resolveUiField<T extends FieldDefinition>(field: T, data?: Input
           }
         }
       }
-    }
-
-    // Check data.condition object
-    if (
-      !reqName &&
-      data?.condition &&
-      typeof data.condition === 'object' &&
-      !Array.isArray(data.condition)
-    ) {
-      const condObj = data.condition as Record<string, string>
-      if (jsonKey && typeof condObj[jsonKey] === 'string') {
-        reqName = condObj[jsonKey]
-      } else if (typeof condObj[field.id] === 'string') {
-        reqName = condObj[field.id]
-      }
-    }
-
-    // Check data.condition string
-    if (!reqName && typeof data?.condition === 'string' && data.condition.length > 0) {
-      reqName = data.condition
     }
 
     if (reqName) {

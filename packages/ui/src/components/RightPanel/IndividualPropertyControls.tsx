@@ -45,7 +45,7 @@ export function IndividualPropertyControl({
         padding: '6px 8px',
         borderRadius: 6,
         border: '1px solid var(--border)',
-        background: 'var(--bg-tertiary, #fafafa)',
+        background: 'var(--bg-surface)',
         marginBottom: 6,
       }}
     >
@@ -57,14 +57,21 @@ export function IndividualPropertyControl({
           marginBottom: 4,
         }}
       >
-        <span style={{ fontSize: 11, fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>{label}</span>
         <button
           type="button"
           className="tg-btn tg-btn--icon tg-btn--sm"
           data-testid={`remove-override-${propId}`}
           onClick={onRemove}
           title="Remove this property override"
-          style={{ padding: 0, width: 18, height: 18, minWidth: 18, fontSize: 10 }}
+          style={{
+            padding: 0,
+            width: 18,
+            height: 18,
+            minWidth: 18,
+            fontSize: 10,
+            color: 'var(--text-muted)',
+          }}
         >
           ✕
         </button>
@@ -226,7 +233,15 @@ function renderPropertyInput(
 
     case 'trim':
       return (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 11,
+            color: 'var(--text-primary)',
+          }}
+        >
           <input
             type="checkbox"
             checked={(style.trim as boolean) ?? baseStyle.trim !== false}

@@ -93,32 +93,18 @@ describe('parseInputJson', () => {
 
   // ---- Condition-based styling (#43) ----
 
-  it('accepts a valid condition string', () => {
+  it('accepts a valid condition array', () => {
+    const r = parseInputJson('{"condition":[{"field-1":"condition-2"}]}')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.data.condition).toEqual([{ 'field-1': 'condition-2' }])
+    }
+  })
+
+  it('rejects condition if not an array', () => {
     const r = parseInputJson('{"condition":"condition-2"}')
-    expect(r.ok).toBe(true)
-    if (r.ok) {
-      expect(r.data.condition).toBe('condition-2')
-    }
-  })
-
-  it('rejects condition if not a string', () => {
-    const r = parseInputJson('{"condition":123}')
     expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.error).toMatch(/condition.*string/i)
-  })
-
-  it('accepts conditions mapping object', () => {
-    const r = parseInputJson('{"conditions":{"field-1":"urgent"}}')
-    expect(r.ok).toBe(true)
-    if (r.ok) {
-      expect(r.data.conditions).toEqual({ 'field-1': 'urgent' })
-    }
-  })
-
-  it('rejects conditions if not an object', () => {
-    const r = parseInputJson('{"conditions":"urgent"}')
-    expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.error).toMatch(/conditions.*object/i)
+    if (!r.ok) expect(r.error).toMatch(/condition.*array/i)
   })
 
   it('rejects "links" as null', () => {
@@ -227,15 +213,13 @@ describe('getPlaceholderFilename', () => {
 })
 
 describe('buildPreviewInputData', () => {
-  it('passes condition and conditions through to the returned data', () => {
+  it('passes condition array through to the returned data', () => {
     const parsed = {
       texts: { title: 'Invoice' },
-      condition: 'condition-2',
-      conditions: { 'field-1': 'condition-1' },
+      condition: [{ 'field-1': 'condition-2' }],
     }
     const result = buildPreviewInputData(parsed, [], new Map(), new Map())
-    expect(result.condition).toBe('condition-2')
-    expect(result.conditions).toEqual({ 'field-1': 'condition-1' })
+    expect(result.condition).toEqual([{ 'field-1': 'condition-2' }])
     expect(result.texts).toEqual({ title: 'Invoice' })
   })
 })

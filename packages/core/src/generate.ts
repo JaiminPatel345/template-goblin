@@ -4,6 +4,7 @@ import type {
   InputJSON,
   FieldDefinition,
   PageDefinition,
+  ConditionInput,
 } from '@template-goblin/types'
 import { getPageSize, TemplateGoblinError } from '@template-goblin/types'
 import { validateData } from './validate.js'
@@ -18,8 +19,8 @@ import { stampBands } from './render/bands.js'
 
 /** Per-call options for {@link generatePDF}. */
 export type GeneratePDFOptions = PreflightOptions & {
-  /** Optional global condition name (case-sensitive) for condition-based styling */
-  condition?: string
+  /** Optional condition array for condition-based styling */
+  condition?: ConditionInput
 }
 
 /**

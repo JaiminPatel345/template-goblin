@@ -52,9 +52,11 @@ export function PropertyPickerDropdown({ properties, selectedPropIds, onTogglePr
           justifyContent: 'space-between',
           alignItems: 'center',
           fontSize: 12,
-          padding: '5px 10px',
+          padding: '6px 10px',
           border: '1px solid var(--border)',
-          background: 'var(--bg-secondary, #f8fafc)',
+          background: 'var(--bg-secondary)',
+          color: 'var(--text-primary)',
+          borderRadius: 6,
         }}
       >
         <span>
@@ -72,10 +74,11 @@ export function PropertyPickerDropdown({ properties, selectedPropIds, onTogglePr
             left: 0,
             right: 0,
             marginTop: 4,
-            background: 'var(--bg, #ffffff)',
-            border: '1px solid var(--border, #ccc)',
+            background: 'var(--bg-elevated)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-strong)',
             borderRadius: 6,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            boxShadow: 'var(--shadow-popover)',
             zIndex: 100,
             padding: 8,
             maxHeight: 260,
@@ -95,8 +98,12 @@ export function PropertyPickerDropdown({ properties, selectedPropIds, onTogglePr
               style={{
                 width: '100%',
                 fontSize: 11,
-                padding: '4px 8px',
+                padding: '5px 8px',
                 boxSizing: 'border-box',
+                background: 'var(--bg-surface)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: 4,
               }}
             />
           </div>
@@ -125,11 +132,13 @@ export function PropertyPickerDropdown({ properties, selectedPropIds, onTogglePr
                       display: 'flex',
                       alignItems: 'center',
                       gap: 8,
-                      padding: '4px 6px',
+                      padding: '5px 8px',
                       borderRadius: 4,
                       fontSize: 11,
                       cursor: 'pointer',
-                      background: isSelected ? 'var(--bg-hover, #f1f5f9)' : 'transparent',
+                      color: 'var(--text-primary)',
+                      background: isSelected ? 'var(--accent-soft)' : 'transparent',
+                      transition: 'background 0.1s ease',
                     }}
                   >
                     <input
@@ -137,9 +146,9 @@ export function PropertyPickerDropdown({ properties, selectedPropIds, onTogglePr
                       data-testid={`property-checkbox-${p.id}`}
                       checked={isSelected}
                       onChange={(e) => onToggleProperty(p.id, e.target.checked)}
-                      style={{ cursor: 'pointer', margin: 0 }}
+                      style={{ cursor: 'pointer', margin: 0, accentColor: 'var(--accent)' }}
                     />
-                    <span style={{ flex: 1 }}>{p.label}</span>
+                    <span style={{ flex: 1, color: 'var(--text-primary)' }}>{p.label}</span>
                     <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>{p.category}</span>
                   </label>
                 )

@@ -31,7 +31,6 @@ export function useProjectedPreviewData(deps: ProjectedPreviewDeps): InputJSON {
       tables: projected.tables,
       links: projected.links,
       ...(projected.condition ? { condition: projected.condition } : {}),
-      ...(projected.conditions ? { conditions: projected.conditions } : {}),
     }
   }, [fields, headerFields, footerFields])
 }

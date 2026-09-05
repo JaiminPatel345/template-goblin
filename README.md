@@ -271,24 +271,16 @@ Fields (text, image, table) support condition-based style overrides:
    - Click any condition row to activate it: all inspector controls and the canvas preview immediately reflect and edit that specific condition's style overrides.
 
 2. **In the SDK (`generatePDF`)**:
-   - Specify active conditions via `data.condition` (global condition name), `data.conditions` (per-field map), or `options.condition`:
+   - Specify active conditions via `data.condition`:
 
 ```ts
-// Apply global condition rule to all matching fields
-const pdf = await generatePDF(template, data, { condition: 'highlight' })
-
-// Or specify conditions per field in input data:
 const pdf = await generatePDF(template, {
   ...data,
-  condition: 'dark_theme',
-  conditions: {
-    status_text: 'warning',
-    avatar_image: 'compact',
-  },
+  condition: [{ status_text: 'warning' }, { avatar_image: 'compact' }],
 })
 ```
 
-- **Resolution hierarchy**: Per-field condition (`data.conditions[field.id]` or `data.conditions[jsonKey]`) → Global condition (`data.condition` or `options.condition`) → Default condition (`isDefault: true`) → Base field style.
+- **Resolution hierarchy**: Matching entry in `data.condition` (by `jsonKey` or `field.id`) → Default condition (`isDefault: true`) → Base field style.
 
 ### `generatePDFFromFile(path: string, data: InputJSON): Promise<Buffer>`
 

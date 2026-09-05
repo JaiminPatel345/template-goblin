@@ -51,12 +51,9 @@ export type ImageInputs = Record<string, ImageInput>
 
 /**
  * Condition-based styling input (#43).
- * Can be:
- * - Array of key-to-condition mappings: `[{ [keyName: string]: string }]` (e.g. `[{ order_status: 'cancelled' }]`)
- * - Direct mapping object: `{ [keyName: string]: string }`
- * - Global active condition name string: `'condition-name'`
+ * Array of key-to-condition mappings: `[{ [keyName: string]: string }]` (e.g. `[{ order_status: 'cancelled' }]`)
  */
-export type ConditionInput = string | Record<string, string> | Array<Record<string, string>>
+export type ConditionInput = Array<Record<string, string>>
 
 /**
  * Complete input JSON passed to `generatePDF()`.
@@ -70,14 +67,9 @@ export interface InputJSON {
   tables: TableInputs
   /**
    * Condition-based styling input.
-   * Can be an array `[{ [keyName]: conditionName }]`, mapping object, or global string.
+   * Array of key-to-condition mappings: `[{ [keyName: string]: string }]`
    */
   condition?: ConditionInput
-  /**
-   * Optional per-field condition names keyed by field ID or jsonKey (case-sensitive).
-   * Overrides global `condition` for specific fields.
-   */
-  conditions?: Record<string, string>
   /**
    * Optional hyperlink URLs, keyed by `field.hyperlink.jsonKey`. Sits
    * alongside `texts` rather than nested inside it so the JSON preview

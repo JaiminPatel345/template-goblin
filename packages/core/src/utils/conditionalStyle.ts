@@ -4,11 +4,10 @@ import type { FieldDefinition, InputJSON } from '@template-goblin/types'
  * Resolves the effective field definition with any active condition-based style overrides merged in.
  *
  * Priority order for resolving the active condition:
- *  1. Per-field condition override: `data.conditions?.[field.id]` or `data.conditions?.[jsonKey]`
- *  2. Global condition in data: `data.condition`
- *  3. Explicit condition parameter passed directly: `activeConditionName`
- *  4. Default condition: rule marked `isDefault: true` on `field.conditionalStyles`
- *  5. Fallback: unmodified `field` (if conditional styling disabled / no default rule).
+ *  1. Condition array in data: `data.condition` matching `jsonKey` or `field.id`
+ *  2. Explicit condition parameter passed directly: `activeConditionName`
+ *  3. Default condition: rule marked `isDefault: true` on `field.conditionalStyles`
+ *  4. Fallback: unmodified `field` (if conditional styling disabled / no default rule).
  */
 export function resolveEffectiveField<T extends FieldDefinition>(
   field: T,
@@ -87,12 +86,8 @@ function mergeFieldStyles<T extends FieldDefinition>(
 
 /**
  * Extracts the requested condition name for a field from input data.
- * Supports:
- *  - Array: `[{ [keyName]: conditionName }]`
- *  - Record: `{ [keyName]: conditionName }`
- *  - String: `'condition-name'` (global fallback)
- *  - Plural `data.conditions`: `{ [keyName]: conditionName }`
- *  - Explicit parameter: `activeConditionName`
+ * Checks `data.condition` array: `[{ [keyName]: conditionName }]` matching `jsonKey` or `field.id`.
+ * Falls back to explicit `activeConditionName` parameter if provided.
  */
 export function extractRequestedConditionName(
   field: FieldDefinition,
@@ -102,17 +97,7 @@ export function extractRequestedConditionName(
   const jsonKey =
     field.source?.mode === 'dynamic' && 'jsonKey' in field.source ? field.source.jsonKey : undefined
 
-  // 1. Check data.conditions map
-  if (data?.conditions) {
-    if (jsonKey && typeof data.conditions[jsonKey] === 'string') {
-      return data.conditions[jsonKey]
-    }
-    if (typeof data.conditions[field.id] === 'string') {
-      return data.conditions[field.id]
-    }
-  }
-
-  // 2. Check data.condition: Array of objects [{ keyName: conditionName }]
+  // Check data.condition: Array of objects [{ keyName: conditionName }]
   if (Array.isArray(data?.condition)) {
     for (const item of data.condition) {
       if (item && typeof item === 'object') {
@@ -126,23 +111,7 @@ export function extractRequestedConditionName(
     }
   }
 
-  // 3. Check data.condition: Object { keyName: conditionName }
-  if (data?.condition && typeof data.condition === 'object' && !Array.isArray(data.condition)) {
-    const condObj = data.condition as Record<string, string>
-    if (jsonKey && typeof condObj[jsonKey] === 'string') {
-      return condObj[jsonKey]
-    }
-    if (typeof condObj[field.id] === 'string') {
-      return condObj[field.id]
-    }
-  }
-
-  // 4. Check data.condition: string (global condition name)
-  if (typeof data?.condition === 'string' && data.condition.length > 0) {
-    return data.condition
-  }
-
-  // 5. Explicit activeConditionName parameter
+  // Explicit activeConditionName parameter
   if (activeConditionName) {
     return activeConditionName
   }

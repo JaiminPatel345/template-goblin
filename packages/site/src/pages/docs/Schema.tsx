@@ -61,8 +61,8 @@ export function Schema() {
           [<code>links</code>, <code>Record&lt;string, string&gt;</code>, 'Dynamic hyperlink URLs'],
           [
             <code>condition</code>,
-            <code>Array&lt;Record&lt;string, string&gt;&gt; | string</code>,
-            'Condition-based styling overrides per field (e.g. [{ keyName: conditionName }]) or global condition string',
+            <code>Array&lt;Record&lt;string, string&gt;&gt;</code>,
+            'Condition-based styling overrides per field: [{ keyName: conditionName }, ...]',
           ],
         ]}
       />

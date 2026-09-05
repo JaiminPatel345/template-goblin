@@ -68,14 +68,8 @@ export function parseInputJson(text: string): ParseResult {
       }
     }
   }
-  if ('condition' in o && typeof o.condition !== 'string') {
-    return { ok: false, error: '"condition" must be a string.' }
-  }
-  if (
-    'conditions' in o &&
-    (typeof o.conditions !== 'object' || o.conditions === null || Array.isArray(o.conditions))
-  ) {
-    return { ok: false, error: '"conditions" must be an object.' }
+  if ('condition' in o && !Array.isArray(o.condition)) {
+    return { ok: false, error: '"condition" must be an array of key-condition mappings.' }
   }
   return { ok: true, data: o as ParseOk['data'] }
 }
@@ -156,7 +150,6 @@ export function buildPreviewInputData(
     images: {},
     links: (parsed.links ?? {}) as Record<string, string>,
     ...(parsed.condition ? { condition: parsed.condition as ConditionInput } : {}),
-    ...(parsed.conditions ? { conditions: parsed.conditions } : {}),
   }
 
   for (const field of dynamicImageFields) {
@@ -209,11 +202,11 @@ export function extractConditionalFields(allFields: FieldDefinition[]): Conditio
 }
 
 /**
- * Maps condition input into a keyName -> conditionName dictionary.
+ * Maps condition input array into a keyName -> conditionName dictionary.
  */
 export function buildConditionMap(
   cond: unknown,
-  conditionalFields: ConditionalFieldOption[],
+  _conditionalFields?: ConditionalFieldOption[],
 ): Record<string, string> {
   const map: Record<string, string> = {}
   if (Array.isArray(cond)) {
@@ -223,14 +216,6 @@ export function buildConditionMap(
           if (typeof v === 'string') map[k] = v
         }
       }
-    }
-  } else if (cond && typeof cond === 'object') {
-    for (const [k, v] of Object.entries(cond as Record<string, unknown>)) {
-      if (typeof v === 'string') map[k] = v
-    }
-  } else if (typeof cond === 'string') {
-    for (const cf of conditionalFields) {
-      map[cf.keyName] = cond
     }
   }
   return map

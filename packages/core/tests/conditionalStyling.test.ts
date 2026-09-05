@@ -60,37 +60,24 @@ describe('resolveEffectiveField Unit Logic', () => {
     expect(resolved.style.fontSize).toBe(12)
   })
 
-  it('case-sensitive matching: non-matching case falls back to default condition', () => {
+  it('case-sensitive matching: non-matching case in condition array falls back to default condition', () => {
     const resolved = resolveEffectiveField(baseTextField, {
-      texts: { user_role: 'admin' }, // lowercase 'admin' does NOT match 'Admin'
+      texts: { user_role: 'admin' },
       images: {},
       tables: {},
-      condition: 'admin',
+      condition: [{ user_role: 'admin' }], // lowercase 'admin' does NOT match 'Admin'
     })
     // Falls back to Admin (marked isDefault: true)
     expect(resolved.style.color).toBe('#ff0000')
     expect(resolved.style.fontSize).toBe(20)
   })
 
-  it('data.conditions[field.id] overrides global data.condition', () => {
+  it('resolves condition when condition array contains multiple field mappings', () => {
     const resolved = resolveEffectiveField(baseTextField, {
-      texts: { user_role: 'Admin' },
+      texts: { user_role: 'User', other: 'Val' },
       images: {},
       tables: {},
-      condition: 'Admin', // Global condition is Admin
-      conditions: { txt1: 'Guest' }, // Field override is Guest
-    })
-    expect(resolved.style.color).toBe('#888888')
-    expect(resolved.style.fontSize).toBe(10)
-  })
-
-  it('data.conditions[jsonKey] overrides global data.condition', () => {
-    const resolved = resolveEffectiveField(baseTextField, {
-      texts: { user_role: 'Admin' },
-      images: {},
-      tables: {},
-      condition: 'Admin',
-      conditions: { user_role: 'User' },
+      condition: [{ other_field: 'Other' }, { user_role: 'User' }],
     })
     expect(resolved.style.color).toBe('#0000ff')
     expect(resolved.style.fontSize).toBe(14)

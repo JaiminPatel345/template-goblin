@@ -28,10 +28,6 @@ export interface ProjectedJson {
    * Format: `[{ [keyName]: conditionName }, ...]`
    */
   condition?: ConditionInput
-  /**
-   * Optional per-field condition mapping (#43).
-   */
-  conditions?: Record<string, string>
 }
 
 /** Header / footer band field pools (#61) — band fields share the
