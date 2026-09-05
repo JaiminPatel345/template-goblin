@@ -54,7 +54,7 @@ describe('resolveEffectiveField Unit Logic', () => {
       texts: { user_role: 'User' },
       images: {},
       tables: {},
-      condition: 'User',
+      condition: [{ user_role: 'User' }],
     })
     expect(resolved.style.color).toBe('#000000')
     expect(resolved.style.fontSize).toBe(12)
@@ -187,13 +187,13 @@ describe('Condition-Based Styling in Core Renderer', () => {
       texts: { status: 'OK' },
       images: {},
       tables: {},
-      condition: 'Active',
+      condition: [{ status: 'Active' }],
     })
     const pdfInactive = await generatePDF(loaded(manifest), {
       texts: { status: 'OK' },
       images: {},
       tables: {},
-      condition: 'Inactive',
+      condition: [{ status: 'Inactive' }],
     })
 
     expect(pdfActive.length).toBeGreaterThan(0)
@@ -222,7 +222,7 @@ describe('Condition-Based Styling in Core Renderer', () => {
           'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
       },
       tables: {},
-      condition: 'Ratio',
+      condition: [{ avatar: 'Ratio' }],
     })
 
     expect(pdf.length).toBeGreaterThan(0)
@@ -245,7 +245,7 @@ describe('Condition-Based Styling in Core Renderer', () => {
       texts: {},
       images: {},
       tables: {},
-      condition: 'ThemeLight',
+      condition: [{ s1: 'ThemeLight' }],
     })
 
     const pages = await parsePdfGeometry(pdf)

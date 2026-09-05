@@ -225,6 +225,29 @@ export function validateData(template: LoadedTemplate, data: InputJSON): Validat
 
   const errors: ValidationError[] = []
 
+  // Condition input validation (#43)
+  if (data.condition !== undefined && data.condition !== null) {
+    if (!Array.isArray(data.condition)) {
+      errors.push({
+        code: 'INVALID_DATA_TYPE',
+        field: 'condition',
+        message:
+          'Condition must be an array of key-to-condition mappings: [{ [keyName]: conditionName }]',
+      })
+    } else {
+      for (const item of data.condition) {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+          errors.push({
+            code: 'INVALID_DATA_TYPE',
+            field: 'condition',
+            message: 'Each entry in condition array must be an object with string key-value pairs',
+          })
+          break
+        }
+      }
+    }
+  }
+
   // #61 — band fields read the same data buckets; a required header
   // field must fail validation exactly like a required body field.
   for (const field of allManifestFields(template.manifest)) {

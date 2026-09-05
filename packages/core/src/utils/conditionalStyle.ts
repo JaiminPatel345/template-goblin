@@ -75,6 +75,13 @@ function mergeFieldStyles<T extends FieldDefinition>(
       }
     }
 
+    if (baseTableStyle.tableBorder || patchTableStyle.tableBorder) {
+      merged.tableBorder = {
+        ...((baseTableStyle.tableBorder as Record<string, unknown>) ?? {}),
+        ...((patchTableStyle.tableBorder as Record<string, unknown>) ?? {}),
+      }
+    }
+
     return merged as unknown as T['style']
   }
 
@@ -86,7 +93,7 @@ function mergeFieldStyles<T extends FieldDefinition>(
 
 /**
  * Extracts the requested condition name for a field from input data.
- * Checks `data.condition` array: `[{ [keyName]: conditionName }]` matching `jsonKey` or `field.id`.
+ * Checks `data.condition` array: `[{ [keyName]: conditionName }]` matching `jsonKey`, `field.id`, or `field.label`.
  * Falls back to explicit `activeConditionName` parameter if provided.
  */
 export function extractRequestedConditionName(
@@ -106,6 +113,9 @@ export function extractRequestedConditionName(
         }
         if (typeof item[field.id] === 'string') {
           return item[field.id]
+        }
+        if (field.label && typeof item[field.label] === 'string') {
+          return item[field.label]
         }
       }
     }

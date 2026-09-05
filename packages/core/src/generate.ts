@@ -43,10 +43,9 @@ export async function generatePDF(
   inputData: InputJSON,
   options: GeneratePDFOptions = {},
 ): Promise<Buffer> {
-  const data: InputJSON =
-    options.condition && !inputData.condition
-      ? { ...inputData, condition: options.condition }
-      : inputData
+  const data: InputJSON = options.condition
+    ? { ...inputData, condition: options.condition }
+    : inputData
   // Defence-in-depth: run the FULL manifest validator at the renderer
   // boundary too. `loadTemplate` already calls this on `.tgbl` open, but
   // SDK consumers that construct a `LoadedTemplate` programmatically (or
