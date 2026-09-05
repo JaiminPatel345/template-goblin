@@ -327,12 +327,23 @@ export interface CommonConditionOverrides {
   hyperlink?: Hyperlink
 }
 
+/** Style overrides for a single condition rule, supporting deep partial nested objects for tables */
+export type ConditionRuleStyle<S> = (S extends TableFieldStyle
+  ? Partial<Omit<TableFieldStyle, 'headerStyle' | 'rowStyle' | 'cellStyle' | 'tableBorder'>> & {
+      headerStyle?: Partial<CellStyle>
+      rowStyle?: Partial<CellStyle>
+      cellStyle?: Partial<TableCellRuntimeStyle>
+      tableBorder?: Partial<TableBorderStyle>
+    }
+  : Partial<S>) &
+  CommonConditionOverrides
+
 /** A single condition-based styling rule */
 export interface ConditionStyleRule<S> {
   id: string
   name: string
   isDefault: boolean
-  style: Partial<S> & CommonConditionOverrides
+  style: ConditionRuleStyle<S>
 }
 
 /** Container for condition-based styling configuration on a field */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { TextField } from '@template-goblin/types'
+import type { TextField, ImageField } from '@template-goblin/types'
 import { resolveUiField } from '../conditionalStyle.js'
 
 describe('resolveUiField canvas & playground resolution', () => {
@@ -164,5 +164,55 @@ describe('resolveUiField canvas & playground resolution', () => {
     expect(resolved.rotation).toBe(45)
     expect(resolved.groupId).toBe('grp-test')
     expect(resolved.hyperlink).toEqual({ mode: 'static', url: 'https://goblin.dev' })
+  })
+
+  it('resolves image solid color fill and filename overrides in UI', () => {
+    const imgField: ImageField = {
+      id: 'img-1',
+      type: 'image',
+      groupId: null,
+      pageId: null,
+      label: 'Photo',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      zIndex: 0,
+      style: { fit: 'contain' },
+      source: { mode: 'dynamic', jsonKey: 'pic', required: false, placeholder: null },
+      conditionalStyles: {
+        enabled: true,
+        activeConditionId: 'c-color',
+        conditions: [
+          {
+            id: 'c-color',
+            name: 'color_override',
+            isDefault: false,
+            style: { color: '#00ffff', fit: 'cover' },
+          },
+        ],
+      },
+    }
+    const resolvedColor = resolveUiField(imgField)
+    expect(resolvedColor.style.fit).toBe('cover')
+    expect(resolvedColor.source).toEqual({ mode: 'static', value: { color: '#00ffff' } })
+
+    const imgWithFilename: ImageField = {
+      ...imgField,
+      conditionalStyles: {
+        ...imgField.conditionalStyles!,
+        activeConditionId: 'c-file',
+        conditions: [
+          {
+            id: 'c-file',
+            name: 'file_override',
+            isDefault: false,
+            style: { filename: 'avatar.png' },
+          },
+        ],
+      },
+    }
+    const resolvedFile = resolveUiField(imgWithFilename)
+    expect(resolvedFile.source).toEqual({ mode: 'static', value: { filename: 'avatar.png' } })
   })
 })
