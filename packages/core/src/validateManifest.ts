@@ -196,6 +196,15 @@ function validateConditionalStyles(field: FieldDefinition): void {
       fieldId: field.id,
     })
   }
+  if (field.source?.mode === 'static' && condConfig.enabled) {
+    fail(
+      'INVALID_MANIFEST',
+      `Field ${field.id}: static elements cannot have conditional styling enabled`,
+      {
+        fieldId: field.id,
+      },
+    )
+  }
   if (!Array.isArray(condConfig.conditions)) {
     fail('INVALID_MANIFEST', `Field ${field.id}: conditionalStyles.conditions must be an array`, {
       fieldId: field.id,

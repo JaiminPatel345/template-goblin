@@ -81,16 +81,28 @@ function eligibilityReason(template: LoadedTemplate): string | null {
 
   // multiPage tables make the page count depend on DATA, so the static base
   // (fixed page count) can't align with the dynamic overlay.
-  if (fields.some((f) => f.type === 'table' && f.style?.multiPage)) {
+  if (
+    fields.some(
+      (f) =>
+        f.type === 'table' &&
+        (f.style?.multiPage || f.conditionalStyles?.conditions.some((c) => c.style?.multiPage)),
+    )
+  ) {
     return 'template has a multiPage table (data-dependent page count)'
   }
-  if (fields.some((f) => f.conditionalStyles?.enabled)) {
-    return 'template has conditional styles (data-dependent style rendering)'
+  if (fields.some((f) => isStatic(f) && f.conditionalStyles?.enabled)) {
+    return 'template has static fields with conditional styles'
   }
   // PDF link annotations don't survive being drawn as a Form XObject, so a
   // DYNAMIC hyperlink in the overlay would be lost. (Static links live in
   // the base page and are preserved by copyPages.)
-  if (fields.some((f) => f.hyperlink?.mode === 'dynamic')) {
+  if (
+    fields.some(
+      (f) =>
+        f.hyperlink?.mode === 'dynamic' ||
+        f.conditionalStyles?.conditions.some((c) => c.style?.hyperlink?.mode === 'dynamic'),
+    )
+  ) {
     return 'template has a dynamic hyperlink (annotation would be lost in overlay)'
   }
   // Per-pool z-order must keep static below dynamic.

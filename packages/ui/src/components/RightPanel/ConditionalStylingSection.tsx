@@ -16,6 +16,8 @@ interface Props {
 }
 
 export function ConditionalStylingSection({ field }: Props) {
+  if (field.source?.mode === 'static') return null
+
   const updateField = useTemplateStore((s) => s.updateField)
   const fonts = useTemplateStore((s) => s.fonts)
   const allFontFamilies = ['Helvetica', 'Times-Roman', 'Courier', ...fonts.map((f) => f.name)]

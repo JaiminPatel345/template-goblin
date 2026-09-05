@@ -101,12 +101,34 @@ describe('resolveEffectiveField Unit Logic', () => {
     expect(resolved.style.color).toBe('#ff0000')
     expect(resolved.style.fontSize).toBe(20)
   })
+  it('returns static field unmodified even if conditionalStyles is present', () => {
+    const sField = {
+      ...staticText('s1', 'Static Value'),
+      conditionalStyles: {
+        enabled: true,
+        conditions: [{ id: 'c1', name: 'Admin', isDefault: true, style: { color: '#ff0000' } }],
+      },
+    }
+    const resolved = resolveEffectiveField(sField, { condition: [{ s1: 'Admin' }] })
+    expect(resolved.style.color).toBe('#000000')
+  })
 })
 
 describe('Manifest Validation for Conditional Styles', () => {
-  it('throws INVALID_MANIFEST when conditionalStyles.enabled is not a boolean', () => {
+  it('throws INVALID_MANIFEST when static field has conditionalStyles.enabled === true', () => {
     const badField = {
       ...staticText('s1', 'Static'),
+      conditionalStyles: { enabled: true, conditions: [] },
+    }
+    const manifest = makeManifest({ fields: [badField] })
+    expect(() => validateManifest(manifest)).toThrow(
+      /static elements cannot have conditional styling enabled/i,
+    )
+  })
+
+  it('throws INVALID_MANIFEST when conditionalStyles.enabled is not a boolean', () => {
+    const badField = {
+      ...dynText('d1', 'role', false),
       conditionalStyles: { enabled: 'invalid' as unknown as boolean, conditions: [] },
     }
     const manifest = makeManifest({ fields: [badField] })
@@ -115,7 +137,7 @@ describe('Manifest Validation for Conditional Styles', () => {
 
   it('throws INVALID_MANIFEST when conditionalStyles.conditions is not an array', () => {
     const badField = {
-      ...staticText('s1', 'Static'),
+      ...dynText('d1', 'role', false),
       conditionalStyles: { enabled: true, conditions: 'invalid' as unknown as [] },
     }
     const manifest = makeManifest({ fields: [badField] })
@@ -126,7 +148,7 @@ describe('Manifest Validation for Conditional Styles', () => {
 
   it('throws INVALID_MANIFEST when condition rule name is empty', () => {
     const badField = {
-      ...staticText('s1', 'Static'),
+      ...dynText('d1', 'role', false),
       conditionalStyles: {
         enabled: true,
         conditions: [{ id: 'c1', name: '  ', isDefault: true, style: {} }],

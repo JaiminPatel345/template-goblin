@@ -30,10 +30,11 @@ export function FormatRibbon() {
         null)
       : null
 
-  const isCondEnabled = selectedField?.conditionalStyles?.enabled ?? false
+  const isDynamicField = selectedField?.source?.mode === 'dynamic'
+  const isCondEnabled = isDynamicField && (selectedField?.conditionalStyles?.enabled ?? false)
 
   function toggleConditionalStyling() {
-    if (!selectedField) return
+    if (!selectedField || !isDynamicField) return
     if (!showLeftPanel) setShowLeftPanel(true)
     const nextState = !isCondEnabled
     if (
@@ -82,12 +83,14 @@ export function FormatRibbon() {
           label="Condition-based styling"
           onClick={toggleConditionalStyling}
           active={isCondEnabled}
-          disabled={!selectedField}
+          disabled={!selectedField || !isDynamicField}
           variant="toggle"
           title={
-            selectedField
-              ? 'Toggle condition-based styling for selected field'
-              : 'Select a field to enable conditional styling'
+            !selectedField
+              ? 'Select a field to enable conditional styling'
+              : !isDynamicField
+                ? 'Conditional styling is only available for dynamic fields'
+                : 'Toggle condition-based styling for selected field'
           }
           testid="ribbon-toggle-conditional-styling"
         />

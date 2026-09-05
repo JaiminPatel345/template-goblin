@@ -30,7 +30,7 @@ describe('resolveUiField canvas & playground resolution', () => {
       overflowMode: 'truncate',
       snapToGrid: false,
     },
-    source: { mode: 'static', value: 'Hello' },
+    source: { mode: 'dynamic', jsonKey: 'status', required: false, placeholder: 'Hello' },
     conditionalStyles: {
       enabled: true,
       activeConditionId: 'c2',
@@ -101,6 +101,16 @@ describe('resolveUiField canvas & playground resolution', () => {
     const resolved = resolveUiField(disabledField)
     expect(resolved.style.color).toBe('#000000')
     expect(resolved.style.fontSize).toBe(12)
+  })
+
+  it('returns static field unmodified even if conditionalStyles are present', () => {
+    const staticField: TextField = {
+      ...baseField,
+      source: { mode: 'static', value: 'Static text' },
+    }
+    const resolved = resolveUiField(staticField)
+    expect(resolved).toBe(staticField)
+    expect(resolved.style.color).toBe('#000000')
   })
 
   it('preserves user selected condition when default condition changes', () => {

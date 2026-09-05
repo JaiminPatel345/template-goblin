@@ -1066,10 +1066,12 @@ export const useTemplateStore = create<TemplateState>()(
               const carried = f.source.placeholder
               const value =
                 carried !== null && carried !== undefined ? carried : emptyStaticValue(f.type)
-              return {
+              const updated = {
                 ...f,
                 source: { mode: 'static', value },
               } as FieldDefinition
+              delete updated.conditionalStyles
+              return updated
             }
             return f
           }

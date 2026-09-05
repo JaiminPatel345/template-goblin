@@ -95,8 +95,10 @@ export function PropertiesPanel() {
       )}
       {/* #172 — field-type-agnostic rotation control. */}
       <RotationSection field={effectiveField} />
-      {/* Condition-based styling section for selected field */}
-      <ConditionalStylingSection key={`cond-${selectedField.id}`} field={selectedField} />
+      {/* Condition-based styling section for selected field (dynamic elements only) */}
+      {selectedField.source?.mode === 'dynamic' && (
+        <ConditionalStylingSection key={`cond-${selectedField.id}`} field={selectedField} />
+      )}
     </>
   )
 }

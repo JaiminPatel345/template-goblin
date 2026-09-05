@@ -9,6 +9,10 @@ export interface ActiveConditionConfig {
  * When conditional styling is enabled, merges the active condition's style overrides onto base field.style.
  */
 export function resolveUiField<T extends FieldDefinition>(field: T, data?: InputJSON | null): T {
+  if (field.source?.mode === 'static') {
+    return field
+  }
+
   const condConfig = field.conditionalStyles
   if (
     !condConfig ||
@@ -76,18 +80,18 @@ export function resolveUiField<T extends FieldDefinition>(field: T, data?: Input
       ? ((ruleStyle.hyperlink ?? undefined) as Hyperlink | undefined)
       : field.hyperlink
 
-  let effectiveSource = field.source
+  let effectiveSource: FieldDefinition['source'] = field.source
   if (field.type === 'image') {
     if (ruleStyle.color !== undefined) {
       effectiveSource = {
         mode: 'static',
         value: { color: ruleStyle.color as string },
-      } as T['source']
+      }
     } else if (ruleStyle.filename !== undefined) {
       effectiveSource = {
         mode: 'static',
         value: { filename: ruleStyle.filename as string },
-      } as T['source']
+      }
     }
   }
 

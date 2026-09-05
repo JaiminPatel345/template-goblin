@@ -124,11 +124,13 @@ export function projectFieldsToJson(
   // Condition-based styling (#43): project active/default conditions as [{ [keyName]: conditionName }]
   const conditionList: Record<string, string>[] = []
   for (const field of collectFields(fields, bandFields)) {
-    if (field.conditionalStyles?.enabled && field.conditionalStyles.conditions.length > 0) {
+    if (
+      field.source?.mode === 'dynamic' &&
+      field.conditionalStyles?.enabled &&
+      field.conditionalStyles.conditions.length > 0
+    ) {
       const keyName =
-        field.source?.mode === 'dynamic' && 'jsonKey' in field.source && field.source.jsonKey
-          ? field.source.jsonKey
-          : field.id
+        'jsonKey' in field.source && field.source.jsonKey ? field.source.jsonKey : field.id
       const activeRule =
         field.conditionalStyles.conditions.find(
           (c) => c.id === field.conditionalStyles?.activeConditionId,

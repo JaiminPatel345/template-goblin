@@ -129,6 +129,80 @@ describe('generatePreparedPDF — equivalence to full render', () => {
     const annots = doc.getPage(0).node.Annots()
     expect(annots?.size() ?? 0).toBeGreaterThan(0)
   })
+
+  it('correctly applies dynamic conditional styling over static base', async () => {
+    const dynField = {
+      ...dynText('status', 'status_var', false),
+      x: 20,
+      y: 120,
+      width: 300,
+      height: 24,
+      zIndex: 5,
+      conditionalStyles: {
+        enabled: true,
+        conditions: [
+          { id: 'c1', name: 'Default', isDefault: true, style: { color: '#000000' } },
+          { id: 'c2', name: 'Paid', isDefault: false, style: { color: '#00aa00' } },
+        ],
+      },
+    }
+    const manifest = makeManifest({
+      fields: [
+        {
+          ...staticText('head', 'STATIC BASE TITLE'),
+          x: 20,
+          y: 20,
+          width: 300,
+          height: 24,
+          zIndex: 0,
+        },
+        dynField,
+      ],
+    })
+    const tpl = loaded(manifest)
+    const prepared = await prepareTemplate(tpl)
+    expect(prepared.eligible).toBe(true)
+
+    // Default condition
+    const fastDefault = await generatePreparedPDF(prepared, {
+      texts: { status_var: 'Pending' },
+      images: {},
+      tables: {},
+      links: {},
+    })
+    const fullDefault = await generatePDF(tpl, {
+      texts: { status_var: 'Pending' },
+      images: {},
+      tables: {},
+      links: {},
+    })
+    const fastDefaultPages = await parsePdfGeometry(fastDefault)
+    const fullDefaultPages = await parsePdfGeometry(fullDefault)
+    expect(pageText(fastDefaultPages[0]!)).toContain('STATIC BASE TITLE')
+    expect(pageText(fastDefaultPages[0]!)).toContain('Pending')
+    expect(pageText(fastDefaultPages[0]!)).toBe(pageText(fullDefaultPages[0]!))
+
+    // Active condition override via condition input
+    const fastPaid = await generatePreparedPDF(prepared, {
+      texts: { status_var: 'Paid in Full' },
+      images: {},
+      tables: {},
+      links: {},
+      condition: [{ status_var: 'Paid' }],
+    })
+    const fullPaid = await generatePDF(tpl, {
+      texts: { status_var: 'Paid in Full' },
+      images: {},
+      tables: {},
+      links: {},
+      condition: [{ status_var: 'Paid' }],
+    })
+    const fastPaidPages = await parsePdfGeometry(fastPaid)
+    const fullPaidPages = await parsePdfGeometry(fullPaid)
+    expect(pageText(fastPaidPages[0]!)).toContain('STATIC BASE TITLE')
+    expect(pageText(fastPaidPages[0]!)).toContain('Paid in Full')
+    expect(pageText(fastPaidPages[0]!)).toBe(pageText(fullPaidPages[0]!))
+  })
 })
 
 describe('eligibility gates (fall back to a correct full render)', () => {
@@ -148,6 +222,40 @@ describe('eligibility gates (fall back to a correct full render)', () => {
     f.hyperlink = { mode: 'dynamic', jsonKey: 'url' }
     const r = await reasonFor(loaded(makeManifest({ fields: [staticText('s', 'x'), f] })))
     expect(r).toMatch(/hyperlink/i)
+  })
+
+  it('dynamic hyperlink in conditional style → ineligible', async () => {
+    const dynField = {
+      ...dynText('status', 'status_var', false),
+      zIndex: 5,
+      conditionalStyles: {
+        enabled: true,
+        conditions: [
+          {
+            id: 'c1',
+            name: 'WithLink',
+            isDefault: false,
+            style: { hyperlink: { mode: 'dynamic' as const, jsonKey: 'link_url' } },
+          },
+        ],
+      },
+    }
+    const r = await reasonFor(loaded(makeManifest({ fields: [staticText('s', 'x'), dynField] })))
+    expect(r).toMatch(/hyperlink/i)
+  })
+
+  it('static field with conditional styles → throws INVALID_MANIFEST on prepare', async () => {
+    const sField = {
+      ...staticText('s', 'x'),
+      zIndex: 0,
+      conditionalStyles: {
+        enabled: true,
+        conditions: [{ id: 'c1', name: 'C', isDefault: true, style: { color: '#ff0000' } }],
+      },
+    }
+    await expect(
+      prepareTemplate(loaded(makeManifest({ fields: [sField, dynText('d', 'dyn', false)] }))),
+    ).rejects.toMatchObject({ code: 'INVALID_MANIFEST' })
   })
 
   it('static-above-dynamic z-order → ineligible', async () => {
