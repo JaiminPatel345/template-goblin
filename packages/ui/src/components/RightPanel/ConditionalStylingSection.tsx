@@ -9,6 +9,7 @@ import {
   togglePropertyOverride,
   removePropertyOverride,
 } from './propertyOverrideHelpers.js'
+import { ConditionStylingInfoTip } from './ConditionStylingInfoTip.js'
 
 interface Props {
   field: FieldDefinition
@@ -203,7 +204,10 @@ export function ConditionalStylingSection({ field }: Props) {
         className="tg-panel-section-title"
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
       >
-        <span>Condition-based styling</span>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span>Condition-based styling</span>
+          <ConditionStylingInfoTip field={field} />
+        </div>
         <label className="tg-switch" style={{ margin: 0 }}>
           <input
             type="checkbox"
