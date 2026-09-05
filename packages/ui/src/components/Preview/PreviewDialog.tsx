@@ -24,13 +24,9 @@ import {
   validateUpload,
   findMissingRequiredFields,
   buildPreviewInputData,
-  extractConditionalFields,
-  buildConditionMap,
-  updateConditionArray,
 } from './previewDialogHelpers.js'
 import { buildImageDataUrlMap } from '../../utils/previewInputs.js'
 import { PreviewImageUploadSection, type UploadedImage } from './PreviewImageUploadSection.js'
-import { PreviewConditionSelector } from './PreviewConditionSelector.js'
 import { PreviewDialogHeader } from './PreviewDialogHeader.js'
 
 export function PreviewDialog({ onClose }: { onClose: () => void }) {
@@ -103,25 +99,6 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
       ),
     [allFields],
   )
-
-  const conditionalFields = useMemo(() => extractConditionalFields(allFields), [allFields])
-
-  const currentConditionMap = useMemo(
-    () => (!parseResult.ok ? {} : buildConditionMap(parseResult.data.condition, conditionalFields)),
-    [parseResult, conditionalFields],
-  )
-
-  function handleChangeFieldCondition(keyName: string, newCond: string) {
-    if (!parseResult.ok) return
-    const data = { ...parseResult.data }
-    const updated = updateConditionArray(currentConditionMap, keyName, newCond)
-    if (updated) {
-      data.condition = updated
-    } else {
-      delete data.condition
-    }
-    setJsonText(JSON.stringify(data, null, 2))
-  }
 
   // ESC dismiss.
   useEffect(() => {
@@ -203,12 +180,6 @@ export function PreviewDialog({ onClose }: { onClose: () => void }) {
             take precedence over the JSON entries (#140).
           </span>
         </p>
-
-        <PreviewConditionSelector
-          conditionalFields={conditionalFields}
-          currentConditionMap={currentConditionMap}
-          onChangeFieldCondition={handleChangeFieldCondition}
-        />
 
         <label
           htmlFor="preview-json-editor"

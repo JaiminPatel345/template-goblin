@@ -252,7 +252,7 @@ test.describe('Condition-Based Styling E2E', () => {
     await expect(remainingDeleteBtn).toBeDisabled()
   })
 
-  test('preview dialog condition selector reflects and updates conditional styling', async ({
+  test('preview dialog has no extra condition input and projects condition directly into JSON', async ({
     page,
   }) => {
     const toggle = page.locator('[data-testid="toggle-conditional-styling"]')
@@ -265,17 +265,14 @@ test.describe('Condition-Based Styling E2E', () => {
     const previewDialog = page.locator('[data-testid="preview-dialog"]')
     await expect(previewDialog).toBeVisible()
 
-    // Condition dropdown should be visible with condition options
+    // Active Conditions extra input must NOT be present
     const condSelect = page.locator('[data-testid="preview-condition-select"]')
-    await expect(condSelect).toBeVisible()
+    await expect(condSelect).not.toBeVisible()
 
-    // Change condition to condition-2
-    await condSelect.selectOption('condition-2')
-
-    // Verify Input JSON textarea updated with condition array
+    // Verify Input JSON textarea has condition array projected directly
     const jsonEditor = page.locator('[data-testid="preview-json-editor"]')
     await expect(jsonEditor).toHaveValue(
-      /"condition":\s*\[\s*\{\s*"f-cond-test":\s*"condition-2"\s*\}\s*\]/,
+      /"condition":\s*\[\s*\{\s*"f-cond-test":\s*"condition-1"\s*\}\s*\]/,
     )
 
     // Close preview
