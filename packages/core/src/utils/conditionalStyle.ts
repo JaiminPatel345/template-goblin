@@ -1,4 +1,4 @@
-import type { FieldDefinition, InputJSON } from '@template-goblin/types'
+import type { FieldDefinition, InputJSON, Hyperlink } from '@template-goblin/types'
 
 /**
  * Resolves the effective field definition with any active condition-based style overrides merged in.
@@ -44,10 +44,36 @@ export function resolveEffectiveField<T extends FieldDefinition>(
     ruleStyle && ruleStyle.rotation !== undefined
       ? (ruleStyle.rotation as number | null)
       : field.rotation
+  const effectiveGroupId =
+    ruleStyle && ruleStyle.groupId !== undefined
+      ? (ruleStyle.groupId as string | null)
+      : field.groupId
+  const effectiveHyperlink =
+    ruleStyle && ruleStyle.hyperlink !== undefined
+      ? ((ruleStyle.hyperlink ?? undefined) as Hyperlink | undefined)
+      : field.hyperlink
+
+  let effectiveSource = field.source
+  if (field.type === 'image') {
+    if (ruleStyle.color !== undefined) {
+      effectiveSource = {
+        mode: 'static',
+        value: { color: ruleStyle.color as string },
+      } as T['source']
+    } else if (ruleStyle.filename !== undefined) {
+      effectiveSource = {
+        mode: 'static',
+        value: { filename: ruleStyle.filename as string },
+      } as T['source']
+    }
+  }
 
   return {
     ...field,
+    source: effectiveSource,
     rotation: effectiveRotation,
+    groupId: effectiveGroupId,
+    hyperlink: effectiveHyperlink,
     style: mergeFieldStyles(field, ruleStyle),
   }
 }

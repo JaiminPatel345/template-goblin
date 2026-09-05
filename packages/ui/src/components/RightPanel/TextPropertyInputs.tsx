@@ -9,6 +9,7 @@ import { ColorPickerPopover } from '../ColorPickerPopover.js'
 import { NullableColorInput } from '../NullableColorInput.js'
 import { StyleToggleGroup } from '../StyleToggleGroup.js'
 import { AlignButtonGroup } from './AlignButtonGroup.js'
+import { renderCommonPropertyInput } from './CommonPropertyInputs.js'
 
 /**
  * Renders an input control for text, image, and rotation properties.
@@ -207,7 +208,19 @@ export function renderTextPropertyInput(
         />
       )
 
+    case 'filename':
+      return (
+        <input
+          type="text"
+          className="tg-input"
+          data-testid="cond-image-filename"
+          placeholder="filename.png"
+          value={(style.filename as string) ?? ''}
+          onChange={(e) => onChange({ filename: e.target.value })}
+        />
+      )
+
     default:
-      return null
+      return renderCommonPropertyInput({ field, propId, style, onChange })
   }
 }

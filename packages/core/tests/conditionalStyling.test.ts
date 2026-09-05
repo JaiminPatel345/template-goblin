@@ -251,4 +251,53 @@ describe('Condition-Based Styling in Core Renderer', () => {
     const pages = await parsePdfGeometry(pdf)
     expect(pageText(pages[0]!)).toContain('Static Heading')
   })
+
+  it('resolves effective rotation, groupId, and hyperlink overrides', () => {
+    const fieldWithExtras = {
+      ...dynText('txt-extra', 'role', false),
+      groupId: null,
+      rotation: 0,
+      hyperlink: undefined,
+      conditionalStyles: {
+        enabled: true,
+        conditions: [
+          {
+            id: 'c-extra',
+            name: 'extra',
+            isDefault: true,
+            style: {
+              rotation: 30,
+              groupId: 'grp-123',
+              hyperlink: { mode: 'static' as const, url: 'https://goblin.dev' },
+            },
+          },
+        ],
+      },
+    }
+    const resolved = resolveEffectiveField(fieldWithExtras, {})
+    expect(resolved.rotation).toBe(30)
+    expect(resolved.groupId).toBe('grp-123')
+    expect(resolved.hyperlink).toEqual({ mode: 'static', url: 'https://goblin.dev' })
+  })
+
+  it('resolves image color override to static color fill', () => {
+    const imgF = {
+      ...dynImage('img-color', 'banner', false),
+      conditionalStyles: {
+        enabled: true,
+        conditions: [
+          {
+            id: 'c-color',
+            name: 'solid',
+            isDefault: true,
+            style: {
+              color: '#123456',
+            },
+          },
+        ],
+      },
+    }
+    const resolved = resolveEffectiveField(imgF, {})
+    expect(resolved.source).toEqual({ mode: 'static', value: { color: '#123456' } })
+  })
 })

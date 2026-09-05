@@ -132,4 +132,28 @@ describe('propertyOverrideHelpers', () => {
     const removedRotation = togglePropertyOverride(withPadding, baseStyle, 'rotation', false)
     expect(removedRotation.rotation).toBeUndefined()
   })
+
+  it('supports hyperlink and groupId property overrides across elements', () => {
+    const baseStyle = {
+      groupId: 'grp-header',
+      hyperlink: { mode: 'static', url: 'https://example.com' },
+      color: '#ffffff',
+      filename: 'logo.png',
+    }
+    const initial: Record<string, unknown> = {}
+
+    const withGroup = togglePropertyOverride(initial, baseStyle, 'groupId', true)
+    expect(withGroup.groupId).toBe('grp-header')
+
+    const withLink = togglePropertyOverride(withGroup, baseStyle, 'hyperlink', true)
+    expect(withLink.hyperlink).toEqual({ mode: 'static', url: 'https://example.com' })
+
+    const propIds = extractSelectedPropIds(withLink)
+    expect(propIds).toContain('groupId')
+    expect(propIds).toContain('hyperlink')
+
+    const removedGroup = removePropertyOverride(withLink, 'groupId')
+    expect(removedGroup.groupId).toBeUndefined()
+    expect(removedGroup.hyperlink).toBeDefined()
+  })
 })

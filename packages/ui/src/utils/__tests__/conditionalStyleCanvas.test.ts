@@ -136,4 +136,33 @@ describe('resolveUiField canvas & playground resolution', () => {
     expect(resolved.style.color).toBe('#00ff00')
     expect(resolved.style.fontSize).toBe(24)
   })
+
+  it('resolves effective rotation, groupId, and hyperlink overrides', () => {
+    const fieldWithExtras: TextField = {
+      ...baseField,
+      groupId: null,
+      rotation: 0,
+      hyperlink: undefined,
+      conditionalStyles: {
+        enabled: true,
+        activeConditionId: 'c-extra',
+        conditions: [
+          {
+            id: 'c-extra',
+            name: 'extra',
+            isDefault: false,
+            style: {
+              rotation: 45,
+              groupId: 'grp-test',
+              hyperlink: { mode: 'static', url: 'https://goblin.dev' },
+            },
+          },
+        ],
+      },
+    }
+    const resolved = resolveUiField(fieldWithExtras)
+    expect(resolved.rotation).toBe(45)
+    expect(resolved.groupId).toBe('grp-test')
+    expect(resolved.hyperlink).toEqual({ mode: 'static', url: 'https://goblin.dev' })
+  })
 })

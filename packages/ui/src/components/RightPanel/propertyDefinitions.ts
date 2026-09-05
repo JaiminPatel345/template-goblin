@@ -32,11 +32,17 @@ const TEXT_PROPERTIES: PropertyMeta[] = [
   { id: 'lineHeight', label: 'Line Height', category: 'Layout' },
   { id: 'trim', label: 'Trim Whitespace', category: 'Layout' },
   { id: 'rotation', label: 'Angle (°)', category: 'Transform' },
+  { id: 'groupId', label: 'Group Assignment', category: 'Group' },
+  { id: 'hyperlink', label: 'Link', category: 'Link' },
 ]
 
 const IMAGE_PROPERTIES: PropertyMeta[] = [
   { id: 'fit', label: 'Fit Mode', category: 'Image' },
+  { id: 'color', label: 'Color / Solid Fill', category: 'Image' },
+  { id: 'filename', label: 'Image Asset / File', category: 'Image' },
   { id: 'rotation', label: 'Angle (°)', category: 'Transform' },
+  { id: 'groupId', label: 'Group Assignment', category: 'Group' },
+  { id: 'hyperlink', label: 'Link', category: 'Link' },
 ]
 
 const TABLE_PROPERTIES: PropertyMeta[] = [
@@ -73,6 +79,8 @@ const TABLE_PROPERTIES: PropertyMeta[] = [
   { id: 'paddingLeft', label: 'Cell Padding Left', category: 'Cell Style' },
   { id: 'paddingRight', label: 'Cell Padding Right', category: 'Cell Style' },
   { id: 'rotation', label: 'Angle (°)', category: 'Transform' },
+  { id: 'groupId', label: 'Group Assignment', category: 'Group' },
+  { id: 'hyperlink', label: 'Link', category: 'Link' },
 ]
 
 /**

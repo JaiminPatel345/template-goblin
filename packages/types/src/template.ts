@@ -157,6 +157,10 @@ export interface TextFieldStyle {
  */
 export interface ImageFieldStyle {
   fit: ImageFit
+  /** Optional solid fill color override (#81) */
+  color?: string
+  /** Optional image filename override */
+  filename?: string
 }
 
 /** Column definition in a table field */
@@ -316,12 +320,19 @@ export interface FieldBase {
   rotation?: number | null
 }
 
+/** Common field-level property overrides that can be applied conditionally (#43). */
+export interface CommonConditionOverrides {
+  rotation?: number | null
+  groupId?: string | null
+  hyperlink?: Hyperlink
+}
+
 /** A single condition-based styling rule */
 export interface ConditionStyleRule<S> {
   id: string
   name: string
   isDefault: boolean
-  style: Partial<S>
+  style: Partial<S> & CommonConditionOverrides
 }
 
 /** Container for condition-based styling configuration on a field */

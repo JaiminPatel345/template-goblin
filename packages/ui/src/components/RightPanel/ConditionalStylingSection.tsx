@@ -173,6 +173,8 @@ export function ConditionalStylingSection({ field }: Props) {
     const baseStyle = {
       ...((field.style as unknown as Record<string, unknown>) ?? {}),
       rotation: field.rotation ?? 0,
+      groupId: field.groupId ?? null,
+      hyperlink: field.hyperlink,
     }
     const nextStyle = togglePropertyOverride(currentStyle, baseStyle, propId, enabled)
     const updated = conditions.map((c) => (c.id === activeRule.id ? { ...c, style: nextStyle } : c))

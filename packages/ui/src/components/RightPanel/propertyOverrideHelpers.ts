@@ -94,6 +94,14 @@ export function togglePropertyOverride(
     nextStyle.lineHeight = baseStyle.lineHeight ?? 1.2
   } else if (propId === 'trim') {
     nextStyle.trim = baseStyle.trim !== false
+  } else if (propId === 'hyperlink') {
+    nextStyle.hyperlink = baseStyle.hyperlink ?? { mode: 'static', url: 'https://' }
+  } else if (propId === 'groupId') {
+    nextStyle.groupId = baseStyle.groupId ?? null
+  } else if (propId === 'color') {
+    nextStyle.color = baseStyle.color ?? '#ffffff'
+  } else if (propId === 'filename') {
+    nextStyle.filename = baseStyle.filename ?? ''
   } else {
     nextStyle[propId] = baseStyle[propId] ?? ''
   }
