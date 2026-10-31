@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { ArrowRight, Bolt, Check, Sparkles, Copy } from '../components/Icons'
+import { ArrowRight, Bolt, Check, Copy, OpenSource } from '../components/Icons'
 import { PLAYGROUND_URL } from '../lib/constants'
 
 function InstallCommand() {
@@ -32,7 +32,7 @@ export function Hero() {
     <section className="hero">
       <div className="container hero-centered">
         <span className="pill">
-          <Sparkles size={14} /> Open source · Pure TypeScript
+          <OpenSource size={14} /> Open source
         </span>
         <h1>
           Design PDF templates <span className="grad-text">visually.</span>
@@ -48,6 +48,9 @@ export function Hero() {
           <a className="btn btn-primary btn-lg" href={PLAYGROUND_URL}>
             Open the editor <ArrowRight />
           </a>
+          <Link className="btn btn-ghost btn-lg" to="/examples">
+            View examples
+          </Link>
           <Link className="btn btn-ghost btn-lg" to="/docs/sdk">
             Read the docs
           </Link>

@@ -135,3 +135,18 @@ export const Copy = ({ size = 18, ...p }: IconProps) => (
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
   </svg>
 )
+
+export const Download = ({ size = 18, ...p }: IconProps) => (
+  <svg {...base(size)} {...p}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+)
+
+/** Official Open Source Initiative (OSI) keyhole icon. */
+export const OpenSource = ({ size = 18, ...p }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 590 590" fill="currentColor" {...p}>
+    <path d="M328.7 395.8c40.3-15 61.4-43.8 61.4-93.4s-41.8-93.4-94.1-93.5c-55.1-.1-96.8 43.6-96.1 93.5s24.4 83 62.4 94.9L195 563C104.8 539.7 13.2 433.3 13.2 302.4 13.2 147.3 137.8 21.5 294 21.5s282.8 125.7 282.8 280.8c0 133-90.8 237.9-182.9 261.1L328.7 395.8z" />
+  </svg>
+)

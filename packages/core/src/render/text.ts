@@ -1,8 +1,10 @@
 import type PDFDocument from 'pdfkit'
 import type { FieldDefinition, TextFieldStyle } from '@template-goblin/types'
+import { TemplateGoblinError } from '@template-goblin/types'
 import { measureText, truncateLines } from '../utils/measure.js'
 import { resolvePdfFontName } from './pdfFontResolver.js'
 import { paintTextDecoration } from './textDecoration.js'
+import { getSafeFontForText } from '../utils/font.js'
 
 /**
  * Render a text field onto a PDFKit document within its bounding rectangle.
@@ -47,7 +49,25 @@ export function renderText(
     style.fontStyle,
     customFontName,
   )
-  doc.font(fontName)
+
+  if (customFontName) {
+    try {
+      doc.font(customFontName)
+    } catch (err) {
+      throw new TemplateGoblinError(
+        'FONT_LOAD_FAILED',
+        `Failed to use font: ${customFontName} — ${err instanceof Error ? err.message : 'unknown error'}`,
+      )
+    }
+  }
+
+  const shouldTrim = style.trim !== false
+  const textValue = shouldTrim ? value.trim() : value
+
+  // GH Bugfix: Ensure active font supports all characters in textValue (e.g. ₹),
+  // falling back to built-in universal Unicode font when standard font lacks glyphs.
+  const safeFont = getSafeFontForText(doc, fontName, textValue)
+  doc.font(safeFont)
 
   // Set text color
   doc.fillColor(style.color)
@@ -57,9 +77,6 @@ export function renderText(
 
   const lineHeightFactor = style.lineHeight > 0 ? style.lineHeight : 1.2
   const maxStyleRows = typeof style.maxRows === 'number' && style.maxRows > 0 ? style.maxRows : 3
-
-  const shouldTrim = style.trim !== false
-  const textValue = shouldTrim ? value.trim() : value
 
   if (style.overflowMode === 'dynamic_font') {
     // GH #91: shrink `fontSize` to `fontSizeMin` until the text fits.
@@ -82,7 +99,7 @@ export function renderText(
       doc.fontSize(fontSize)
       const lineHeightPt = fontSize * lineHeightFactor
       const maxLinesByBox = Math.floor(height / lineHeightPt)
-      const effectiveMaxRows = Math.min(maxStyleRows, Math.max(0, maxLinesByBox))
+      const effectiveMaxRows = Math.min(maxStyleRows, maxLinesByBox)
       lines = truncateLines(doc, lines, effectiveMaxRows, width)
     }
   } else {
@@ -91,7 +108,7 @@ export function renderText(
     doc.fontSize(fontSize)
     const lineHeightPt = fontSize * lineHeightFactor
     const maxLinesByBox = Math.floor(height / lineHeightPt)
-    const effectiveMaxRows = Math.min(maxStyleRows, Math.max(0, maxLinesByBox))
+    const effectiveMaxRows = Math.min(maxStyleRows, maxLinesByBox)
     const result = measureText(doc, textValue, fontSize, width, effectiveMaxRows)
     lines = result.fits ? result.lines : truncateLines(doc, result.lines, effectiveMaxRows, width)
   }
@@ -112,7 +129,7 @@ export function renderText(
   // canvas applies the same 1.2 fallback.
   const lineHeightPt = fontSize * lineHeightFactor
   const maxLinesByHeight = Math.floor(height / lineHeightPt)
-  const effectiveMaxRows = Math.min(maxStyleRows, Math.max(0, maxLinesByHeight))
+  const effectiveMaxRows = Math.min(maxStyleRows, maxLinesByHeight)
   if (lines.length > effectiveMaxRows) {
     lines = lines.slice(0, effectiveMaxRows)
   }
@@ -199,7 +216,7 @@ function fitTextDynamic(
     doc.fontSize(fontSize)
     const lineHeightPt = fontSize * lineHeightFactor
     const maxLinesByBox = Math.floor(height / lineHeightPt)
-    const effectiveMaxRows = Math.min(maxStyleRows, Math.max(0, maxLinesByBox))
+    const effectiveMaxRows = Math.min(maxStyleRows, maxLinesByBox)
 
     const result = measureText(doc, text, fontSize, maxWidth, effectiveMaxRows)
     if (result.fits) {
@@ -213,7 +230,7 @@ function fitTextDynamic(
   doc.fontSize(fontSize)
   const lineHeightPt = fontSize * lineHeightFactor
   const maxLinesByBox = Math.floor(height / lineHeightPt)
-  const effectiveMaxRows = Math.min(maxStyleRows, Math.max(0, maxLinesByBox))
+  const effectiveMaxRows = Math.min(maxStyleRows, maxLinesByBox)
   const result = measureText(doc, text, fontSize, maxWidth, effectiveMaxRows)
   return { lines: result.lines, fits: result.fits, fontSize }
 }

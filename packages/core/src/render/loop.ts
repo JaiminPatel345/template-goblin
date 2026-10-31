@@ -1,6 +1,5 @@
 import type PDFDocument from 'pdfkit'
 import type {
-  CellStyle,
   TableColumn,
   TableField,
   TableFieldStyle,
@@ -13,6 +12,9 @@ import { measureText, truncateLines } from '../utils/measure.js'
 import { resolvePdfFontName } from './pdfFontResolver.js'
 import { paintTextDecoration } from './textDecoration.js'
 import { resolveCellTextY } from './cellVerticalAlign.js'
+import { drawTablePerimeter } from './tablePerimeter.js'
+import { cellRowHeight, mergeStyle } from './tableStyle.js'
+import { getSafeFontForText } from '../utils/font.js'
 
 /**
  * Render a table field onto a PDFKit document.
@@ -69,11 +71,10 @@ export function renderLoop(
         )
       }
 
-      // Close the perimeter on the page we're leaving before moving on,
-      // so each page's table chunk has all four edges (#65).
+      // Close perimeter on the page we are leaving before moving on (#65)
       drawTablePerimeter(doc, x, y, width, field.height, style)
 
-      // margin: 0 — addPage REPLACES constructor options (see generate.ts).
+      // margin: 0 — addPage REPLACES constructor options (see generate.ts)
       doc.addPage({ size: [meta.width, meta.height], margin: 0 })
       renderBackground(doc, backgroundImage, meta)
 
@@ -88,63 +89,12 @@ export function renderLoop(
     void headerRowHeight
   }
 
-  // GH #65: stamp the table's perimeter on top so the user-configured
-  // border surrounds the rect's full extent, even when the last data row
-  // ended above the bottom edge or got skipped because it would overflow.
-  // Per-cell borders alone left the bottom edge open whenever the rect
-  // was taller than the rendered rows.
-  //
-  // #76 follow-up: when `fitToContent` is enabled (the default for new
-  // templates), end the perimeter at the last rendered row instead of
-  // `field.height` so short tables don't drag a tall, empty box below
-  // the data. `fitToContent === false` preserves the legacy full-rect
-  // perimeter.
+  // Stamp the table's perimeter on top so borders surround the full extent (#65, #76)
   const fitToContent = style.fitToContent !== false
   const renderedHeight = Math.max(0, currentY - y)
   const perimeterHeight =
     fitToContent && renderedHeight > 0 ? Math.min(renderedHeight, field.height) : field.height
   drawTablePerimeter(doc, x, y, width, perimeterHeight, style)
-}
-
-/**
- * Draw the table's outer perimeter rectangle on top of any rendered rows.
- *
- * Uses `rowStyle.borderColor` / `borderWidth` as the closest proxy for "the
- * table's frame" until an explicit perimeter style lands (#76). When the
- * row border is zero-width, no perimeter is drawn — preserves the
- * borderless look users opt into.
- */
-function drawTablePerimeter(
-  doc: InstanceType<typeof PDFDocument>,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  style: TableFieldStyle,
-): void {
-  // #76 follow-up: prefer the explicit table-level border when set; fall
-  // back to the legacy row-derived perimeter for templates that predate
-  // the `tableBorder` field. Either source can suppress the perimeter
-  // with width <= 0 or a null colour.
-  const tb = style.tableBorder
-  const bw = tb ? tb.width : style.rowStyle.borderWidth
-  if (!bw || bw <= 0) return
-  const stroke = tb ? tb.color : style.rowStyle.borderColor
-  if (!stroke) return
-  doc.save()
-  doc.lineWidth(bw).strokeColor(stroke)
-  doc.rect(x, y, width, height).stroke()
-  doc.restore()
-}
-
-/** Compute a single-row height from a CellStyle (font-size baseline + padding). */
-function cellRowHeight(cs: CellStyle): number {
-  return cs.fontSize + cs.paddingTop + cs.paddingBottom
-}
-
-function mergeStyle(base: CellStyle, override: Partial<CellStyle> | null): CellStyle {
-  if (!override) return base
-  return { ...base, ...override }
 }
 
 function renderHeaderRow(
@@ -175,10 +125,9 @@ function renderHeaderRow(
       doc.restore()
     }
 
-    // Table-header style — same bold/italic + standard-family resolution
-    // as body cells. The previous implementation called
-    // `doc.font(hs.fontFamily)` directly, which dropped weight + style.
-    doc.font(resolvePdfFontName(hs.fontFamily, hs.fontWeight, hs.fontStyle))
+    const fontName = resolvePdfFontName(hs.fontFamily, hs.fontWeight, hs.fontStyle)
+    const rawLabel = col.label || col.key
+    doc.font(getSafeFontForText(doc, fontName, rawLabel))
     doc.fontSize(hs.fontSize)
     doc.fillColor(hs.color)
 
@@ -193,9 +142,6 @@ function renderHeaderRow(
     )
     const textWidth = colWidth - hs.paddingLeft - hs.paddingRight
 
-    // Truncate to the cell box exactly like data cells do — a long
-    // column label painted past the column edge (Hard Rule #10).
-    const rawLabel = col.label || col.key
     const measured = measureText(doc, rawLabel, hs.fontSize, textWidth, 1)
     const headerLabel = measured.fits
       ? rawLabel
@@ -230,11 +176,6 @@ function renderDataRow(
   scaleFactor: number,
   rowIndex: number,
 ): number {
-  // Zebra striping: 1-based odd rows (1st, 3rd, …) take `oddRowStyle`, even
-  // rows `evenRowStyle`, each merged OVER `rowStyle` (so they need only
-  // override what differs, typically `backgroundColor`). Row HEIGHT stays
-  // based on `rowStyle` so the pagination math (`dataRowHeight`) is
-  // unaffected. `null` zebra styles fall straight through to `rowStyle`.
   const zebra = rowIndex % 2 === 0 ? style.oddRowStyle : style.evenRowStyle
   const rowBase = mergeStyle(style.rowStyle, zebra)
   const rowHeight = cellRowHeight(style.rowStyle)
@@ -258,12 +199,8 @@ function renderDataRow(
       doc.restore()
     }
 
-    // Honour both fontWeight + fontStyle across the four PDF Standard
-    // face variants. Body cells don't currently bind a `fontId` so the
-    // custom-font branch is skipped here; a follow-up can pipe the
-    // template's font map through if per-column custom fonts ship.
     const fontName = resolvePdfFontName(rs.fontFamily, rs.fontWeight, rs.fontStyle)
-    doc.font(fontName)
+    doc.font(getSafeFontForText(doc, fontName, cellValue))
     doc.fontSize(rs.fontSize)
     doc.fillColor(rs.color)
 
@@ -288,36 +225,26 @@ function renderDataRow(
         doc.fontSize(currentSize)
         result = measureText(doc, cellValue, currentSize, textWidth, maxTextRows)
       }
-      if (!result.fits) {
-        const truncated = truncateLines(doc, result.lines, maxTextRows, textWidth)
-        doc.text(truncated[0] ?? '', textX, textY, {
-          width: textWidth,
-          align: rs.align,
-          lineBreak: false,
-        })
-      } else {
-        doc.text(result.lines[0] ?? '', textX, textY, {
-          width: textWidth,
-          align: rs.align,
-          lineBreak: false,
-        })
-      }
+      const lines = result.fits
+        ? result.lines
+        : truncateLines(doc, result.lines, maxTextRows, textWidth)
+      doc.text(lines[0] ?? '', textX, textY, {
+        width: textWidth,
+        align: rs.align,
+        lineBreak: false,
+      })
     } else {
       const result = measureText(doc, cellValue, rs.fontSize, textWidth, maxTextRows)
-      if (!result.fits) {
-        const truncated = truncateLines(doc, result.lines, maxTextRows, textWidth)
-        doc.text(truncated[0] ?? '', textX, textY, {
-          width: textWidth,
-          align: rs.align,
-          lineBreak: false,
-        })
-      } else {
-        doc.text(cellValue, textX, textY, { width: textWidth, align: rs.align, lineBreak: false })
-      }
+      const lines = result.fits
+        ? result.lines
+        : truncateLines(doc, result.lines, maxTextRows, textWidth)
+      doc.text(lines[0] ?? '', textX, textY, {
+        width: textWidth,
+        align: rs.align,
+        lineBreak: false,
+      })
     }
 
-    // Underline + line-through via the shared helper so both
-    // decorations track across cell wrapping / alignment.
     paintTextDecoration(doc, cellValue, rs.textDecoration, {
       x: textX,
       y: textY,
