@@ -176,6 +176,7 @@ A `.tgbl` file is a ZIP archive containing:
 ## Documentation Index
 
 - [Documentation Home](https://jaiminpatel345.github.io/template-goblin/docs/): Architecture overview and concepts.
+- [Template Examples](https://jaiminpatel345.github.io/template-goblin/examples): Pre-built template showcases, downloadable .tgbl files, and playground deep-links.
 - [SDK & API Reference](https://jaiminpatel345.github.io/template-goblin/docs/sdk): Complete Node.js / TypeScript SDK documentation, methods, and framework setups.
 - [Template Schema](https://jaiminpatel345.github.io/template-goblin/docs/schema): Detailed JSON manifest schema specification, elements, styles, and bindings.
 - [.tgbl File Format](https://jaiminpatel345.github.io/template-goblin/docs/file-format): Structure and packaging of .tgbl template archives.
@@ -183,6 +184,17 @@ A `.tgbl` file is a ZIP archive containing:
 - [Visual Editor Guide](https://jaiminpatel345.github.io/template-goblin/docs/use-the-ui): Guide to designing templates using the drag-and-drop web UI.
 - [Playground](https://jaiminpatel345.github.io/template-goblin/playground/): Interactive browser-based visual editor.
 - [GitHub Repository](https://github.com/JaiminPatel345/template-goblin): Source code, issues, and discussions.
+
+## Pre-built Examples
+
+A production-ready example template is provided in the repository and hosted on the site:
+
+- **Zomato Food Delivery Invoice**:
+  - Description: Full food delivery receipt with order details, restaurant & customer info, itemized pricing table, delivery charges, taxes, and Indian Rupee (₹) Unicode currency rendering.
+  - Template File (.tgbl): `https://jaiminpatel345.github.io/template-goblin/examples/zomato-invoice.tgbl` (or locally at `examples/tgbl_files/zomato-invoice.tgbl`).
+  - Sample Rendered PDF: `https://jaiminpatel345.github.io/template-goblin/examples/zomato-invoice.pdf`.
+  - Open in Playground: `https://jaiminpatel345.github.io/template-goblin/playground/?example=zomato-invoice.tgbl`.
+  - Examples Page: `https://jaiminpatel345.github.io/template-goblin/examples`.
 
 ## Guidelines for LLM / AI Agents
 

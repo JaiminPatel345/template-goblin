@@ -48,6 +48,9 @@ export function Hero() {
           <a className="btn btn-primary btn-lg" href={PLAYGROUND_URL}>
             Open the editor <ArrowRight />
           </a>
+          <Link className="btn btn-ghost btn-lg" to="/examples">
+            View examples
+          </Link>
           <Link className="btn btn-ghost btn-lg" to="/docs/sdk">
             Read the docs
           </Link>

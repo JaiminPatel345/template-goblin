@@ -3,6 +3,7 @@ import { Routes, Route, useLocation } from 'react-router'
 import { SiteLayout } from './components/SiteLayout'
 import { DocsLayout } from './components/DocsLayout'
 import { Home } from './pages/Home'
+import { Examples } from './pages/Examples'
 import { NotFound } from './pages/NotFound'
 import { DocsHome } from './pages/docs/DocsHome'
 import { UseTheUi } from './pages/docs/UseTheUi'
@@ -28,6 +29,7 @@ export function App(): React.JSX.Element {
       <Routes>
         <Route element={<SiteLayout />}>
           <Route index element={<Home />} />
+          <Route path="examples" element={<Examples />} />
           <Route path="docs" element={<DocsLayout />}>
             <Route index element={<DocsHome />} />
             <Route path="use-the-ui" element={<UseTheUi />} />
