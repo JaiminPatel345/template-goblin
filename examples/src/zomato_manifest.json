@@ -1,0 +1,904 @@
+{
+  "version": "1.0",
+  "meta": {
+    "name": "Zomato Invoice",
+    "width": 595,
+    "height": 842,
+    "unit": "pt",
+    "pageSize": "A4",
+    "locked": false,
+    "maxPages": 1,
+    "createdAt": "2024-06-14T09:52:00.000Z",
+    "updatedAt": "2024-06-14T09:52:00.000Z"
+  },
+  "fonts": [
+    {
+      "id": "LiberationSans",
+      "name": "Liberation Sans",
+      "filename": "fonts/LiberationSans.ttf"
+    },
+    {
+      "id": "LiberationSans-Bold",
+      "name": "Liberation Sans Bold",
+      "filename": "fonts/LiberationSans-Bold.ttf"
+    }
+  ],
+  "groups": [],
+  "pages": [
+    {
+      "id": "page-1",
+      "index": 0,
+      "backgroundType": "color",
+      "backgroundColor": "#ffffff",
+      "backgroundFilename": null,
+      "width": 595,
+      "height": 842,
+      "pageSize": "A4"
+    }
+  ],
+  "fields": [
+    {
+      "id": "zomato_logo",
+      "type": "image",
+      "label": "Zomato Logo",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 35,
+      "y": 35,
+      "width": 65,
+      "height": 65,
+      "zIndex": 1,
+      "style": {
+        "fit": "contain"
+      },
+      "source": {
+        "mode": "static",
+        "value": {
+          "filename": "zomato-logo.png"
+        }
+      }
+    },
+    {
+      "id": "heading_order_summary",
+      "type": "text",
+      "label": "Order Summary Title",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 35,
+      "y": 125,
+      "width": 250,
+      "height": 22,
+      "zIndex": 2,
+      "style": {
+        "fontId": "LiberationSans-Bold",
+        "fontFamily": "LiberationSans-Bold",
+        "fontSize": 13,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "bold",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#2d2d2d",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "static",
+        "value": "Order Summary"
+      }
+    },
+    {
+      "id": "label_order_id",
+      "type": "text",
+      "label": "Order ID Label",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 35,
+      "y": 155,
+      "width": 130,
+      "height": 16,
+      "zIndex": 3,
+      "style": {
+        "fontId": "LiberationSans-Bold",
+        "fontFamily": "LiberationSans-Bold",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "bold",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#101010",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "static",
+        "value": "Order ID:"
+      }
+    },
+    {
+      "id": "val_order_id",
+      "type": "text",
+      "label": "Order ID Value",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 165,
+      "y": 155,
+      "width": 395,
+      "height": 16,
+      "zIndex": 4,
+      "style": {
+        "fontId": "LiberationSans",
+        "fontFamily": "LiberationSans",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#707070",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "dynamic",
+        "jsonKey": "order_id",
+        "required": true,
+        "placeholder": "39536"
+      }
+    },
+    {
+      "id": "label_order_time",
+      "type": "text",
+      "label": "Order Time Label",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 35,
+      "y": 175,
+      "width": 130,
+      "height": 16,
+      "zIndex": 5,
+      "style": {
+        "fontId": "LiberationSans-Bold",
+        "fontFamily": "LiberationSans-Bold",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "bold",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#101010",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "static",
+        "value": "Order Time:"
+      }
+    },
+    {
+      "id": "val_order_time",
+      "type": "text",
+      "label": "Order Time Value",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 165,
+      "y": 175,
+      "width": 395,
+      "height": 16,
+      "zIndex": 6,
+      "style": {
+        "fontId": "LiberationSans",
+        "fontFamily": "LiberationSans",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#707070",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "dynamic",
+        "jsonKey": "order_time",
+        "required": true,
+        "placeholder": "14 June 2024, 09:52 AM"
+      }
+    },
+    {
+      "id": "label_restaurant_name",
+      "type": "text",
+      "label": "Restaurant Name Label",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 35,
+      "y": 195,
+      "width": 130,
+      "height": 16,
+      "zIndex": 7,
+      "style": {
+        "fontId": "LiberationSans-Bold",
+        "fontFamily": "LiberationSans-Bold",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "bold",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#101010",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "static",
+        "value": "Restaurant Name:"
+      }
+    },
+    {
+      "id": "val_restaurant_name",
+      "type": "text",
+      "label": "Restaurant Name Value",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 165,
+      "y": 195,
+      "width": 395,
+      "height": 16,
+      "zIndex": 8,
+      "style": {
+        "fontId": "LiberationSans",
+        "fontFamily": "LiberationSans",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#707070",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "dynamic",
+        "jsonKey": "restaurant_name",
+        "required": true,
+        "placeholder": "Sree Anandha Bhavans Restaurant"
+      }
+    },
+    {
+      "id": "label_restaurant_address",
+      "type": "text",
+      "label": "Restaurant Address Label",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 35,
+      "y": 215,
+      "width": 130,
+      "height": 16,
+      "zIndex": 9,
+      "style": {
+        "fontId": "LiberationSans-Bold",
+        "fontFamily": "LiberationSans-Bold",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "bold",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#101010",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "static",
+        "value": "Restaurant Address:"
+      }
+    },
+    {
+      "id": "val_restaurant_address",
+      "type": "text",
+      "label": "Restaurant Address Value",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 165,
+      "y": 215,
+      "width": 395,
+      "height": 16,
+      "zIndex": 10,
+      "style": {
+        "fontId": "LiberationSans",
+        "fontFamily": "LiberationSans",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#707070",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "dynamic",
+        "jsonKey": "restaurant_address",
+        "required": true,
+        "placeholder": "VHQW+8XF,Chinnakada,Kollam"
+      }
+    },
+    {
+      "id": "label_customer_name",
+      "type": "text",
+      "label": "Customer Name Label",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 35,
+      "y": 242,
+      "width": 130,
+      "height": 16,
+      "zIndex": 11,
+      "style": {
+        "fontId": "LiberationSans-Bold",
+        "fontFamily": "LiberationSans-Bold",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "bold",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#101010",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "static",
+        "value": "Customer Name:"
+      }
+    },
+    {
+      "id": "val_customer_name",
+      "type": "text",
+      "label": "Customer Name Value",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 165,
+      "y": 242,
+      "width": 395,
+      "height": 16,
+      "zIndex": 12,
+      "style": {
+        "fontId": "LiberationSans",
+        "fontFamily": "LiberationSans",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#707070",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "dynamic",
+        "jsonKey": "customer_name",
+        "required": true,
+        "placeholder": "Jithin Baby"
+      }
+    },
+    {
+      "id": "label_customer_address",
+      "type": "text",
+      "label": "Customer Address Label",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 35,
+      "y": 262,
+      "width": 130,
+      "height": 16,
+      "zIndex": 13,
+      "style": {
+        "fontId": "LiberationSans-Bold",
+        "fontFamily": "LiberationSans-Bold",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "bold",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#101010",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "static",
+        "value": "Customer Address:"
+      }
+    },
+    {
+      "id": "val_customer_address",
+      "type": "text",
+      "label": "Customer Address Value",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 165,
+      "y": 262,
+      "width": 395,
+      "height": 16,
+      "zIndex": 14,
+      "style": {
+        "fontId": "LiberationSans",
+        "fontFamily": "LiberationSans",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#707070",
+        "backgroundColor": null,
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "dynamic",
+        "jsonKey": "customer_address",
+        "required": true,
+        "placeholder": "Waterfront by Palmyra,Kadavil Jothi,Uliyakovil,Kollam"
+      }
+    },
+    {
+      "id": "items_table",
+      "type": "table",
+      "label": "Items Table",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 35,
+      "y": 290,
+      "width": 525,
+      "height": 145,
+      "zIndex": 15,
+      "style": {
+        "maxRows": 20,
+        "maxColumns": 4,
+        "multiPage": false,
+        "showHeader": true,
+        "fitToContent": true,
+        "headerStyle": {
+          "fontFamily": "LiberationSans-Bold",
+          "fontSize": 10,
+          "fontWeight": "bold",
+          "fontStyle": "normal",
+          "textDecoration": "none",
+          "color": "#ffffff",
+          "backgroundColor": "#bcbcbc",
+          "borderWidth": 0,
+          "borderColor": null,
+          "paddingTop": 8,
+          "paddingBottom": 8,
+          "paddingLeft": 10,
+          "paddingRight": 10,
+          "align": "left",
+          "verticalAlign": "middle"
+        },
+        "rowStyle": {
+          "fontFamily": "LiberationSans",
+          "fontSize": 10,
+          "fontWeight": "normal",
+          "fontStyle": "normal",
+          "textDecoration": "none",
+          "color": "#101010",
+          "backgroundColor": null,
+          "borderWidth": 0,
+          "borderColor": null,
+          "paddingTop": 6,
+          "paddingBottom": 6,
+          "paddingLeft": 10,
+          "paddingRight": 10,
+          "align": "left",
+          "verticalAlign": "middle"
+        },
+        "oddRowStyle": null,
+        "evenRowStyle": null,
+        "cellStyle": {
+          "overflowMode": "truncate"
+        },
+        "columns": [
+          {
+            "key": "item",
+            "label": "Item",
+            "width": 255,
+            "style": null,
+            "headerStyle": null
+          },
+          {
+            "key": "quantity",
+            "label": "Quantity",
+            "width": 90,
+            "style": {
+              "align": "center"
+            },
+            "headerStyle": {
+              "align": "center"
+            }
+          },
+          {
+            "key": "unit_price",
+            "label": "Unit Price",
+            "width": 90,
+            "style": {
+              "align": "right"
+            },
+            "headerStyle": {
+              "align": "right"
+            }
+          },
+          {
+            "key": "total_price",
+            "label": "Total Price",
+            "width": 90,
+            "style": {
+              "align": "right"
+            },
+            "headerStyle": {
+              "align": "right"
+            }
+          }
+        ]
+      },
+      "source": {
+        "mode": "dynamic",
+        "jsonKey": "items",
+        "required": true,
+        "placeholder": [
+          {
+            "item": "Poori Set",
+            "quantity": "2",
+            "unit_price": "₹125",
+            "total_price": "₹250"
+          },
+          {
+            "item": "Ghee Roast",
+            "quantity": "1",
+            "unit_price": "₹100",
+            "total_price": "₹100"
+          },
+          {
+            "item": "Idiappam Set",
+            "quantity": "1",
+            "unit_price": "₹125",
+            "total_price": "₹125"
+          },
+          {
+            "item": "Appam Set",
+            "quantity": "1",
+            "unit_price": "₹125",
+            "total_price": "₹125"
+          }
+        ]
+      }
+    },
+    {
+      "id": "items_divider",
+      "type": "text",
+      "label": "Items Divider",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 35,
+      "y": 436,
+      "width": 525,
+      "height": 1,
+      "zIndex": 16,
+      "style": {
+        "fontId": "LiberationSans",
+        "fontFamily": "LiberationSans",
+        "fontSize": 1,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#dadada",
+        "backgroundColor": "#dadada",
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "static",
+        "value": ""
+      }
+    },
+    {
+      "id": "label_delivery_charge",
+      "type": "text",
+      "label": "Delivery Charge Label",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 310,
+      "y": 446,
+      "width": 140,
+      "height": 16,
+      "zIndex": 17,
+      "style": {
+        "fontId": "LiberationSans",
+        "fontFamily": "LiberationSans",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#101010",
+        "backgroundColor": null,
+        "align": "right",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "static",
+        "value": "Delivery Charge"
+      }
+    },
+    {
+      "id": "val_delivery_charge",
+      "type": "text",
+      "label": "Delivery Charge Value",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 460,
+      "y": 446,
+      "width": 90,
+      "height": 16,
+      "zIndex": 18,
+      "style": {
+        "fontId": "LiberationSans",
+        "fontFamily": "LiberationSans",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#101010",
+        "backgroundColor": null,
+        "align": "right",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "dynamic",
+        "jsonKey": "delivery_charge",
+        "required": true,
+        "placeholder": "₹30"
+      }
+    },
+    {
+      "id": "label_taxes",
+      "type": "text",
+      "label": "Taxes Label",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 310,
+      "y": 466,
+      "width": 140,
+      "height": 16,
+      "zIndex": 19,
+      "style": {
+        "fontId": "LiberationSans",
+        "fontFamily": "LiberationSans",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#101010",
+        "backgroundColor": null,
+        "align": "right",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "static",
+        "value": "Taxes"
+      }
+    },
+    {
+      "id": "val_taxes",
+      "type": "text",
+      "label": "Taxes Value",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 460,
+      "y": 466,
+      "width": 90,
+      "height": 16,
+      "zIndex": 20,
+      "style": {
+        "fontId": "LiberationSans",
+        "fontFamily": "LiberationSans",
+        "fontSize": 9.5,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#101010",
+        "backgroundColor": null,
+        "align": "right",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "dynamic",
+        "jsonKey": "taxes",
+        "required": true,
+        "placeholder": "₹30"
+      }
+    },
+    {
+      "id": "total_bar_bg",
+      "type": "text",
+      "label": "Total Bar Background",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 35,
+      "y": 492,
+      "width": 525,
+      "height": 26,
+      "zIndex": 21,
+      "style": {
+        "fontId": "LiberationSans",
+        "fontFamily": "LiberationSans",
+        "fontSize": 1,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "normal",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#e3e3e3",
+        "backgroundColor": "#e3e3e3",
+        "align": "left",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "static",
+        "value": ""
+      }
+    },
+    {
+      "id": "label_total",
+      "type": "text",
+      "label": "Total Label",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 370,
+      "y": 498,
+      "width": 80,
+      "height": 16,
+      "zIndex": 22,
+      "style": {
+        "fontId": "LiberationSans-Bold",
+        "fontFamily": "LiberationSans-Bold",
+        "fontSize": 10,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "bold",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#52c480",
+        "backgroundColor": null,
+        "align": "right",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "static",
+        "value": "Total"
+      }
+    },
+    {
+      "id": "val_total",
+      "type": "text",
+      "label": "Total Value",
+      "groupId": null,
+      "pageId": "page-1",
+      "x": 460,
+      "y": 498,
+      "width": 90,
+      "height": 16,
+      "zIndex": 23,
+      "style": {
+        "fontId": "LiberationSans-Bold",
+        "fontFamily": "LiberationSans-Bold",
+        "fontSize": 10,
+        "fontSizeMin": 8,
+        "lineHeight": 1.3,
+        "fontWeight": "bold",
+        "fontStyle": "normal",
+        "textDecoration": "none",
+        "color": "#52c480",
+        "backgroundColor": null,
+        "align": "right",
+        "verticalAlign": "top",
+        "maxRows": 1,
+        "overflowMode": "truncate",
+        "snapToGrid": false
+      },
+      "source": {
+        "mode": "dynamic",
+        "jsonKey": "total",
+        "required": true,
+        "placeholder": "₹660"
+      }
+    }
+  ]
+}
