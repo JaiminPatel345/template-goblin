@@ -13,14 +13,14 @@
   },
   "fonts": [
     {
-      "id": "LiberationSans",
+      "id": "DejaVuSans",
       "name": "Liberation Sans",
-      "filename": "fonts/LiberationSans.ttf"
+      "filename": "fonts/DejaVuSans.ttf"
     },
     {
-      "id": "LiberationSans-Bold",
+      "id": "DejaVuSans-Bold",
       "name": "Liberation Sans Bold",
-      "filename": "fonts/LiberationSans-Bold.ttf"
+      "filename": "fonts/DejaVuSans-Bold.ttf"
     }
   ],
   "groups": [],
@@ -70,8 +70,8 @@
       "height": 22,
       "zIndex": 2,
       "style": {
-        "fontId": "LiberationSans-Bold",
-        "fontFamily": "LiberationSans-Bold",
+        "fontId": "DejaVuSans-Bold",
+        "fontFamily": "DejaVuSans-Bold",
         "fontSize": 13,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -103,8 +103,8 @@
       "height": 16,
       "zIndex": 3,
       "style": {
-        "fontId": "LiberationSans-Bold",
-        "fontFamily": "LiberationSans-Bold",
+        "fontId": "DejaVuSans-Bold",
+        "fontFamily": "DejaVuSans-Bold",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -136,8 +136,8 @@
       "height": 16,
       "zIndex": 4,
       "style": {
-        "fontId": "LiberationSans",
-        "fontFamily": "LiberationSans",
+        "fontId": "DejaVuSans",
+        "fontFamily": "DejaVuSans",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -171,8 +171,8 @@
       "height": 16,
       "zIndex": 5,
       "style": {
-        "fontId": "LiberationSans-Bold",
-        "fontFamily": "LiberationSans-Bold",
+        "fontId": "DejaVuSans-Bold",
+        "fontFamily": "DejaVuSans-Bold",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -204,8 +204,8 @@
       "height": 16,
       "zIndex": 6,
       "style": {
-        "fontId": "LiberationSans",
-        "fontFamily": "LiberationSans",
+        "fontId": "DejaVuSans",
+        "fontFamily": "DejaVuSans",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -239,8 +239,8 @@
       "height": 16,
       "zIndex": 7,
       "style": {
-        "fontId": "LiberationSans-Bold",
-        "fontFamily": "LiberationSans-Bold",
+        "fontId": "DejaVuSans-Bold",
+        "fontFamily": "DejaVuSans-Bold",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -272,8 +272,8 @@
       "height": 16,
       "zIndex": 8,
       "style": {
-        "fontId": "LiberationSans",
-        "fontFamily": "LiberationSans",
+        "fontId": "DejaVuSans",
+        "fontFamily": "DejaVuSans",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -307,8 +307,8 @@
       "height": 16,
       "zIndex": 9,
       "style": {
-        "fontId": "LiberationSans-Bold",
-        "fontFamily": "LiberationSans-Bold",
+        "fontId": "DejaVuSans-Bold",
+        "fontFamily": "DejaVuSans-Bold",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -340,8 +340,8 @@
       "height": 16,
       "zIndex": 10,
       "style": {
-        "fontId": "LiberationSans",
-        "fontFamily": "LiberationSans",
+        "fontId": "DejaVuSans",
+        "fontFamily": "DejaVuSans",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -375,8 +375,8 @@
       "height": 16,
       "zIndex": 11,
       "style": {
-        "fontId": "LiberationSans-Bold",
-        "fontFamily": "LiberationSans-Bold",
+        "fontId": "DejaVuSans-Bold",
+        "fontFamily": "DejaVuSans-Bold",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -408,8 +408,8 @@
       "height": 16,
       "zIndex": 12,
       "style": {
-        "fontId": "LiberationSans",
-        "fontFamily": "LiberationSans",
+        "fontId": "DejaVuSans",
+        "fontFamily": "DejaVuSans",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -443,8 +443,8 @@
       "height": 16,
       "zIndex": 13,
       "style": {
-        "fontId": "LiberationSans-Bold",
-        "fontFamily": "LiberationSans-Bold",
+        "fontId": "DejaVuSans-Bold",
+        "fontFamily": "DejaVuSans-Bold",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -476,8 +476,8 @@
       "height": 16,
       "zIndex": 14,
       "style": {
-        "fontId": "LiberationSans",
-        "fontFamily": "LiberationSans",
+        "fontId": "DejaVuSans",
+        "fontFamily": "DejaVuSans",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -517,7 +517,7 @@
         "showHeader": true,
         "fitToContent": true,
         "headerStyle": {
-          "fontFamily": "LiberationSans-Bold",
+          "fontFamily": "DejaVuSans-Bold",
           "fontSize": 10,
           "fontWeight": "bold",
           "fontStyle": "normal",
@@ -534,7 +534,7 @@
           "verticalAlign": "middle"
         },
         "rowStyle": {
-          "fontFamily": "LiberationSans",
+          "fontFamily": "DejaVuSans",
           "fontSize": 10,
           "fontWeight": "normal",
           "fontStyle": "normal",
@@ -642,8 +642,8 @@
       "height": 1,
       "zIndex": 16,
       "style": {
-        "fontId": "LiberationSans",
-        "fontFamily": "LiberationSans",
+        "fontId": "DejaVuSans",
+        "fontFamily": "DejaVuSans",
         "fontSize": 1,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -675,8 +675,8 @@
       "height": 16,
       "zIndex": 17,
       "style": {
-        "fontId": "LiberationSans",
-        "fontFamily": "LiberationSans",
+        "fontId": "DejaVuSans",
+        "fontFamily": "DejaVuSans",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -708,8 +708,8 @@
       "height": 16,
       "zIndex": 18,
       "style": {
-        "fontId": "LiberationSans",
-        "fontFamily": "LiberationSans",
+        "fontId": "DejaVuSans",
+        "fontFamily": "DejaVuSans",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -743,8 +743,8 @@
       "height": 16,
       "zIndex": 19,
       "style": {
-        "fontId": "LiberationSans",
-        "fontFamily": "LiberationSans",
+        "fontId": "DejaVuSans",
+        "fontFamily": "DejaVuSans",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -776,8 +776,8 @@
       "height": 16,
       "zIndex": 20,
       "style": {
-        "fontId": "LiberationSans",
-        "fontFamily": "LiberationSans",
+        "fontId": "DejaVuSans",
+        "fontFamily": "DejaVuSans",
         "fontSize": 9.5,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -811,8 +811,8 @@
       "height": 26,
       "zIndex": 21,
       "style": {
-        "fontId": "LiberationSans",
-        "fontFamily": "LiberationSans",
+        "fontId": "DejaVuSans",
+        "fontFamily": "DejaVuSans",
         "fontSize": 1,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -844,8 +844,8 @@
       "height": 16,
       "zIndex": 22,
       "style": {
-        "fontId": "LiberationSans-Bold",
-        "fontFamily": "LiberationSans-Bold",
+        "fontId": "DejaVuSans-Bold",
+        "fontFamily": "DejaVuSans-Bold",
         "fontSize": 10,
         "fontSizeMin": 8,
         "lineHeight": 1.3,
@@ -877,8 +877,8 @@
       "height": 16,
       "zIndex": 23,
       "style": {
-        "fontId": "LiberationSans-Bold",
-        "fontFamily": "LiberationSans-Bold",
+        "fontId": "DejaVuSans-Bold",
+        "fontFamily": "DejaVuSans-Bold",
         "fontSize": 10,
         "fontSizeMin": 8,
         "lineHeight": 1.3,

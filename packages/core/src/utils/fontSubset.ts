@@ -12,7 +12,7 @@ for (let i = 32; i <= 126; i++) COMMON_CHARS.add(i)
 
 // Common extended characters
 const EXTENDED =
-  '\u00A0\u00A9\u00AE\u00B0\u00B7\u2013\u2014\u2018\u2019\u201C\u201D\u2026\u2022\u20AC\u00A3\u00A5\u00A2'
+  '\u00A0\u00A9\u00AE\u00B0\u00B7\u2013\u2014\u2018\u2019\u201C\u201D\u2026\u2022\u20AC\u00A3\u00A5\u00A2\u20B9'
 for (const ch of EXTENDED) {
   const cp = ch.codePointAt(0)
   if (cp !== undefined) COMMON_CHARS.add(cp)

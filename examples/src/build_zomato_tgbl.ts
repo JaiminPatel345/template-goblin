@@ -11,8 +11,8 @@ const ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 // Source assets
 const LOGO_SRC =
   '/home/jaimin/.gemini/antigravity-cli/brain/68b57c8c-28f4-4c2f-afe4-046181935dd2/.user_uploaded/uploaded_media_1_1793443691574.png'
-const FONT_REGULAR_SRC = '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'
-const FONT_BOLD_SRC = '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'
+const FONT_REGULAR_SRC = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+const FONT_BOLD_SRC = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
 const logoBytes = readFileSync(LOGO_SRC)
 const fontRegBytes = readFileSync(FONT_REGULAR_SRC)
@@ -31,8 +31,8 @@ const zip = new AdmZip()
 zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2), 'utf-8'))
 zip.addFile('images/zomato-logo.png', logoBytes)
 zip.addFile('zomato-logo.png', logoBytes)
-zip.addFile('fonts/LiberationSans.ttf', fontRegBytes)
-zip.addFile('fonts/LiberationSans-Bold.ttf', fontBoldBytes)
+zip.addFile('fonts/DejaVuSans.ttf', fontRegBytes)
+zip.addFile('fonts/DejaVuSans-Bold.ttf', fontBoldBytes)
 
 const tgblBuffer = zip.toBuffer()
 

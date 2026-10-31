@@ -169,7 +169,7 @@ export function truncateLines(
 
   // Trim last line at a character boundary until it fits the rect width.
   // No ellipsis \u2014 the user wants the literal characters that fit.
-  while (lastLine && doc.widthOfString(lastLine) > maxWidth) {
+  while (lastLine && doc.widthOfString(lastLine) > maxWidth + 0.1) {
     lastLine = lastLine.slice(0, -1)
   }
 

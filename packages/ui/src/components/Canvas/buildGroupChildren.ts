@@ -73,9 +73,10 @@ export function buildGroupChildren(
   //    box and hit-testing works (Fabric needs a non-zero area; fill:
   //    'transparent' still participates in hit-detection unlike fill: null
   //    or fill: '').
+  const isImageField = field.type === 'image'
   const defaultFill = imageColor ?? textBgColor ?? (shouldFill ? colors.fill : 'transparent')
-  const defaultStroke = colors.stroke
-  const defaultStrokeWidth = 1
+  const defaultStroke = isImageField ? 'transparent' : colors.stroke
+  const defaultStrokeWidth = isImageField ? 0 : 1
   // When the fill is the user's REAL colour (a text background #167 or a
   // solid-colour image #81) it appears in the PDF, which paints a SQUARE
   // rect — so drop the 2px design-time rounding to match. The rounding
