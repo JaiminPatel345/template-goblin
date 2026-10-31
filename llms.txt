@@ -1,0 +1,194 @@
+# TemplateGoblin
+
+> TemplateGoblin is an open-source PDF template engine. Non-technical users design templates in a visual drag-and-drop builder; developers generate millions of pixel-identical PDFs from JSON using a pure TypeScript library — no headless browser (Chrome/Puppeteer) required.
+
+TemplateGoblin separates PDF design from runtime rendering. Templates are authored visually in the browser editor and exported as portable `.tgbl` files (ZIP archives containing layout definitions, fonts, and images). Backend services load the template once into memory and merge dynamic JSON data at sub-millisecond speeds per page.
+
+## Packages Architecture
+
+The repository is structured as a TypeScript monorepo managed with Turborepo and pnpm:
+
+- `packages/core` (`template-goblin` on npm): Pure Node.js/TypeScript rendering engine. Zero browser dependencies, built directly on `pdf-lib` and `fontkit`.
+- `packages/types` (`@template-goblin/types`): Shared TypeScript type definitions, schemas, and interfaces.
+- `packages/ui` (`template-goblin-ui` on npm): React visual drag-and-drop template editor with live preview and canvas tools.
+- `packages/site`: Documentation and marketing website built with Vite and React Router.
+
+## Key Features
+
+- **No Headless Browser**: Pure TypeScript rendering. Zero Chromium, zero Puppeteer, zero GPU, ultra-low memory footprint.
+- **Sub-millisecond Performance**: Renders hundreds of pages per second per CPU core, over 100x faster than headless browser alternatives.
+- **Visual Drag-and-Drop Builder**: Full WYSIWYG editor with snap guides, multi-page layout, element grouping, custom font uploads, and live sample-data preview.
+- **Portable `.tgbl` File Format**: Self-contained ZIP archive containing `manifest.json`, bundled fonts, and asset images.
+- **Strict Bounding Boxes**: Content never overflows its bounding box; supports text auto-shrinking, truncation, and dynamic table pagination.
+- **High-Throughput Batch Generation**: Built-in concurrency control (`generateBatchPDF`) and direct cloud storage streaming (`generateAndStore` for S3 / Cloudflare R2).
+
+## Installation
+
+```bash
+npm install template-goblin
+# or: pnpm add template-goblin / yarn add template-goblin
+```
+
+To run the visual editor locally:
+```bash
+npx template-goblin-ui
+# Opens http://localhost:4242
+```
+
+## Quick Start
+
+### 1. Minimal Generation Example
+
+```typescript
+import { writeFile } from 'node:fs/promises'
+import { loadTemplate, generatePDF } from 'template-goblin'
+
+// 1. Load the template ONCE at startup (parses ZIP, fonts, images into memory)
+const template = await loadTemplate('./templates/invoice.tgbl')
+
+// 2. Prepare dynamic JSON data matching template keys
+const data = {
+  texts: {
+    invoiceNumber: 'INV-2026-001',
+    customerName: 'Acme Corporation',
+    date: '2026-10-31',
+    total: '$1,250.00',
+  },
+  tables: {
+    lineItems: [
+      { description: 'Cloud Hosting (Monthly)', qty: 1, rate: '$250.00', amount: '$250.00' },
+      { description: 'Consulting Services', qty: 10, rate: '$100.00', amount: '$1,000.00' },
+    ],
+  },
+  images: {
+    customerAvatar: 'https://example.com/avatar.png', // or base64 data URI
+  },
+  conditionals: {
+    isPaid: true,
+  },
+}
+
+// 3. Generate PDF byte array (Uint8Array)
+const pdfBytes = await generatePDF(template, data)
+
+// 4. Save to disk or stream over HTTP
+await writeFile('./output/invoice.pdf', pdfBytes)
+```
+
+### 2. HTTP Server Integration (Hono)
+
+```typescript
+import { Hono } from 'hono'
+import { loadTemplate, generatePDF } from 'template-goblin'
+
+const app = new Hono()
+
+// Pre-load template into memory
+const invoiceTemplate = await loadTemplate('./templates/invoice.tgbl')
+
+app.post('/api/generate-invoice', async (c) => {
+  const data = await c.req.json()
+  const pdfBytes = await generatePDF(invoiceTemplate, data)
+
+  return c.body(pdfBytes, 200, {
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': 'inline; filename="invoice.pdf"',
+  })
+})
+
+export default app
+```
+
+## Core API Reference
+
+### `loadTemplate(source)`
+Loads and validates a `.tgbl` template archive into a reusable in-memory `LoadedTemplate` structure.
+- **Parameters**: `source: string | Buffer | Uint8Array | ArrayBuffer` (file path or buffer).
+- **Returns**: `Promise<LoadedTemplate>`.
+- **Recommendation**: Call this ONCE during server initialization; do not re-load on each request.
+
+### `generatePDF(template, data, options?)`
+Merges dynamic JSON data into a loaded template and produces a PDF.
+- **Parameters**:
+  - `template: LoadedTemplate`
+  - `data: InputJSON` (dynamic fields: `texts`, `tables`, `images`, `conditionals`)
+  - `options?: GeneratePDFOptions`
+- **Returns**: `Promise<Uint8Array>` (the raw PDF bytes).
+
+### `prepareTemplate(template)` & `generatePreparedPDF(prepared, data)`
+Compiles a loaded template into an optimized intermediate structure to achieve maximum generation throughput.
+- **Parameters**: `template: LoadedTemplate`
+- **Returns**: `PreparedTemplate`
+
+### `generateBatchPDF(template, records, options?)`
+Renders a batch of documents concurrently with bounded memory and concurrency.
+- **Parameters**:
+  - `template: LoadedTemplate`
+  - `records: InputJSON[]`
+  - `options?: BatchOptions` (e.g. `concurrency: number`, `onProgress?: (index: number) => void`)
+- **Returns**: `Promise<BatchResult>`
+
+### `generateAndStore(template, data, storageProvider, options)`
+Generates a PDF and immediately uploads it to cloud storage (S3, Cloudflare R2, MinIO, etc.) without writing temporary files to disk.
+- **Parameters**:
+  - `template: LoadedTemplate`
+  - `data: InputJSON`
+  - `storage: StorageProvider` (e.g. `new S3StorageProvider({ ... })`)
+  - `options: GenerateAndStoreOptions`
+- **Returns**: `Promise<StoreResult>` (storage URL, ETag, key).
+
+### `validateManifest(raw)`
+Validates an unverified manifest object against the TemplateGoblin manifest schema.
+- **Parameters**: `raw: unknown`
+- **Returns**: `ValidationResult` (`valid: boolean`, `errors: ValidationError[]`).
+
+## Data Structure (`InputJSON`)
+
+Dynamic data passed to `generatePDF` conforms to:
+
+```typescript
+interface InputJSON {
+  /** Text variables mapped to field IDs or binding names */
+  texts?: Record<string, string | number>
+  /** Dynamic tables mapped to table field IDs */
+  tables?: Record<string, Array<Record<string, unknown>>>
+  /** Dynamic images (URL, data URI, or raw base64) */
+  images?: Record<string, string>
+  /** Conditional visibility flags */
+  conditionals?: Record<string, boolean>
+}
+```
+
+## The `.tgbl` Template Format
+
+A `.tgbl` file is a ZIP archive containing:
+1. `manifest.json`: JSON document describing pages, dimensions, element coordinates, typography, and bindings.
+2. `fonts/`: Bundled custom font files (`.ttf`, `.otf`, `.woff`, `.woff2`).
+3. `images/`: Bundled static image assets (`.png`, `.jpg`, `.svg`).
+
+### Coordinate System
+- Origin `(0, 0)` is at the **top-left corner** of each page.
+- All dimensions and coordinates are in PDF points (`1 pt = 1/72 inch`).
+  - A4: `595.28 x 841.89 pt`
+  - US Letter: `612 x 792 pt`
+- Elements specify `x`, `y`, `width`, `height`, and optional `rotation`.
+
+## Documentation Index
+
+- [Documentation Home](https://jaiminpatel345.github.io/template-goblin/docs/): Architecture overview and concepts.
+- [SDK & API Reference](https://jaiminpatel345.github.io/template-goblin/docs/sdk): Complete Node.js / TypeScript SDK documentation, methods, and framework setups.
+- [Template Schema](https://jaiminpatel345.github.io/template-goblin/docs/schema): Detailed JSON manifest schema specification, elements, styles, and bindings.
+- [.tgbl File Format](https://jaiminpatel345.github.io/template-goblin/docs/file-format): Structure and packaging of .tgbl template archives.
+- [Batch & Storage](https://jaiminpatel345.github.io/template-goblin/docs/batch): High-throughput batch processing, worker pools, and S3/cloud storage upload.
+- [Visual Editor Guide](https://jaiminpatel345.github.io/template-goblin/docs/use-the-ui): Guide to designing templates using the drag-and-drop web UI.
+- [Playground](https://jaiminpatel345.github.io/template-goblin/playground/): Interactive browser-based visual editor.
+- [GitHub Repository](https://github.com/JaiminPatel345/template-goblin): Source code, issues, and discussions.
+
+## Guidelines for LLM / AI Agents
+
+When generating code or configurations for TemplateGoblin:
+1. **Never use Headless Browsers**: Do not import Puppeteer, Playwright, or jsdom. TemplateGoblin renders PDFs directly via `template-goblin`.
+2. **Pre-load Templates**: Always instruct users to run `const template = await loadTemplate(...)` once during application bootstrap, not inside every request handler.
+3. **Strict Coordinates**: Ensure elements define explicit `x`, `y`, `width`, and `height` in points. Content inside bounding boxes never overflows.
+4. **Data Contract**: Match keys in `data.texts`, `data.tables`, and `data.images` exactly with the field IDs defined in the template manifest.
+5. **Types Package**: Import types from `template-goblin` or `@template-goblin/types`.
