@@ -12,22 +12,22 @@ const template = await loadTemplate('./zomato-invoice.tgbl')
 // 2. Generate PDF with dynamic order details and item rows
 const pdfBuffer = await generatePDF(template, {
   texts: {
-    orderId: '39536',
-    orderTime: '14 June 2024, 09:52 AM',
-    restaurantName: 'Sree Anandha Bhavans Restaurant',
-    restaurantAddress: 'VHQW+8XF,Chinnakada,Kollam',
-    customerName: 'Jithin Baby',
-    customerAddress: 'Waterfront by Palmyra,Kadavil Jothi,Uliyakovil,Kollam',
-    deliveryCharge: '₹30',
+    order_id: '123456',
+    order_time: '01 June 2026, 09:52 AM',
+    restaurant_name: 'Paratha House',
+    restaurant_address: 'ABCD+8XF, Test address',
+    customer_name: 'Jaimin Detroja',
+    customer_address: 'Again test address',
+    delivery_charge: '₹30',
     taxes: '₹30',
     total: '₹660',
   },
   tables: {
     items: [
-      { item: 'Poori Set', quantity: '2', unitPrice: '₹125', totalPrice: '₹250' },
-      { item: 'Ghee Roast', quantity: '1', unitPrice: '₹100', totalPrice: '₹100' },
-      { item: 'Idiappam Set', quantity: '1', unitPrice: '₹125', totalPrice: '₹125' },
-      { item: 'Appam Set', quantity: '1', unitPrice: '₹125', totalPrice: '₹125' },
+      { item: 'Poori Set', quantity: '2', unit_price: '₹125', total_price: '₹250' },
+      { item: 'Ghee Roast', quantity: '1', unit_price: '₹100', total_price: '₹100' },
+      { item: 'Buture Paratha', quantity: '1', unit_price: '₹125', total_price: '₹125' },
+      { item: 'Appam Set', quantity: '1', unit_price: '₹125', total_price: '₹125' },
     ],
   },
 })
