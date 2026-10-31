@@ -33,6 +33,12 @@ export function Navbar() {
         </Link>
 
         <nav className="nav-links" aria-label="Primary">
+          <NavLink
+            to="/examples"
+            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+          >
+            Examples
+          </NavLink>
           <div
             className={`dropdown${docsOpen ? ' open' : ''}`}
             onMouseLeave={() => setDocsOpen(false)}
@@ -108,6 +114,9 @@ export function Navbar() {
           <div className="container">
             <NavLink to="/" className="nav-link" onClick={() => setOpen(false)}>
               Home
+            </NavLink>
+            <NavLink to="/examples" className="nav-link" onClick={() => setOpen(false)}>
+              Examples
             </NavLink>
             <div className="mobile-sub">Docs</div>
             {DOC_LINKS.map((d) => (

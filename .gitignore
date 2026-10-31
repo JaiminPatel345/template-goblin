@@ -34,6 +34,9 @@ playwright-report/
 
 # Generated
 *.tgbl
+!examples/tgbl_files/*.tgbl
+!packages/ui/public/examples/*.tgbl
+!packages/site/public/examples/*.tgbl
 
 # Logs
 *.log

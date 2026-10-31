@@ -14,6 +14,7 @@ import { resolve, dirname } from 'node:path'
  * load — clean URLs, no redirect, every route directly indexable.
  */
 const ROUTES = [
+  'examples',
   'docs',
   'docs/use-the-ui',
   'docs/sdk',

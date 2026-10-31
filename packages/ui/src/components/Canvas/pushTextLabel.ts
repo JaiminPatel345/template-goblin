@@ -58,15 +58,17 @@ export function pushTextLabel(
   const isDynamicSource = field.source?.mode === 'dynamic'
   const useDynamicFont = isDynamicSource && textStyle.overflowMode === 'dynamic_font'
 
+  const labelToRender = textStyle.trim ? label.trim() : label
+
   // Pick the rendered font size. Dynamic-font shrinks to `fontSizeMin`;
   // truncate-mode keeps the authored size.
   const fontSize = useDynamicFont
-    ? fitDynamicFontSize(label, textStyle, labelW, labelH)
+    ? fitDynamicFontSize(labelToRender, textStyle, labelW, labelH)
     : textStyle.fontSize
 
   // Always run the truncation pass against the chosen font size — even
   // dynamic-font may not fit at `fontSizeMin`, in which case we cut.
-  const visible = computeVisibleText(label, textStyle, fontSize, labelW, labelH)
+  const visible = computeVisibleText(labelToRender, textStyle, fontSize, labelW, labelH)
   if (!visible) return
 
   // Anchor the block to the full box edges (PDF parity).

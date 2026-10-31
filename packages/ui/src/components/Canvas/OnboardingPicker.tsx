@@ -40,8 +40,8 @@ export function OnboardingPicker({
   const [color, setColor] = useState('#ffffff')
   // Default to A4 since onboarding's first page has no "previous" to inherit.
   const [sizeChoice, setSizeChoice] = useState<PageSizeChoice>('A4')
-  const [customWidth, setCustomWidth] = useState(595)
-  const [customHeight, setCustomHeight] = useState(842)
+  const [customWidth, setCustomWidth] = useState<number | ''>(595)
+  const [customHeight, setCustomHeight] = useState<number | ''>(842)
 
   return (
     <div

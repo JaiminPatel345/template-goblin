@@ -6,12 +6,14 @@ import { StructurePanel } from './components/RightPanel/StructurePanel.js'
 import { PageSizeDialog } from './components/Toolbar/PageSizeDialog.js'
 import { PageLayoutMenu } from './components/Toolbar/PageLayoutMenu.js'
 import { BandSettingsModal } from './components/Toolbar/BandSettingsModal.js'
+import { ResizePageModal } from './components/Toolbar/ResizePageModal.js'
 import { ContextMenu } from './components/Canvas/ContextMenu.js'
 import { FontManager } from './components/Toolbar/FontManager.js'
 import { PdfPreview } from './components/Preview/PdfPreview.js'
 import { ImageCompressor } from './components/Toolbar/ImageCompressor.js'
 import { ResizeHandle } from './components/ResizeHandle.js'
 import { useKeyboard } from './hooks/useKeyboard.js'
+import { useExampleLoader } from './hooks/useExampleLoader.js'
 import { useUiStore } from './store/uiStore.js'
 import { useTemplateStore } from './store/templateStore.js'
 import { useSelectAllOnFocus } from './utils/selectAllOnFocus.js'
@@ -19,6 +21,7 @@ import './App.css'
 
 export function App() {
   useKeyboard()
+  useExampleLoader()
   // Auto-select-all on input focus inside the side panels (#38 — UX
   // follow-up). The properties editor (jsonKey + per-column inputs +
   // header style controls) lives in `.tg-left-panel`; the structural
@@ -121,6 +124,7 @@ export function App() {
       {showFontManager && <FontManager />}
       <PageLayoutMenu />
       <BandSettingsModal />
+      <ResizePageModal />
 
       <ImageCompressor />
       {contextMenu && <ContextMenu />}

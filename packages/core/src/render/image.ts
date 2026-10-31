@@ -75,6 +75,19 @@ export function renderImage(
       doc.restore()
       break
     }
+
+    default: {
+      // A missing / malformed `fit` (legacy or hand-edited manifest) used to
+      // match no case and render NOTHING — a blank box in the PDF while the
+      // editor canvas falls back to 'contain'. Mirror the canvas fallback so
+      // the two agree instead of silently dropping the image.
+      const dims = getContainDimensions(imageBuffer, width, height)
+      doc.image(imageBuffer, x + (width - dims.width) / 2, y + (height - dims.height) / 2, {
+        width: dims.width,
+        height: dims.height,
+      })
+      break
+    }
   }
 }
 

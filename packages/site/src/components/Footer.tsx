@@ -49,6 +49,9 @@ export function Footer() {
             <Link to="/docs/schema">Template schema</Link>
             <Link to="/docs/file-format">.tgbl format</Link>
             <Link to="/docs/batch">Batch & storage</Link>
+            <a href={`${import.meta.env.BASE_URL}llms.txt`} target="_blank" rel="noreferrer">
+              llms.txt
+            </a>
           </div>
 
           <div className="footer-col">

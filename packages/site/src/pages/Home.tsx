@@ -1,6 +1,7 @@
 import { useDocumentMeta } from '../lib/useDocumentMeta'
 import { Hero } from '../sections/Hero'
 import { WhatIs } from '../sections/WhatIs'
+import { ExamplesShowcase } from '../sections/ExamplesShowcase'
 import { Motivation } from '../sections/Motivation'
 import { Compare } from '../sections/Compare'
 import { WhyGoblin } from '../sections/WhyGoblin'
@@ -35,6 +36,7 @@ export function Home() {
         </div>
       </div>
       <WhatIs />
+      <ExamplesShowcase />
       <Motivation />
       <Compare />
       <WhyGoblin />

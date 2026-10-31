@@ -19,6 +19,7 @@ export interface ResolvedTextStyle {
   lineHeight: number
   maxRows: number
   overflowMode: 'truncate' | 'dynamic_font'
+  trim: boolean
 }
 
 /**
@@ -54,6 +55,7 @@ export function resolveTextStyle(field: FieldDefinition): ResolvedTextStyle {
     lineHeight: typeof raw.lineHeight === 'number' && raw.lineHeight > 0 ? raw.lineHeight : 1.2,
     maxRows: typeof raw.maxRows === 'number' && raw.maxRows > 0 ? raw.maxRows : 3,
     overflowMode: raw.overflowMode === 'dynamic_font' ? 'dynamic_font' : 'truncate',
+    trim: raw.trim !== false,
   }
 }
 
@@ -158,10 +160,11 @@ export function wrapToLines(
       lines.push('')
       continue
     }
-    const words = paragraph.split(/\s+/).filter(Boolean)
+    const words = paragraph.split(' ')
     let current = ''
-    for (const word of words) {
-      const test = current ? `${current} ${word}` : word
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i] ?? ''
+      const test = i === 0 ? word : `${current} ${word}`
       if (ctx.measureText(test).width <= maxWidth) {
         current = test
       } else if (!current) {

@@ -44,8 +44,8 @@ export interface PickedImage {
 }
 
 export type SourceInputs =
-  | { mode: 'static'; value: string; image?: PickedImage; color?: string }
-  | { mode: 'dynamic'; jsonKey: string; required: boolean; placeholder: string }
+  | { mode: 'static'; value: string; image?: PickedImage; color?: string; trim?: boolean }
+  | { mode: 'dynamic'; jsonKey: string; required: boolean; placeholder: string; trim?: boolean }
 
 export interface FieldCreationPopupProps {
   draft: FieldCreationDraft
@@ -79,6 +79,7 @@ export function FieldCreationPopup({
   const [jsonKey, setJsonKey] = useState('')
   const [required, setRequired] = useState(true)
   const [placeholder, setPlaceholder] = useState('')
+  const [trim, setTrim] = useState(true)
   const [value, setValue] = useState('')
   const [pickedImage, setPickedImage] = useState<PickedImage | null>(null)
   // GH #81 — solid-colour image fields are stored as `{ color }` and skip
@@ -109,6 +110,7 @@ export function FieldCreationPopup({
         jsonKey: jsonKey.trim(),
         required,
         placeholder: required ? '' : placeholder,
+        trim: draft.type === 'text' ? trim : undefined,
       })
     } else {
       if (draft.type === 'image' && !pickedImage && !pickedColor) {
@@ -120,6 +122,7 @@ export function FieldCreationPopup({
         value,
         image: draft.type === 'image' && pickedImage ? pickedImage : undefined,
         color: draft.type === 'image' && pickedColor ? pickedColor : undefined,
+        trim: draft.type === 'text' ? trim : undefined,
       })
     }
   }, [
@@ -128,6 +131,7 @@ export function FieldCreationPopup({
     jsonKey,
     required,
     placeholder,
+    trim,
     value,
     draft.type,
     pickedImage,
@@ -310,6 +314,23 @@ export function FieldCreationPopup({
                 data-testid="create-popup-value"
               />
             </label>
+          )}
+
+          {draft.type === 'text' && (
+            <div className="tg-field-row">
+              <label className="tg-field-row tg-field-row--inline" style={{ cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={trim}
+                  onChange={(e) => setTrim(e.target.checked)}
+                  data-testid="create-popup-trim"
+                />
+                <span>Trim whitespace</span>
+              </label>
+              <span className="tg-field-hint">
+                Strips leading and trailing whitespace from the rendered text value.
+              </span>
+            </div>
           )}
 
           {mode === 'static' && draft.type === 'image' && (

@@ -12,6 +12,7 @@
 import type PDFDocument from 'pdfkit'
 import type { PageBandStyle, PageNumberConfig } from '@template-goblin/types'
 import { formatPageNumber } from '@template-goblin/types'
+import { resolvePdfFontName } from './pdfFontResolver.js'
 
 interface StampOptions {
   config: PageNumberConfig
@@ -35,7 +36,11 @@ export function stampPageNumber(doc: InstanceType<typeof PDFDocument>, opts: Sta
   if (innerW <= 0 || innerH <= 0) return
 
   doc.save()
-  doc.font(config.fontFamily).fontSize(config.fontSize).fillColor(config.color)
+  // Route through the standard-family resolver (same as text fields) so a
+  // family like 'Helvetica' maps to a real PDF font name instead of being
+  // passed raw to `doc.font` — which threw for any non-exact spelling.
+  doc.font(resolvePdfFontName(config.fontFamily, undefined, undefined))
+  doc.fontSize(config.fontSize).fillColor(config.color)
   // Centre vertically inside the inner rect.
   const textHeight = doc.currentLineHeight()
   const y = innerY + (innerH - textHeight) / 2

@@ -64,6 +64,15 @@ export const BackgroundIcon = ({ size }: { size?: number }) => (
   </IconBox>
 )
 
+export const DimensionsIcon = ({ size }: { size?: number }) => (
+  <IconBox size={size}>
+    <polyline points="15 3 21 3 21 9" />
+    <polyline points="9 21 3 21 3 15" />
+    <line x1="21" y1="3" x2="14" y2="10" />
+    <line x1="3" y1="21" x2="10" y2="14" />
+  </IconBox>
+)
+
 export const TextIcon = ({ size }: { size?: number }) => (
   <IconBox size={size}>
     <polyline points="4 7 4 4 20 4 20 7" />

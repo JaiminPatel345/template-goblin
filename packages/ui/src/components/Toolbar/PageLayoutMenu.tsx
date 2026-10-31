@@ -27,7 +27,7 @@ import { useUiStore } from '../../store/uiStore.js'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { defaultPageNumberConfig } from '@template-goblin/types'
 
-type Target = 'header' | 'footer' | 'pageNumber'
+type Target = 'header' | 'footer' | 'pageNumber' | 'resizePage'
 
 interface AnchorRect {
   top: number
@@ -53,13 +53,6 @@ export function PageLayoutMenu() {
 
   const open = menu.kind !== 'closed'
 
-  // Re-measure the anchor every time the menu opens — the toolbar can
-  // reflow between renders (font load, resize), so a cached rect would go
-  // stale. `useLayoutEffect` fires before paint so the menu mounts at the
-  // right coords without a flicker. We retry on the next animation frame
-  // when the lookup fails — Playwright + Vite-dev sometimes click before
-  // the toolbar's data-attribute is in the DOM yet (the active state was
-  // mid-update). One extra rAF tick covers it.
   useLayoutEffect(() => {
     if (!open) return
     const measured = findAnchorRect()
@@ -71,15 +64,12 @@ export function PageLayoutMenu() {
     return () => cancelAnimationFrame(raf)
   }, [open])
 
-  // Outside-click + Escape close the menu. The settings modal owns its
-  // own dismiss logic.
   useEffect(() => {
     if (!open) return
     function onDown(e: MouseEvent): void {
       const t = e.target
       if (!(t instanceof Node)) return
       if (rootRef.current?.contains(t)) return
-      // Clicks on the toolbar anchor are handled there.
       const anchorEl = document.querySelector('[data-page-layout-anchor="true"]')
       if (anchorEl?.contains(t)) return
       setMenu({ kind: 'closed' })
@@ -157,6 +147,12 @@ function MainPane({ active, onSelect }: { active: Target | null; onSelect: (t: T
         active={active === 'pageNumber'}
         onClick={() => onSelect('pageNumber')}
       />
+      <MenuItem
+        label="Resize page"
+        testId="page-layout-menu-resize-page"
+        active={active === 'resizePage'}
+        onClick={() => onSelect('resizePage')}
+      />
     </div>
   )
 }
@@ -203,6 +199,25 @@ function FlyoutPane({
   const setFooterEnabled = useTemplateStore((s) => s.setFooterEnabled)
   const setPageNumber = useTemplateStore((s) => s.setPageNumber)
 
+  if (target === 'resizePage') {
+    return (
+      <div className="tg-popover" data-testid="page-layout-flyout-resizePage">
+        <div className="tg-popover-section-title">Resize page</div>
+        <button
+          type="button"
+          className="tg-popover-item"
+          onClick={() => {
+            onClose()
+            onOpenSettings()
+          }}
+          data-testid="page-layout-flyout-resizePage-settings"
+        >
+          Resize page settings…
+        </button>
+      </div>
+    )
+  }
+
   const isOn =
     target === 'header'
       ? !!header?.enabled
@@ -211,14 +226,11 @@ function FlyoutPane({
         : !!pageNumber?.enabled
 
   function toggle(): void {
-    // #61 follow-up: hide/show preserves the band's style + applyToFirstPage
-    // and migrates any band fields to body on hide so the user keeps editing
-    // them as normal elements.
     if (target === 'header') {
       setHeaderEnabled(!isOn)
     } else if (target === 'footer') {
       setFooterEnabled(!isOn)
-    } else {
+    } else if (target === 'pageNumber') {
       setPageNumber(isOn ? undefined : defaultPageNumberConfig())
     }
   }
