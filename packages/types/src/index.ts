@@ -30,6 +30,7 @@ export type {
   TextDecoration,
   OverflowMode,
   ImageFit,
+  TableHeightMode,
   PageBand,
   PageBandStyle,
   PageBandDivider,
@@ -39,6 +40,7 @@ export type {
   PageNumberNumeralStyle,
 } from './template.js'
 export { toRoman, formatPageNumber, defaultPageNumberConfig } from './pageNumber.js'
+export { resolveTableHeightMode } from './tableHeight.js'
 export type {
   InputJSON,
   TextInputs,

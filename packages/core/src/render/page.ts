@@ -16,8 +16,9 @@ export function renderPageBackground(
   pageBackgrounds: Map<string, Buffer>,
   backgroundImage: Buffer | null,
   previousBackground: Buffer | null,
+  pageSizeOverride?: { width: number; height: number },
 ): Buffer | null {
-  const pageSize = getPageSize(page, meta)
+  const pageSize = pageSizeOverride ?? getPageSize(page, meta)
 
   switch (page.backgroundType) {
     case 'image': {

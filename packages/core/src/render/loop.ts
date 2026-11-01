@@ -6,7 +6,7 @@ import type {
   TableRow,
   TemplateMeta,
 } from '@template-goblin/types'
-import { TemplateGoblinError } from '@template-goblin/types'
+import { TemplateGoblinError, resolveTableHeightMode } from '@template-goblin/types'
 import { renderBackground } from './background.js'
 import { measureText, truncateLines } from '../utils/measure.js'
 import { resolvePdfFontName } from './pdfFontResolver.js'
@@ -58,30 +58,35 @@ export function renderLoop(
       continue
     }
 
+    const heightMode = resolveTableHeightMode(style)
     const pageBottom = y + field.height
     if (currentY + dataRowHeight > pageBottom) {
-      if (!style.multiPage) break
+      if (heightMode === 'fixed') break
 
-      currentPage++
-      if (currentPage > meta.maxPages) {
-        const label = field.source.mode === 'dynamic' ? field.source.jsonKey : `static-${field.id}`
-        throw new TemplateGoblinError(
-          'MAX_PAGES_EXCEEDED',
-          `Table "${label}" requires ${currentPage} pages but maxPages is ${meta.maxPages}`,
-        )
+      if (heightMode === 'multipage') {
+        currentPage++
+        if (currentPage > meta.maxPages) {
+          const label =
+            field.source.mode === 'dynamic' ? field.source.jsonKey : `static-${field.id}`
+          throw new TemplateGoblinError(
+            'MAX_PAGES_EXCEEDED',
+            `Table "${label}" requires ${currentPage} pages but maxPages is ${meta.maxPages}`,
+          )
+        }
+
+        // Close perimeter on the page we are leaving before moving on (#65)
+        drawTablePerimeter(doc, x, y, width, field.height, style)
+
+        // margin: 0 — addPage REPLACES constructor options (see generate.ts)
+        doc.addPage({ size: [meta.width, meta.height], margin: 0 })
+        renderBackground(doc, backgroundImage, meta)
+
+        currentY = y
+        if (style.showHeader !== false) {
+          currentY = renderHeaderRow(doc, columns, style, x, currentY, scaleFactor)
+        }
       }
-
-      // Close perimeter on the page we are leaving before moving on (#65)
-      drawTablePerimeter(doc, x, y, width, field.height, style)
-
-      // margin: 0 — addPage REPLACES constructor options (see generate.ts)
-      doc.addPage({ size: [meta.width, meta.height], margin: 0 })
-      renderBackground(doc, backgroundImage, meta)
-
-      currentY = y
-      if (style.showHeader !== false) {
-        currentY = renderHeaderRow(doc, columns, style, x, currentY, scaleFactor)
-      }
+      // single_page_dynamic does not break or add continuation pages
     }
 
     currentY = renderDataRow(doc, columns, row, style, x, currentY, scaleFactor, rowIndex)
@@ -92,8 +97,15 @@ export function renderLoop(
   // Stamp the table's perimeter on top so borders surround the full extent (#65, #76)
   const fitToContent = style.fitToContent !== false
   const renderedHeight = Math.max(0, currentY - y)
+  const heightMode = resolveTableHeightMode(style)
   const perimeterHeight =
-    fitToContent && renderedHeight > 0 ? Math.min(renderedHeight, field.height) : field.height
+    fitToContent && renderedHeight > 0
+      ? heightMode === 'single_page_dynamic'
+        ? renderedHeight
+        : Math.min(renderedHeight, field.height)
+      : heightMode === 'single_page_dynamic'
+        ? Math.max(renderedHeight, field.height)
+        : field.height
   drawTablePerimeter(doc, x, y, width, perimeterHeight, style)
 }
 

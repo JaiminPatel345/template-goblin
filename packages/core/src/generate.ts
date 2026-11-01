@@ -15,6 +15,7 @@ import { renderBackground } from './render/background.js'
 import { renderField } from './render/field.js'
 import { renderPageBackground, renderPageBackgroundSafely } from './render/page.js'
 import { stampBands } from './render/bands.js'
+import { adjustPageLayout } from './utils/dynamicLayout.js'
 
 /** Per-call options for {@link generatePDF}. */
 export type GeneratePDFOptions = PreflightOptions
@@ -76,7 +77,7 @@ export async function generatePDF(
     const doc = new PDFDocument({
       size: [firstPageSize.width, firstPageSize.height],
       margin: 0,
-      autoFirstPage: true,
+      autoFirstPage: false,
       bufferPages: true,
     })
 
@@ -94,9 +95,19 @@ export async function generatePDF(
     if (!pages) {
       // Backward compat: single-page template with no pages array
       const legacyCtx: PageContext = { pageId: null, pageIndex: 0 }
-      renderPageBackgroundSafely(doc, () => renderBackground(doc, backgroundImage, meta), legacyCtx)
+      const layout = adjustPageLayout(manifest.fields, data, meta.width, meta.height)
+      doc.addPage({ size: [layout.width, layout.height], margin: 0 })
+      renderPageBackgroundSafely(
+        doc,
+        () =>
+          renderBackground(doc, backgroundImage, meta, {
+            width: layout.width,
+            height: layout.height,
+          }),
+        legacyCtx,
+      )
 
-      const sortedFields = [...manifest.fields].sort(
+      const sortedFields = [...layout.fields].sort(
         (a, b) => a.zIndex - b.zIndex || a.id.localeCompare(b.id),
       )
 
@@ -116,16 +127,18 @@ export async function generatePDF(
 
       for (let i = 0; i < sortedPages.length; i++) {
         const page = sortedPages[i] as PageDefinition
-        const pageSize = getPageSize(page, meta)
+        const basePageSize = getPageSize(page, meta)
 
-        if (i > 0) {
-          // `addPage(options)` REPLACES the constructor options — without an
-          // explicit margin PDFKit applies its 72pt default to every page
-          // after the first, shrinking the writable area: content in the
-          // bottom 72pt triggered auto-pagination (phantom pages) and split
-          // clip save/restore pairs across pages (corrupt q/Q nesting).
-          doc.addPage({ size: [pageSize.width, pageSize.height], margin: 0 })
+        // Collect fields: matching pageId + null-pageId fields on page 0
+        const pageFields: FieldDefinition[] = []
+        pageFields.push(...(fieldsByPage.get(page.id) ?? []))
+        if (page.index === 0) {
+          pageFields.push(...(fieldsByPage.get(null) ?? []))
         }
+
+        const layout = adjustPageLayout(pageFields, data, basePageSize.width, basePageSize.height)
+
+        doc.addPage({ size: [layout.width, layout.height], margin: 0 })
 
         const pageCtx: PageContext = { pageId: page.id, pageIndex: page.index }
         let currentBackground: Buffer | null = null
@@ -139,21 +152,17 @@ export async function generatePDF(
               pageBackgrounds,
               backgroundImage,
               previousBackground,
+              { width: layout.width, height: layout.height },
             )
           },
           pageCtx,
         )
         previousBackground = currentBackground
 
-        // Collect fields: matching pageId + null-pageId fields on page 0
-        const pageFields: FieldDefinition[] = []
-        pageFields.push(...(fieldsByPage.get(page.id) ?? []))
-        if (page.index === 0) {
-          pageFields.push(...(fieldsByPage.get(null) ?? []))
-        }
-
         // Sort by zIndex (lowest first), stable with id tiebreaker
-        pageFields.sort((a, b) => a.zIndex - b.zIndex || a.id.localeCompare(b.id))
+        const sortedFields = [...layout.fields].sort(
+          (a, b) => a.zIndex - b.zIndex || a.id.localeCompare(b.id),
+        )
 
         // A multiPage table appends continuation pages and leaves the doc
         // pointed at the LAST of them — without switching back, every
@@ -162,7 +171,7 @@ export async function generatePDF(
         // index (it IS the last page right after addPage) and return to
         // it whenever a field grew the document.
         const thisPageIndex = doc.bufferedPageRange().count - 1
-        for (const field of pageFields) {
+        for (const field of sortedFields) {
           renderField(doc, field, data, fontMap, template, pageCtx, resolvedImages)
           if (doc.bufferedPageRange().count - 1 !== thisPageIndex) {
             doc.switchToPage(thisPageIndex)
