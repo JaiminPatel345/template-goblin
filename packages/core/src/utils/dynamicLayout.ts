@@ -12,6 +12,16 @@ export interface PageLayoutResult {
 }
 
 /**
+ * Cluster of dynamic tables sharing overlapping vertical spans.
+ */
+interface TableCluster {
+  tables: TableField[]
+  origBottom: number
+  newBottom: number
+  delta: number
+}
+
+/**
  * Compute the rendered height needed for a table field based on input row data.
  *
  * @param field The table field
@@ -34,12 +44,12 @@ export function computeTableRenderedHeight(field: TableField, data: InputJSON): 
 /**
  * Adjust page layout for tables configured with `heightMode: 'single_page_dynamic'`.
  *
- * When a dynamic table expands beyond its initial drawn height:
- * 1. The table height expands to fit all rows on the page.
- * 2. All elements positioned below the table (original y >= table.originalY + table.originalHeight)
- *    are shifted down by the table's growth delta, preserving vertical spacing.
- * 3. Elements positioned aside the table stay at their original coordinates.
- * 4. The overall page height expands by the total delta.
+ * Handles:
+ * 1. Single dynamic tables expanding vertically.
+ * 2. Side-by-side dynamic tables expanding independently without double-counting deltas.
+ * 3. Preserving position of elements alongside dynamic tables.
+ * 4. Pushing down all elements below dynamic tables by the effective vertical growth.
+ * 5. Expanding the page height by the total accumulated vertical growth.
  *
  * @param fields Fields assigned to this page
  * @param data Input JSON data
@@ -70,35 +80,81 @@ export function adjustPageLayout(
     return { width: baseWidth, height: baseHeight, fields: workingFields }
   }
 
-  let totalPageDelta = 0
+  const firstTable = dynTables[0]
+  if (!firstTable) {
+    return { width: baseWidth, height: baseHeight, fields: workingFields }
+  }
+  const firstOrig = originalBounds.get(firstTable.id)
+  if (!firstOrig) {
+    return { width: baseWidth, height: baseHeight, fields: workingFields }
+  }
 
-  for (const dynTable of dynTables) {
-    const orig = originalBounds.get(dynTable.id)
+  // Group dynamic tables into vertical clusters (overlapping original Y intervals)
+  const clusters: TableCluster[] = []
+  let currentCluster: TableField[] = [firstTable]
+  let currentClusterMaxBottom = firstOrig.bottom
+
+  for (let i = 1; i < dynTables.length; i++) {
+    const t = dynTables[i]
+    if (!t) continue
+    const orig = originalBounds.get(t.id)
     if (!orig) continue
+    if (orig.y < currentClusterMaxBottom) {
+      currentCluster.push(t)
+      currentClusterMaxBottom = Math.max(currentClusterMaxBottom, orig.bottom)
+    } else {
+      clusters.push({
+        tables: currentCluster,
+        origBottom: currentClusterMaxBottom,
+        newBottom: 0,
+        delta: 0,
+      })
+      currentCluster = [t]
+      currentClusterMaxBottom = orig.bottom
+    }
+  }
+  clusters.push({
+    tables: currentCluster,
+    origBottom: currentClusterMaxBottom,
+    newBottom: 0,
+    delta: 0,
+  })
 
-    const renderedHeight = computeTableRenderedHeight(dynTable, data)
-    const delta = Math.max(0, renderedHeight - dynTable.height)
+  let accumulatedShift = 0
 
-    if (delta > 0) {
-      totalPageDelta += delta
-      dynTable.height = renderedHeight
+  for (const cluster of clusters) {
+    let clusterMaxNewBottom = 0
+    for (const t of cluster.tables) {
+      const orig = originalBounds.get(t.id)
+      if (!orig) continue
+      t.y = orig.y + accumulatedShift
+      const renderedHeight = computeTableRenderedHeight(t, data)
+      t.height = Math.max(t.height, renderedHeight)
+      const tableNewBottom = t.y + t.height
+      clusterMaxNewBottom = Math.max(clusterMaxNewBottom, tableNewBottom)
+    }
+    cluster.newBottom = clusterMaxNewBottom
+    cluster.delta = Math.max(0, clusterMaxNewBottom - (cluster.origBottom + accumulatedShift))
+    accumulatedShift += cluster.delta
+  }
 
-      for (const other of workingFields) {
-        if (other.id === dynTable.id) continue
-        const otherOrig = originalBounds.get(other.id)
-        if (!otherOrig) continue
-
-        // Content below the table gets pushed down by delta
-        if (otherOrig.y >= orig.bottom) {
-          other.y += delta
-        }
+  // Adjust non-dynamic-table elements: shift by the deltas of all clusters strictly above them
+  for (const f of workingFields) {
+    if (isDynTable(f)) continue
+    const orig = originalBounds.get(f.id)
+    if (!orig) continue
+    let shift = 0
+    for (const cluster of clusters) {
+      if (orig.y >= cluster.origBottom) {
+        shift += cluster.delta
       }
     }
+    f.y = orig.y + shift
   }
 
   return {
     width: baseWidth,
-    height: baseHeight + totalPageDelta,
+    height: baseHeight + accumulatedShift,
     fields: workingFields,
   }
 }
