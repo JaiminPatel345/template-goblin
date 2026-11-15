@@ -7,9 +7,74 @@
 [![npm](https://img.shields.io/npm/v/template-goblin.svg)](https://www.npmjs.com/package/template-goblin)
 
 > [!WARNING]
-> **Under Active Development**: TemplateGoblin is currently in active pre-1.0 development. Do not user in your production until it's your fu\*king AI slop startup
+> **Under Active Development**: TemplateGoblin is currently in active pre-1.0 development. Do not use in your production until it's your AI startup.
 
 Open-source PDF template engine for generating PDFs at scale. Non-technical users design templates with a visual drag-and-drop builder, developers use the npm library to generate millions of PDFs from JSON data. Templates are saved as `.tgbl` files — portable ZIP archives containing the layout, fonts, and images needed for rendering.
+
+## System Overview & Architecture
+
+TemplateGoblin follows the Elephant-and-Goldfish Model (EGM) architecture with clean boundary contracts separating core PDF rendering, type definitions, user interface tooling, and documentation.
+
+```
+┌────────────────────────────────────────────────────────┐
+│                      packages/ui                       │
+│  (Visual Drag-and-Drop Builder, Canvas, CLI Server)    │
+└───────────────┬────────────────────────┬───────────────┘
+                │                        │
+       produces │ .tgbl archive          │ imports types
+                ▼                        ▼
+┌───────────────────────────────┐  ┌─────────────────────┐
+│         packages/core         │  │   packages/types    │
+│ (Node.js High-Scale Renderer) │─▶│ (Canonical Schemas, │
+│  Hot Path: Zero Disk / DOM    │  │  Invariants & DTOs) │
+└───────────────────────────────┘  └─────────────────────┘
+```
+
+## Subdirectories & System Boundaries
+
+- [packages](./packages/README.md): Core monorepo workspace packages containing libraries, application UI, and schemas.
+  - [packages/core](./packages/core/README.md): Pure Node.js PDF template rendering engine with zero UI dependencies.
+  - [packages/types](./packages/types/README.md): Canonical TypeScript type definitions, template schemas, and input data contracts.
+  - [packages/ui](./packages/ui/README.md): Interactive visual template builder, canvas editor, and standalone local server.
+  - [packages/site](./packages/site/README.md): Static marketing website, documentation center, and showcase deployed to GitHub Pages.
+- [examples](./examples/README.md): Runnable example scripts, templates, and integration showcases.
+  - [examples/src](./examples/src/README.md): Executable scripts demonstrating `.tgbl` building and PDF generation.
+
+## Global Invariants
+
+- **Component Isolation**: `packages/core` MUST have zero UI dependencies — pure Node.js/TypeScript only.
+- **Dependency Flow**: `packages/ui` MUST NOT be imported by `packages/core`.
+- **Single Source of Truth**: All shared types live in `packages/types` — type definitions are never duplicated.
+- **Strict Typing**: No `any` types allowed; strict TypeScript throughout the monorepo.
+- **Strict Bounding Boxes**: All text, images, and tables render strictly inside their bounding rectangles and never overflow.
+- **File Length Constraint**: No source file (`.ts`/`.tsx`) may exceed 300 lines.
+- **Icon Policy**: No large external icon libraries — inline SVGs only.
+
+## Global Side Effects
+
+- **Hot-Path Rendering**: In-memory PDF generation (`generatePDF`) is side-effect-free with zero disk I/O.
+- **Template Storage**: `.tgbl` archive files are read from and written to local disk or cloud object storage (S3).
+- **Client Persistence**: Browser visual builder persists templates to IndexedDB (`template-goblin-db`).
+- **Parallel Workers**: Batch generation (`generateBatchPDF`) forks Node.js child processes for concurrent rendering pools.
+
+## System Verification
+
+Run full workspace test suites from the root:
+
+```bash
+pnpm test
+```
+
+Or individual package verification:
+
+```bash
+pnpm --filter @template-goblin/types type-check
+pnpm --filter template-goblin test
+pnpm --filter template-goblin-ui test
+pnpm --filter @template-goblin/site build
+```
+
+---
 
 ## Quick Start — Library
 
@@ -340,35 +405,9 @@ pnpm dev          # Start UI dev server
 pnpm build        # Build all packages (types -> core -> ui)
 pnpm type-check   # TypeScript checking
 pnpm lint         # ESLint + Prettier
-pnpm test         # Jest tests (core library)
+pnpm test         # Tests (core and UI)
 pnpm test:e2e     # Playwright tests (UI)
 ```
-
-### Project Structure
-
-```
-packages/types/   -- Shared TypeScript types
-packages/core/    -- template-goblin npm library
-packages/ui/      -- template-goblin-ui React app
-specs/            -- Feature specifications
-journeys/         -- User journey descriptions
-```
-
-### Workflow
-
-This project uses a spec-driven development workflow:
-
-1. **Spec** — write or update the feature spec in `specs/`
-2. **Implement** — Dev Agent codes from the spec
-3. **Review** — Reviewer Agent checks code against spec
-4. **Test** — QA Agent writes tests from spec, not code
-5. **Done** — all tests pass, feature complete
-
-### Git Conventions
-
-- **Branches**: `feature/<spec-number>-<short-name>`
-- **Commits**: conventional commits — `feat:`, `fix:`, `spec:`, `docs:`, `chore:`, `test:`
-- **Hooks**: pre-commit (lint), commit-msg (commitlint), pre-push (type-check + test)
 
 ## Advanced Features
 
@@ -420,8 +459,6 @@ const result = await generateAndStore(template, data, s3, {
 console.log(result.url) // https://my-pdfs.s3.us-east-1.amazonaws.com/pdfs/2024/result-12345.pdf
 console.log(result.size) // PDF size in bytes
 ```
-
-You can implement your own `StorageProvider` for GCS, Azure Blob, or any other backend.
 
 ### Font Subsetting
 

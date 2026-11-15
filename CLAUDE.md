@@ -141,6 +141,11 @@ developers use the npm library to generate PDFs at scale.
          expected; it's writing changes that has to wait. Trivial /
          one-line tweaks where the intent is obvious do not need this
          gate — the rule is for any task with real design choices.
+21. **Read Component READMEs (EGM Contracts)**: Every directory and package contains
+    a `README.md` contract file specifying its public interface, invariants, side
+    effects, and verification commands per the Elephant-and-Goldfish Model (EGM).
+    Always read the relevant `README.md` contracts before reading raw source code or
+    making modifications, and keep them updated when code contracts change.
 
 ## Tech Stack
 
