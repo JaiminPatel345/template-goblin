@@ -29,20 +29,18 @@ export function FieldCreationPopup({
   const [placeholder, setPlaceholder] = useState('')
   const [trim, setTrim] = useState(true)
   const [value, setValue] = useState('')
-  const [tableHeightMode, setTableHeightMode] = useState<TableHeightMode | null>(null)
+  const [tableHeightMode, setTableHeightMode] = useState<TableHeightMode>(
+    draft.type === 'table' ? 'single_page_dynamic' : 'fixed',
+  )
   const [pickedImage, setPickedImage] = useState<PickedImage | null>(null)
   const [pickedColor, setPickedColor] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const effectiveTableHeightMode = mode === 'static' ? 'fixed' : tableHeightMode
+  const effectiveTableHeightMode: TableHeightMode = mode === 'static' ? 'fixed' : tableHeightMode
 
   const commit = useCallback(() => {
     if (!label.trim()) {
       setError('Label is required.')
-      return
-    }
-    if (draft.type === 'table' && mode === 'dynamic' && !tableHeightMode) {
-      setError('Please choose a table height mode (Fixed, Single Page Dynamic, or Multi-Page).')
       return
     }
     if (mode === 'dynamic') {
@@ -62,7 +60,7 @@ export function FieldCreationPopup({
         required,
         placeholder: required ? '' : placeholder,
         trim: draft.type === 'text' ? trim : undefined,
-        tableHeightMode: draft.type === 'table' ? (tableHeightMode ?? undefined) : undefined,
+        tableHeightMode: draft.type === 'table' ? effectiveTableHeightMode : undefined,
       })
     } else {
       if (draft.type === 'image' && !pickedImage && !pickedColor) {

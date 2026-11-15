@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { resolveTableHeightMode, type TableField } from '@template-goblin/types'
+import {
+  resolveTableHeightMode,
+  type TableField,
+  type TableHeightMode,
+} from '@template-goblin/types'
 import { buildDynamicTableIndicators } from '../tableDynamicIndicator.js'
 
 function createTestTable(
@@ -101,5 +105,24 @@ describe('buildDynamicTableIndicators', () => {
     const table = createTestTable('single_page_dynamic')
     const indicators = buildDynamicTableIndicators(table, 300, 100)
     expect(indicators.length).toBeGreaterThanOrEqual(3) // line1, line2, badgeBg (and badgeText if DOM present)
+  })
+})
+
+describe('default table height mode policy', () => {
+  it('defaults dynamic tables to single_page_dynamic and static tables to fixed', () => {
+    const resolveDefaultTableHeightMode = (
+      mode: 'static' | 'dynamic',
+      chosen?: TableHeightMode | null,
+    ): TableHeightMode => {
+      if (mode === 'static') return 'fixed'
+      return chosen ?? 'single_page_dynamic'
+    }
+
+    expect(resolveDefaultTableHeightMode('dynamic', null)).toBe('single_page_dynamic')
+    expect(resolveDefaultTableHeightMode('dynamic', undefined)).toBe('single_page_dynamic')
+    expect(resolveDefaultTableHeightMode('dynamic', 'multipage')).toBe('multipage')
+    expect(resolveDefaultTableHeightMode('dynamic', 'fixed')).toBe('fixed')
+    expect(resolveDefaultTableHeightMode('static', 'single_page_dynamic')).toBe('fixed')
+    expect(resolveDefaultTableHeightMode('static', null)).toBe('fixed')
   })
 })
