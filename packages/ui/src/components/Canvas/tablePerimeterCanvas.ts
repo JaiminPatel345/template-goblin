@@ -1,6 +1,35 @@
-import { Rect } from 'fabric'
+import { Line, Rect } from 'fabric'
 import type { FabricObject } from 'fabric'
 import type { FieldDefinition } from '@template-goblin/types'
+import { resolveTableHeightMode } from '@template-goblin/types'
+
+const DEFAULT_DIVIDER_STROKE = '#0a0a0a'
+const DEFAULT_DIVIDER_WIDTH = 0.5
+
+/**
+ * Append a vertical line ending with tilted / wavy zigzag break segments
+ * to indicate unbounded dynamic continuation for multi-page tables.
+ */
+function pushWavyVerticalLine(
+  parts: FabricObject[],
+  x: number,
+  height: number,
+  opts: Record<string, unknown>,
+): void {
+  const waveH = 18
+  const straightH = Math.max(0, height - waveH)
+  parts.push(new Line([x, 0, x, straightH], opts))
+
+  const step = waveH / 4
+  const amp = 4
+  parts.push(
+    new Line([x, straightH, x - amp, straightH + step], opts),
+    new Line([x - amp, straightH + step, x + amp, straightH + step * 2], opts),
+    new Line([x + amp, straightH + step * 2, x - amp, straightH + step * 3], opts),
+    new Line([x - amp, straightH + step * 3, x + amp, height], opts),
+    new Line([x + amp, height, x, height + 4], opts),
+  )
+}
 
 /**
  * Whether a colour value is meaningful to render. Empty / null / `none` /
@@ -16,6 +45,9 @@ export function isVisibleColor(c: string | null | undefined): c is string {
  * Compute and append the table's outer perimeter rect, mirroring the
  * PDFKit renderer so changes to `tableBorder.color`, `tableBorder.width`,
  * or `fitToContent` show up live on canvas.
+ *
+ * For multi-page tables, the bottom remains open with wavy/tilted break lines
+ * at the ends of both vertical sides.
  */
 export function pushTablePerimeter(
   parts: FabricObject[],
@@ -30,6 +62,27 @@ export function pushTablePerimeter(
   const tb = style.tableBorder
   const stroke = tb ? tb.color : style.rowStyle?.borderColor
   const sw = tb ? tb.width : (style.rowStyle?.borderWidth ?? 0)
+
+  const isMultipage = resolveTableHeightMode(style) === 'multipage'
+  if (isMultipage) {
+    const strokeColor = isVisibleColor(stroke) ? stroke : DEFAULT_DIVIDER_STROKE
+    const strokeW = sw > 0 ? sw : DEFAULT_DIVIDER_WIDTH
+    const lineOpts = {
+      stroke: strokeColor,
+      strokeWidth: strokeW,
+      strokeUniform: true,
+      selectable: false,
+      evented: false,
+    }
+    // Top border
+    parts.push(new Line([0, 0, width, 0], lineOpts))
+    // Left vertical line with wavy/tilted end
+    pushWavyVerticalLine(parts, 0, height, lineOpts)
+    // Right vertical line with wavy/tilted end
+    pushWavyVerticalLine(parts, width, height, lineOpts)
+    return
+  }
+
   if (!isVisibleColor(stroke) || !(sw > 0)) return
 
   let perimeterH = height

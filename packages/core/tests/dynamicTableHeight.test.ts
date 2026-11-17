@@ -554,4 +554,37 @@ describe('Table Height Modes (fixed, single_page_dynamic, multipage)', () => {
     const pdfDoc = await PDFLibDocument.load(pdfBuf)
     expect(pdfDoc.getPageCount()).toBeGreaterThanOrEqual(3)
   })
+
+  it('multipage: uses full page height rather than only drawn canvas height', async () => {
+    const pageHeight = 600
+    // Table drawn with height 100 at y=50
+    const manifest = makeManifest({
+      meta: { ...makeManifest().meta, width: 500, height: pageHeight, maxPages: 1 },
+      fields: [
+        createTableField('tbl', 'items', 'multipage', {
+          x: 50,
+          y: 50,
+          width: 400,
+          height: 100, // drawn small on canvas
+        }),
+      ],
+    })
+
+    const path = writeTgbl('multipage-full-height.tgbl', manifest)
+    const template = await loadTemplate(path)
+
+    // 20 rows of 18pt = 360pt.
+    // In old code with height=100, 20 rows would be split across 4 pages.
+    // Now with full page height, 50 + 360 = 410pt < 600 - 20 = 580pt, so it fits on 1 page!
+    const rows = Array.from({ length: 20 }, (_, i) => ({ col1: `Item ${i}`, col2: `Val ${i}` }))
+    const data: InputJSON = {
+      texts: {},
+      tables: { items: rows },
+      images: {},
+    }
+
+    const pdfBuf = await generatePDF(template, data)
+    const pdfDoc = await PDFLibDocument.load(pdfBuf)
+    expect(pdfDoc.getPageCount()).toBe(1)
+  })
 })

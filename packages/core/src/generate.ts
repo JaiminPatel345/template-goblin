@@ -108,11 +108,7 @@ export async function generatePDF(
       doc.addPage({ size: [layout.width, layout.height], margin: 0 })
       renderPageBackgroundSafely(
         doc,
-        () =>
-          renderBackground(doc, backgroundImage, effectiveMeta, {
-            width: layout.width,
-            height: layout.height,
-          }),
+        () => renderBackground(doc, backgroundImage, effectiveMeta, layout),
         legacyCtx,
       )
 
@@ -272,12 +268,22 @@ function renderPageFields(
   const finalY = tableResult?.finalY ?? tableBottom
   const deltaY = finalY - tableBottom
 
+  const m = template.manifest
+  const footerMargin =
+    m.footer?.enabled && m.footer.style.height > 0
+      ? m.footer.style.height + (m.footer.style.divider?.gap ?? 0)
+      : 20
+  const headerMargin =
+    m.header?.enabled && m.header.style.height > 0
+      ? m.header.style.height + (m.header.style.divider?.gap ?? 0)
+      : Math.min(multipageTable.y, 40)
+
   for (const field of afterTable) {
     const shiftedField = deltaY !== 0 ? { ...field, y: field.y + deltaY } : { ...field }
-    if (shiftedField.y + shiftedField.height > pageHeight) {
+    if (shiftedField.y + shiftedField.height > pageHeight - footerMargin) {
       doc.addPage({ size: [pageWidth, pageHeight], margin: 0 })
       renderBackground(doc, backgroundImage, effectiveMeta)
-      shiftedField.y = multipageTable.y + (field.y - tableBottom)
+      shiftedField.y = headerMargin + (field.y - tableBottom)
     }
     renderField(doc, shiftedField, data, fontMap, template, pageCtx, resolvedImages)
   }

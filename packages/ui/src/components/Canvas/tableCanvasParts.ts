@@ -18,6 +18,7 @@
 import { Rect, Line, Textbox } from 'fabric'
 import type { FabricObject } from 'fabric'
 import type { CellStyle, FieldDefinition, TableColumn } from '@template-goblin/types'
+import { resolveTableHeightMode } from '@template-goblin/types'
 import { pushBodyRows } from './tableBodyRows.js'
 import { pushTablePerimeter, isVisibleColor } from './tablePerimeterCanvas.js'
 import { buildDynamicTableIndicators } from './tableDynamicIndicator.js'
@@ -139,9 +140,10 @@ export function buildTableCanvasParts(
       ? headerStyle.borderWidth
       : DEFAULT_DIVIDER_WIDTH
 
+  const isMultipage = resolveTableHeightMode(field.style) === 'multipage'
   for (const x of boundaries) {
     parts.push(
-      new Line([x, 0, x, height], {
+      new Line([x, 0, x, isMultipage ? Math.max(headerH, height - 16) : height], {
         stroke: dividerStroke,
         strokeWidth: dividerWidth,
         strokeUniform: true,

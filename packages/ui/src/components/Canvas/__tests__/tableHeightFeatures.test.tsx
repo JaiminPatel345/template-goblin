@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
+import type { FabricObject } from 'fabric'
 import {
   resolveTableHeightMode,
   type TableField,
@@ -184,5 +185,21 @@ describe('TableStyleSections Header Height control', () => {
     )
 
     expect(html).toContain('value="40"')
+  })
+})
+
+describe('Multi-page table canvas indicators (wavy vertical ends & open bottom)', () => {
+  it('renders open bottom with wavy/tilted break lines on vertical sides for multipage tables', async () => {
+    const { pushTablePerimeter } = await import('../tablePerimeterCanvas.js')
+    const table = createTestTable('multipage')
+    const parts: FabricObject[] = []
+    pushTablePerimeter(parts, table, 200, 150, 30, null)
+
+    // Should push top line, left straight line + zigzag lines, right straight line + zigzag lines
+    expect(parts.length).toBeGreaterThanOrEqual(10)
+    // All parts are Line objects (not a closed Rect)
+    for (const part of parts) {
+      expect(part.type).toBe('line')
+    }
   })
 })

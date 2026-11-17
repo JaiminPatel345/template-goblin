@@ -205,10 +205,10 @@ describe('Loop/table rendering', () => {
 
   it('should throw MAX_PAGES_EXCEEDED when exceeding maxPages', async () => {
     const field = createLoopField({ multiPage: true })
-    // Very small height to force many page breaks
     field.height = 40
 
-    const rows = sampleRows(100)
+    // Multi-page tables use full page height; 150 rows exceed 2 full pages
+    const rows = sampleRows(150)
     const meta = createMeta({ maxPages: 2 })
 
     await expect(renderAndFinish(field, rows, meta)).rejects.toThrow(TemplateGoblinError)

@@ -127,6 +127,7 @@ export function renderField(
           fontMap,
           template.manifest.meta,
           template.backgroundImage,
+          template.manifest,
         )
         break
     }

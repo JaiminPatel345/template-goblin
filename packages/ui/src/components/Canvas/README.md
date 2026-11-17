@@ -20,6 +20,7 @@ The primary WYSIWYG canvas area where users visually position, resize, rotate, a
 - `TableHeightModePicker`: Mode selector button group for table height modes with dark/light theme contrast
 - `TableHeightHelpModal`: Comparison dialog explaining fixed, single-page dynamic, and multi-page behaviors
 - `buildDynamicTableIndicators`: Constructs visual dashed boundary lines and badge on dynamic tables
+- `pushTablePerimeter`: Renders perimeter borders; for multi-page tables leaves bottom open with wavy break lines on vertical sides
 - `AddPageDialog`: Modal dialog for selecting page sizes and adding new pages
 - `useCanvasModel`: Custom hook managing active canvas state
 - `useFabricCanvas`: Hook initializing and managing Fabric canvas lifecycle

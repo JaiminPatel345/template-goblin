@@ -43,16 +43,16 @@ export function Navbar() {
             className={`dropdown${docsOpen ? ' open' : ''}`}
             onMouseLeave={() => setDocsOpen(false)}
           >
-            <button
+            <NavLink
+              to="/docs"
               className={`nav-link${docsActive ? ' active' : ''}`}
-              type="button"
               aria-haspopup="true"
               aria-expanded={docsOpen}
-              onClick={() => setDocsOpen((v) => !v)}
               onMouseEnter={() => setDocsOpen(true)}
+              onClick={() => setDocsOpen(false)}
             >
               Docs <ChevronDown size={14} />
-            </button>
+            </NavLink>
             <div className="dropdown-menu" role="menu">
               {DOC_LINKS.map((d) => (
                 <Link
@@ -118,7 +118,9 @@ export function Navbar() {
             <NavLink to="/examples" className="nav-link" onClick={() => setOpen(false)}>
               Examples
             </NavLink>
-            <div className="mobile-sub">Docs</div>
+            <NavLink to="/docs" className="nav-link mobile-sub" onClick={() => setOpen(false)}>
+              Docs
+            </NavLink>
             {DOC_LINKS.map((d) => (
               <NavLink key={d.to} to={d.to} className="nav-link" onClick={() => setOpen(false)}>
                 {d.label}

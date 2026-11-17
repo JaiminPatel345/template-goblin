@@ -292,8 +292,8 @@ describe('Integration tests', () => {
   describe('Multi-page static table overflow', () => {
     it('should generate a multi-page PDF when a static table has enough baked-in rows to overflow', async () => {
       // 30 baked-in rows with a deliberately-small field height so the table
-      // cannot render on a single page.
-      const rows = Array.from({ length: 30 }, (_, i) => ({
+      // cannot render on a single page. Multi-page tables utilize full page height.
+      const rows = Array.from({ length: 60 }, (_, i) => ({
         subject: `Subject ${i + 1}`,
         score: String(60 + (i % 40)),
       }))
