@@ -1,72 +1,20 @@
 import { useEffect, useState, useCallback } from 'react'
-import type { FieldType } from '@template-goblin/types'
+import type { TableHeightMode } from '@template-goblin/types'
 import { isSafeKey } from '@template-goblin/types'
 import { CloseIcon } from '../icons/index.js'
-import { ColorPickerPopover } from '../ColorPickerPopover.js'
+import { StaticImagePicker } from './StaticImagePicker.js'
+import { TableHeightModePicker } from './TableHeightModePicker.js'
+import { FieldCreationDynamicInputs } from './FieldCreationDynamicInputs.js'
+import {
+  type FieldCreationDraft,
+  type PickedImage,
+  type SourceInputs,
+  type FieldCreationPopupProps,
+  FIELD_LABELS,
+  JSON_KEY_PREFIX,
+} from './FieldCreationTypes.js'
 
-/**
- * Element Creation Popup (design 2026-04-18 §8.1, spec 024).
- *
- * Opens when the designer finishes drawing a rectangle with the text/image/
- * table tool. Captures the mode decision (static vs dynamic) and the
- * mode-specific fields up-front so the field commits to the store with a
- * meaningful `source` rather than a placeholder one that has to be filled in
- * later via the right panel.
- *
- * Keyboard:
- *   - Esc        → Cancel
- *   - Ctrl/Cmd+Enter → Create
- *
- * The popup is deliberately focused on the creation-time essentials. Ongoing
- * style tweaks (fonts, colours, advanced table settings) still happen in the
- * right panel via double-click, per design §8.2.
- */
-export interface FieldCreationDraft {
-  type: FieldType
-  /** Geometry of the drawn rectangle (already in canvas pt). */
-  x: number
-  y: number
-  width: number
-  height: number
-  /** Starting zIndex (caller derives from current fields.length). */
-  zIndex: number
-  /** The page the new field belongs to. */
-  pageId: string | null
-  /** Optional starting group assignment. */
-  groupId: string | null
-}
-
-/** An image payload the user picked in the popup (inline image picker). */
-export interface PickedImage {
-  filename: string
-  dataUrl: string
-  buffer: ArrayBuffer
-}
-
-export type SourceInputs =
-  | { mode: 'static'; value: string; image?: PickedImage; color?: string; trim?: boolean }
-  | { mode: 'dynamic'; jsonKey: string; required: boolean; placeholder: string; trim?: boolean }
-
-export interface FieldCreationPopupProps {
-  draft: FieldCreationDraft
-  /** `label` defaults to the field type name. */
-  initialLabel?: string
-  onCancel: () => void
-  /** Caller merges the returned inputs with the draft + defaults. */
-  onConfirm: (label: string, source: SourceInputs) => void
-}
-
-const FIELD_LABELS: Record<FieldType, string> = {
-  text: 'Text',
-  image: 'Image',
-  table: 'Table',
-}
-
-const JSON_KEY_PREFIX: Record<FieldType, string> = {
-  text: 'texts.',
-  image: 'images.',
-  table: 'tables.',
-}
+export type { FieldCreationDraft, PickedImage, SourceInputs, FieldCreationPopupProps }
 
 export function FieldCreationPopup({
   draft,
@@ -81,13 +29,14 @@ export function FieldCreationPopup({
   const [placeholder, setPlaceholder] = useState('')
   const [trim, setTrim] = useState(true)
   const [value, setValue] = useState('')
+  const [tableHeightMode, setTableHeightMode] = useState<TableHeightMode>(
+    draft.type === 'table' ? 'single_page_dynamic' : 'fixed',
+  )
   const [pickedImage, setPickedImage] = useState<PickedImage | null>(null)
-  // GH #81 — solid-colour image fields are stored as `{ color }` and skip
-  // the byte-asset pipeline. Mutually exclusive with `pickedImage`.
   const [pickedColor, setPickedColor] = useState<string | null>(null)
-  const [imagePickMode, setImagePickMode] = useState<'choose' | 'color'>('choose')
-  const [imageColor, setImageColor] = useState('#ffffff')
   const [error, setError] = useState<string | null>(null)
+
+  const effectiveTableHeightMode: TableHeightMode = mode === 'static' ? 'fixed' : tableHeightMode
 
   const commit = useCallback(() => {
     if (!label.trim()) {
@@ -111,6 +60,7 @@ export function FieldCreationPopup({
         required,
         placeholder: required ? '' : placeholder,
         trim: draft.type === 'text' ? trim : undefined,
+        tableHeightMode: draft.type === 'table' ? effectiveTableHeightMode : undefined,
       })
     } else {
       if (draft.type === 'image' && !pickedImage && !pickedColor) {
@@ -123,17 +73,19 @@ export function FieldCreationPopup({
         image: draft.type === 'image' && pickedImage ? pickedImage : undefined,
         color: draft.type === 'image' && pickedColor ? pickedColor : undefined,
         trim: draft.type === 'text' ? trim : undefined,
+        tableHeightMode: draft.type === 'table' ? 'fixed' : undefined,
       })
     }
   }, [
     label,
+    draft.type,
     mode,
+    tableHeightMode,
     jsonKey,
     required,
     placeholder,
     trim,
     value,
-    draft.type,
     pickedImage,
     pickedColor,
     onConfirm,
@@ -150,20 +102,14 @@ export function FieldCreationPopup({
     const ext = file.name.match(/\.[A-Za-z0-9]+$/)?.[0] ?? '.png'
     const filename = `static-${Date.now()}${ext}`
     setPickedImage({ filename, dataUrl, buffer })
-    // Picking a real image clears any previously-picked solid colour —
-    // they're mutually exclusive in the data model (#81).
     setPickedColor(null)
   }
 
   function onPickSolidColor(hex: string) {
-    // GH #81 — store the colour directly. No 1×1 PNG, no
-    // staticImageBuffers entry, no fit-mode irrelevance. The renderer
-    // (canvas + PDF) paints a filled rect at the field's bounds.
     setPickedColor(hex)
     setPickedImage(null)
   }
 
-  // Keyboard shortcuts: Esc = cancel, Ctrl/Cmd+Enter = create
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
@@ -188,12 +134,10 @@ export function FieldCreationPopup({
       aria-modal="true"
       aria-label={`Create ${typeLabel} field`}
       onClick={(e) => {
-        // Overlay-click to cancel — a standard modal convention. Content
-        // clicks stop propagation to avoid accidental dismissal.
         if (e.target === e.currentTarget) onCancel()
       }}
     >
-      <div className="tg-dialog" style={{ width: 420, maxHeight: '90vh', overflow: 'auto' }}>
+      <div className="tg-dialog" style={{ width: 440, maxHeight: '90vh', overflow: 'auto' }}>
         <div className="tg-dialog-header">
           <h3 style={{ margin: 0, fontSize: 16 }}>Create {typeLabel} field</h3>
           <button
@@ -251,206 +195,43 @@ export function FieldCreationPopup({
             </p>
           </div>
 
-          {mode === 'dynamic' && (
-            <>
-              <label className="tg-field-row">
-                <span className="tg-field-label">JSON key</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span className="tg-field-hint" style={{ fontFamily: 'monospace' }}>
-                    {prefix}
-                  </span>
-                  <input
-                    type="text"
-                    className="tg-input"
-                    style={{ flex: 1 }}
-                    value={jsonKey}
-                    onChange={(e) => setJsonKey(e.target.value)}
-                    placeholder={draft.type === 'text' ? 'student_name' : draft.type}
-                    data-testid="create-popup-json-key"
-                  />
-                </div>
-              </label>
-
-              <div className="tg-field-row">
-                <label className="tg-field-row tg-field-row--inline" style={{ cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={required}
-                    onChange={(e) => setRequired(e.target.checked)}
-                    data-testid="create-popup-required"
-                  />
-                  <span>Required</span>
-                </label>
-                <span className="tg-field-hint">
-                  If unchecked, missing values at PDF generation are silently skipped.
-                </span>
-              </div>
-
-              {!required && draft.type === 'text' && (
-                <label className="tg-field-row">
-                  <span className="tg-field-label">Placeholder (canvas preview)</span>
-                  <input
-                    type="text"
-                    className="tg-input"
-                    value={placeholder}
-                    onChange={(e) => setPlaceholder(e.target.value)}
-                    placeholder="e.g. Your name here"
-                    data-testid="create-popup-placeholder"
-                  />
-                </label>
-              )}
-            </>
+          {draft.type === 'table' && (
+            <TableHeightModePicker
+              sourceMode={mode}
+              selected={effectiveTableHeightMode}
+              onChange={setTableHeightMode}
+            />
           )}
 
-          {mode === 'static' && draft.type === 'text' && (
-            <label className="tg-field-row">
-              <span className="tg-field-label">Value</span>
-              <textarea
-                className="tg-input"
-                rows={3}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                placeholder="Literal text rendered on every PDF"
-                data-testid="create-popup-value"
-              />
-            </label>
-          )}
-
-          {draft.type === 'text' && (
-            <div className="tg-field-row">
-              <label className="tg-field-row tg-field-row--inline" style={{ cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={trim}
-                  onChange={(e) => setTrim(e.target.checked)}
-                  data-testid="create-popup-trim"
-                />
-                <span>Trim whitespace</span>
-              </label>
-              <span className="tg-field-hint">
-                Strips leading and trailing whitespace from the rendered text value.
-              </span>
-            </div>
-          )}
+          <FieldCreationDynamicInputs
+            type={draft.type}
+            mode={mode}
+            prefix={prefix}
+            jsonKey={jsonKey}
+            onJsonKeyChange={setJsonKey}
+            required={required}
+            onRequiredChange={setRequired}
+            placeholder={placeholder}
+            onPlaceholderChange={setPlaceholder}
+            value={value}
+            onValueChange={setValue}
+            trim={trim}
+            onTrimChange={setTrim}
+          />
 
           {mode === 'static' && draft.type === 'image' && (
             <div className="tg-field-row">
               <span className="tg-field-label">Image content</span>
-              {pickedColor ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div
-                    style={{
-                      width: 48,
-                      height: 48,
-                      background: pickedColor,
-                      border: '1px solid var(--border)',
-                      borderRadius: 4,
-                    }}
-                  />
-                  <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{pickedColor}</span>
-                  <button
-                    className="tg-btn"
-                    onClick={() => {
-                      setPickedColor(null)
-                      setImagePickMode('choose')
-                    }}
-                    data-testid="create-popup-color-clear"
-                  >
-                    Change
-                  </button>
-                </div>
-              ) : pickedImage ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <img
-                    src={pickedImage.dataUrl}
-                    alt="preview"
-                    style={{
-                      width: 48,
-                      height: 48,
-                      objectFit: 'contain',
-                      border: '1px solid var(--border)',
-                      borderRadius: 4,
-                      background: '#fff',
-                    }}
-                  />
-                  <span style={{ fontFamily: 'monospace', fontSize: 12 }}>
-                    {pickedImage.filename}
-                  </span>
-                  <button
-                    className="tg-btn"
-                    onClick={() => {
-                      setPickedImage(null)
-                      setImagePickMode('choose')
-                    }}
-                    data-testid="create-popup-image-clear"
-                  >
-                    Change
-                  </button>
-                </div>
-              ) : imagePickMode === 'choose' ? (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <label className="tg-btn tg-btn--primary" data-testid="create-popup-upload-image">
-                    Upload image
-                    <input
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) void onPickFile(f)
-                      }}
-                    />
-                  </label>
-                  <button
-                    className="tg-btn"
-                    onClick={() => setImagePickMode('color')}
-                    data-testid="create-popup-solid-color"
-                  >
-                    Solid color
-                  </button>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <ColorPickerPopover
-                    value={imageColor}
-                    onChange={setImageColor}
-                    swatchWidth={44}
-                    swatchHeight={32}
-                    ariaLabel="Image color"
-                  />
-                  <input
-                    type="text"
-                    className="tg-input"
-                    value={imageColor}
-                    onChange={(e) => setImageColor(e.target.value)}
-                    maxLength={7}
-                    style={{ width: 100, fontFamily: 'monospace' }}
-                    data-testid="create-popup-image-color-hex"
-                  />
-                  <button className="tg-btn" onClick={() => setImagePickMode('choose')}>
-                    Back
-                  </button>
-                  <button
-                    className="tg-btn tg-btn--primary"
-                    onClick={() => {
-                      const hex = /^#[0-9a-fA-F]{6}$/.test(imageColor)
-                        ? imageColor.toLowerCase()
-                        : '#ffffff'
-                      void onPickSolidColor(hex)
-                    }}
-                    data-testid="create-popup-image-color-apply"
-                  >
-                    Apply color
-                  </button>
-                </div>
-              )}
+              <StaticImagePicker
+                pickedImage={pickedImage}
+                pickedColor={pickedColor}
+                onPickFile={onPickFile}
+                onPickSolidColor={onPickSolidColor}
+                onClear={() => {
+                  setPickedImage(null)
+                  setPickedColor(null)
+                }}
+              />
             </div>
           )}
 
@@ -479,22 +260,6 @@ export function FieldCreationPopup({
                 lineHeight: 1.4,
               }}
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ flexShrink: 0, marginTop: 1 }}
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
               <span>{error}</span>
             </div>
           )}

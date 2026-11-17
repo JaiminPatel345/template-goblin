@@ -8,6 +8,7 @@ export const DOC_SECTIONS = [
     links: [
       { to: '/docs', label: 'Overview', end: true },
       { to: '/docs/use-the-ui', label: 'Use the editor' },
+      { to: '/docs/element-types', label: 'Element types' },
       { to: '/docs/sdk', label: 'SDK & API' },
     ],
   },

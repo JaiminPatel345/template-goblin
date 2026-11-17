@@ -6,6 +6,7 @@ import { GITHUB_URL, NPM_URL, PLAYGROUND_URL, STARS_BADGE } from '../lib/constan
 
 const DOC_LINKS = [
   { to: '/docs/use-the-ui', label: 'Use the editor', hint: 'For designers — no code' },
+  { to: '/docs/element-types', label: 'Element types', hint: 'Text, Image & Table fields' },
   { to: '/docs/sdk', label: 'SDK & API', hint: 'For developers' },
   { to: '/docs/schema', label: 'Template & input schema', hint: 'Fields, styles, JSON' },
   { to: '/docs/file-format', label: '.tgbl file format', hint: 'What is inside the ZIP' },
@@ -43,16 +44,16 @@ export function Navbar() {
             className={`dropdown${docsOpen ? ' open' : ''}`}
             onMouseLeave={() => setDocsOpen(false)}
           >
-            <button
+            <NavLink
+              to="/docs"
               className={`nav-link${docsActive ? ' active' : ''}`}
-              type="button"
               aria-haspopup="true"
               aria-expanded={docsOpen}
-              onClick={() => setDocsOpen((v) => !v)}
               onMouseEnter={() => setDocsOpen(true)}
+              onClick={() => setDocsOpen(false)}
             >
               Docs <ChevronDown size={14} />
-            </button>
+            </NavLink>
             <div className="dropdown-menu" role="menu">
               {DOC_LINKS.map((d) => (
                 <Link
@@ -118,7 +119,9 @@ export function Navbar() {
             <NavLink to="/examples" className="nav-link" onClick={() => setOpen(false)}>
               Examples
             </NavLink>
-            <div className="mobile-sub">Docs</div>
+            <NavLink to="/docs" className="nav-link mobile-sub" onClick={() => setOpen(false)}>
+              Docs
+            </NavLink>
             {DOC_LINKS.map((d) => (
               <NavLink key={d.to} to={d.to} className="nav-link" onClick={() => setOpen(false)}>
                 {d.label}

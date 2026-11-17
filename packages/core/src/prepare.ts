@@ -79,10 +79,18 @@ function eligibilityReason(template: LoadedTemplate): string | null {
   const m = template.manifest
   const fields = allFields(m)
 
-  // multiPage tables make the page count depend on DATA, so the static base
-  // (fixed page count) can't align with the dynamic overlay.
-  if (fields.some((f) => f.type === 'table' && f.style?.multiPage)) {
-    return 'template has a multiPage table (data-dependent page count)'
+  // Tables with dynamic height or multiPage make page dimensions or count depend
+  // on DATA, so the static base (fixed dimensions and count) can't align with the dynamic overlay.
+  if (
+    fields.some(
+      (f) =>
+        f.type === 'table' &&
+        (f.style?.multiPage ||
+          f.style?.heightMode === 'single_page_dynamic' ||
+          f.style?.heightMode === 'multipage'),
+    )
+  ) {
+    return 'template has a dynamic height or multiPage table (data-dependent page dimensions/count)'
   }
   // PDF link annotations don't survive being drawn as a Form XObject, so a
   // DYNAMIC hyperlink in the overlay would be lost. (Static links live in

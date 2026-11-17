@@ -1,5 +1,10 @@
-import type { FieldDefinition, TableField, TableFieldStyle } from '@template-goblin/types'
-import { isSafeKey } from '@template-goblin/types'
+import type {
+  FieldDefinition,
+  TableField,
+  TableFieldStyle,
+  TableHeightMode,
+} from '@template-goblin/types'
+import { isSafeKey, resolveTableHeightMode } from '@template-goblin/types'
 import { HyperlinkSection } from './HyperlinkSection.js'
 import { useTemplateStore } from '../../store/templateStore.js'
 import { InfoTip } from './TextFieldProps.js'
@@ -8,6 +13,7 @@ import { defaultCellStyle } from '../../utils/defaults.js'
 import { SourceModeToggle } from './SourceModeToggle.js'
 import { TableStyleSections } from './TableStyleSections.js'
 import { TableColumnsSection } from './TableColumnsSection.js'
+import { TableHeightModePicker } from '../Canvas/TableHeightModePicker.js'
 
 /**
  * Historical filename: `LoopFieldProps.tsx`. The field type was renamed from
@@ -146,11 +152,25 @@ export function LoopFieldProps({ field }: Props) {
           <button
             type="button"
             className="tg-btn"
+            style={{
+              fontSize: 11,
+              padding: '3px 10px',
+              border: '1px solid var(--border-strong)',
+              background: 'var(--bg-elevated)',
+              color: 'var(--text-primary)',
+              borderRadius: 4,
+              boxShadow: 'var(--shadow-xs)',
+              cursor: 'pointer',
+            }}
             data-testid="table-fit-to-data"
             onClick={() => {
               const rs = style.rowStyle
               const hs = style.headerStyle
-              const headerH = style.showHeader ? hs.fontSize + hs.paddingTop + hs.paddingBottom : 0
+              const headerH = style.showHeader
+                ? typeof style.headerHeight === 'number' && style.headerHeight > 0
+                  ? style.headerHeight
+                  : hs.fontSize + hs.paddingTop + hs.paddingBottom
+                : 0
               const rowH = rs.fontSize + rs.paddingTop + rs.paddingBottom
               const placeholder = isDynamic
                 ? (dynamicSource?.placeholder as unknown[] | undefined)
@@ -175,18 +195,16 @@ export function LoopFieldProps({ field }: Props) {
           />
         </div>
 
-        <div className="tg-toggle-row">
-          <label>
-            Multi-Page
-            <InfoTip text="When enabled, table continues on next page if rows exceed the field height." />
-          </label>
-          <input
-            type="checkbox"
-            className="tg-checkbox"
-            checked={style.multiPage}
-            onChange={(e) => updateFieldStyle(field.id, { multiPage: e.target.checked })}
-          />
-        </div>
+        <TableHeightModePicker
+          sourceMode={field.source.mode}
+          selected={resolveTableHeightMode(style)}
+          onChange={(newMode: TableHeightMode) =>
+            updateFieldStyle(field.id, {
+              heightMode: newMode,
+              multiPage: newMode === 'multipage',
+            })
+          }
+        />
 
         <div className="tg-toggle-row">
           <label>

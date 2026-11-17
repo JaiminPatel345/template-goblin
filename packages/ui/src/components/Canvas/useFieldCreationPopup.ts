@@ -96,6 +96,14 @@ export function useFieldCreationPopup() {
         }
       }
 
+      if (base.type === 'table' && source.tableHeightMode) {
+        withUserInput.style = {
+          ...withUserInput.style,
+          heightMode: source.tableHeightMode,
+          multiPage: source.tableHeightMode === 'multipage',
+        }
+      }
+
       // #61 — route the new field to the band store when the draw rect
       // landed inside a header / footer band. Body fields keep the legacy
       // path. Band fields' x/y are stored band-local so the renderer can

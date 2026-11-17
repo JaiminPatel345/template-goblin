@@ -120,7 +120,9 @@ export function stampBands(
     doc.switchToPage(start + i)
     const pageCtx: PageContext = { pageId: null, pageIndex: i }
     const pageDef = sortedPages[i]
-    const { width: pageWidth, height: pageHeight } = getPageSize(pageDef, manifest.meta)
+    const defaultPageSize = getPageSize(pageDef, manifest.meta)
+    const pageWidth = doc.page?.width ?? defaultPageSize.width
+    const pageHeight = doc.page?.height ?? defaultPageSize.height
 
     if (manifest.header && bandRendersOnPage(manifest.header, i)) {
       stampBand(
@@ -151,7 +153,7 @@ export function stampBands(
         resolvedImages,
       )
     }
-    stampPageNumberIfDue(doc, manifest, i, pageWidth)
+    stampPageNumberIfDue(doc, manifest, i, pageWidth, pageHeight)
   }
 }
 
@@ -161,6 +163,7 @@ function stampPageNumberIfDue(
   manifest: TemplateManifest,
   pageIndex: number,
   pageWidth: number,
+  pageHeight: number,
 ): void {
   const cfg = manifest.pageNumber
   if (!cfg?.enabled) return
@@ -173,7 +176,7 @@ function stampPageNumberIfDue(
   if (!band) return
   if (!bandRendersOnPage(band, pageIndex)) return
 
-  const bandTop = cfg.placement === 'header' ? 0 : manifest.meta.height - band.style.height
+  const bandTop = cfg.placement === 'header' ? 0 : pageHeight - band.style.height
   stampPageNumber(doc, {
     config: cfg,
     bandStyle: band.style,

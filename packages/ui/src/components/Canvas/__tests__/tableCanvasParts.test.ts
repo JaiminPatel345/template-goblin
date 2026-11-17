@@ -92,4 +92,16 @@ describe('computeHeaderHeight', () => {
     // so the divider stays inside the field.
     expect(computeHeaderHeight(10, true)).toBe(10)
   })
+
+  it('uses customHeaderHeight when provided and positive', () => {
+    expect(computeHeaderHeight(200, true, 35)).toBe(35)
+    expect(computeHeaderHeight(50, true, 25)).toBe(25)
+    // Caps at totalHeight if customHeaderHeight exceeds field height
+    expect(computeHeaderHeight(30, true, 60)).toBe(30)
+    // Ignores non-positive customHeaderHeight and falls back to auto
+    expect(computeHeaderHeight(200, true, 0)).toBe(44)
+    expect(computeHeaderHeight(200, true, null)).toBe(44)
+    // Still 0 if showHeader is false
+    expect(computeHeaderHeight(200, false, 35)).toBe(0)
+  })
 })

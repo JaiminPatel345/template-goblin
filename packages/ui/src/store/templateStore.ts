@@ -23,6 +23,7 @@ import type {
   PageBandStyle,
   PageNumberConfig,
 } from '@template-goblin/types'
+import { resolveTableHeightMode } from '@template-goblin/types'
 
 /** Snapshot of the template state for undo/redo */
 
@@ -990,7 +991,16 @@ export const useTemplateStore = create<TemplateState>()(
             ? { ...state.footer, fields: state.footer.fields.map(mapField) }
             : state.footer
 
+          const hasMultipage = fields.some(
+            (f) => f.type === 'table' && resolveTableHeightMode(f.style) === 'multipage',
+          )
+          const meta =
+            hasMultipage && state.meta.maxPages !== -1
+              ? { ...state.meta, maxPages: -1 }
+              : state.meta
+
           return {
+            meta,
             groups: nextGroups,
             fields,
             header,
@@ -1261,7 +1271,16 @@ export const useTemplateStore = create<TemplateState>()(
             ? { ...state.footer, fields: state.footer.fields.map(mapField) }
             : state.footer
 
+          const hasMultipage = fields.some(
+            (f) => f.type === 'table' && resolveTableHeightMode(f.style) === 'multipage',
+          )
+          const meta =
+            hasMultipage && state.meta.maxPages !== -1
+              ? { ...state.meta, maxPages: -1 }
+              : state.meta
+
           return {
+            meta,
             groups: nextGroups,
             fields,
             header,

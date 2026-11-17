@@ -18,7 +18,9 @@
 import { Rect, Line, Textbox } from 'fabric'
 import type { FabricObject } from 'fabric'
 import type { CellStyle, FieldDefinition, TableColumn } from '@template-goblin/types'
+import { resolveTableHeightMode } from '@template-goblin/types'
 import { pushBodyRows } from './tableBodyRows.js'
+import { pushTablePerimeter, isVisibleColor } from './tablePerimeterCanvas.js'
 
 const HEADER_FRACTION = 0.22
 const HEADER_MIN_PT = 14
@@ -68,8 +70,15 @@ export function computeColumnBoundaries(columns: TableColumn[], totalWidth: numb
  * field is too small. Caps at `totalHeight` (degenerate templates) so the
  * divider never sits below the rect.
  */
-export function computeHeaderHeight(totalHeight: number, showHeader: boolean): number {
+export function computeHeaderHeight(
+  totalHeight: number,
+  showHeader: boolean,
+  customHeaderHeight?: number | null,
+): number {
   if (!showHeader || totalHeight <= 0) return 0
+  if (typeof customHeaderHeight === 'number' && customHeaderHeight > 0) {
+    return Math.min(customHeaderHeight, totalHeight)
+  }
   const ideal = Math.max(HEADER_MIN_PT, totalHeight * HEADER_FRACTION)
   return Math.min(ideal, totalHeight)
 }
@@ -99,7 +108,7 @@ export function buildTableCanvasParts(
   const headerStyle = field.style.headerStyle as CellStyle | undefined
 
   const boundaries = computeColumnBoundaries(columns, width)
-  const headerH = computeHeaderHeight(height, showHeader)
+  const headerH = computeHeaderHeight(height, showHeader, field.style.headerHeight)
   const widths = scaledColumnWidths(columns, width)
   const parts: FabricObject[] = []
 
@@ -130,9 +139,10 @@ export function buildTableCanvasParts(
       ? headerStyle.borderWidth
       : DEFAULT_DIVIDER_WIDTH
 
+  const isMultipage = resolveTableHeightMode(field.style) === 'multipage'
   for (const x of boundaries) {
     parts.push(
-      new Line([x, 0, x, height], {
+      new Line([x, 0, x, isMultipage ? Math.max(headerH, height - 16) : height], {
         stroke: dividerStroke,
         strokeWidth: dividerWidth,
         strokeUniform: true,
@@ -242,69 +252,4 @@ export function buildTableCanvasParts(
   }
 
   return parts
-}
-
-/**
- * Whether a colour value is meaningful to render. Empty / null / `none` /
- * `transparent` all map to "skip"; everything else is forwarded to Fabric.
- */
-function isVisibleColor(c: string | null | undefined): c is string {
-  if (!c) return false
-  const s = c.trim().toLowerCase()
-  return s.length > 0 && s !== 'transparent' && s !== 'none'
-}
-
-/**
- * Compute and append the table's outer perimeter rect, mirroring the
- * PDFKit renderer so changes to `tableBorder.color`, `tableBorder.width`,
- * or `fitToContent` show up live on canvas.
- */
-function pushTablePerimeter(
-  parts: FabricObject[],
-  field: FieldDefinition,
-  width: number,
-  height: number,
-  headerH: number,
-  rows: Record<string, string>[] | null,
-): void {
-  if (field.type !== 'table' || !field.style) return
-  const style = field.style
-  const tb = style.tableBorder
-  const stroke = tb ? tb.color : style.rowStyle?.borderColor
-  const sw = tb ? tb.width : (style.rowStyle?.borderWidth ?? 0)
-  if (!isVisibleColor(stroke) || !(sw > 0)) return
-
-  let perimeterH = height
-  const fitToContent = style.fitToContent !== false
-  if (fitToContent && rows && rows.length > 0) {
-    const rs = style.rowStyle
-    const fontSize = typeof rs?.fontSize === 'number' && rs.fontSize > 0 ? rs.fontSize : 10
-    const padTop = Math.max(0, rs?.paddingTop ?? 2)
-    const padBottom = Math.max(0, rs?.paddingBottom ?? 2)
-    const rowH = fontSize + padTop + padBottom
-    const maxRowsCfg = style.maxRows
-    const maxRows = typeof maxRowsCfg === 'number' && maxRowsCfg > 0 ? maxRowsCfg : rows.length
-    const availableH = Math.max(0, height - headerH)
-    const fitCount = rowH > 0 ? Math.floor(availableH / rowH) : 0
-    const renderCount = Math.min(rows.length, maxRows, fitCount)
-    if (renderCount > 0) perimeterH = Math.min(height, headerH + renderCount * rowH)
-    else if (headerH > 0) perimeterH = headerH
-  }
-
-  parts.push(
-    new Rect({
-      left: 0,
-      top: 0,
-      width,
-      height: perimeterH,
-      fill: '',
-      stroke,
-      strokeWidth: sw,
-      strokeUniform: true,
-      selectable: false,
-      evented: false,
-      originX: 'left',
-      originY: 'top',
-    }),
-  )
 }

@@ -45,6 +45,17 @@ try {
   }
 }`
 
+const MULTIPAGE_OPTIONS = `import { loadTemplate, generatePDF } from 'template-goblin'
+
+const template = await loadTemplate('./statement.tgbl')
+
+// Multi-page tables dynamically expand across pages to fit all rows.
+// By default, generation has a safety ceiling of 500 pages.
+// To generate large reports exceeding 500 pages, raise or remove the ceiling:
+const pdf = await generatePDF(template, data, {
+  maxRenderPages: 1000, // or Infinity for unlimited pages
+})`
+
 const ERROR_ROWS: [string, string][] = [
   ['FILE_NOT_FOUND', '.tgbl path does not exist'],
   ['INVALID_FORMAT', 'File is not a valid ZIP, or an image’s bytes are unreadable'],
@@ -144,8 +155,29 @@ export function Sdk() {
             <code>6</code>,
             'Max concurrent image resolutions per call.',
           ],
+          [
+            <code>maxRenderPages</code>,
+            <code>500</code>,
+            'Maximum continuation pages rendered by multi-page tables. Pass e.g. 1000 or Infinity to adjust.',
+          ],
         ]}
       />
+
+      <h3>Multi-page tables & large documents</h3>
+      <p>
+        When a table is set to <strong>Multi-Page</strong> (<code>heightMode: 'multipage'</code>),
+        TemplateGoblin dynamically spawns continuation pages to accommodate all rows without
+        truncation. Trailing elements on the same page are automatically staged on the table's final
+        continuation page, and subsequent pages defined in the manifest append strictly after the
+        table finishes.
+      </p>
+      <p>
+        To prevent accidental out-of-memory errors from infinite loops or runaway row counts,
+        multi-page rendering applies a safety ceiling of <strong>500 pages</strong> by default (
+        <code>options.maxRenderPages ?? 500</code>). For high-volume documents (such as year-end
+        transaction histories or audit reports), raise or remove this limit:
+      </p>
+      <CodeBlock code={MULTIPAGE_OPTIONS} file="multipage-example.ts" />
 
       <h2>Errors</h2>
       <p>
@@ -159,7 +191,7 @@ export function Sdk() {
       />
 
       <DocNext
-        prev={{ to: '/docs/use-the-ui', label: 'Use the editor' }}
+        prev={{ to: '/docs/element-types', label: 'Element types' }}
         next={{ to: '/docs/schema', label: 'Template & input schema' }}
       />
     </>

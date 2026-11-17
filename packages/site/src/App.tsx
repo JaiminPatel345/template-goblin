@@ -7,6 +7,7 @@ import { Examples } from './pages/Examples'
 import { NotFound } from './pages/NotFound'
 import { DocsHome } from './pages/docs/DocsHome'
 import { UseTheUi } from './pages/docs/UseTheUi'
+import { ElementTypes } from './pages/docs/ElementTypes'
 import { Sdk } from './pages/docs/Sdk'
 import { Schema } from './pages/docs/Schema'
 import { FileFormat } from './pages/docs/FileFormat'
@@ -33,6 +34,7 @@ export function App(): React.JSX.Element {
           <Route path="docs" element={<DocsLayout />}>
             <Route index element={<DocsHome />} />
             <Route path="use-the-ui" element={<UseTheUi />} />
+            <Route path="element-types" element={<ElementTypes />} />
             <Route path="sdk" element={<Sdk />} />
             <Route path="schema" element={<Schema />} />
             <Route path="file-format" element={<FileFormat />} />

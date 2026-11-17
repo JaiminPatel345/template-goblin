@@ -110,7 +110,7 @@ export function UseTheUi() {
 
       <DocNext
         prev={{ to: '/docs', label: 'Overview' }}
-        next={{ to: '/docs/sdk', label: 'Generate PDFs with the SDK' }}
+        next={{ to: '/docs/element-types', label: 'Element types' }}
       />
     </>
   )

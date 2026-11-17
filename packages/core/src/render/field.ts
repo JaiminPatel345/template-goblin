@@ -51,11 +51,11 @@ export function renderField(
   template: LoadedTemplate,
   pageCtx: PageContext,
   resolvedImages: Map<string, Buffer>,
-): void {
+): { finalY: number; pageCount: number } | undefined {
   const value = resolveValue(field as FieldDefinition, data) as unknown
 
   // Skip if value is not provided (optional dynamic field or unresolved static)
-  if (value === undefined || value === null) return
+  if (value === undefined || value === null) return undefined
 
   // #172 — rotation: wrap the field's draw block in a PDFKit graphics-state
   // save / rotate / restore so every renderer (text, image, table) inherits
@@ -77,6 +77,8 @@ export function renderField(
       origin: [field.x + field.width / 2, field.y + field.height / 2],
     })
   }
+
+  let tableResult: { finalY: number; pageCount: number } | undefined
 
   try {
     switch (field.type) {
@@ -118,13 +120,14 @@ export function renderField(
       }
 
       case 'table':
-        renderLoop(
+        tableResult = renderLoop(
           doc,
           field,
           value as TableRow[],
           fontMap,
           template.manifest.meta,
           template.backgroundImage,
+          template.manifest,
         )
         break
     }
@@ -158,4 +161,5 @@ export function renderField(
   }
 
   if (rotated) doc.restore()
+  return tableResult
 }

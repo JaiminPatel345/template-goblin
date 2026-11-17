@@ -4,9 +4,10 @@ import type {
   TableField,
   TableFieldStyle,
   TableRow,
+  TemplateManifest,
   TemplateMeta,
 } from '@template-goblin/types'
-import { TemplateGoblinError } from '@template-goblin/types'
+import { TemplateGoblinError, resolveTableHeightMode } from '@template-goblin/types'
 import { renderBackground } from './background.js'
 import { measureText, truncateLines } from '../utils/measure.js'
 import { resolvePdfFontName } from './pdfFontResolver.js'
@@ -32,7 +33,8 @@ export function renderLoop(
   _fonts: Map<string, string>,
   meta: TemplateMeta,
   backgroundImage: Buffer | null,
-): void {
+  manifest?: TemplateManifest,
+): { finalY: number; pageCount: number } {
   const style = field.style
   const { x, y, width } = field
   const columns = style.columns
@@ -40,10 +42,25 @@ export function renderLoop(
   const totalDefinedWidth = columns.reduce((sum: number, col: TableColumn) => sum + col.width, 0)
   const scaleFactor = totalDefinedWidth > 0 ? width / totalDefinedWidth : 1
 
-  const headerRowHeight = cellRowHeight(style.headerStyle)
+  const headerRowHeight =
+    typeof style.headerHeight === 'number' && style.headerHeight > 0
+      ? style.headerHeight
+      : cellRowHeight(style.headerStyle)
   const dataRowHeight = cellRowHeight(style.rowStyle)
 
+  const heightMode = resolveTableHeightMode(style)
+  const isMultipage = heightMode === 'multipage'
+  const footerMargin =
+    manifest?.footer?.enabled && manifest.footer.style.height > 0
+      ? manifest.footer.style.height + (manifest.footer.style.divider?.gap ?? 0)
+      : 20
+  const headerMargin =
+    manifest?.header?.enabled && manifest.header.style.height > 0
+      ? manifest.header.style.height + (manifest.header.style.divider?.gap ?? 0)
+      : Math.min(y, 40)
+
   let currentY = y
+  let pageStartY = y
   let currentPage = 1
   let rowIndex = 0
 
@@ -58,30 +75,35 @@ export function renderLoop(
       continue
     }
 
-    const pageBottom = y + field.height
+    const pageBottom = isMultipage ? meta.height - footerMargin : y + field.height
     if (currentY + dataRowHeight > pageBottom) {
-      if (!style.multiPage) break
+      if (heightMode === 'fixed') break
 
-      currentPage++
-      if (currentPage > meta.maxPages) {
-        const label = field.source.mode === 'dynamic' ? field.source.jsonKey : `static-${field.id}`
-        throw new TemplateGoblinError(
-          'MAX_PAGES_EXCEEDED',
-          `Table "${label}" requires ${currentPage} pages but maxPages is ${meta.maxPages}`,
-        )
+      if (isMultipage) {
+        currentPage++
+        if (meta.maxPages !== -1 && currentPage > meta.maxPages) {
+          const label =
+            field.source.mode === 'dynamic' ? field.source.jsonKey : `static-${field.id}`
+          throw new TemplateGoblinError(
+            'MAX_PAGES_EXCEEDED',
+            `Table "${label}" requires ${currentPage} pages but maxPages is ${meta.maxPages}. Pass options.maxRenderPages to generatePDF to increase the limit.`,
+          )
+        }
+
+        // Close perimeter on the page we are leaving before moving on (#65)
+        drawTablePerimeter(doc, x, pageStartY, width, currentY - pageStartY, style)
+
+        // margin: 0 — addPage REPLACES constructor options (see generate.ts)
+        doc.addPage({ size: [meta.width, meta.height], margin: 0 })
+        renderBackground(doc, backgroundImage, meta)
+
+        currentY = headerMargin
+        pageStartY = currentY
+        if (style.showHeader !== false) {
+          currentY = renderHeaderRow(doc, columns, style, x, currentY, scaleFactor)
+        }
       }
-
-      // Close perimeter on the page we are leaving before moving on (#65)
-      drawTablePerimeter(doc, x, y, width, field.height, style)
-
-      // margin: 0 — addPage REPLACES constructor options (see generate.ts)
-      doc.addPage({ size: [meta.width, meta.height], margin: 0 })
-      renderBackground(doc, backgroundImage, meta)
-
-      currentY = y
-      if (style.showHeader !== false) {
-        currentY = renderHeaderRow(doc, columns, style, x, currentY, scaleFactor)
-      }
+      // single_page_dynamic does not break or add continuation pages
     }
 
     currentY = renderDataRow(doc, columns, row, style, x, currentY, scaleFactor, rowIndex)
@@ -91,10 +113,17 @@ export function renderLoop(
 
   // Stamp the table's perimeter on top so borders surround the full extent (#65, #76)
   const fitToContent = style.fitToContent !== false
-  const renderedHeight = Math.max(0, currentY - y)
+  const renderedHeight = Math.max(0, currentY - pageStartY)
   const perimeterHeight =
-    fitToContent && renderedHeight > 0 ? Math.min(renderedHeight, field.height) : field.height
-  drawTablePerimeter(doc, x, y, width, perimeterHeight, style)
+    fitToContent && renderedHeight > 0
+      ? heightMode === 'single_page_dynamic' || isMultipage
+        ? renderedHeight
+        : Math.min(renderedHeight, field.height)
+      : heightMode === 'single_page_dynamic' || isMultipage
+        ? renderedHeight
+        : field.height
+  drawTablePerimeter(doc, x, pageStartY, width, perimeterHeight, style)
+  return { finalY: currentY, pageCount: currentPage }
 }
 
 function renderHeaderRow(
@@ -106,11 +135,13 @@ function renderHeaderRow(
   scaleFactor: number,
 ): number {
   let colX = startX
+  const customHeaderH =
+    typeof style.headerHeight === 'number' && style.headerHeight > 0 ? style.headerHeight : null
 
   for (const col of columns) {
     const colWidth = col.width * scaleFactor
     const hs = mergeStyle(style.headerStyle, col.headerStyle)
-    const rowHeight = cellRowHeight(hs)
+    const rowHeight = customHeaderH ?? cellRowHeight(hs)
 
     if (hs.backgroundColor) {
       doc.save()
@@ -163,7 +194,7 @@ function renderHeaderRow(
     colX += colWidth
   }
 
-  return startY + cellRowHeight(style.headerStyle)
+  return startY + (customHeaderH ?? cellRowHeight(style.headerStyle))
 }
 
 function renderDataRow(

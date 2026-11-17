@@ -205,10 +205,10 @@ describe('Loop/table rendering', () => {
 
   it('should throw MAX_PAGES_EXCEEDED when exceeding maxPages', async () => {
     const field = createLoopField({ multiPage: true })
-    // Very small height to force many page breaks
     field.height = 40
 
-    const rows = sampleRows(100)
+    // Multi-page tables use full page height; 150 rows exceed 2 full pages
+    const rows = sampleRows(150)
     const meta = createMeta({ maxPages: 2 })
 
     await expect(renderAndFinish(field, rows, meta)).rejects.toThrow(TemplateGoblinError)
@@ -219,6 +219,17 @@ describe('Loop/table rendering', () => {
       expect(err).toBeInstanceOf(TemplateGoblinError)
       expect((err as TemplateGoblinError).code).toBe('MAX_PAGES_EXCEEDED')
     }
+  })
+
+  it('should allow unbounded pages when meta.maxPages is -1', async () => {
+    const field = createLoopField({ multiPage: true })
+    field.height = 40
+    const rows = sampleRows(100)
+    const meta = createMeta({ maxPages: -1 })
+
+    const output = await renderAndFinish(field, rows, meta)
+    expect(output).toBeInstanceOf(Buffer)
+    expect(output.length).toBeGreaterThan(0)
   })
 
   it('should handle rows with missing column keys gracefully', async () => {

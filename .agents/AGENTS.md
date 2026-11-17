@@ -29,9 +29,12 @@
 18. **"Merge" (and "commit and push and merge") is a one-shot pipeline.**
 19. **Never work directly on `main` — branch first, always.**
 20. **Clarify before starting — both when filing an issue and when starting work on one.**
+21. **Read Component READMEs (EGM Contracts) — Every directory contains a README.md contract defining interface, invariants, side effects, and verification.**
 
 # Agent specific rules
 
+- When exploring, planning, implementing features, fixing bugs, or navigating the codebase, you MUST read the directory `README.md` files (Peanuts & Hay contracts) in the target directory and its parent directories before reading or writing source code. These contracts document the component's public interface, invariants, side effects, and verification commands.
+- Whenever you modify code, public interfaces, invariants, or side effects in a directory, ensure the corresponding `README.md` contract is kept updated and consistent with your changes.
 - Do not push, raise PR, or merge PR without the user's explicit permission. You may commit without permission, but any interaction with the remote repository requires confirmation.
 - When the user says "merge", it means a full pipeline: push the branch, raise a PR (ensuring it closes the relevant issues in the description), and merge that PR.
 - When searching for a function's implementation based on UI interactions, do not just search for the function name globally. Instead, follow the component flow (e.g., start from the sidebar component, see which child component it calls, and trace it down to the function). This ensures you catch any side-effects or errors in the calling components.

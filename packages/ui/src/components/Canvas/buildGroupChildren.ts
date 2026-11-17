@@ -16,10 +16,13 @@
 import { Rect } from 'fabric'
 import type { FabricObject, FabricImage } from 'fabric'
 import type { FieldDefinition, InputJSON, TextFieldStyle } from '@template-goblin/types'
+import { resolveTableHeightMode } from '@template-goblin/types'
 import { FIELD_COLORS } from '../../theme/fieldColors.js'
 import { fieldCanvasLabel } from './fieldLabel.js'
 import { shouldRenderFillRect } from './rectFill.js'
 import { buildTableCanvasParts } from './tableCanvasParts.js'
+import { pushTablePerimeter } from './tablePerimeterCanvas.js'
+import { buildDynamicTableIndicators } from './tableDynamicIndicator.js'
 import { pushTextLabel } from './pushTextLabel.js'
 import { resolveImagePaint, loadFabricImage, type ImageResolver } from './fabricImage.js'
 
@@ -74,9 +77,11 @@ export function buildGroupChildren(
   //    'transparent' still participates in hit-detection unlike fill: null
   //    or fill: '').
   const isImageField = field.type === 'image'
+  const isMultipageTable =
+    field.type === 'table' && resolveTableHeightMode(field.style) === 'multipage'
   const defaultFill = imageColor ?? textBgColor ?? (shouldFill ? colors.fill : 'transparent')
-  const defaultStroke = isImageField ? 'transparent' : colors.stroke
-  const defaultStrokeWidth = isImageField ? 0 : 1
+  const defaultStroke = isImageField || isMultipageTable ? 'transparent' : colors.stroke
+  const defaultStrokeWidth = isImageField || isMultipageTable ? 0 : 1
   // When the fill is the user's REAL colour (a text background #167 or a
   // solid-colour image #81) it appears in the PDF, which paints a SQUARE
   // rect — so drop the 2px design-time rounding to match. The rounding
@@ -141,13 +146,14 @@ export function buildGroupChildren(
     })
   }
 
-  // 2.5 Table column dividers + header labels (GH #38). Done before the
-  //     centred body label so a non-empty `style.columns` short-circuits
-  //     it — the column-header labels in the band already convey the
-  //     field's purpose, and a centred field-name label would clash with
-  //     the grid.
-  if (field.type === 'table' && field.style?.columns?.length) {
-    children.push(...buildTableCanvasParts(field, w, h, tableRowsForRender))
+  // 2.5 Table column dividers + header labels (GH #38) + dynamic indicators.
+  if (field.type === 'table') {
+    if (field.style?.columns?.length) {
+      children.push(...buildTableCanvasParts(field, w, h, tableRowsForRender))
+    } else {
+      pushTablePerimeter(children, field, w, h, 0, null)
+    }
+    children.push(...buildDynamicTableIndicators(field, w, h))
   }
 
   // 3. Auto-fit label (GH #12) — skipped when an image is rendered, when
