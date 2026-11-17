@@ -18,6 +18,7 @@ The core PDF painting pipeline built on PDFKit. Converts parsed template fields,
 - `stampPageNumber`: Renders Arabic or Roman page numbers at configured placements
 - `resolvePdfFontName`: Maps template font families and weights to registered PDFKit font names
 - `cellRowHeight`, `mergeStyle`, `drawTablePerimeter`: Table geometry and styling calculations
+- `renderPageFieldsWithMultipageTable`: Coordinates page field rendering with dynamic multi-page table continuation and trailing element positioning
 
 ## Invariants
 

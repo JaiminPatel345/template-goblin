@@ -587,4 +587,119 @@ describe('Table Height Modes (fixed, single_page_dynamic, multipage)', () => {
     const pdfDoc = await PDFLibDocument.load(pdfBuf)
     expect(pdfDoc.getPageCount()).toBe(1)
   })
+
+  it('multipage: renders trailing element on same page where table ends when space is available (not pushing to new page)', async () => {
+    const pageHeight = 842 // standard A4
+    // Canvas setup: Table drawn with height 100 at y=50.
+    // Trailing element drawn far down on canvas at y=700 (e.g. signature or footer note).
+    const manifest = makeManifest({
+      meta: { ...makeManifest().meta, width: 595, height: pageHeight, maxPages: 1 },
+      fields: [
+        createTableField('tbl', 'items', 'multipage', {
+          x: 50,
+          y: 50,
+          width: 500,
+          height: 100, // drawn small on canvas
+        }),
+        createTextField('trailingSig', 'signature', 50, 700),
+      ],
+    })
+
+    const path = writeTgbl('multipage-same-page-trailing.tgbl', manifest)
+    const template = await loadTemplate(path)
+
+    // 10 rows: table starts at 50, header ~20pt, 10 * 18pt = 180pt.
+    // Table finishes at ~250pt. Page has 842pt, leaving ~570pt of space.
+    // The signature (height ~20pt) MUST render on page 1, NOT pushed to page 2.
+    const rows = Array.from({ length: 10 }, (_, i) => ({ col1: `Item ${i}`, col2: `Val ${i}` }))
+    const data: InputJSON = {
+      texts: { signature: 'Approved by Authorized Signatory' },
+      tables: { items: rows },
+      images: {},
+    }
+
+    const pdfBuf = await generatePDF(template, data)
+    const pdfDoc = await PDFLibDocument.load(pdfBuf)
+
+    // MUST remain 1 page because there is plenty of space on page 1
+    expect(pdfDoc.getPageCount()).toBe(1)
+  })
+
+  it('multipage: renders trailing element on continuation page where table ends when space is available', async () => {
+    const pageHeight = 500
+    // Table drawn on canvas at y=50, height=100.
+    // Trailing element placed on canvas at y=420.
+    const manifest = makeManifest({
+      meta: { ...makeManifest().meta, width: 500, height: pageHeight, maxPages: 1 },
+      fields: [
+        createTableField('tbl', 'items', 'multipage', {
+          x: 50,
+          y: 50,
+          width: 400,
+          height: 100,
+        }),
+        createTextField('totalText', 'totalLabel', 300, 420),
+      ],
+    })
+
+    const path = writeTgbl('multipage-continuation-same-page.tgbl', manifest)
+    const template = await loadTemplate(path)
+
+    // Page 1 available: 500 - 20 (footer) - 50 = 430pt.
+    // 30 rows of 18pt = 540pt.
+    // Page 1 holds ~22 rows (header + 22*18 = ~416pt).
+    // Page 2 holds remaining ~8 rows (~164pt, finishing around y=184pt).
+    // Page 2 has from 184pt to 480pt = ~296pt of empty space!
+    // The trailing element MUST render on Page 2 (same page where table ends), NOT pushed to Page 3!
+    const rows = Array.from({ length: 30 }, (_, i) => ({ col1: `Item ${i}`, col2: `Val ${i}` }))
+    const data: InputJSON = {
+      texts: { totalLabel: 'Total: $1,250.00' },
+      tables: { items: rows },
+      images: {},
+    }
+
+    const pdfBuf = await generatePDF(template, data)
+    const pdfDoc = await PDFLibDocument.load(pdfBuf)
+
+    // MUST be exactly 2 pages (table expanded to page 2, trailing element fits on page 2)
+    expect(pdfDoc.getPageCount()).toBe(2)
+  })
+
+  it('multipage: pushes trailing element to next page ONLY when space on final page is exhausted', async () => {
+    const pageHeight = 500
+    const manifest = makeManifest({
+      meta: { ...makeManifest().meta, width: 500, height: pageHeight, maxPages: 1 },
+      fields: [
+        createTableField('tbl', 'items', 'multipage', {
+          x: 50,
+          y: 50,
+          width: 400,
+          height: 100,
+        }),
+        // Large trailing block (height 200pt)
+        createTextField('termsBlock', 'termsText', 50, 400),
+      ],
+    })
+    // Force trailing element height to 200pt
+    const field = manifest.fields.find((f) => f.id === 'termsBlock')!
+    field.height = 200
+
+    const path = writeTgbl('multipage-overflow-when-full.tgbl', manifest)
+    const template = await loadTemplate(path)
+
+    // 24 rows fill page 1 down to ~450pt (leaving ~30pt).
+    // Large 200pt element cannot fit in 30pt. It must break to page 2!
+    const rows = Array.from({ length: 24 }, (_, i) => ({ col1: `Item ${i}`, col2: `Val ${i}` }))
+    const data: InputJSON = {
+      texts: { termsText: 'Extensive terms and conditions text requiring a large box.' },
+      tables: { items: rows },
+      images: {},
+    }
+
+    const pdfBuf = await generatePDF(template, data)
+    const pdfDoc = await PDFLibDocument.load(pdfBuf)
+
+    // 1 page for table + 1 page for large trailing element = 2 pages
+    expect(pdfDoc.getPageCount()).toBe(2)
+  })
 })

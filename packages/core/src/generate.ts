@@ -15,6 +15,7 @@ import { registerFonts } from './utils/font.js'
 import { type PageContext } from './utils/errorContext.js'
 import { renderBackground } from './render/background.js'
 import { renderField } from './render/field.js'
+import { renderPageFieldsWithMultipageTable } from './render/multipageFields.js'
 import { renderPageBackground, renderPageBackgroundSafely } from './render/page.js'
 import { stampBands } from './render/bands.js'
 import { adjustPageLayout } from './utils/dynamicLayout.js'
@@ -240,54 +241,18 @@ function renderPageFields(
     return
   }
 
-  // Multipage table flow:
-  // 1. Fields above/beside the table render on the start page.
-  // 2. The table renders across start page and continuation pages.
-  // 3. Fields below the table render on the final continuation page below table finish.
-  const tableBottom = multipageTable.y + multipageTable.height
-  const beforeTable = sortedFields.filter((f) => f.id !== multipageTable.id && f.y < tableBottom)
-  const afterTable = sortedFields.filter((f) => f.id !== multipageTable.id && f.y >= tableBottom)
-
-  for (const field of beforeTable) {
-    renderField(doc, field, data, fontMap, template, pageCtx, resolvedImages)
-  }
-
-  const tableResult = renderField(
+  renderPageFieldsWithMultipageTable(
     doc,
+    sortedFields,
     multipageTable,
     data,
     fontMap,
     template,
     pageCtx,
     resolvedImages,
+    pageHeight,
+    pageWidth,
+    backgroundImage,
+    effectiveMeta,
   )
-
-  const finalTablePageIndex = doc.bufferedPageRange().count - 1
-  doc.switchToPage(finalTablePageIndex)
-
-  const finalY = tableResult?.finalY ?? tableBottom
-  const deltaY = finalY - tableBottom
-
-  const m = template.manifest
-  const footerMargin =
-    m.footer?.enabled && m.footer.style.height > 0
-      ? m.footer.style.height + (m.footer.style.divider?.gap ?? 0)
-      : 20
-  const headerMargin =
-    m.header?.enabled && m.header.style.height > 0
-      ? m.header.style.height + (m.header.style.divider?.gap ?? 0)
-      : Math.min(multipageTable.y, 40)
-
-  for (const field of afterTable) {
-    const shiftedField = deltaY !== 0 ? { ...field, y: field.y + deltaY } : { ...field }
-    if (shiftedField.y + shiftedField.height > pageHeight - footerMargin) {
-      doc.addPage({ size: [pageWidth, pageHeight], margin: 0 })
-      renderBackground(doc, backgroundImage, effectiveMeta)
-      shiftedField.y = headerMargin + (field.y - tableBottom)
-    }
-    renderField(doc, shiftedField, data, fontMap, template, pageCtx, resolvedImages)
-  }
-
-  // Ensure document pointer is left on the final page of this sequence
-  doc.switchToPage(doc.bufferedPageRange().count - 1)
 }
