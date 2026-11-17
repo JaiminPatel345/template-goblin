@@ -191,7 +191,7 @@ export function Sdk() {
       />
 
       <DocNext
-        prev={{ to: '/docs/use-the-ui', label: 'Use the editor' }}
+        prev={{ to: '/docs/element-types', label: 'Element types' }}
         next={{ to: '/docs/schema', label: 'Template & input schema' }}
       />
     </>

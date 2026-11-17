@@ -10,6 +10,7 @@ Contains the individual documentation page components rendered inside `DocsLayou
 
 - `DocsHome`: Documentation landing page directing users to designer or developer tracks
 - `UseTheUi`: Step-by-step visual editor walkthrough for designers
+- `ElementTypes`: Comprehensive reference for Text, Image, and Table element properties, options, and code samples
 - `Sdk`: SDK installation, PDF generation examples, server setup, and error handling reference
 - `Schema`: Reference documentation for input JSON, dynamic bindings, and template manifest schemas
 - `FileFormat`: Technical reference for `.tgbl` ZIP archive structure, manifest, and binary asset packaging
