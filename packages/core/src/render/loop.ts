@@ -40,7 +40,10 @@ export function renderLoop(
   const totalDefinedWidth = columns.reduce((sum: number, col: TableColumn) => sum + col.width, 0)
   const scaleFactor = totalDefinedWidth > 0 ? width / totalDefinedWidth : 1
 
-  const headerRowHeight = cellRowHeight(style.headerStyle)
+  const headerRowHeight =
+    typeof style.headerHeight === 'number' && style.headerHeight > 0
+      ? style.headerHeight
+      : cellRowHeight(style.headerStyle)
   const dataRowHeight = cellRowHeight(style.rowStyle)
 
   let currentY = y
@@ -118,11 +121,13 @@ function renderHeaderRow(
   scaleFactor: number,
 ): number {
   let colX = startX
+  const customHeaderH =
+    typeof style.headerHeight === 'number' && style.headerHeight > 0 ? style.headerHeight : null
 
   for (const col of columns) {
     const colWidth = col.width * scaleFactor
     const hs = mergeStyle(style.headerStyle, col.headerStyle)
-    const rowHeight = cellRowHeight(hs)
+    const rowHeight = customHeaderH ?? cellRowHeight(hs)
 
     if (hs.backgroundColor) {
       doc.save()
@@ -175,7 +180,7 @@ function renderHeaderRow(
     colX += colWidth
   }
 
-  return startY + cellRowHeight(style.headerStyle)
+  return startY + (customHeaderH ?? cellRowHeight(style.headerStyle))
 }
 
 function renderDataRow(

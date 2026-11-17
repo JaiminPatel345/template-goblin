@@ -66,6 +66,11 @@ export interface TableFieldStyle {
   /** When false, the header row is skipped entirely at render time. */
   showHeader: boolean
   /**
+   * Optional explicit height in points for the table header row.
+   * When omitted or null, calculated automatically from headerStyle (fontSize + vertical padding).
+   */
+  headerHeight?: number | null
+  /**
    * When true (default), the table's outer perimeter is drawn down to the
    * last rendered row's bottom edge instead of the field rect's full
    * height.

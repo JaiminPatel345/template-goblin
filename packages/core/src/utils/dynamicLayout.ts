@@ -36,7 +36,12 @@ export function computeTableRenderedHeight(field: TableField, data: InputJSON): 
         ? field.source.value
         : []
   const rowCount = Array.isArray(rowData) ? rowData.length : 0
-  const headerHeight = field.style.showHeader !== false ? cellRowHeight(field.style.headerStyle) : 0
+  const headerHeight =
+    field.style.showHeader !== false
+      ? typeof field.style.headerHeight === 'number' && field.style.headerHeight > 0
+        ? field.style.headerHeight
+        : cellRowHeight(field.style.headerStyle)
+      : 0
   const rowHeight = cellRowHeight(field.style.rowStyle)
   return headerHeight + rowCount * rowHeight
 }

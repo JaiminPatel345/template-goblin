@@ -396,4 +396,38 @@ describe('Table Height Modes (fixed, single_page_dynamic, multipage)', () => {
     expect(pdfDoc.getPageCount()).toBe(1)
     expect(pdfDoc.getPage(0).getSize().height).toBe(baseHeight)
   })
+
+  it('custom headerHeight: computeTableRenderedHeight and dynamic single_page_dynamic use explicit headerHeight', async () => {
+    const tableField = createTableField('tbl', 'items', 'single_page_dynamic', {
+      x: 50,
+      y: 50,
+      width: 400,
+      height: 80,
+    })
+    tableField.style.headerHeight = 50
+
+    const rows = Array.from({ length: 10 }, (_, i) => ({ col1: `X${i}`, col2: `Y${i}` }))
+    const data: InputJSON = {
+      texts: { note: 'Footer note' },
+      tables: { items: rows },
+      images: {},
+    }
+
+    const { computeTableRenderedHeight } = await import('../src/utils/dynamicLayout.js')
+    const calculatedHeight = computeTableRenderedHeight(tableField, data)
+    expect(calculatedHeight).toBe(50 + 10 * (10 + 4 + 4))
+
+    const baseHeight = 300
+    const manifest = makeManifest({
+      meta: { ...makeManifest().meta, width: 500, height: baseHeight },
+      fields: [tableField, createTextField('below', 'note', 50, 150)],
+    })
+
+    const path = writeTgbl('custom-header-height.tgbl', manifest)
+    const template = await loadTemplate(path)
+    const pdfBuf = await generatePDF(template, data)
+    const pdfDoc = await PDFLibDocument.load(pdfBuf)
+    expect(pdfDoc.getPageCount()).toBe(1)
+    expect(pdfDoc.getPage(0).getSize().height).toBeGreaterThan(baseHeight)
+  })
 })

@@ -3,6 +3,7 @@ import { useTemplateStore } from '../../store/templateStore.js'
 import { NumberInput } from '../NumberInput.js'
 import { NullableColorInput } from '../NullableColorInput.js'
 import { CellTypographyFields, CellBorderPaddingFields } from './TableCellStyleFields.js'
+import { InfoTip } from './InfoTip.js'
 
 interface Props {
   field: TableField
@@ -55,6 +56,30 @@ export function TableStyleSections({ field, allFontFamilies }: Props) {
             <option value="center">Center</option>
             <option value="right">Right</option>
           </select>
+        </div>
+        <div className="tg-form-row">
+          <label>
+            Header Height (pt)
+            <InfoTip text="Optional custom height for the header row in points. Clear or set to 0 to use auto height based on font size and padding." />
+          </label>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            className="tg-input"
+            data-testid="table-header-height-input"
+            value={style.headerHeight ?? ''}
+            placeholder={`Auto (${headerStyle.fontSize + headerStyle.paddingTop + headerStyle.paddingBottom}pt)`}
+            onChange={(e) => {
+              const val = e.target.value.trim()
+              if (val === '') {
+                updateFieldStyle(field.id, { headerHeight: null })
+              } else {
+                const num = parseFloat(val)
+                updateFieldStyle(field.id, { headerHeight: !isNaN(num) && num > 0 ? num : null })
+              }
+            }}
+          />
         </div>
       </div>
 

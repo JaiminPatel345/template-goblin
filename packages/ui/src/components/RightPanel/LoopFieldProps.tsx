@@ -166,7 +166,11 @@ export function LoopFieldProps({ field }: Props) {
             onClick={() => {
               const rs = style.rowStyle
               const hs = style.headerStyle
-              const headerH = style.showHeader ? hs.fontSize + hs.paddingTop + hs.paddingBottom : 0
+              const headerH = style.showHeader
+                ? typeof style.headerHeight === 'number' && style.headerHeight > 0
+                  ? style.headerHeight
+                  : hs.fontSize + hs.paddingTop + hs.paddingBottom
+                : 0
               const rowH = rs.fontSize + rs.paddingTop + rs.paddingBottom
               const placeholder = isDynamic
                 ? (dynamicSource?.placeholder as unknown[] | undefined)

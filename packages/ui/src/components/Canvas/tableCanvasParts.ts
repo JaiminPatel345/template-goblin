@@ -70,8 +70,15 @@ export function computeColumnBoundaries(columns: TableColumn[], totalWidth: numb
  * field is too small. Caps at `totalHeight` (degenerate templates) so the
  * divider never sits below the rect.
  */
-export function computeHeaderHeight(totalHeight: number, showHeader: boolean): number {
+export function computeHeaderHeight(
+  totalHeight: number,
+  showHeader: boolean,
+  customHeaderHeight?: number | null,
+): number {
   if (!showHeader || totalHeight <= 0) return 0
+  if (typeof customHeaderHeight === 'number' && customHeaderHeight > 0) {
+    return Math.min(customHeaderHeight, totalHeight)
+  }
   const ideal = Math.max(HEADER_MIN_PT, totalHeight * HEADER_FRACTION)
   return Math.min(ideal, totalHeight)
 }
@@ -101,7 +108,7 @@ export function buildTableCanvasParts(
   const headerStyle = field.style.headerStyle as CellStyle | undefined
 
   const boundaries = computeColumnBoundaries(columns, width)
-  const headerH = computeHeaderHeight(height, showHeader)
+  const headerH = computeHeaderHeight(height, showHeader, field.style.headerHeight)
   const widths = scaledColumnWidths(columns, width)
   const parts: FabricObject[] = []
 

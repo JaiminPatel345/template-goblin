@@ -7,6 +7,7 @@ import {
 } from '@template-goblin/types'
 import { buildDynamicTableIndicators } from '../tableDynamicIndicator.js'
 import { TableHeightModePicker } from '../TableHeightModePicker.js'
+import { TableStyleSections } from '../../RightPanel/TableStyleSections.js'
 
 function createTestTable(
   heightMode?: 'fixed' | 'single_page_dynamic' | 'multipage',
@@ -159,5 +160,29 @@ describe('TableHeightModePicker component UI', () => {
 
     expect(html).toContain('disabled=""')
     expect(html).toContain('Dynamic only')
+  })
+})
+
+describe('TableStyleSections Header Height control', () => {
+  it('renders Header Height input with auto placeholder when headerHeight is not set', () => {
+    const table = createTestTable('single_page_dynamic')
+    const html = renderToStaticMarkup(
+      <TableStyleSections field={table} allFontFamilies={['Helvetica']} />,
+    )
+
+    expect(html).toContain('Header Height (pt)')
+    expect(html).toContain('data-testid="table-header-height-input"')
+    // fontSize 10 + paddingTop 2 + paddingBottom 2 = 14pt auto placeholder
+    expect(html).toContain('placeholder="Auto (14pt)"')
+  })
+
+  it('renders explicit header height value when headerHeight is configured', () => {
+    const table = createTestTable('single_page_dynamic')
+    table.style.headerHeight = 40
+    const html = renderToStaticMarkup(
+      <TableStyleSections field={table} allFontFamilies={['Helvetica']} />,
+    )
+
+    expect(html).toContain('value="40"')
   })
 })
