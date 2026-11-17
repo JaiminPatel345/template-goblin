@@ -16,16 +16,17 @@
  */
 import { Buffer } from 'buffer'
 import { collectReferencedImageAssets } from 'template-goblin/assetRefs'
-import type {
-  FieldDefinition,
-  FontDefinition,
-  GroupDefinition,
-  LoadedTemplate,
-  PageBand,
-  PageDefinition,
-  PageNumberConfig,
-  TemplateManifest,
-  TemplateMeta,
+import {
+  type FieldDefinition,
+  type FontDefinition,
+  type GroupDefinition,
+  type LoadedTemplate,
+  type PageBand,
+  type PageDefinition,
+  type PageNumberConfig,
+  type TemplateManifest,
+  type TemplateMeta,
+  resolveTableHeightMode,
 } from '@template-goblin/types'
 
 export interface TemplateStoreSnapshot {
@@ -64,9 +65,17 @@ export function templateToLoaded(state: TemplateStoreSnapshot): LoadedTemplate {
   const sanitizeBand = (band: PageBand | undefined): PageBand | undefined =>
     band ? { ...band, fields: band.fields.filter((f) => !!f.source) } : band
 
+  const hasMultipage = fields.some(
+    (f) => f.type === 'table' && resolveTableHeightMode(f.style) === 'multipage',
+  )
+  const meta: TemplateMeta = {
+    ...state.meta,
+    maxPages: hasMultipage ? -1 : state.meta.maxPages,
+  }
+
   const manifest: TemplateManifest = {
     version: '1.0',
-    meta: state.meta,
+    meta,
     fonts: state.fonts,
     groups: state.groups,
     pages: state.pages,

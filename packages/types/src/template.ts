@@ -58,6 +58,10 @@ export interface TemplateMeta {
   unit: 'pt'
   pageSize: PageSize
   locked: boolean
+  /**
+   * Maximum pages allowed. Defaults to 1 for standard single-page templates;
+   * set to -1 (unbounded) when at least one multi-page dynamic table is present.
+   */
   maxPages: number
   createdAt: string
   updatedAt: string

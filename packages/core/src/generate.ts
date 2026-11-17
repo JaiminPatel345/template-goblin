@@ -4,8 +4,10 @@ import type {
   InputJSON,
   FieldDefinition,
   PageDefinition,
+  TableField,
+  TemplateMeta,
 } from '@template-goblin/types'
-import { getPageSize, TemplateGoblinError } from '@template-goblin/types'
+import { getPageSize, TemplateGoblinError, resolveTableHeightMode } from '@template-goblin/types'
 import { validateData } from './validate.js'
 import { validateManifest } from './validateManifest.js'
 import { preflightImages, type PreflightOptions } from './preflight.js'
@@ -49,7 +51,7 @@ export async function generatePDF(
   // silently produce a corrupted PDF.
   validateManifest(template.manifest)
 
-  // REQ: Validate input data
+  // Validate input data
   const validation = validateData(template, data)
   if (!validation.valid) {
     const firstError = validation.errors[0]
@@ -60,18 +62,28 @@ export async function generatePDF(
     }
   }
 
-  // Pre-flight: catch image format / missing-asset issues before PDFKit runs
-  // AND resolve every dynamic image input (Buffer / base64 / data URI / file
-  // path / URL / explicit shape — #69) to a Buffer the renderer can hand to
-  // PDFKit directly. Centralises all I/O at one boundary so the renderer
-  // stays pure.
+  // Preflight image bytes check and resolve dynamic images
   const { resolvedImages } = await preflightImages(template, data, options)
 
   const { manifest, backgroundImage, pageBackgrounds } = template
-  const { meta } = manifest
   const pages = manifest.pages && manifest.pages.length > 0 ? manifest.pages : null
   const sortedPages = pages ? [...pages].sort((a, b) => a.index - b.index) : []
-  const firstPageSize = getPageSize(sortedPages[0] ?? null, meta)
+
+  const hasMultipage = manifest.fields.some(
+    (f) => f.type === 'table' && resolveTableHeightMode(f.style) === 'multipage',
+  )
+  const effectiveMeta: TemplateMeta = {
+    ...manifest.meta,
+    maxPages: hasMultipage ? -1 : manifest.meta.maxPages,
+  }
+  const effectiveTemplate: LoadedTemplate = {
+    ...template,
+    manifest: {
+      ...manifest,
+      meta: effectiveMeta,
+    },
+  }
+  const firstPageSize = getPageSize(sortedPages[0] ?? null, effectiveMeta)
 
   try {
     const doc = new PDFDocument({
@@ -90,17 +102,22 @@ export async function generatePDF(
     })
 
     // REQ: Register custom fonts once per generatePDF call
-    const fontMap = registerFonts(doc, template)
+    const fontMap = registerFonts(doc, effectiveTemplate)
 
     if (!pages) {
       // Backward compat: single-page template with no pages array
       const legacyCtx: PageContext = { pageId: null, pageIndex: 0 }
-      const layout = adjustPageLayout(manifest.fields, data, meta.width, meta.height)
+      const layout = adjustPageLayout(
+        manifest.fields,
+        data,
+        effectiveMeta.width,
+        effectiveMeta.height,
+      )
       doc.addPage({ size: [layout.width, layout.height], margin: 0 })
       renderPageBackgroundSafely(
         doc,
         () =>
-          renderBackground(doc, backgroundImage, meta, {
+          renderBackground(doc, backgroundImage, effectiveMeta, {
             width: layout.width,
             height: layout.height,
           }),
@@ -111,9 +128,19 @@ export async function generatePDF(
         (a, b) => a.zIndex - b.zIndex || a.id.localeCompare(b.id),
       )
 
-      for (const field of sortedFields) {
-        renderField(doc, field, data, fontMap, template, legacyCtx, resolvedImages)
-      }
+      renderPageFields(
+        doc,
+        sortedFields,
+        data,
+        fontMap,
+        effectiveTemplate,
+        legacyCtx,
+        resolvedImages,
+        layout.height,
+        layout.width,
+        backgroundImage,
+        effectiveMeta,
+      )
     } else {
       // Multi-page: group fields by pageId, render each page
       const fieldsByPage = new Map<string | null, FieldDefinition[]>()
@@ -127,7 +154,7 @@ export async function generatePDF(
 
       for (let i = 0; i < sortedPages.length; i++) {
         const page = sortedPages[i] as PageDefinition
-        const basePageSize = getPageSize(page, meta)
+        const basePageSize = getPageSize(page, effectiveMeta)
 
         // Collect fields: matching pageId + null-pageId fields on page 0
         const pageFields: FieldDefinition[] = []
@@ -148,7 +175,7 @@ export async function generatePDF(
             currentBackground = renderPageBackground(
               doc,
               page,
-              meta,
+              effectiveMeta,
               pageBackgrounds,
               backgroundImage,
               previousBackground,
@@ -164,19 +191,19 @@ export async function generatePDF(
           (a, b) => a.zIndex - b.zIndex || a.id.localeCompare(b.id),
         )
 
-        // A multiPage table appends continuation pages and leaves the doc
-        // pointed at the LAST of them — without switching back, every
-        // later field of this template page rendered onto the table's
-        // final overflow page instead of its own. Pin this page's buffer
-        // index (it IS the last page right after addPage) and return to
-        // it whenever a field grew the document.
-        const thisPageIndex = doc.bufferedPageRange().count - 1
-        for (const field of sortedFields) {
-          renderField(doc, field, data, fontMap, template, pageCtx, resolvedImages)
-          if (doc.bufferedPageRange().count - 1 !== thisPageIndex) {
-            doc.switchToPage(thisPageIndex)
-          }
-        }
+        renderPageFields(
+          doc,
+          sortedFields,
+          data,
+          fontMap,
+          effectiveTemplate,
+          pageCtx,
+          resolvedImages,
+          layout.height,
+          layout.width,
+          backgroundImage,
+          effectiveMeta,
+        )
       }
     }
 
@@ -184,7 +211,7 @@ export async function generatePDF(
     // body content for every page is buffered so we know the final pageCount
     // and can iterate via `bufferedPageRange()`/`switchToPage()`. Safe no-op
     // when manifest has neither header nor footer nor enabled page number.
-    stampBands(doc, manifest, data, fontMap, template, resolvedImages)
+    stampBands(doc, effectiveTemplate.manifest, data, fontMap, effectiveTemplate, resolvedImages)
 
     doc.end()
     return await pdfReady
@@ -195,4 +222,74 @@ export async function generatePDF(
       `PDF generation failed: ${error instanceof Error ? error.message : 'unknown error'}`,
     )
   }
+}
+
+function renderPageFields(
+  doc: InstanceType<typeof PDFDocument>,
+  sortedFields: FieldDefinition[],
+  data: InputJSON,
+  fontMap: Map<string, string>,
+  template: LoadedTemplate,
+  pageCtx: PageContext,
+  resolvedImages: Map<string, Buffer>,
+  pageHeight: number,
+  pageWidth: number,
+  backgroundImage: Buffer | null,
+  effectiveMeta: TemplateMeta,
+): void {
+  const multipageTable = sortedFields.find(
+    (f): f is TableField => f.type === 'table' && resolveTableHeightMode(f.style) === 'multipage',
+  )
+
+  if (!multipageTable) {
+    const thisPageIndex = doc.bufferedPageRange().count - 1
+    for (const field of sortedFields) {
+      renderField(doc, field, data, fontMap, template, pageCtx, resolvedImages)
+      if (doc.bufferedPageRange().count - 1 !== thisPageIndex) {
+        doc.switchToPage(thisPageIndex)
+      }
+    }
+    return
+  }
+
+  // Multipage table flow:
+  // 1. Fields above/beside the table render on the start page.
+  // 2. The table renders across start page and continuation pages.
+  // 3. Fields below the table render on the final continuation page below table finish.
+  const tableBottom = multipageTable.y + multipageTable.height
+  const beforeTable = sortedFields.filter((f) => f.id !== multipageTable.id && f.y < tableBottom)
+  const afterTable = sortedFields.filter((f) => f.id !== multipageTable.id && f.y >= tableBottom)
+
+  for (const field of beforeTable) {
+    renderField(doc, field, data, fontMap, template, pageCtx, resolvedImages)
+  }
+
+  const tableResult = renderField(
+    doc,
+    multipageTable,
+    data,
+    fontMap,
+    template,
+    pageCtx,
+    resolvedImages,
+  )
+
+  const finalTablePageIndex = doc.bufferedPageRange().count - 1
+  doc.switchToPage(finalTablePageIndex)
+
+  const finalY = tableResult?.finalY ?? tableBottom
+  const deltaY = finalY - tableBottom
+
+  for (const field of afterTable) {
+    const shiftedField = deltaY !== 0 ? { ...field, y: field.y + deltaY } : { ...field }
+    if (shiftedField.y + shiftedField.height > pageHeight) {
+      doc.addPage({ size: [pageWidth, pageHeight], margin: 0 })
+      renderBackground(doc, backgroundImage, effectiveMeta)
+      shiftedField.y = multipageTable.y + (field.y - tableBottom)
+    }
+    renderField(doc, shiftedField, data, fontMap, template, pageCtx, resolvedImages)
+  }
+
+  // Ensure document pointer is left on the final page of this sequence
+  doc.switchToPage(doc.bufferedPageRange().count - 1)
 }

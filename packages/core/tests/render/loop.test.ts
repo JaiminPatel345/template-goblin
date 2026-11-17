@@ -221,6 +221,17 @@ describe('Loop/table rendering', () => {
     }
   })
 
+  it('should allow unbounded pages when meta.maxPages is -1', async () => {
+    const field = createLoopField({ multiPage: true })
+    field.height = 40
+    const rows = sampleRows(100)
+    const meta = createMeta({ maxPages: -1 })
+
+    const output = await renderAndFinish(field, rows, meta)
+    expect(output).toBeInstanceOf(Buffer)
+    expect(output.length).toBeGreaterThan(0)
+  })
+
   it('should handle rows with missing column keys gracefully', async () => {
     const field = createLoopField()
     // Rows that don't have all column keys — should render empty cells

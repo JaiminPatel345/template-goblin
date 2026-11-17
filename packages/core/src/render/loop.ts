@@ -32,7 +32,7 @@ export function renderLoop(
   _fonts: Map<string, string>,
   meta: TemplateMeta,
   backgroundImage: Buffer | null,
-): void {
+): { finalY: number; pageCount: number } {
   const style = field.style
   const { x, y, width } = field
   const columns = style.columns
@@ -68,7 +68,7 @@ export function renderLoop(
 
       if (heightMode === 'multipage') {
         currentPage++
-        if (currentPage > meta.maxPages) {
+        if (meta.maxPages !== -1 && currentPage > meta.maxPages) {
           const label =
             field.source.mode === 'dynamic' ? field.source.jsonKey : `static-${field.id}`
           throw new TemplateGoblinError(
@@ -110,6 +110,7 @@ export function renderLoop(
         ? Math.max(renderedHeight, field.height)
         : field.height
   drawTablePerimeter(doc, x, y, width, perimeterHeight, style)
+  return { finalY: currentY, pageCount: currentPage }
 }
 
 function renderHeaderRow(

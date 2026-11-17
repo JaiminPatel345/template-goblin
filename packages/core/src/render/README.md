@@ -25,7 +25,7 @@ The core PDF painting pipeline built on PDFKit. Converts parsed template fields,
 - **Z-Index Stability**: Fields render in ascending `zIndex` order, using field ID as a stable tiebreaker.
 - **Center Pivot Rotation**: Rotated fields pivot strictly around their center point `(x + width/2, y + height/2)` within graphics state save/restore pairs.
 - **Truncation Safety**: Text truncation operates strictly at character boundaries without appending ellipsis characters.
-- **Multi-page Continuation**: Dynamic tables generate continuation pages only when `heightMode: 'multipage'` (or `multiPage: true`), bounded by `meta.maxPages`.
+- **Multi-page Continuation**: Dynamic tables generate continuation pages only when `heightMode: 'multipage'` (or `multiPage: true`), bounded by `meta.maxPages` when positive, or unbounded when `meta.maxPages === -1`.
 - **Structured Error Wrapping**: PDFKit rendering failures are re-thrown as `TemplateGoblinError('PDF_GENERATION_FAILED')` with field, page, and asset details.
 
 ## Side Effects

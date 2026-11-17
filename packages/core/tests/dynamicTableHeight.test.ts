@@ -430,4 +430,92 @@ describe('Table Height Modes (fixed, single_page_dynamic, multipage)', () => {
     expect(pdfDoc.getPageCount()).toBe(1)
     expect(pdfDoc.getPage(0).getSize().height).toBeGreaterThan(baseHeight)
   })
+
+  it('multipage: default maxPages: 1 auto-resolves to unbounded (-1) and generates all required pages', async () => {
+    const baseHeight = 300
+    // manifest with default maxPages: 1
+    const manifest = makeManifest({
+      meta: { ...makeManifest().meta, width: 500, height: baseHeight, maxPages: 1 },
+      fields: [
+        createTableField('tbl', 'items', 'multipage', { x: 50, y: 50, width: 400, height: 120 }),
+      ],
+    })
+
+    const path = writeTgbl('multipage-default-maxpages.tgbl', manifest)
+    const template = await loadTemplate(path)
+
+    // 35 rows will require at least 3 pages on height 120
+    const rows = Array.from({ length: 35 }, (_, i) => ({ col1: `Item ${i}`, col2: `Val ${i}` }))
+    const data: InputJSON = {
+      texts: {},
+      tables: { items: rows },
+      images: {},
+    }
+
+    const pdfBuf = await generatePDF(template, data)
+    const pdfDoc = await PDFLibDocument.load(pdfBuf)
+    expect(pdfDoc.getPageCount()).toBeGreaterThanOrEqual(3)
+  })
+
+  it('multipage: trailing elements on same page render on final continuation page and subsequent authored page appends after table finish', async () => {
+    const baseHeight = 400
+    const page0Def = {
+      id: 'p0',
+      index: 0,
+      backgroundType: 'color' as const,
+      backgroundColor: '#ffffff',
+      backgroundFilename: null,
+      width: 500,
+      height: baseHeight,
+      pageSize: 'Custom' as const,
+    }
+    const page1Def = {
+      id: 'p1',
+      index: 1,
+      backgroundType: 'color' as const,
+      backgroundColor: '#ffffff',
+      backgroundFilename: null,
+      width: 500,
+      height: baseHeight,
+      pageSize: 'Custom' as const,
+    }
+
+    const tableField = createTableField('tbl', 'items', 'multipage', {
+      x: 50,
+      y: 50,
+      width: 400,
+      height: 150,
+    })
+    tableField.pageId = 'p0'
+
+    const trailingText = createTextField('trailing', 'footerNote', 50, 220)
+    trailingText.pageId = 'p0'
+
+    const page1Text = createTextField('p1Text', 'terms', 50, 50)
+    page1Text.pageId = 'p1'
+
+    const manifest = makeManifest({
+      meta: { ...makeManifest().meta, width: 500, height: baseHeight, maxPages: 1 },
+      pages: [page0Def, page1Def],
+      fields: [tableField, trailingText, page1Text],
+    })
+
+    const path = writeTgbl('multipage-multi-pages.tgbl', manifest)
+    const template = await loadTemplate(path)
+
+    const rows = Array.from({ length: 30 }, (_, i) => ({ col1: `Item ${i}`, col2: `Val ${i}` }))
+    const data: InputJSON = {
+      texts: {
+        footerNote: 'Invoice terms and signature',
+        terms: 'Second page terms and conditions',
+      },
+      tables: { items: rows },
+      images: {},
+    }
+
+    const pdfBuf = await generatePDF(template, data)
+    const pdfDoc = await PDFLibDocument.load(pdfBuf)
+    // Table on p0 expands to multiple pages (>=2), trailing text renders on table's final page, and p1 appends after it
+    expect(pdfDoc.getPageCount()).toBeGreaterThanOrEqual(3)
+  })
 })
