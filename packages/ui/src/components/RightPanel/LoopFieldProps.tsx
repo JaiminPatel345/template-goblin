@@ -152,6 +152,16 @@ export function LoopFieldProps({ field }: Props) {
           <button
             type="button"
             className="tg-btn"
+            style={{
+              fontSize: 11,
+              padding: '3px 10px',
+              border: '1px solid var(--border-strong)',
+              background: 'var(--bg-elevated)',
+              color: 'var(--text-primary)',
+              borderRadius: 4,
+              boxShadow: 'var(--shadow-xs)',
+              cursor: 'pointer',
+            }}
             data-testid="table-fit-to-data"
             onClick={() => {
               const rs = style.rowStyle

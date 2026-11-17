@@ -1,10 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import { renderToStaticMarkup } from 'react-dom/server'
 import {
   resolveTableHeightMode,
   type TableField,
   type TableHeightMode,
 } from '@template-goblin/types'
 import { buildDynamicTableIndicators } from '../tableDynamicIndicator.js'
+import { TableHeightModePicker } from '../TableHeightModePicker.js'
 
 function createTestTable(
   heightMode?: 'fixed' | 'single_page_dynamic' | 'multipage',
@@ -124,5 +126,38 @@ describe('default table height mode policy', () => {
     expect(resolveDefaultTableHeightMode('dynamic', 'fixed')).toBe('fixed')
     expect(resolveDefaultTableHeightMode('static', 'single_page_dynamic')).toBe('fixed')
     expect(resolveDefaultTableHeightMode('static', null)).toBe('fixed')
+  })
+})
+
+describe('TableHeightModePicker component UI', () => {
+  it('renders all options with badges and custom styling', () => {
+    const html = renderToStaticMarkup(
+      <TableHeightModePicker
+        sourceMode="dynamic"
+        selected="single_page_dynamic"
+        onChange={vi.fn()}
+      />,
+    )
+
+    expect(html).toContain('Fixed Height')
+    expect(html).toContain('Clipped')
+    expect(html).toContain('Single Page Dynamic')
+    expect(html).toContain('Auto-expands')
+    expect(html).toContain('Multi-Page Dynamic')
+    expect(html).toContain('Continuation')
+    expect(html).toContain('data-testid="table-height-mode-help-btn"')
+    expect(html).toContain('table-height-option-fixed')
+    expect(html).toContain('table-height-option-single_page_dynamic')
+    expect(html).toContain('table-height-option-multipage')
+    expect(html).toContain('checked=""')
+  })
+
+  it('disables dynamic options and displays dynamic-only tag when sourceMode is static', () => {
+    const html = renderToStaticMarkup(
+      <TableHeightModePicker sourceMode="static" selected="fixed" onChange={vi.fn()} />,
+    )
+
+    expect(html).toContain('disabled=""')
+    expect(html).toContain('Dynamic only')
   })
 })

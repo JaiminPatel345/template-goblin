@@ -17,6 +17,9 @@ The primary WYSIWYG canvas area where users visually position, resize, rotate, a
 - `PageBar`: Bottom page navigation bar with page addition and removal triggers
 - `FloatingSelectionToolbar`: Context-aware quick action bar pinned to active selection
 - `FieldCreationPopup`: Interactive modal for inserting configured text, image, and table fields
+- `TableHeightModePicker`: Mode selector button group for table height modes with dark/light theme contrast
+- `TableHeightHelpModal`: Comparison dialog explaining fixed, single-page dynamic, and multi-page behaviors
+- `buildDynamicTableIndicators`: Constructs visual dashed boundary lines and badge on dynamic tables
 - `AddPageDialog`: Modal dialog for selecting page sizes and adding new pages
 - `useCanvasModel`: Custom hook managing active canvas state
 - `useFabricCanvas`: Hook initializing and managing Fabric canvas lifecycle
