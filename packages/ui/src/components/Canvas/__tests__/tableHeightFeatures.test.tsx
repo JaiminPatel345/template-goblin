@@ -99,10 +99,10 @@ describe('buildDynamicTableIndicators', () => {
     expect(indicators).toEqual([])
   })
 
-  it('returns empty array for multipage table', () => {
+  it('returns indicator badge for multipage table', () => {
     const table = createTestTable('multipage')
     const indicators = buildDynamicTableIndicators(table, 300, 100)
-    expect(indicators).toEqual([])
+    expect(indicators.length).toBeGreaterThanOrEqual(1) // badgeBg (and badgeText if DOM present)
   })
 
   it('returns break lines and indicator badge for single_page_dynamic table', () => {

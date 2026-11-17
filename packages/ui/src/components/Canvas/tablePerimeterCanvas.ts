@@ -3,8 +3,8 @@ import type { FabricObject } from 'fabric'
 import type { FieldDefinition } from '@template-goblin/types'
 import { resolveTableHeightMode } from '@template-goblin/types'
 
-const DEFAULT_DIVIDER_STROKE = '#0a0a0a'
-const DEFAULT_DIVIDER_WIDTH = 0.5
+const DEFAULT_INDICATOR_STROKE = '#4f46e5'
+const DEFAULT_INDICATOR_WIDTH = 2
 
 /**
  * Append a vertical line ending with tilted / wavy zigzag break segments
@@ -16,18 +16,18 @@ function pushWavyVerticalLine(
   height: number,
   opts: Record<string, unknown>,
 ): void {
-  const waveH = 18
+  const waveH = 24
   const straightH = Math.max(0, height - waveH)
   parts.push(new Line([x, 0, x, straightH], opts))
 
   const step = waveH / 4
-  const amp = 4
+  const amp = 5
   parts.push(
     new Line([x, straightH, x - amp, straightH + step], opts),
     new Line([x - amp, straightH + step, x + amp, straightH + step * 2], opts),
     new Line([x + amp, straightH + step * 2, x - amp, straightH + step * 3], opts),
     new Line([x - amp, straightH + step * 3, x + amp, height], opts),
-    new Line([x + amp, height, x, height + 4], opts),
+    new Line([x + amp, height, x, height + 6], opts),
   )
 }
 
@@ -65,8 +65,8 @@ export function pushTablePerimeter(
 
   const isMultipage = resolveTableHeightMode(style) === 'multipage'
   if (isMultipage) {
-    const strokeColor = isVisibleColor(stroke) ? stroke : DEFAULT_DIVIDER_STROKE
-    const strokeW = sw > 0 ? sw : DEFAULT_DIVIDER_WIDTH
+    const strokeColor = isVisibleColor(stroke) ? stroke : DEFAULT_INDICATOR_STROKE
+    const strokeW = sw > 0 ? sw : DEFAULT_INDICATOR_WIDTH
     const lineOpts = {
       stroke: strokeColor,
       strokeWidth: strokeW,

@@ -418,10 +418,13 @@ export function applySelectionVisuals(group: Group, selected: boolean): void {
     // emphasis colour doesn't paint over the user's content either.
     const keepFill = defaultFill === 'transparent' || bgRect.__userControlledFill === true
     const nextFill = keepFill ? defaultFill : tokens.selectedFill
+    const keepTransparentStroke = defaultStroke === 'transparent' && fieldType === 'table'
+    const nextStroke = keepTransparentStroke ? 'transparent' : tokens.selectedStroke
+    const nextStrokeWidth = keepTransparentStroke ? 0 : SELECTED_STROKE_WIDTH
     bgRect.set({
       fill: nextFill,
-      stroke: tokens.selectedStroke,
-      strokeWidth: SELECTED_STROKE_WIDTH,
+      stroke: nextStroke,
+      strokeWidth: nextStrokeWidth,
     })
   } else {
     bgRect.set({

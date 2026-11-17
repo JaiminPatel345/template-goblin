@@ -21,7 +21,6 @@ import type { CellStyle, FieldDefinition, TableColumn } from '@template-goblin/t
 import { resolveTableHeightMode } from '@template-goblin/types'
 import { pushBodyRows } from './tableBodyRows.js'
 import { pushTablePerimeter, isVisibleColor } from './tablePerimeterCanvas.js'
-import { buildDynamicTableIndicators } from './tableDynamicIndicator.js'
 
 const HEADER_FRACTION = 0.22
 const HEADER_MIN_PT = 14
@@ -251,9 +250,6 @@ export function buildTableCanvasParts(
       leftCum += colWidth
     }
   }
-
-  // Visual indicators (dashed break lines + auto-expand badge) for dynamic height tables
-  parts.push(...buildDynamicTableIndicators(field, width, height))
 
   return parts
 }
