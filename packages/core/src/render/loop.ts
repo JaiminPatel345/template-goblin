@@ -73,7 +73,7 @@ export function renderLoop(
             field.source.mode === 'dynamic' ? field.source.jsonKey : `static-${field.id}`
           throw new TemplateGoblinError(
             'MAX_PAGES_EXCEEDED',
-            `Table "${label}" requires ${currentPage} pages but maxPages is ${meta.maxPages}`,
+            `Table "${label}" requires ${currentPage} pages but maxPages is ${meta.maxPages}. Pass options.maxRenderPages to generatePDF to increase the limit.`,
           )
         }
 

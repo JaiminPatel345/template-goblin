@@ -112,7 +112,7 @@ Merges dynamic JSON data into a loaded template and produces a PDF.
 - **Parameters**:
   - `template: LoadedTemplate`
   - `data: InputJSON` (dynamic fields: `texts`, `tables`, `images`, `conditionals`)
-  - `options?: GeneratePDFOptions`
+  - `options?: GeneratePDFOptions` (`imageFetchTimeoutMs?: number`, `imageResolveConcurrency?: number`, `maxRenderPages?: number` [default: 500; set e.g. 1000 or Infinity for large datasets])
 - **Returns**: `Promise<Uint8Array>` (the raw PDF bytes).
 
 ### `prepareTemplate(template)` & `generatePreparedPDF(prepared, data)`

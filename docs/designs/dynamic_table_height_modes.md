@@ -62,9 +62,13 @@ Previously, TemplateGoblin supported a binary `multiPage` flag. This created sev
 
 ### CUJ 3: Multi-Page Statement Pagination
 
-- **Given**: A user sets `heightMode: 'multipage'` with `maxPages: 10` on a bank statement table.
-- **When**: The generator receives 200 transaction rows.
-- **Then**: The table splits across multiple fixed-size pages, repeating headers and page background images on each continuation page until rows are exhausted.
+- **Given**: A user sets `heightMode: 'multipage'` on a table (or legacy `multiPage: true`).
+- **When**: The generator receives hundreds or thousands of transaction rows.
+- **Then**:
+  - The table automatically creates continuation pages to accommodate all rows without clipping.
+  - Trailing elements positioned below the table on the authoring page render on the final continuation page below the table's finish.
+  - Subsequent pages in `manifest.pages` append strictly after the table finishes.
+  - Multi-page rendering applies a default safety ceiling of 500 pages (`options.maxRenderPages ?? 500`), which developers can raise or disable (e.g. `{ maxRenderPages: 1000 }` or `{ maxRenderPages: Infinity }`).
 
 ---
 

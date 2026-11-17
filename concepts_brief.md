@@ -18,7 +18,8 @@ TemplateGoblin enables authors to visually layout PDF templates on a design canv
   }
   ```
 - Because `defaultMeta.maxPages` is `1`, injecting any data that exceeds the first page immediately triggers `MAX_PAGES_EXCEEDED`, blocking preview and generation.
-- **Resolution**: Setting `meta.maxPages = -1` (unbounded dynamic pagination) when at least one table field has `heightMode === 'multipage'` (or legacy `multiPage === true`). In `loop.ts`, `meta.maxPages !== -1 && currentPage > meta.maxPages` bypasses the ceiling check entirely, allowing the table to generate as many continuation pages as needed for all rows in the JSON.
+- **Resolution**: Setting `meta.maxPages = -1` (unbounded dynamic pagination) when at least one table field has `heightMode === 'multipage'` (or legacy `multiPage === true`). In `loop.ts`, `meta.maxPages !== -1 && currentPage > meta.maxPages` bypasses the ceiling check when `-1`.
+- **Safety Ceiling in `generatePDF` (`options.maxRenderPages ?? 500`)**: To protect against runaway loops, infinite data, or memory exhaustion, multi-page rendering applies a default safety ceiling of 500 pages (`options.maxRenderPages ?? 500`). Developers can easily raise or remove this limit at runtime via `generatePDF(template, data, { maxRenderPages: 1000 })` or `{ maxRenderPages: Infinity }`.
 
 ### 2. Multi-Page Staging Pipeline in `generatePDF`
 
@@ -63,6 +64,6 @@ In `packages/core/src/generate.ts`:
 ## Key Decisions & Staging for Next Steps
 
 1. **Manifest Contract**: When any table has `heightMode === 'multipage'` (or `multiPage: true`), `meta.maxPages` is set to `-1`.
-2. **Core Rendering Contract**: `renderLoop` in `packages/core/src/render/loop.ts` allows unlimited continuation pages when `meta.maxPages === -1`.
+2. **Core Rendering Contract & Safety Ceiling**: `generatePDF` applies a default safety ceiling of 500 pages (`options.maxRenderPages ?? 500`) when `meta.maxPages === -1`. Developers can raise or disable this limit by passing `{ maxRenderPages: 1000 }` or `{ maxRenderPages: Infinity }`.
 3. **Page Staging Pipeline**: `generatePDF` in `packages/core/src/generate.ts` advances the document page index so that subsequent pages from `manifest.pages` always append strictly after all continuation pages of preceding tables.
 4. **Trailing Elements Placement**: Trailing elements positioned below a multipage table render on the table's final continuation page, shifted down by the delta of the table's final row.

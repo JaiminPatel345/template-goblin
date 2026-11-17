@@ -20,35 +20,24 @@ import { stampBands } from './render/bands.js'
 import { adjustPageLayout } from './utils/dynamicLayout.js'
 
 /** Per-call options for {@link generatePDF}. */
-export type GeneratePDFOptions = PreflightOptions
+export interface GeneratePDFOptions extends PreflightOptions {
+  /**
+   * Safety ceiling for continuation pages created by multi-page tables.
+   * Defaults to 500. Set to e.g. 1000 or Infinity for large datasets.
+   */
+  maxRenderPages?: number
+}
 
 /**
  * Generate a PDF from an in-memory template and input data.
- *
- * This is the hot path — called millions of times. Zero disk I/O.
- * All assets are already loaded in the LoadedTemplate object.
- *
- * Process:
- * 1. Validate input data against manifest
- * 2. Pre-flight image-bytes check (catches PDFKit format errors with context)
- * 3. Create PDFDocument with page dimensions
- * 4. Register custom TTF fonts once
- * 5. Group fields by pageId
- * 6. Render all fields in zIndex order (lowest first)
- * 7. Return Buffer
+ * The hot path — zero disk I/O. Assets are already loaded in LoadedTemplate.
  */
 export async function generatePDF(
   template: LoadedTemplate,
   data: InputJSON,
   options: GeneratePDFOptions = {},
 ): Promise<Buffer> {
-  // Defence-in-depth: run the FULL manifest validator at the renderer
-  // boundary too. `loadTemplate` already calls this on `.tgbl` open, but
-  // SDK consumers that construct a `LoadedTemplate` programmatically (or
-  // a server endpoint that accepts a manifest in the request body) would
-  // otherwise reach PDFKit with malformed input — including the
-  // negative-page-dimension / NaN-page-dimension class of bugs that
-  // silently produce a corrupted PDF.
+  // Defence-in-depth: run full manifest validator at the renderer boundary.
   validateManifest(template.manifest)
 
   // Validate input data
@@ -72,9 +61,12 @@ export async function generatePDF(
   const hasMultipage = manifest.fields.some(
     (f) => f.type === 'table' && resolveTableHeightMode(f.style) === 'multipage',
   )
+  const ceiling = options.maxRenderPages ?? 500
+  const maxPagesLimit = ceiling === Infinity || ceiling <= 0 ? -1 : ceiling
   const effectiveMeta: TemplateMeta = {
     ...manifest.meta,
-    maxPages: hasMultipage ? -1 : manifest.meta.maxPages,
+    maxPages:
+      hasMultipage || manifest.meta.maxPages === -1 ? maxPagesLimit : manifest.meta.maxPages,
   }
   const effectiveTemplate: LoadedTemplate = {
     ...template,

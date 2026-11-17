@@ -518,4 +518,40 @@ describe('Table Height Modes (fixed, single_page_dynamic, multipage)', () => {
     // Table on p0 expands to multiple pages (>=2), trailing text renders on table's final page, and p1 appends after it
     expect(pdfDoc.getPageCount()).toBeGreaterThanOrEqual(3)
   })
+
+  it('multipage: respects options.maxRenderPages ceiling and allows custom limits', async () => {
+    const baseHeight = 300
+    const manifest = makeManifest({
+      meta: { ...makeManifest().meta, width: 500, height: baseHeight, maxPages: 1 },
+      fields: [
+        createTableField('tbl', 'items', 'multipage', {
+          x: 50,
+          y: 50,
+          width: 400,
+          height: 100,
+        }),
+      ],
+    })
+
+    const path = writeTgbl('multipage-max-render-pages.tgbl', manifest)
+    const template = await loadTemplate(path)
+
+    // ~30 rows with 100pt table height will require >= 3 pages
+    const rows = Array.from({ length: 30 }, (_, i) => ({ col1: `Item ${i}`, col2: `Val ${i}` }))
+    const data: InputJSON = {
+      texts: {},
+      tables: { items: rows },
+      images: {},
+    }
+
+    // With maxRenderPages: 2, should throw MAX_PAGES_EXCEEDED with instructions to raise maxRenderPages
+    await expect(generatePDF(template, data, { maxRenderPages: 2 })).rejects.toThrow(
+      /requires 3 pages but maxPages is 2\. Pass options\.maxRenderPages to generatePDF to increase the limit\./,
+    )
+
+    // With maxRenderPages: 10 or Infinity, should succeed
+    const pdfBuf = await generatePDF(template, data, { maxRenderPages: 10 })
+    const pdfDoc = await PDFLibDocument.load(pdfBuf)
+    expect(pdfDoc.getPageCount()).toBeGreaterThanOrEqual(3)
+  })
 })
